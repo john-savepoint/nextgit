@@ -1,0 +1,975 @@
+// nextgit — convergence triage UI (vanilla ES module)
+// Adheres strictly to platform/CONTRACT.md
+
+/**
+ * State container
+ */
+const state = {
+  proposalsData: null,
+  events: [],
+  autoRefresh: true,
+  proposalsTimer: null,
+  eventsTimer: null,
+  connectionError: false,
+  lastError: null,
+  lastSyncTime: null,
+  activeInspector: null, // { type: 'diff' | 'merge', data: ... }
+  landingRepo: null,     // repo currently being landed
+  confirmingRepo: null,  // repo in inline confirmation state
+  lastEventSeenAt: null, // timestamp/id of newest event seen
+  debounceRefreshTimer: null, // timer for event-triggered refresh
+};
+
+// UI Selectors
+const el = {
+  connectionBanner: document.getElementById("connection-banner"),
+  connectionMsg: document.getElementById("connection-banner-msg"),
+  btnRetry: document.getElementById("connection-banner-retry"),
+  baseVal: document.getElementById("base-val"),
+  refVal: document.getElementById("ref-val"),
+  autoRefreshToggle: document.getElementById("auto-refresh-toggle"),
+  btnRefresh: document.getElementById("btn-manual-refresh"),
+  valProposals: document.getElementById("val-proposals"),
+  valShared: document.getElementById("val-shared"),
+  valConflicts: document.getElementById("val-conflicts"),
+  valChanged: document.getElementById("val-changed"),
+  valClean: document.getElementById("val-clean"),
+  chipConflicts: document.getElementById("chip-conflicts"),
+  chipShared: document.getElementById("chip-shared"),
+  chipClean: document.getElementById("chip-clean"),
+  tickerEvents: document.getElementById("ticker-events"),
+  tickerPulse: document.getElementById("ticker-pulse"),
+  conflictsList: document.getElementById("conflicts-list"),
+  conflictsMeta: document.getElementById("conflicts-meta"),
+  proposalsGrid: document.getElementById("proposals-grid"),
+  proposalsMeta: document.getElementById("proposals-meta"),
+  inspectorModal: document.getElementById("inspector-modal"),
+  modalTitle: document.getElementById("modal-title"),
+  modalBadge: document.getElementById("modal-badge"),
+  modalBody: document.getElementById("modal-body"),
+  btnCloseModal: document.getElementById("btn-close-modal"),
+  lastSyncTime: document.getElementById("last-sync-time"),
+  actionBanner: document.getElementById("action-banner"),
+  actionBannerMsg: document.getElementById("action-banner-msg"),
+  actionBannerBadge: document.getElementById("action-banner-badge"),
+  actionBannerClose: document.getElementById("action-banner-close"),
+};
+
+/**
+ * Pure helper: Escape HTML to avoid XSS
+ */
+function escapeHtml(str) {
+  if (str == null) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/**
+ * Pure helper: Format relative or local time
+ */
+function formatTime(isoOrTimestamp) {
+  if (!isoOrTimestamp) return "";
+  try {
+    const d = new Date(isoOrTimestamp);
+    if (isNaN(d.getTime())) return String(isoOrTimestamp);
+    return d.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {
+    return String(isoOrTimestamp);
+  }
+}
+
+/**
+ * Pure helper: Map conflict kind to severity category
+ * kind ∈ text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed
+ */
+function getConflictSeverity(kind) {
+  switch (kind) {
+    case "text-conflict":
+    case "modify/delete":
+    case "add/add":
+      return { class: "severity-red", badgeClass: "badge-red" };
+    case "undetermined":
+      return { class: "severity-amber", badgeClass: "badge-amber" };
+    case "mergeable":
+    case "identical-add":
+    case "both-removed":
+    default:
+      return { class: "severity-neutral", badgeClass: "badge-neutral" };
+  }
+}
+
+/**
+ * Pure helper: Render diff patch text into line-colored HTML
+ */
+function renderPatchLines(patch) {
+  if (!patch || typeof patch !== "string") {
+    return '<div class="diff-placeholder">No patch available for this file (omitted, withheld, or binary).</div>';
+  }
+
+  const lines = patch.split("\n");
+  const rendered = lines.map((line) => {
+    let lineClass = "";
+    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("===") || line.startsWith("Index:")) {
+      lineClass = "line-meta";
+    } else if (line.startsWith("@@")) {
+      lineClass = "line-hunk";
+    } else if (line.startsWith("+")) {
+      lineClass = "line-add";
+    } else if (line.startsWith("-")) {
+      lineClass = "line-del";
+    }
+    return `<div class="diff-line ${lineClass}">${escapeHtml(line) || " "}</div>`;
+  });
+
+  return `<div class="diff-viewer">${rendered.join("")}</div>`;
+}
+
+/**
+ * API client with timeout
+ */
+async function fetchJson(endpoint, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(endpoint, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {}),
+      },
+    });
+    clearTimeout(timeoutId);
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || (json && json.ok === false)) {
+      const err = new Error(json?.error || `HTTP ${res.status}: ${res.statusText}`);
+      err.status = res.status;
+      err.response = json;
+      throw err;
+    }
+    return json;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+/**
+ * Fetch and render proposals + conflicts
+ */
+async function loadProposals() {
+  try {
+    const data = await fetchJson("/proposals");
+    state.proposalsData = data;
+    state.connectionError = false;
+    state.lastError = null;
+    state.lastSyncTime = new Date();
+    renderProposalsView();
+  } catch (err) {
+    state.connectionError = true;
+    state.lastError = err.message || "Failed to fetch /proposals";
+    renderConnectionState();
+  }
+}
+
+/**
+ * Action banner manager
+ */
+function showActionBanner(type, badgeText, messageHtml) {
+  if (!el.actionBanner || !el.actionBannerMsg) return;
+  el.actionBanner.className = `action-banner banner-${type}`;
+  el.actionBanner.hidden = false;
+  if (el.actionBannerBadge) {
+    if (badgeText) {
+      let badgeClass = "badge-neutral";
+      if (type === "success") badgeClass = "badge-clean";
+      else if (type === "error") badgeClass = "badge-red";
+      else if (type === "warn") badgeClass = "badge-amber";
+      el.actionBannerBadge.className = `badge ${badgeClass}`;
+      el.actionBannerBadge.textContent = badgeText;
+      el.actionBannerBadge.hidden = false;
+    } else {
+      el.actionBannerBadge.hidden = true;
+    }
+  }
+  el.actionBannerMsg.innerHTML = messageHtml;
+}
+
+function hideActionBanner() {
+  if (!el.actionBanner) return;
+  el.actionBanner.hidden = true;
+  if (el.actionBannerMsg) el.actionBannerMsg.innerHTML = "";
+}
+
+/**
+ * Fetch and render live event ticker
+ * Event-driven refresh: debounces a /proposals refresh (~500ms) when a NEW event is detected.
+ */
+async function loadEvents() {
+  try {
+    const data = await fetchJson("/events");
+    if (data && Array.isArray(data.events)) {
+      const newEvents = data.events;
+      if (newEvents.length > 0) {
+        const topEvent = newEvents[0];
+        const topEventKey = `${topEvent.type || ""}:${topEvent.repo || ""}:${topEvent.at || ""}:${topEvent.after || ""}`;
+        
+        if (state.lastEventSeenAt !== null && state.lastEventSeenAt !== topEventKey) {
+          // A new event arrived! Debounce one /proposals refresh (~500ms)
+          clearTimeout(state.debounceRefreshTimer);
+          state.debounceRefreshTimer = setTimeout(() => {
+            state.debounceRefreshTimer = null;
+            loadProposals();
+          }, 500);
+        }
+        state.lastEventSeenAt = topEventKey;
+      }
+      state.events = newEvents.slice(0, 8);
+    }
+    renderEventsTicker();
+  } catch {
+    // Events failing quietly should not break main proposals UI, but pulse indicator shows stale
+    if (el.tickerPulse) el.tickerPulse.classList.add("is-stale");
+  }
+}
+/**
+ * Render Header & Summary Chips
+ */
+function renderHeader() {
+  const data = state.proposalsData;
+  if (!data) return;
+
+  const baseRepo = data.base?.repo || "demo";
+  const ref = data.ref || data.base?.ref || "main";
+  if (el.baseVal) el.baseVal.textContent = baseRepo;
+  if (el.refVal) el.refVal.textContent = ref;
+
+  const summary = data.summary || {};
+  const proposalsCount = summary.proposals != null ? summary.proposals : (data.proposals?.length || 0);
+  const sharedCount = summary.sharedFiles || 0;
+  const conflictPairsCount = summary.conflictingPairs || 0;
+  const changedCount = summary.changedFiles || 0;
+  const cleanPairsCount = summary.cleanPairs || 0;
+
+  if (el.valProposals) el.valProposals.textContent = proposalsCount;
+  if (el.valShared) el.valShared.textContent = sharedCount;
+  if (el.valConflicts) el.valConflicts.textContent = conflictPairsCount;
+  if (el.valChanged) el.valChanged.textContent = changedCount;
+  if (el.valClean) el.valClean.textContent = cleanPairsCount;
+
+  if (el.chipConflicts) {
+    if (conflictPairsCount > 0) {
+      el.chipConflicts.classList.add("is-alert");
+    } else {
+      el.chipConflicts.classList.remove("is-alert");
+    }
+  }
+
+  if (el.chipShared) {
+    if (sharedCount > 0) {
+      el.chipShared.classList.add("is-warn");
+    } else {
+      el.chipShared.classList.remove("is-warn");
+    }
+  }
+
+  if (el.chipClean) {
+    if (cleanPairsCount > 0) {
+      el.chipClean.classList.add("is-clean");
+    } else {
+      el.chipClean.classList.remove("is-clean");
+    }
+  }
+  if (el.lastSyncTime && state.lastSyncTime) {
+    el.lastSyncTime.textContent = `synced ${formatTime(state.lastSyncTime)}`;
+  }
+}
+
+/**
+ * Render Live Ticker
+ */
+function renderEventsTicker() {
+  if (!el.tickerEvents) return;
+
+  if (el.tickerPulse) {
+    el.tickerPulse.classList.remove("is-stale");
+  }
+
+  const events = state.events;
+  if (!events || events.length === 0) {
+    el.tickerEvents.innerHTML = '<span class="ticker-empty">listening for convergence events...</span>';
+    return;
+  }
+
+  const html = events
+    .map((ev) => {
+      const type = escapeHtml(ev.type || "event");
+      const repo = escapeHtml(ev.repo || "");
+      const time = ev.at ? formatTime(ev.at) : "";
+      return `
+        <div class="ticker-event">
+          <span class="event-type">${type}</span>
+          ${repo ? `<span class="event-repo">${repo}</span>` : ""}
+          ${time ? `<span class="event-time">${time}</span>` : ""}
+        </div>
+      `;
+    })
+    .join("");
+
+  el.tickerEvents.innerHTML = html;
+}
+
+/**
+ * Render Conflicts Panel
+ */
+function renderConflicts() {
+  if (!el.conflictsList || !el.conflictsMeta) return;
+
+  const data = state.proposalsData;
+  const conflicts = data?.conflicts || [];
+  el.conflictsMeta.textContent = `${conflicts.length} detected`;
+
+  if (conflicts.length === 0) {
+    el.conflictsList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-title">No convergence conflicts</div>
+        <div class="empty-state-desc">All concurrent proposals merge cleanly or target orthogonal files.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const html = conflicts
+    .map((c) => {
+      const file = escapeHtml(c.file);
+      const kind = escapeHtml(c.kind || "text-conflict");
+      const severity = getConflictSeverity(c.kind);
+      const repos = Array.isArray(c.repos) ? c.repos : [];
+      const pairs = Array.isArray(c.pairs) ? c.pairs : [];
+
+      const reposTags = repos.map((r) => `<span class="repo-tag">${escapeHtml(r)}</span>`).join("");
+
+      const pairsHtml = pairs.length
+        ? `<div class="conflict-pairs">
+            ${pairs
+              .map((p) => {
+                const a = escapeHtml(p.a);
+                const b = escapeHtml(p.b);
+                const pairKind = escapeHtml(p.kind || kind);
+                const region = p.region;
+                const regionDesc = region
+                  ? `(base: ${region.baseLines ?? 0}L, ${a}: ${region.aLines ?? 0}L, ${b}: ${region.bLines ?? 0}L)`
+                  : "";
+                return `
+                  <div class="conflict-pair-row">
+                    <span class="pair-endpoints">${a} ↔ ${b}</span>
+                    <span class="pair-kind">${pairKind}</span>
+                    ${regionDesc ? `<span class="pair-region">${regionDesc}</span>` : ""}
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>`
+        : "";
+
+      return `
+        <div class="conflict-card ${severity.class}">
+          <div class="conflict-card-header">
+            <span class="conflict-file">${file}</span>
+            <div class="conflict-badge-group">
+              <span class="badge ${severity.badgeClass}">${kind}</span>
+            </div>
+          </div>
+          <div class="conflict-repos-involved">
+            <span>proposals:</span>
+            ${reposTags}
+          </div>
+          ${pairsHtml}
+        </div>
+      `;
+    })
+    .join("");
+
+  el.conflictsList.innerHTML = html;
+}
+
+/**
+ * Render Proposals Grid
+ */
+function renderProposals() {
+  if (!el.proposalsGrid || !el.proposalsMeta) return;
+
+  const data = state.proposalsData;
+  const proposals = data?.proposals || [];
+  el.proposalsMeta.textContent = `${proposals.length} active`;
+
+  if (proposals.length === 0) {
+    el.proposalsGrid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1">
+        <div class="empty-state-title">No active proposals</div>
+        <div class="empty-state-desc">Waiting for agent branches to propose changes against base.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const html = proposals
+    .map((p) => {
+      const repo = escapeHtml(p.repo);
+      const intent = p.intent ? escapeHtml(p.intent) : null;
+      const stats = p.stats || { additions: 0, deletions: 0, files: 0 };
+      const files = Array.isArray(p.files) ? p.files : [];
+      const landing = p.landing || null;
+      const isLanded = landing ? landing.status === "landed" : stats.files === 0;
+      const isLanding = state.landingRepo === p.repo;
+      const isConfirming = state.confirmingRepo === p.repo;
+
+      const filesHtml = files
+        .map((f) => {
+          const path = escapeHtml(f.path);
+          const status = escapeHtml(f.status || "modified");
+          const statusClass = `status-${status.toLowerCase()}`;
+          const isSecret = Boolean(f.secret);
+          const keys = Array.isArray(f.keys) ? f.keys : [];
+          const additions = f.additions != null ? `+${f.additions}` : "";
+          const deletions = f.deletions != null ? `-${f.deletions}` : "";
+
+          return `
+            <div class="file-row">
+              <div class="file-path-col">
+                <span class="file-status-indicator ${statusClass}">${status}</span>
+                <span class="file-path" title="${path}">${path}</span>
+                ${
+                  isSecret
+                    ? `<span class="badge badge-secret">secret-typed</span>`
+                    : ""
+                }
+              </div>
+              <div class="file-actions-col">
+                ${
+                  isSecret && keys.length
+                    ? `<div class="secret-keys-list">
+                        ${keys.map((k) => `<span class="secret-key-tag">${escapeHtml(k)}</span>`).join("")}
+                       </div>`
+                    : ""
+                }
+                <div class="file-counts">
+                  ${additions ? `<span class="adds">${additions}</span>` : ""}
+                  ${deletions ? `<span class="dels">${deletions}</span>` : ""}
+                </div>
+                ${
+                  !isSecret
+                    ? `<button class="btn-file-diff" type="button" data-repo="${repo}" data-path="${path}">view diff</button>`
+                    : ""
+                }
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      let actionButtonsHtml = "";
+      if (isLanded) {
+        actionButtonsHtml = `
+          <span class="badge badge-neutral">landed</span>
+        `;
+      } else if (isLanding) {
+        actionButtonsHtml = `
+          <button class="btn-card-action btn-land" type="button" disabled>landing...</button>
+        `;
+      } else if (isConfirming) {
+        actionButtonsHtml = `
+          <button class="btn-card-action btn-land is-confirming" type="button" data-action="confirm-land" data-repo="${repo}">confirm land?</button>
+          <button class="btn-card-action btn-cancel-land" type="button" data-action="cancel-land" data-repo="${repo}">cancel</button>
+        `;
+      } else {
+        actionButtonsHtml = `
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="${repo}">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" data-action="start-land" data-repo="${repo}">Land into demo</button>
+        `;
+      }
+
+      const cardClasses = ["proposal-card", isLanded ? "is-landed" : ""].filter(Boolean).join(" ");
+
+      return `
+        <div class="${cardClasses}" id="card-${repo}">
+          <div class="proposal-card-header">
+            <span class="proposal-repo-title">${repo}</span>
+            <div class="proposal-actions">
+              ${actionButtonsHtml}
+            </div>
+          </div>
+
+          ${
+            intent
+              ? `<div class="proposal-intent"><span class="intent-label">intent:</span>${intent}</div>`
+              : ""
+          }
+
+          ${
+            isLanded
+              ? `<div class="landed-banner">
+                   <span class="landed-status">landed — nothing pending</span>
+                   <span>All changes from this branch have been merged into baseline.</span>
+                 </div>`
+              : `
+                <div class="proposal-stats">
+                  <span class="stat-item"><span class="stat-num">${stats.files ?? files.length}</span> files</span>
+                  <span class="stat-item additions"><span class="stat-num">+${stats.additions ?? 0}</span></span>
+                  <span class="stat-item deletions"><span class="stat-num">-${stats.deletions ?? 0}</span></span>
+                </div>
+
+                <div class="proposal-files-list">
+                  ${filesHtml || '<div class="diff-placeholder">No modified files.</div>'}
+                </div>
+              `
+          }
+        </div>
+      `;
+    })
+    .join("");
+
+  el.proposalsGrid.innerHTML = html;
+}
+
+/**
+ * Full proposals render pass
+ */
+function renderProposalsView() {
+  renderConnectionState();
+  renderHeader();
+  renderConflicts();
+  renderProposals();
+}
+
+/**
+ * Render connection error state
+ */
+function renderConnectionState() {
+  if (!el.connectionBanner) return;
+
+  if (state.connectionError) {
+    el.connectionBanner.hidden = false;
+    if (el.connectionMsg) {
+      el.connectionMsg.textContent = state.lastError
+        ? `Connection error: ${state.lastError}. Retrying...`
+        : "Disconnected from platform worker. Retrying...";
+    }
+    if (el.btnRefresh) el.btnRefresh.disabled = false;
+  } else {
+    el.connectionBanner.hidden = true;
+  }
+}
+
+/**
+ * Show inspector modal
+ */
+function openModal(title, badgeText, badgeClass, bodyHtml) {
+  if (!el.inspectorModal) return;
+  if (el.modalTitle) el.modalTitle.textContent = title;
+  if (el.modalBadge) {
+    if (badgeText) {
+      el.modalBadge.textContent = badgeText;
+      el.modalBadge.className = `badge ${badgeClass || "badge-neutral"}`;
+      el.modalBadge.hidden = false;
+    } else {
+      el.modalBadge.hidden = true;
+    }
+  }
+  if (el.modalBody) el.modalBody.innerHTML = bodyHtml;
+  el.inspectorModal.hidden = false;
+}
+
+/**
+ * Close inspector modal
+ */
+function closeModal() {
+  if (!el.inspectorModal) return;
+  el.inspectorModal.hidden = true;
+  if (el.modalBody) el.modalBody.innerHTML = "";
+  state.activeInspector = null;
+}
+
+/**
+ * Action: View file diff
+ */
+async function handleViewDiff(repo, path) {
+  openModal(
+    `${repo} — ${path}`,
+    "fetching diff...",
+    "badge-neutral",
+    '<div class="loading-indicator">Loading change-set from /changes...</div>'
+  );
+
+  try {
+    const data = await fetchJson(`/changes?repo=${encodeURIComponent(repo)}`);
+    const changeSet = data.changeSet || {};
+    const files = changeSet.files || [];
+    const targetFile = files.find((f) => f.path === path);
+
+    if (!targetFile) {
+      openModal(
+        `${repo} — ${path}`,
+        "not found",
+        "badge-amber",
+        `<div class="empty-state"><div class="empty-state-title">File not present in changeSet</div></div>`
+      );
+      return;
+    }
+
+    if (targetFile.secret) {
+      const keys = (targetFile.keys || []).map((k) => `<span class="secret-key-tag">${escapeHtml(k)}</span>`).join(" ");
+      openModal(
+        `${repo} — ${path}`,
+        "secret-typed",
+        "badge-secret",
+        `
+          <div class="empty-state">
+            <div class="empty-state-title">Secret content withheld</div>
+            <div class="empty-state-desc">Per platform contract, secret file contents and diffs are never exposed.</div>
+            ${keys ? `<div style="margin-top: 1rem;">Keys referenced: ${keys}</div>` : ""}
+          </div>
+        `
+      );
+      return;
+    }
+
+    const patchHtml = renderPatchLines(targetFile.patch);
+    const intentHtml = targetFile.intent ? `<div class="proposal-intent" style="margin-bottom: 1rem;">"${escapeHtml(targetFile.intent)}"</div>` : "";
+    
+    openModal(
+      `${repo} — ${path}`,
+      targetFile.status || "diff",
+      targetFile.status === "added" ? "badge-clean" : "badge-neutral",
+      `${intentHtml}${patchHtml}`
+    );
+  } catch (err) {
+    openModal(
+      `${repo} — ${path}`,
+      "error",
+      "badge-red",
+      `<div class="empty-state"><div class="empty-state-title">Failed to load diff</div><div class="empty-state-desc">${escapeHtml(err.message)}</div></div>`
+    );
+  }
+}
+
+/**
+ * Action: Preview 3-way merge
+ */
+async function handlePreviewMerge(repo) {
+  openModal(
+    `Merge preview: ${repo}`,
+    "computing diff3...",
+    "badge-neutral",
+    '<div class="loading-indicator">Computing merge projection from /merge...</div>'
+  );
+
+  try {
+    const data = await fetchJson(`/merge?repos=${encodeURIComponent(repo)}`);
+    const merge = data.merge || {};
+    const isConflict = merge.status === "conflict";
+    const statusChip = isConflict
+      ? { text: "conflict", badgeClass: "badge-red" }
+      : { text: "clean", badgeClass: "badge-clean" };
+
+    const files = merge.files || [];
+    if (files.length === 0) {
+      openModal(
+        `Merge preview: ${repo}`,
+        statusChip.text,
+        statusChip.badgeClass,
+        `
+          <div class="merge-status-bar">
+            <span>Status: <span class="badge ${statusChip.badgeClass}">${statusChip.text}</span></span>
+          </div>
+          <div class="empty-state">
+            <div class="empty-state-title">No files changed in merge</div>
+          </div>
+        `
+      );
+      return;
+    }
+
+    // Build tabs or stacked file views for merge files
+    let activeIndex = 0;
+    
+    function renderMergeContent(idx) {
+      const f = files[idx];
+      if (!f) return "";
+      const path = escapeHtml(f.path);
+      const action = escapeHtml(f.action || "write");
+      const result = escapeHtml(f.result || "merged");
+      const isFileConflict = result === "conflict";
+      const isSecret = result === "withheld-secret";
+
+      let bodyContent = "";
+      if (isSecret) {
+        bodyContent = `<div class="empty-state"><div class="empty-state-title">Secret content withheld</div><div class="empty-state-desc">Secret-class file contents are withheld from merge previews.</div></div>`;
+      } else if (isFileConflict) {
+        bodyContent = `<div class="merge-pane has-conflict">${escapeHtml(f.conflictText || "Conflict detected, but conflict text was not provided.")}</div>`;
+      } else {
+        bodyContent = `<div class="merge-pane">${escapeHtml(f.merged || "(empty file)")}</div>`;
+      }
+
+      const tabsHtml = files.length > 1
+        ? `<div class="merge-files-tabs">
+            ${files
+              .map((fileObj, i) => {
+                const tabClass = i === idx ? "merge-file-tab active" : "merge-file-tab";
+                const icon = fileObj.result === "conflict" ? " [!]" : "";
+                return `<button class="${tabClass}" type="button" data-merge-tab="${i}">${escapeHtml(fileObj.path)}${icon}</button>`;
+              })
+              .join("")}
+           </div>`
+        : "";
+
+      return `
+        <div class="merge-status-bar">
+          <div>
+            <span>Overall status: <span class="badge ${statusChip.badgeClass}">${statusChip.text}</span></span>
+            <span style="margin-left: 1rem; color: var(--text-muted);">action: ${action} · result: ${result}</span>
+          </div>
+        </div>
+        ${tabsHtml}
+        <div style="margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">${path}</div>
+        ${bodyContent}
+      `;
+    }
+
+    openModal(
+      `Merge preview: ${repo}`,
+      statusChip.text,
+      statusChip.badgeClass,
+      renderMergeContent(activeIndex)
+    );
+
+    // Bind tab clicks inside the modal
+    if (el.modalBody) {
+      el.modalBody.onclick = (e) => {
+        const tabBtn = e.target.closest("[data-merge-tab]");
+        if (tabBtn) {
+          const tabIdx = parseInt(tabBtn.getAttribute("data-merge-tab"), 10);
+          if (!isNaN(tabIdx) && files[tabIdx]) {
+            activeIndex = tabIdx;
+            el.modalBody.innerHTML = renderMergeContent(activeIndex);
+          }
+        }
+      };
+    }
+  } catch (err) {
+    openModal(
+      `Merge preview: ${repo}`,
+      "error",
+      "badge-red",
+      `<div class="empty-state"><div class="empty-state-title">Failed to compute merge</div><div class="empty-state-desc">${escapeHtml(err.message)}</div></div>`
+    );
+  }
+}
+/**
+ * Action: Land proposal into baseline
+ */
+async function handleLandProposal(repo) {
+  const baseRepo = state.proposalsData?.base?.repo || "demo";
+  state.landingRepo = repo;
+  state.confirmingRepo = null;
+  renderProposals();
+
+  showActionBanner(
+    "warn",
+    "landing",
+    `Landing proposal <strong>${escapeHtml(repo)}</strong> into <strong>${escapeHtml(baseRepo)}</strong>...`
+  );
+
+  try {
+    const payload = {
+      base: baseRepo,
+      repos: [repo],
+      baseRef: state.proposalsData?.base?.ref || "main",
+      ref: state.proposalsData?.ref || "main",
+    };
+
+    const res = await fetchJson("/land", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const commitSha = res.landed?.commit || res.commit || "";
+    const shortSha = commitSha ? commitSha.slice(0, 8) : "";
+    const shaHtml = commitSha ? `<code class="commit-sha" title="${escapeHtml(commitSha)}">${escapeHtml(shortSha)}</code>` : "";
+
+    showActionBanner(
+      "success",
+      "landed",
+      `Successfully landed proposal <strong>${escapeHtml(repo)}</strong> into <strong>${escapeHtml(baseRepo)}</strong>. Commit ${shaHtml}`
+    );
+
+    // Auto-refresh proposals immediately
+    await loadProposals();
+    await loadEvents();
+  } catch (err) {
+    const resp = err.response || {};
+    const errorCode = resp.error || "";
+
+    if (err.status === 409 && errorCode === "withheld-secret") {
+      const files = Array.isArray(resp.files) ? resp.files : [];
+      const filesStr = files.map((f) => escapeHtml(f)).join(", ") || "secret files";
+      showActionBanner(
+        "error",
+        "blocked",
+        `Withheld-secret file — landing blocked (${filesStr}).`
+      );
+    } else if (err.status === 409 && errorCode === "conflict") {
+      const conflicted = Array.isArray(resp.conflicted)
+        ? resp.conflicted.map((f) => (typeof f === "string" ? f : f.file || f.path || JSON.stringify(f)))
+        : [];
+      const conflictList = conflicted.length ? conflicted.map(escapeHtml).join(", ") : "conflicts detected";
+      showActionBanner(
+        "error",
+        "conflict",
+        `Conflicted files: <strong>${conflictList}</strong>. <span class="action-hint">(preview merge first)</span>`
+      );
+    } else {
+      const msg = err.message || resp.error || "Unexpected landing failure";
+      showActionBanner(
+        "error",
+        "failed",
+        `Failed to land <strong>${escapeHtml(repo)}</strong>: ${escapeHtml(msg)}`
+      );
+    }
+  } finally {
+    state.landingRepo = null;
+    renderProposals();
+  }
+}
+
+/**
+ * Event delegation for proposals grid (view diff, preview merge, and landing)
+ */
+function setupInteractions() {
+  if (el.proposalsGrid) {
+    el.proposalsGrid.addEventListener("click", (e) => {
+      const diffBtn = e.target.closest(".btn-file-diff");
+      if (diffBtn) {
+        const repo = diffBtn.getAttribute("data-repo");
+        const path = diffBtn.getAttribute("data-path");
+        if (repo && path) handleViewDiff(repo, path);
+        return;
+      }
+
+      const mergeBtn = e.target.closest(".btn-preview-merge");
+      if (mergeBtn) {
+        const repo = mergeBtn.getAttribute("data-repo");
+        if (repo) handlePreviewMerge(repo);
+        return;
+      }
+
+      const landBtn = e.target.closest("[data-action]");
+      if (landBtn) {
+        const action = landBtn.getAttribute("data-action");
+        const repo = landBtn.getAttribute("data-repo");
+        if (!repo) return;
+
+        if (action === "start-land") {
+          state.confirmingRepo = repo;
+          renderProposals();
+        } else if (action === "cancel-land") {
+          state.confirmingRepo = null;
+          renderProposals();
+        } else if (action === "confirm-land") {
+          handleLandProposal(repo);
+        }
+        return;
+      }
+    });
+  }
+  // Modal close handlers
+  if (el.btnCloseModal) {
+    el.btnCloseModal.addEventListener("click", closeModal);
+  }
+  if (el.inspectorModal) {
+    el.inspectorModal.addEventListener("click", (e) => {
+      if (e.target === el.inspectorModal) closeModal();
+    });
+  }
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && el.inspectorModal && !el.inspectorModal.hidden) {
+      closeModal();
+    }
+  });
+
+  // Manual refresh
+  if (el.btnRefresh) {
+    el.btnRefresh.addEventListener("click", () => {
+      loadProposals();
+      loadEvents();
+    });
+  }
+
+  // Connection banner retry
+  if (el.btnRetry) {
+    el.btnRetry.addEventListener("click", () => {
+      loadProposals();
+      loadEvents();
+    });
+  }
+
+  // Auto-refresh toggle
+  if (el.autoRefreshToggle) {
+    el.autoRefreshToggle.addEventListener("change", (e) => {
+      state.autoRefresh = Boolean(e.target.checked);
+      setupTimers();
+    });
+  }
+
+  // Action banner dismiss
+  if (el.actionBannerClose) {
+    el.actionBannerClose.addEventListener("click", hideActionBanner);
+  }
+}
+
+/**
+ * Polling timers setup
+ * - /proposals every 8s
+ * - /events every 2s
+ */
+function setupTimers() {
+  if (state.proposalsTimer) {
+    clearInterval(state.proposalsTimer);
+    state.proposalsTimer = null;
+  }
+  if (state.eventsTimer) {
+    clearInterval(state.eventsTimer);
+    state.eventsTimer = null;
+  }
+
+  // Always poll events every 2s for live ticker
+  state.eventsTimer = setInterval(loadEvents, 2000);
+
+  // Poll proposals every 8s when autoRefresh is enabled
+  if (state.autoRefresh) {
+    state.proposalsTimer = setInterval(loadProposals, 8000);
+  }
+}
+
+/**
+ * Initial boot
+ */
+function init() {
+  setupInteractions();
+  setupTimers();
+  loadProposals();
+  loadEvents();
+}
+
+// Run when DOM is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}

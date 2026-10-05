@@ -1,0 +1,19 @@
+{
+  "name": "nextgit-platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.147.0"
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "diff": "^9.0.0",
+    "isomorphic-git": "^1.43.0",
+    "memfs": "^4.80.0",
+    "node-diff3": "^3.2.1"
+  }
+}

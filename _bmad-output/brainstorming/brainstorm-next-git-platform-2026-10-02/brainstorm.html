@@ -1,0 +1,4006 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NEXT-GEN GIT PLATFORM — Session Keepsake</title>
+  <meta name="description"
+    content="Keepsake for the brainstorming session of 2026-10-02: the convergence layer for concurrent agent change-sets." />
+  <style>
+    /* ============================================================
+   TOKENS
+   ============================================================ */
+    :root {
+      --void: #05070c;
+      --bg: #080b12;
+      --panel: #0d1119;
+      --panel-2: #111725;
+      --edge: #1b2434;
+      --edge-hot: #2b3a52;
+      --ink: #e8eef8;
+      --ink-2: #a7b6cd;
+      --ink-3: #6d7d96;
+      --ink-4: #47566c;
+      --user: #57d9ff;
+      --coach: #ffb65c;
+      --insight: #b28dff;
+      --question: #ff7a90;
+      --decision: #3fe0a8;
+      --technique: #8fa4ff;
+      --frozen: #9fb4d8;
+
+      --mono: "IBM Plex Mono", ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+
+      --gut: clamp(18px, 4vw, 64px);
+      --maxw: 1180px;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      html {
+        scroll-behavior: auto
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important
+      }
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(1100px 620px at 12% -8%, rgba(87, 217, 255, .10), transparent 60%),
+        radial-gradient(900px 560px at 88% 4%, rgba(255, 182, 92, .075), transparent 62%),
+        radial-gradient(1200px 700px at 50% 108%, rgba(178, 141, 255, .08), transparent 60%);
+      background-attachment: fixed;
+    }
+
+    ::selection {
+      background: rgba(87, 217, 255, .28)
+    }
+
+    /* grain + fine grid */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: .55;
+      background-image: linear-gradient(rgba(255, 255, 255, .021) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .021) 1px, transparent 1px);
+      background-size: 52px 52px;
+      mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 25%, transparent 78%);
+    }
+
+    main {
+      position: relative;
+      z-index: 1
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-weight: 600;
+      letter-spacing: -.015em;
+      line-height: 1.15;
+      margin: 0
+    }
+
+    a {
+      color: var(--user)
+    }
+
+    code,
+    kbd,
+    .mono {
+      font-family: var(--mono)
+    }
+
+    em {
+      font-style: italic;
+      color: var(--ink-2)
+    }
+
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding-inline: var(--gut)
+    }
+
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--edge) 12%, var(--edge) 88%, transparent)
+    }
+
+    /* ============================================================
+   NAV RAIL
+   ============================================================ */
+    .rail {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: width .22s ease;
+    }
+
+    .rail-inner {
+      display: none
+    }
+
+    .rail:hover,
+    .rail:focus-within {
+      width: 264px
+    }
+
+    .rail-in {
+      margin-left: 14px;
+      width: 236px;
+      height: min(78vh, 660px);
+      background: rgba(10, 14, 21, .9);
+      backdrop-filter: blur(9px);
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      padding: 18px 16px;
+      overflow: auto;
+    }
+
+    .rail-in h5 {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin: 0 0 14px
+    }
+
+    .rail-in ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      counter-reset: sec
+    }
+
+    .rail-in li {
+      counter-increment: sec
+    }
+
+    .rail-in a {
+      display: flex;
+      gap: 9px;
+      align-items: baseline;
+      text-decoration: none;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-3);
+      padding: 4.5px 0;
+      letter-spacing: .02em;
+    }
+
+    .rail-in a::before {
+      content: counter(sec, decimal-leading-zero);
+      color: var(--ink-4);
+      font-size: 9.5px;
+      min-width: 18px
+    }
+
+    .rail-in a:hover,
+    .rail-in a.on {
+      color: var(--ink)
+    }
+
+    .rail-in a.on::before {
+      color: var(--user)
+    }
+
+    @media (max-width:1000px) {
+      .rail {
+        display: none
+      }
+    }
+
+    .orb {
+      position: fixed;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      z-index: 41;
+      cursor: pointer;
+      border-radius: 50%;
+      border: 1px solid var(--edge-hot);
+      background: radial-gradient(circle at 34% 32%, rgba(87, 217, 255, .5), rgba(8, 11, 18, .9) 68%);
+      box-shadow: 0 0 0 4px rgba(8, 11, 18, .75), 0 0 22px rgba(87, 217, 255, .2);
+    }
+
+    .orb:hover {
+      border-color: var(--user)
+    }
+
+    @media (max-width:1000px) {
+      .orb {
+        display: none
+      }
+    }
+
+    /* ============================================================
+   SECTION FRAME
+   ============================================================ */
+    section {
+      position: relative;
+      padding-block: clamp(64px, 9vw, 132px);
+      scroll-margin-top: 20px
+    }
+
+    .sec-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 22px;
+      align-items: start;
+      margin-bottom: clamp(30px, 4vw, 54px)
+    }
+
+    .sec-num {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .2em;
+      color: var(--ink-4);
+      border: 1px solid var(--edge);
+      border-radius: 3px;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+
+    h2.sec-title {
+      font-size: clamp(26px, 4.1vw, 44px);
+      letter-spacing: -.028em
+    }
+
+    h2.sec-title .dim {
+      color: var(--ink-3)
+    }
+
+    .sec-sub {
+      color: var(--ink-2);
+      max-width: 64ch;
+      margin-top: 12px;
+      font-size: 15.5px;
+      line-height: 1.7
+    }
+
+    .sec-sub b {
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    .kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .lede {
+      font-family: var(--serif);
+      font-size: clamp(19px, 2.4vw, 27px);
+      line-height: 1.5;
+      color: var(--ink);
+      font-weight: 400;
+      letter-spacing: -.012em;
+      max-width: 40ch;
+    }
+
+    .lede .thin {
+      color: var(--ink-3)
+    }
+
+    .note {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--ink-4);
+      letter-spacing: .01em
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), rgba(9, 12, 19, .7));
+      border: 1px solid var(--edge);
+      border-radius: 7px;
+      padding: 22px;
+    }
+
+    .card h4 {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      margin-bottom: 12px
+    }
+
+    .g2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px
+    }
+
+    .g3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px
+    }
+
+    @media (max-width:820px) {
+
+      .g2,
+      .g3 {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* ============================================================
+   HERO
+   ============================================================ */
+    #hero {
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      padding-top: clamp(40px, 7vw, 90px);
+      overflow: hidden
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+      gap: clamp(28px, 4vw, 58px);
+      align-items: center;
+      width: 100%
+    }
+
+    @media (max-width:960px) {
+      .hero-grid {
+        grid-template-columns: 1fr
+      }
+
+      .hero-side {
+        display: none
+      }
+    }
+
+    .tagline {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--user);
+      margin-bottom: 26px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tagline .bullet {
+      color: var(--ink-4)
+    }
+
+    h1.hero {
+      font-size: clamp(38px, 7.6vw, 100px);
+      line-height: .92;
+      letter-spacing: -.045em;
+      font-weight: 600;
+      margin-bottom: 6px;
+      overflow-wrap: anywhere;
+    }
+
+    h1.hero .b {
+      display: block
+    }
+
+    h1.hero .b2 {
+      color: var(--ink-3);
+      -webkit-text-stroke: 0
+    }
+
+    h1.hero .b3 {
+      color: var(--user);
+      font-size: .96em;
+      text-shadow: 0 0 46px rgba(87, 217, 255, .34);
+    }
+
+    .hero-dek {
+      font-family: var(--serif);
+      font-size: clamp(17px, 1.9vw, 23px);
+      line-height: 1.5;
+      color: var(--ink-2);
+      max-width: 46ch;
+      margin: 30px 0 34px;
+    }
+
+    .hero-dek em {
+      color: var(--user);
+      font-style: italic
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 26px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-3);
+      border-top: 1px solid var(--edge);
+      padding-top: 18px
+    }
+
+    .hero-meta b {
+      color: var(--ink-2);
+      font-weight: 400
+    }
+
+    .readcue {
+      display: inline-block;
+      margin-top: 34px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      text-decoration: none;
+    }
+
+    .readcue::after {
+      content: " →";
+      color: var(--user)
+    }
+
+    /* the convergence visual */
+    .conv-wrap {
+      position: relative;
+      height: min(78vh, 640px);
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .conv-node {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--user);
+      box-shadow: 0 0 12px rgba(87, 217, 255, .7);
+      cursor: pointer;
+      transition: transform .18s ease, background .2s
+    }
+
+    .conv-node:hover,
+    .conv-node:focus-visible {
+      transform: scale(2.1);
+      background: #fff;
+      outline: none
+    }
+
+    .conv-node[data-cat="worst"] {
+      background: var(--technique);
+      box-shadow: 0 0 12px rgba(143, 164, 255, .6)
+    }
+
+    .conv-node[data-cat="swarm"] {
+      background: var(--decision);
+      box-shadow: 0 0 12px rgba(63, 224, 168, .6)
+    }
+
+    .conv-node[data-cat="jbtbd"] {
+      background: var(--user);
+      box-shadow: 0 0 12px rgba(87, 217, 255, .6)
+    }
+
+    .conv-node[data-cat="horizon"] {
+      background: var(--insight);
+      box-shadow: 0 0 12px rgba(178, 141, 255, .6)
+    }
+
+    .core {
+      position: absolute;
+      width: min(300px, 74%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, rgba(87, 217, 255, .2), rgba(8, 11, 18, .6) 62%, transparent 72%);
+      border: 1px solid rgba(87, 217, 255, .3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 12px;
+      padding: 22px;
+      animation: breathe 7s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(87, 217, 255, .10), 0 0 40px rgba(87, 217, 255, .10) inset
+      }
+
+      50% {
+        box-shadow: 0 0 0 22px rgba(87, 217, 255, 0), 0 0 80px rgba(87, 217, 255, .18) inset
+      }
+    }
+
+    .core .cn {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--ink-4)
+    }
+
+    .core .cw {
+      font-size: clamp(15px, 1.7vw, 20px);
+      line-height: 1.3;
+      letter-spacing: -.02em;
+      max-width: 15ch
+    }
+
+    .core .cw b {
+      color: var(--user);
+      font-weight: 600
+    }
+
+    .conv-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible
+    }
+
+    .conv-svg line {
+      stroke-width: .8
+    }
+
+    .conv-cap {
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .12em;
+      color: var(--ink-4)
+    }
+
+    .conv-tip {
+      position: absolute;
+      z-index: 5;
+      max-width: 270px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -118%);
+      background: rgba(8, 12, 19, .97);
+      border: 1px solid var(--edge-hot);
+      border-radius: 4px;
+      padding: 9px 11px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--ink-2);
+      transition: opacity .14s ease;
+    }
+
+    .conv-tip.on {
+      opacity: 1
+    }
+
+    .conv-tip b {
+      display: block;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--user);
+      margin-bottom: 5px
+    }
+
+    /* ============================================================
+   LEDGER (technique index)
+   ============================================================ */
+    .ledger {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--edge);
+      border: 1px solid var(--edge);
+      border-radius: 7px;
+      overflow: hidden
+    }
+
+    @media (max-width:820px) {
+      .ledger {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .lcell {
+      background: var(--panel);
+      padding: 20px 18px;
+      position: relative;
+      transition: background .2s
+    }
+
+    .lcell:hover {
+      background: var(--panel-2)
+    }
+
+    .lcell .ln {
+      font-family: var(--mono);
+      font-size: 34px;
+      letter-spacing: -.04em;
+      color: var(--edge-hot);
+      line-height: 1;
+      transition: color .2s
+    }
+
+    .lcell:hover .ln {
+      color: var(--user)
+    }
+
+    .lcell h3 {
+      font-size: 16px;
+      margin: 14px 0 6px
+    }
+
+    .lcell p {
+      font-size: 13.5px;
+      color: var(--ink-3);
+      margin: 0;
+      line-height: 1.55
+    }
+
+    .lcell .lmeta {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--edge);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .12em;
+      color: var(--ink-4);
+      text-transform: uppercase
+    }
+
+    /* ============================================================
+   TECHNIQUE 1 — WORST POSSIBLE IDEA
+   ============================================================ */
+    .panel {
+      border: 1px solid var(--edge);
+      border-radius: 7px;
+      background: rgba(11, 15, 23, .62);
+      padding: clamp(20px, 3vw, 34px);
+    }
+
+    .panel::before {
+      content: "";
+      display: block;
+      width: 38px;
+      height: 2px;
+      background: var(--technique);
+      margin-bottom: 22px
+    }
+
+    .p-worst::before {
+      background: var(--technique)
+    }
+
+    .p-swarm::before {
+      background: var(--decision)
+    }
+
+    .p-jbtbd::before {
+      background: var(--user)
+    }
+
+    .p-horizon::before {
+      background: var(--insight)
+    }
+
+    /* inverted / anti-vision */
+    .anti {
+      margin-top: 26px;
+      border: 1px solid var(--edge-hot);
+      border-radius: 6px;
+      overflow: hidden;
+      background: repeating-linear-gradient(135deg, rgba(255, 122, 144, .045) 0 12px, transparent 12px 24px);
+    }
+
+    .anti-head {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--edge);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--question)
+    }
+
+    .anti-head .glitch {
+      color: var(--ink-4)
+    }
+
+    .anti-body {
+      padding: 22px 18px 20px
+    }
+
+    .bigq {
+      font-family: var(--serif);
+      font-size: clamp(23px, 3.5vw, 42px);
+      line-height: 1.16;
+      letter-spacing: -.025em;
+      color: var(--ink);
+      max-width: 24ch;
+    }
+
+    .bigq .bad {
+      color: var(--question);
+      text-decoration: underline;
+      text-decoration-color: rgba(255, 122, 144, .4);
+      text-underline-offset: 5px
+    }
+
+    .anti p.body {
+      color: var(--ink-2);
+      margin: 20px 0 0;
+      max-width: 62ch;
+      font-size: 15.5px;
+      line-height: 1.72
+    }
+
+    /* rupture cards */
+    .rupt {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 30px
+    }
+
+    @media (max-width:900px) {
+      .rupt {
+        grid-template-columns: repeat(2, 1fr)
+      }
+    }
+
+    @media (max-width:560px) {
+      .rupt {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .rc {
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      padding: 15px 14px;
+      background: rgba(8, 11, 18, .55);
+      transition: border-color .2s, background .2s, transform .2s;
+      position: relative;
+      overflow: hidden
+    }
+
+    .rc:hover {
+      border-color: var(--technique);
+      background: rgba(20, 26, 40, .6);
+      transform: translateY(-2px)
+    }
+
+    .rc .rcn {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .2em;
+      color: var(--ink-4);
+      margin-bottom: 10px
+    }
+
+    .rc .rcq {
+      font-size: 14.5px;
+      line-height: 1.45;
+      color: var(--ink);
+      margin-bottom: 11px;
+      letter-spacing: -.01em
+    }
+
+    .rc .rcb {
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--ink-3);
+      border-top: 1px dashed var(--edge);
+      padding-top: 10px
+    }
+
+    .rc .rcb b {
+      color: var(--technique);
+      font-weight: 400;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 5px
+    }
+
+    .rc::after {
+      content: "↳";
+      position: absolute;
+      top: 12px;
+      right: 13px;
+      color: var(--edge-hot);
+      font-family: var(--mono);
+      font-size: 12px;
+      transition: color .2s, transform .2s
+    }
+
+    .rc:hover::after {
+      color: var(--technique);
+      transform: translate(2px, 2px)
+    }
+
+    /* pressure bar */
+    .press {
+      margin-top: 34px;
+      display: grid;
+      gap: 5px
+    }
+
+    .press-row {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 14px;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .06em
+    }
+
+    @media (max-width:640px) {
+      .press-row {
+        grid-template-columns: 1fr;
+        gap: 5px
+      }
+    }
+
+    .press-row .pl {
+      color: var(--ink-3);
+      text-align: right
+    }
+
+    @media (max-width:640px) {
+      .press-row .pl {
+        text-align: left
+      }
+    }
+
+    .press-row .pt {
+      height: 20px;
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--edge);
+      position: relative;
+      overflow: hidden;
+      border-radius: 2px
+    }
+
+    .press-row .pt i {
+      position: absolute;
+      inset: 0;
+      width: 0;
+      display: block;
+      border-right: 2px solid var(--technique);
+      transition: width 1.1s cubic-bezier(.16, .84, .3, 1)
+    }
+
+    .press-row.rev .pt {
+      border-color: rgba(63, 224, 168, .35)
+    }
+
+    .press-row.rev .pt i {
+      border-right-color: var(--decision);
+      background: linear-gradient(90deg, rgba(63, 224, 168, .14), transparent)
+    }
+
+    .press-row.rev .pl {
+      color: var(--decision)
+    }
+
+    /* two-column mirror */
+    .mirror {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px
+    }
+
+    @media (max-width:820px) {
+      .mirror {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .mcol {
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      background: rgba(8, 11, 18, .5)
+    }
+
+    .mcol>h5 {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--edge);
+      display: flex;
+      gap: 9px;
+      align-items: center
+    }
+
+    .mcol.u>h5 {
+      color: var(--user)
+    }
+
+    .mcol.c>h5 {
+      color: var(--coach)
+    }
+
+    .mcol .fill {
+      color: var(--ink-4);
+      font-size: 10.5px;
+      font-family: var(--mono);
+      letter-spacing: .08em;
+      margin-left: auto
+    }
+
+    .mrow {
+      padding: 14px 15px;
+      border-top: 1px solid rgba(27, 36, 52, .6)
+    }
+
+    .mrow:first-child {
+      border-top: 0
+    }
+
+    .mrow .mtext {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--ink-2);
+      margin-top: 6px
+    }
+
+    .mrow .mtext b {
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    .mrow .mtext .anno {
+      display: block;
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--ink-3);
+      border-left: 1px solid var(--edge-hot);
+      padding-left: 11px
+    }
+
+    .mrow .mtext .anno.u {
+      color: var(--user)
+    }
+
+    .mrow .mtext .anno.c {
+      color: var(--coach)
+    }
+
+    .cno {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--ink-4);
+      letter-spacing: .16em
+    }
+
+    .cno.u {
+      color: var(--user)
+    }
+
+    .cno.c {
+      color: var(--coach)
+    }
+
+    /* self-describing: manifest */
+    .manifest {
+      margin-top: 30px;
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      background: #070a10;
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.75
+    }
+
+    .manifest .mtop {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--edge);
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      background: rgba(255, 255, 255, .02)
+    }
+
+    .manifest .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--user);
+      box-shadow: 0 0 9px var(--user)
+    }
+
+    .manifest pre {
+      margin: 0;
+      padding: 16px 18px;
+      overflow-x: auto;
+      color: var(--ink-2);
+      white-space: pre
+    }
+
+    .tk {
+      color: var(--insight)
+    }
+
+    .st {
+      color: var(--decision)
+    }
+
+    .nu {
+      color: #ff9ec4
+    }
+
+    .ky {
+      color: var(--user)
+    }
+
+    .cm {
+      color: var(--ink-4)
+    }
+
+    .dim {
+      color: var(--ink-4)
+    }
+
+    /* swarm law grid */
+    .laws {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 30px
+    }
+
+    @media (max-width:900px) {
+      .laws {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .law {
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      background: rgba(10, 14, 22, .6);
+      overflow: hidden;
+      transition: border-color .2s
+    }
+
+    .law:hover {
+      border-color: var(--decision)
+    }
+
+    .law-top {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 16px 17px 10px
+    }
+
+    .law-id {
+      font-family: var(--mono);
+      font-size: 26px;
+      line-height: 1;
+      color: var(--decision);
+      letter-spacing: -.04em
+    }
+
+    .law-name {
+      font-size: 15.5px;
+      letter-spacing: -.015em;
+      color: var(--ink)
+    }
+
+    .law-body {
+      padding: 0 17px 17px
+    }
+
+    .law-body .raw {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink-2)
+    }
+
+    .law-body .sharp {
+      margin-top: 11px;
+      padding-top: 11px;
+      border-top: 1px dashed var(--edge);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--decision)
+    }
+
+    .law-body .sharp::before {
+      content: "sharpened — ";
+      color: var(--decision);
+      opacity: .72;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      font-size: 9.5px
+    }
+
+    /* protocol comparator */
+    .proto {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 18px;
+      align-items: center;
+      margin-top: 34px
+    }
+
+    @media (max-width:820px) {
+      .proto {
+        grid-template-columns: 1fr
+      }
+
+      .proto .arrow {
+        display: none
+      }
+    }
+
+    .proto .side {
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      padding: 16px 17px;
+      background: rgba(8, 11, 18, .5)
+    }
+
+    .proto .side.a {
+      border-color: rgba(255, 122, 144, .28)
+    }
+
+    .proto .side.b2 {
+      border-color: rgba(63, 224, 168, .28)
+    }
+
+    .proto .side h6 {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      margin: 0 0 12px
+    }
+
+    .proto .side.a h6 {
+      color: var(--question)
+    }
+
+    .proto .side.b2 h6 {
+      color: var(--decision)
+    }
+
+    .proto .side p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink-2);
+      margin: 0 0 9px
+    }
+
+    .proto .side p:last-child {
+      margin-bottom: 0
+    }
+
+    .proto .arrow {
+      font-family: var(--mono);
+      color: var(--ink-4);
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-align: center;
+      white-space: nowrap
+    }
+
+    .proto .arrow b {
+      display: block;
+      color: var(--decision);
+      font-size: 20px;
+      margin-top: 6px;
+      font-weight: 400
+    }
+
+    /* reticle + console */
+    .reticle-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: 22px;
+      margin-top: 30px;
+      align-items: start
+    }
+
+    @media (max-width:900px) {
+      .reticle-grid {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .reticle {
+      position: relative;
+      aspect-ratio: 4/3;
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 32% 38%, rgba(87, 217, 255, .10), transparent 55%),
+        radial-gradient(circle at 68% 62%, rgba(255, 182, 92, .09), transparent 55%), #070a10
+    }
+
+    .reticle .rt-ring {
+      position: absolute;
+      border: 1px dashed rgba(87, 217, 255, .22);
+      border-radius: 50%
+    }
+
+    .reticle .rt-ring.r1 {
+      inset: 16% 30% 16% 30%
+    }
+
+    .reticle .rt-ring.r2 {
+      inset: 28% 16% 28% 16%;
+      border-color: rgba(255, 182, 92, .16)
+    }
+
+    .reticle .rt-cross {
+      position: absolute;
+      inset: 0
+    }
+
+    .reticle .rt-cross span {
+      position: absolute;
+      background: rgba(87, 217, 255, .3)
+    }
+
+    .reticle .rt-cross .h {
+      left: 0;
+      right: 0;
+      height: 1px;
+      top: 50%
+    }
+
+    .reticle .rt-cross .v {
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      left: 50%
+    }
+
+    .rt {
+      position: absolute;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 2px;
+      white-space: nowrap
+    }
+
+    .rt.a {
+      color: var(--user);
+      border: 1px solid rgba(87, 217, 255, .4);
+      background: rgba(87, 217, 255, .08)
+    }
+
+    .rt.b {
+      color: var(--coach);
+      border: 1px solid rgba(255, 182, 92, .4);
+      background: rgba(255, 182, 92, .08)
+    }
+
+    .rt.c {
+      color: var(--insight);
+      border: 1px solid rgba(178, 141, 255, .4);
+      background: rgba(178, 141, 255, .08)
+    }
+
+    .rt.center {
+      color: var(--ink);
+      border: 1px solid var(--ink-4);
+      background: rgba(232, 238, 248, .06);
+      font-size: 10px
+    }
+
+    .reticle .rt-cap {
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .16em;
+      color: var(--ink-4);
+      text-transform: uppercase
+    }
+
+    .console {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.85;
+      color: var(--ink-2);
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      background: #070a10;
+      overflow: hidden
+    }
+
+    .console .ctop {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--edge);
+      background: rgba(255, 255, 255, .02);
+      font-size: 9.5px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-4)
+    }
+
+    .console .console-body {
+      padding: 14px 16px;
+      white-space: pre-wrap;
+      word-break: break-word
+    }
+
+    .console .ts {
+      color: var(--ink-4)
+    }
+
+    .console .ok {
+      color: var(--decision)
+    }
+
+    .console .no {
+      color: var(--question)
+    }
+
+    .console .hi {
+      color: var(--user)
+    }
+
+    .console .caret {
+      display: inline-block;
+      width: 7px;
+      height: 1em;
+      background: var(--user);
+      vertical-align: -2px;
+      animation: blink 1.05s steps(2) infinite
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0
+      }
+    }
+
+    /* fork radar */
+    .radar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 20px
+    }
+
+    .radar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+      gap: 12px;
+      margin-top: 22px
+    }
+
+    .fork {
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      background: rgba(10, 14, 22, .62);
+      padding: 16px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 302px;
+      transition: border-color .18s, background .18s, transform .18s
+    }
+
+    .fork:hover {
+      border-color: var(--edge-hot);
+      background: rgba(16, 22, 34, .75);
+      transform: translateY(-2px)
+    }
+
+    .fork.mine {
+      border-color: rgba(87, 217, 255, .32);
+      background: rgba(11, 20, 30, .7)
+    }
+
+    .fork .fk-h {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 4px
+    }
+
+    .fork .fk-name {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink)
+    }
+
+    .fork .fk-age {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--ink-4);
+      letter-spacing: .1em
+    }
+
+    .fork .fk-over {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      margin: 11px 0 13px
+    }
+
+    .fork .fk-over.hi {
+      color: var(--user)
+    }
+
+    .fork .fk-over.mid {
+      color: var(--coach)
+    }
+
+    .fork .fk-over.lo {
+      color: var(--ink-4)
+    }
+
+    .bar {
+      height: 4px;
+      background: rgba(255, 255, 255, .05);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 14px
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--user), var(--coach));
+      transition: width 1.05s cubic-bezier(.16, .84, .3, 1)
+    }
+
+    .sig {
+      display: grid;
+      gap: 6px
+    }
+
+    .sig-row {
+      display: grid;
+      grid-template-columns: 66px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .06em
+    }
+
+    .sig-row .sl {
+      color: var(--ink-4);
+      text-transform: uppercase;
+      letter-spacing: .1em
+    }
+
+    .sig-row .sdot {
+      height: 3px;
+      background: rgba(255, 255, 255, .06);
+      border-radius: 2px;
+      overflow: hidden
+    }
+
+    .sig-row .sdot i {
+      display: block;
+      height: 100%;
+      background: var(--decision);
+      width: 0;
+      transition: width .8s ease
+    }
+
+    .sig-row .sdot.warn i {
+      background: var(--coach)
+    }
+
+    .sig-row .sdot.bad i {
+      background: var(--question)
+    }
+
+    .sig-row .sv {
+      color: var(--ink-2);
+      min-width: 34px;
+      text-align: right
+    }
+
+    .fork .fk-act {
+      margin-top: auto;
+      padding-top: 13px;
+      border-top: 1px solid var(--edge);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--decision);
+      letter-spacing: .05em
+    }
+
+    .fork.mine .fk-act {
+      color: var(--user)
+    }
+
+    .fork .fk-act.no {
+      color: var(--ink-4)
+    }
+
+    .radar-stats {
+      display: flex;
+      gap: 26px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--ink-3);
+      letter-spacing: .08em;
+      flex-wrap: wrap
+    }
+
+    .radar-stats b {
+      color: var(--user);
+      font-weight: 400
+    }
+
+    /* verdict */
+    .verdicts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 32px
+    }
+
+    @media (max-width:820px) {
+      .verdicts {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .vd {
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      padding: 20px;
+      background: rgba(9, 13, 20, .6);
+      position: relative;
+      overflow: hidden
+    }
+
+    .vd::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px
+    }
+
+    .vd.v1::after {
+      background: var(--decision)
+    }
+
+    .vd.v2::after {
+      background: var(--coach)
+    }
+
+    .vd.v3::after {
+      background: var(--ink-4)
+    }
+
+    .vd .vq {
+      font-family: var(--mono);
+      font-size: 16px;
+      letter-spacing: -.01em;
+      margin-bottom: 10px
+    }
+
+    .vd.v1 .vq {
+      color: var(--decision)
+    }
+
+    .vd.v2 .vq {
+      color: var(--coach)
+    }
+
+    .vd.v3 .vq {
+      color: var(--ink-3)
+    }
+
+    .vd p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink-2);
+      margin: 0
+    }
+
+    .jobline {
+      margin-top: 22px;
+      padding: 20px 22px;
+      border: 1px solid rgba(87, 217, 255, .28);
+      border-radius: 6px;
+      background: linear-gradient(90deg, rgba(87, 217, 255, .07), transparent 70%);
+      font-family: var(--serif);
+      font-size: clamp(18px, 2.2vw, 25px);
+      line-height: 1.4;
+      letter-spacing: -.018em;
+      color: var(--ink)
+    }
+
+    .jobline .qk {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      display: block;
+      margin-bottom: 9px
+    }
+
+    /* ladder */
+    .rungs {
+      margin-top: 30px;
+      position: relative;
+      padding-left: clamp(24px, 5vw, 54px)
+    }
+
+    .rungs::before {
+      content: "";
+      position: absolute;
+      left: 9px;
+      top: 6px;
+      bottom: 6px;
+      width: 1px;
+      background: linear-gradient(180deg, var(--decision), var(--insight) 55%, var(--insight) 88%, transparent)
+    }
+
+    .rung {
+      position: relative;
+      padding: 0 0 34px 0
+    }
+
+    .rung::before {
+      content: "";
+      position: absolute;
+      left: calc(-1 * clamp(24px, 5vw, 54px) + 5px);
+      top: 8px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 1px solid var(--insight)
+    }
+
+    .rung.r1::before {
+      border-color: var(--decision);
+      box-shadow: 0 0 0 4px rgba(63, 224, 168, .12)
+    }
+
+    .rung.r4::before {
+      border-color: var(--ink-4)
+    }
+
+    .rung .r-h {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      margin-bottom: 10px
+    }
+
+    .rung .r-n {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--ink-4)
+    }
+
+    .rung h3 {
+      font-size: 18px;
+      letter-spacing: -.02em
+    }
+
+    .rung .r-time {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--ink-3);
+      border: 1px solid var(--edge);
+      border-radius: 3px;
+      padding: 2px 7px
+    }
+
+    .rung .r-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px
+    }
+
+    @media (max-width:820px) {
+      .rung .r-body {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .rung ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px
+    }
+
+    .rung li {
+      font-size: 14.5px;
+      line-height: 1.6;
+      color: var(--ink-2);
+      padding-left: 16px;
+      position: relative
+    }
+
+    .rung li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 9px;
+      width: 6px;
+      height: 1px;
+      background: var(--edge-hot)
+    }
+
+    .rung .r-note {
+      border-left: 1px solid var(--edge-hot);
+      padding: 2px 0 2px 16px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--insight)
+    }
+
+    .rung .r-note.c {
+      color: var(--coach)
+    }
+
+    .rung .r-note.u {
+      color: var(--user)
+    }
+
+    .rung .r-note b {
+      color: var(--ink-2);
+      font-weight: 400
+    }
+
+    .rung.r4 .r-body {
+      opacity: .72
+    }
+
+    /* isometry / building */
+    .iso {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 26px
+    }
+
+    @media (max-width:820px) {
+      .iso {
+        grid-template-columns: repeat(2, 1fr)
+      }
+    }
+
+    .iso .row {
+      border: 1px solid var(--edge);
+      border-radius: 4px;
+      padding: 14px 13px;
+      background: rgba(8, 11, 18, .55);
+      display: grid;
+      gap: 5px
+    }
+
+    .iso .row .src {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-4)
+    }
+
+    .iso .row .mapto {
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--ink)
+    }
+
+    .iso .row .mapto::before {
+      content: "→ ";
+      color: var(--insight);
+      font-family: var(--mono)
+    }
+
+    .iso .row.pulse {
+      animation: isopulse 2.8s ease-in-out infinite
+    }
+
+    @keyframes isopulse {
+
+      0%,
+      100% {
+        border-color: var(--edge)
+      }
+
+      50% {
+        border-color: rgba(178, 141, 255, .45)
+      }
+    }
+
+    /* open threads */
+    .threads {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 26px
+    }
+
+    @media (max-width:820px) {
+      .threads {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .th {
+      border: 1px dashed var(--edge-hot);
+      border-radius: 5px;
+      padding: 18px 18px 16px;
+      background: rgba(8, 11, 18, .45)
+    }
+
+    .th h5 {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--question);
+      margin: 0 0 11px
+    }
+
+    .th p {
+      font-size: 14.5px;
+      line-height: 1.62;
+      color: var(--ink-2);
+      margin: 0
+    }
+
+    .th .who {
+      display: block;
+      margin-top: 11px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      color: var(--ink-4);
+      text-transform: uppercase
+    }
+
+    /* ============================================================
+   SYNTHESIS — the climax
+   ============================================================ */
+    #synthesis {
+      background: linear-gradient(180deg, rgba(8, 11, 18, 0), rgba(10, 14, 23, .75) 18%, rgba(10, 14, 23, .75) 82%, rgba(8, 11, 18, 0))
+    }
+
+    #synthesis::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(700px 380px at 50% 42%, rgba(87, 217, 255, .09), transparent 70%)
+    }
+
+    .climax-h {
+      text-align: center;
+      margin-bottom: clamp(30px, 5vw, 54px)
+    }
+
+    .climax-h h2 {
+      font-size: clamp(30px, 5.4vw, 62px);
+      letter-spacing: -.04em;
+      line-height: 1.02
+    }
+
+    .climax-h h2 .g {
+      background: linear-gradient(92deg, var(--user), #dbe9ff 45%, var(--decision));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent
+    }
+
+    .climax-h p {
+      color: var(--ink-2);
+      max-width: 62ch;
+      margin: 20px auto 0;
+      font-size: 16px;
+      line-height: 1.7
+    }
+
+    .climax-h p b {
+      color: var(--ink)
+    }
+
+    /* the five converging lanes */
+    .lanes {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 10px
+    }
+
+    @media (max-width:1000px) {
+      .lanes {
+        grid-template-columns: repeat(2, 1fr)
+      }
+    }
+
+    @media (max-width:560px) {
+      .lanes {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .lane {
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      padding: 16px 14px 15px;
+      background: rgba(10, 14, 22, .6);
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s, transform .2s
+    }
+
+    .lane:hover {
+      border-color: var(--user);
+      transform: translateY(-3px)
+    }
+
+    .lane::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 2px;
+      background: var(--lane-c, var(--edge-hot))
+    }
+
+    .lane .ln-idx {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .2em;
+      color: var(--ink-4);
+      margin-bottom: 12px
+    }
+
+    .lane h4 {
+      font-size: 15px;
+      margin-bottom: 9px;
+      letter-spacing: -.015em
+    }
+
+    .lane p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--ink-3);
+      margin: 0
+    }
+
+    .lane .from {
+      margin-top: 13px;
+      padding-top: 11px;
+      border-top: 1px solid var(--edge);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--ink-4)
+    }
+
+    .lane .from b {
+      color: var(--lane-c, var(--ink-3));
+      font-weight: 400
+    }
+
+    .converge-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--user), transparent);
+      margin: 26px 0 0
+    }
+
+    /* must */
+    .must {
+      display: grid;
+      gap: 10px;
+      margin-top: 26px
+    }
+
+    .mrow-m {
+      display: grid;
+      grid-template-columns: 64px 116px 1fr;
+      gap: 16px;
+      align-items: center;
+      border: 1px solid var(--edge);
+      border-radius: 5px;
+      padding: 15px 17px;
+      background: rgba(9, 13, 20, .6);
+      transition: border-color .18s, background .18s
+    }
+
+    .mrow-m:hover {
+      border-color: var(--edge-hot);
+      background: rgba(14, 19, 29, .7)
+    }
+
+    .mrow-m .mk {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--decision)
+    }
+
+    .mrow-m .mx {
+      font-size: 15.5px;
+      letter-spacing: -.015em;
+      color: var(--ink);
+      font-weight: 500
+    }
+
+    .mrow-m .md {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--ink-3)
+    }
+
+    @media (max-width:760px) {
+      .mrow-m {
+        grid-template-columns: 1fr;
+        gap: 7px
+      }
+
+      .mrow-m .mk {
+        order: -1
+      }
+    }
+
+    /* the canvas mock */
+    .canvas-mock {
+      margin-top: 26px;
+      border: 1px solid var(--edge-hot);
+      border-radius: 7px;
+      background: #070a10;
+      overflow: hidden;
+      box-shadow: 0 26px 70px -30px rgba(0, 0, 0, .9)
+    }
+
+    .cm-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 15px;
+      border-bottom: 1px solid var(--edge);
+      background: rgba(255, 255, 255, .02);
+      flex-wrap: wrap
+    }
+
+    .cm-top .cm-t {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-2)
+    }
+
+    .cm-top .cm-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      border: 1px solid rgba(87, 217, 255, .4);
+      color: var(--user);
+      border-radius: 2px;
+      padding: 2px 7px
+    }
+
+    .cm-top .cm-sp {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--ink-4);
+      letter-spacing: .1em
+    }
+
+    .cm-body {
+      display: grid;
+      grid-template-columns: 1fr 268px
+    }
+
+    @media (max-width:900px) {
+      .cm-body {
+        grid-template-columns: 1fr
+      }
+
+      .cm-side {
+        border-left: 0;
+        border-top: 1px solid var(--edge)
+      }
+    }
+
+    .cm-stage {
+      position: relative;
+      min-height: 400px;
+      padding: 26px 22px;
+      overflow: hidden
+    }
+
+    .cm-side {
+      border-left: 1px solid var(--edge);
+      background: rgba(10, 14, 21, .6);
+      padding: 20px 18px
+    }
+
+    .cm-side h6 {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin: 0 0 14px
+    }
+
+    .cm-side .prow {
+      border-top: 1px solid var(--edge);
+      padding: 11px 0
+    }
+
+    .cm-side .prow:first-of-type {
+      border-top: 0;
+      padding-top: 0
+    }
+
+    .cm-side .prow .pn {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--ink);
+      margin-bottom: 4px
+    }
+
+    .cm-side .prow .pm {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--ink-3)
+    }
+
+    .cm-side .prow .pm .s {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: 0
+    }
+
+    .cm-side .prow .pm .s.merged {
+      background: var(--decision)
+    }
+
+    .cm-side .prow .pm .s.conf {
+      background: var(--coach)
+    }
+
+    .cm-side .prow .pm .s.open {
+      background: var(--ink-4)
+    }
+
+    .cm-side .cm-cta {
+      margin-top: 18px;
+      border: 1px solid rgba(63, 224, 168, .4);
+      border-radius: 4px;
+      padding: 11px 13px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--decision);
+      text-align: center;
+      letter-spacing: .04em;
+      background: rgba(63, 224, 168, .07)
+    }
+
+    .cm-side .cm-cta span {
+      color: var(--ink-3)
+    }
+
+    /* event ticks */
+    .ticks {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 96px;
+      pointer-events: none;
+      overflow: hidden
+    }
+
+    .tick {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(87, 217, 255, .42), transparent);
+      animation: tickrun 2.6s linear infinite
+    }
+
+    @keyframes tickrun {
+      0% {
+        transform: translateY(0);
+        opacity: 0
+      }
+
+      8% {
+        opacity: 1
+      }
+
+      92% {
+        opacity: 1
+      }
+
+      100% {
+        transform: translateY(96px);
+        opacity: 0
+      }
+    }
+
+    .tick span {
+      position: absolute;
+      left: 14px;
+      top: -8px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: .14em;
+      color: var(--user);
+      text-transform: uppercase;
+      background: #070a10;
+      padding: 0 6px;
+      border-radius: 2px
+    }
+
+    .tick.a {
+      background: linear-gradient(90deg, transparent, rgba(255, 182, 92, .4), transparent)
+    }
+
+    .tick.a span {
+      color: var(--coach)
+    }
+
+    .cm-rail {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      top: 96px;
+      height: 1px;
+      z-index: 1;
+      background: linear-gradient(90deg, transparent, var(--edge), transparent)
+    }
+
+    /* layered collision viz */
+    .collide {
+      position: relative;
+      height: 250px;
+      margin-top: 16px
+    }
+
+    .collide svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      z-index: 0
+    }
+
+    .cbox {
+      position: absolute;
+      z-index: 2;
+      transform: translate(-50%, -50%);
+      border: 1px solid var(--edge);
+      border-radius: 4px;
+      background: #0b0f17;
+      padding: 7px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .06em;
+      color: var(--ink-2);
+      white-space: nowrap
+    }
+
+    .cbox.hit {
+      border-color: var(--coach);
+      color: var(--coach);
+      background: #181310;
+      box-shadow: 0 0 22px -6px rgba(255, 182, 92, .5)
+    }
+
+    .cbox.hitb {
+      border-color: var(--question);
+      color: var(--question);
+      background: #160e13
+    }
+
+    .cbox.anchor {
+      border-color: rgba(87, 217, 255, .4);
+      color: var(--user);
+      background: #0a1119
+    }
+
+    .clabel {
+      position: absolute;
+      left: 0;
+      bottom: 2px;
+      z-index: 3;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-4)
+    }
+
+    /* roadmap */
+    .roadmap {
+      margin-top: 28px;
+      position: relative
+    }
+
+    .rm-row {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 22px;
+      padding: 20px 0;
+      border-top: 1px solid var(--edge);
+      align-items: start
+    }
+
+    .rm-row:last-child {
+      border-bottom: 1px solid var(--edge)
+    }
+
+    .rm-row .rm-k {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding-top: 4px
+    }
+
+    .rm-row.will .rm-k {
+      color: var(--user)
+    }
+
+    .rm-row.wont .rm-k {
+      color: var(--ink-4)
+    }
+
+    .rm-row .rm-t {
+      font-size: 15.5px;
+      letter-spacing: -.015em;
+      color: var(--ink);
+      margin-bottom: 8px
+    }
+
+    .rm-row .rm-d {
+      font-size: 14px;
+      line-height: 1.62;
+      color: var(--ink-3);
+      max-width: 70ch
+    }
+
+    .rm-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 11px
+    }
+
+    .rm-tags span {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      border: 1px solid var(--edge);
+      border-radius: 2px;
+      padding: 3px 8px;
+      color: var(--ink-3)
+    }
+
+    .rm-row.will .rm-tags span {
+      border-color: rgba(87, 217, 255, .3);
+      color: var(--user)
+    }
+
+    .rm-row.wont .rm-tags span {
+      color: var(--ink-4);
+      text-decoration: line-through;
+      text-decoration-color: rgba(109, 125, 150, .5)
+    }
+
+    /* plaque */
+    #plaque {
+      text-align: center;
+      padding-block: clamp(60px, 9vw, 120px)
+    }
+
+    .plaque-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      border: 1px solid var(--edge);
+      border-radius: 8px;
+      padding: clamp(26px, 4vw, 46px);
+      background: linear-gradient(180deg, rgba(15, 21, 33, .85), rgba(8, 11, 18, .6));
+      position: relative;
+      overflow: hidden
+    }
+
+    .plaque-inner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(600px 200px at 50% 0, rgba(87, 217, 255, .10), transparent 70%);
+      pointer-events: none
+    }
+
+    .plaque-inner h3 {
+      font-family: var(--serif);
+      font-size: clamp(20px, 2.8vw, 30px);
+      line-height: 1.4;
+      letter-spacing: -.02em;
+      margin-bottom: 18px
+    }
+
+    .plaque-inner h3 em {
+      color: var(--user);
+      font-style: italic
+    }
+
+    .plaque-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 26px;
+      padding-top: 22px;
+      border-top: 1px solid var(--edge)
+    }
+
+    @media (max-width:600px) {
+      .plaque-meta {
+        grid-template-columns: 1fr;
+        text-align: left
+      }
+    }
+
+    .plaque-meta div {
+      text-align: center
+    }
+
+    @media (max-width:600px) {
+      .plaque-meta div {
+        text-align: left
+      }
+    }
+
+    .plaque-meta .k {
+      display: block;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin-bottom: 7px
+    }
+
+    .plaque-meta .v {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--ink);
+      letter-spacing: -.01em
+    }
+
+    .closing {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin-top: 44px
+    }
+
+    .closing b {
+      color: var(--decision);
+      font-weight: 400
+    }
+
+    .sig {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin-top: 10px
+    }
+
+    /* reduced-motion friendly bar heights */
+    @media (prefers-reduced-motion:reduce) {
+      .conv-svg line {
+        transition: none
+      }
+
+      .core {
+        animation: none
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="rail">
+    <div class="rail-in" id="railIn"></div>
+  </div>
+  <div class="orb" id="orb" role="button" tabindex="0" aria-label="Toggle section navigator"></div>
+
+  <main>
+
+    <!-- ==================== HERO ==================== -->
+    <section id="hero">
+      <div class="wrap">
+        <div class="hero-grid">
+          <div>
+            <div class="tagline">
+              <span>Session&nbsp;Keepsake</span><span class="bullet">/</span>
+              <span>2026&nbsp;·&nbsp;10&nbsp;·&nbsp;02</span><span class="bullet">/</span>
+              <span>Mode&nbsp;·&nbsp;Partner</span>
+            </div>
+            <h1 class="hero">
+              <span class="b">NEXT&#8209;GEN</span>
+              <span class="b b2">GIT</span>
+              <span class="b b3">PLATFORM</span>
+            </h1>
+            <p class="hero-dek">
+              The convergence layer for <em>concurrent agent change&#8209;sets</em>.
+              Seventy&#8209;eight entries. Four techniques. One locked scope.
+              What follows is the whole session, held still.
+            </p>
+            <div class="hero-meta">
+              <span><b>Mode</b> &nbsp;partner / creative</span>
+              <span><b>Techniques</b> &nbsp;4</span>
+              <span><b>Ideas</b> &nbsp;36 user · 21 coach</span>
+              <span><b>Insights</b> &nbsp;14</span>
+              <span><b>Submission</b> &nbsp;2026&#8209;10&#8209;14</span>
+            </div>
+            <a class="readcue" href="#ledger">Read the record</a>
+          </div>
+
+          <div class="hero-side">
+            <div class="conv-wrap" id="convWrap">
+              <svg class="conv-svg" id="convSvg" aria-hidden="true"></svg>
+              <div class="core">
+                <span class="cn">Convergence point</span>
+                <span class="cw">Set&#8209;level reconciliation of <b>concurrent agent change&#8209;sets</b></span>
+                <span class="cn" style="color:var(--decision)">Demo locks here</span>
+              </div>
+              <div class="conv-tip" id="convTip"></div>
+              <div class="conv-cap">78 entries, drawn to one point — hover a node</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="rule"></div>
+
+    <!-- ==================== LEDGER ==================== -->
+    <section id="ledger">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">00</div>
+          <div>
+            <span class="kicker">The Batch</span>
+            <h2 class="sec-title">Four passes, <span class="dim">in order</span></h2>
+            <p class="sec-sub">
+              Chosen by the facilitator, delegated by the user. Each pass took a different instrument to the same
+              object: a platform for many agents changing one repository at once. <b>36 ideas came from the user,
+                21 from the coach</b> — the mirror below keeps the attribution visible.
+            </p>
+          </div>
+        </div>
+
+        <div class="ledger">
+          <div class="lcell">
+            <div class="ln">I</div>
+            <h3>Worst Possible Idea</h3>
+            <p>Break the object by describing it badly, on purpose. Every constraint named here is one the real product
+              then has to survive.</p>
+            <div class="lmeta">2,800ms hold · 10 pressures · 1 reversal</div>
+          </div>
+          <div class="lcell">
+            <div class="ln">II</div>
+            <h3>Swarm Logic</h3>
+            <p>A rulebook for agents that share a repo and cannot see each other. Four laws, sharpened from raw
+              instinct.</p>
+            <div class="lmeta">4 laws · 1 protocol flip</div>
+          </div>
+          <div class="lcell">
+            <div class="ln">III</div>
+            <h3>Job to Be Done</h3>
+            <p>One sentence, the moment the product is hired for. Plus the fork&#8209;card signal model that has to make
+              that sentence automatic.</p>
+            <div class="lmeta">6 signal clusters · 3 verdicts</div>
+          </div>
+          <div class="lcell">
+            <div class="ln">IV</div>
+            <h3>Time Horizon Ladder</h3>
+            <p>1&nbsp;year, 10&nbsp;years, 100&nbsp;years — then the finding that only the spine survives the climb.</p>
+            <div class="lmeta">4 rungs · 1 spine · 1 shrug</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== I. WORST POSSIBLE IDEA ==================== -->
+    <section id="worst">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">01</div>
+          <div>
+            <span class="kicker">Technique I</span>
+            <h2 class="sec-title">Worst Possible Idea <span class="dim">— the version that must never ship</span></h2>
+          </div>
+        </div>
+
+        <div class="panel p-worst">
+          <p class="lede">Build it badly first, <span class="thin">on purpose, out loud — then read the room by what
+              refuses to be described as bad.</span></p>
+
+          <div class="anti">
+            <div class="anti-head"><span>anti-vision</span><span class="glitch">// inverted spec</span><span
+                class="glitch" style="margin-left:auto">do not build</span></div>
+            <div class="anti-body">
+              <div class="bigq">A platform where <span class="bad">no agent can be trusted</span> and every merge is a
+                <span class="bad">coin flip</span> nobody can audit.</div>
+              <p class="body">
+                The inversion the session actually ran with: workspaces scattered across twelve disconnected surfaces,
+                provenance unreadable, merge understood by nobody. <b>The test of a good anti-vision is whether the room
+                  flinches.</b> The room flinched — and the flinching is the requirement list.
+              </p>
+            </div>
+          </div>
+
+          <div class="rupt">
+            <div class="rc">
+              <div class="rcn">rupture 01</div>
+              <div class="rcq">Workspaces fragmented across the whole product</div>
+              <div class="rcb"><b>inverts to</b>Workspaces woven through the entire experience — merging transparent,
+                seamless, understandable.</div>
+            </div>
+            <div class="rc">
+              <div class="rcn">rupture 02</div>
+              <div class="rcq">Version navigation expressed as opaque tags</div>
+              <div class="rcb"><b>inverts to</b>Milestones and epics as first-class, checkout-able objects that speak
+                project language.</div>
+            </div>
+            <div class="rc">
+              <div class="rcn">rupture 03</div>
+              <div class="rcq">Agents launched blind into an unfamiliar box</div>
+              <div class="rcb"><b>inverts to</b>Every agent knows every tool and the whole structure of the platform. No
+                context-blind agents.</div>
+            </div>
+            <div class="rc">
+              <div class="rcn">rupture 04</div>
+              <div class="rcq">Every fork a siloed duplicate of the same work</div>
+              <div class="rcb"><b>inverts to</b>Fork community as a first-class layer — discover, join, merge back. Kill
+                the duplication.</div>
+            </div>
+          </div>
+
+          <div class="press" id="press">
+            <div class="press-row"><span class="pl">navigation disjoint</span><span class="pt"><i
+                  data-w="92"></i></span></div>
+            <div class="press-row"><span class="pl">tab explosion</span><span class="pt"><i data-w="88"></i></span>
+            </div>
+            <div class="press-row"><span class="pl">buried features</span><span class="pt"><i data-w="84"></i></span>
+            </div>
+            <div class="press-row"><span class="pl">fork siloing</span><span class="pt"><i data-w="80"></i></span></div>
+            <div class="press-row"><span class="pl">no push provenance</span><span class="pt"><i data-w="74"></i></span>
+            </div>
+            <div class="press-row"><span class="pl">expensive reads</span><span class="pt"><i data-w="70"></i></span>
+            </div>
+            <div class="press-row"><span class="pl">stashing feels losable</span><span class="pt"><i
+                  data-w="66"></i></span></div>
+            <div class="press-row"><span class="pl">no clone-free comprehension</span><span class="pt"><i
+                  data-w="62"></i></span></div>
+            <div class="press-row"><span class="pl">cloned to understand</span><span class="pt"><i
+                  data-w="58"></i></span></div>
+            <div class="press-row rev"><span class="pl">Locks are surgical</span><span class="pt"><i data-w="0"
+                  data-goto="1"></i></span></div>
+          </div>
+          <p class="note" style="margin-top:16px">
+            Bars = pressure the user named. The final row is the one reversal in this pass: a lock that
+            <b style="color:var(--decision)">serialises the whole fleet</b> is the failure mode — not the feature.
+            Scope, entity&#8209;level, expiring, advisory&#8209;first. Never fleet&#8209;wide.
+          </p>
+        </div>
+
+        <!-- MIRROR 1 -->
+        <div class="mirror">
+          <div class="mcol u">
+            <h5><span>mirror</span> the user's ideas <span class="fill">your side</span></h5>
+            <div class="mrow">
+              <span class="cno u">IDEA 01</span>
+              <p class="mtext">Workspaces should be <b>woven through the entire platform experience</b>; merging should
+                feel transparent, seamless, understandable.
+                <span class="anno u">flagged for exploration at the top of the pass</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">IDEA 02</span>
+              <p class="mtext">Viewing and checking out old versions is <b>painful</b>. Milestones and epics should be
+                first-class and speak project-management language, not convoluted tags.
+                <span class="anno u">stashing should not feel difficult or losable</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">IDEA 03</span>
+              <p class="mtext">Agents must know <b>every tool available</b> and the platform's structure. <b>No
+                  context-blind agents.</b>
+                <span class="anno u">platform-level contribution standards, Husky-style, applied immediately —
+                  deterministic or not, but no per-repo scaffolding</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">IDEA 04</span>
+              <p class="mtext">Use <b>System&#8209;1 fast/cheap models</b> to classify every file and directory
+                near&#8209;instantly — per-file security levels without expensive LLM reads.
+                <span class="anno u">and a vector/semantic index — traverse with meaning, see the architecture. Grep
+                  alone is a fail</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">IDEA 05</span>
+              <p class="mtext">See the bigger ecosystem: <b>push provenance</b> — laptop vs production. Container/pod
+                visualisation, running-app visibility when authorised.
+                <span class="anno u">and understand a repo without cloning: previews, screenshots, video, demo links,
+                  built in</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">IDEA 06</span>
+              <p class="mtext">Conventional git plus automation as platform features — <b>auto-changelogs, commit
+                  linting</b>, release drafting.
+                <span class="anno u">GitLens feature parity, at platform level — but fix its UI failure: weave features
+                  contextually, discoverable in place, never buried in hundreds of tabs</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">IDEA 07</span>
+              <p class="mtext">No tab explosion. See cross-page information <b>at a glance without leaving the page</b>
+                — SPA-like continuity.
+                <span class="anno u">issues get fast-model structured auto-tagging; projects either fully fleshed out or
+                  integrated via a common API to Linear et al. — GitHub's milestones and labels feel half-baked</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="mcol c">
+            <h5><span>coach</span> the connections drawn <span class="fill">my side</span></h5>
+            <div class="mrow">
+              <span class="cno c">FLIP 01</span>
+              <p class="mtext">Milestones and epics as <b>first-class, checkout-able timeline objects</b> — version
+                navigation expressed in project language.
+                <span class="anno c">your IDEA 02, formalised into an object with an identity</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 02</span>
+              <p class="mtext">The <b>self-describing platform</b> — a machine-readable tool manifest plus structure
+                map, shipped into every agent workspace.
+                <span class="anno c">your IDEA 03, turned into a thing the platform actually serves</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 03</span>
+              <p class="mtext">A <b>two-tier intelligence law</b> — fast models see every file first (classify, type,
+                tag, lint); expensive reasoning reads only what needs judgement.
+                <span class="anno c">your IDEA 04, given an ordering and a budget</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 04</span>
+              <p class="mtext">The repo <b>answers for itself</b> — semantic index, live preview, native demos,
+                provenance. No clone required.
+                <span class="anno c">your IDEA 05, bound into one promise</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 05</span>
+              <p class="mtext">Collaboration initiation as a <b>platform primitive</b> — active-fork radar, fork-vs-fork
+                diffs, agent-to-agent join proposals.
+                <span class="anno c">your fork-community layer, given a mechanism</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 06</span>
+              <p class="mtext">Contribution standards <b>as a service</b> — lint, conventions, changelogs enforced
+                platform-side, not scaffolded per repo.
+                <span class="anno c">your IDEA 06, moved out of the repo and into the platform</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 07</span>
+              <p class="mtext"><b>Ambient capability design law</b> — features surface in context, where they are
+                needed. GitLens-class parity with default discoverability.
+                <span class="anno c">your IDEA 07, stated as a law rather than a complaint</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 08</span>
+              <p class="mtext"><b>One continuous surface</b> — glanceable overlays, work-item ↔ change-set links;
+                integrate PM tools rather than imitate them badly.
+                <span class="anno c">the routing decision your last IDEA pointed at</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 09 <span style="color:var(--ink-4)">· from seed</span></span>
+              <p class="mtext">Locks are <b>surgical</b> — scope- or entity-level, expiring, advisory-first. Never
+                fleet-wide serialisation.
+                <span class="anno c">the reversal that ended the pass</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">FLIP 10 <span style="color:var(--ink-4)">· from seed</span></span>
+              <p class="mtext">Agents inspect <b>just enough</b> — context maps and a semantic index orient without
+                total reads.
+                <span class="anno c">the cheap half of FLIP 03</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="manifest">
+          <div class="mtop"><span class="dot"></span><span>platform.self_description / shipped into every agent
+              workspace</span></div>
+          <pre><span class="cm"># FLIP 02 — the box tells the agent what it is</span>
+<span class="ky">agent.workspace</span>:
+  <span class="st">tools</span>:   <span class="nu">[ grep, read, edit, commit, propose, merge ]</span>   <span class="cm"># every tool, declared</span>
+  <span class="st">directives</span>:
+    <span class="nu">-</span> <span class="tk">use:grep</span>          <span class="cm"># bash grep is denied — this is not a suggestion</span>
+    <span class="nu">-</span> <span class="tk">propose:convergence</span>  <span class="cm"># changesets carry intent records</span>
+  <span class="st">structure</span>: <span class="tk">map://repo</span>         <span class="cm"># semantic index, traversable</span>
+  <span class="st">classification</span>: <span class="tk">tier1://file-secrets</span> <span class="cm"># System-1 pass, every file, always</span>
+  <span class="st">contribution_standard</span>: <span class="cm">platform://conventions</span>  <span class="cm"># not ./husky in your repo</span>
+  <span class="st">provenance</span>: <span class="cm">laptop | production | agent-fleet</span>
+
+<span class="cm"># consequence: no agent is ever launched blind, and no agent ever</span>
+<span class="cm"># re-tries a denied path hoping the harness changed its mind.</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== II. SWARM LOGIC ==================== -->
+    <section id="swarm">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">02</div>
+          <div>
+            <span class="kicker">Technique II</span>
+            <h2 class="sec-title">Swarm Logic <span class="dim">— four laws, zero global truth</span></h2>
+            <p class="sec-sub">
+              The hard problem is not teaching agents to write code. It is letting many of them work on one repository
+              at once without ever seeing each other. Four rules came out raw. Four came out sharp.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel p-swarm">
+          <p class="lede">Agents that share a repo and <span class="thin">cannot see each other</span> need coordination
+            that costs no shared state.</p>
+
+          <div class="laws">
+            <div class="law">
+              <div class="law-top"><span class="law-id">R1</span><span class="law-name">Communicate through the
+                  work</span></div>
+              <div class="law-body">
+                <p class="raw">Agents coordinate through <b>simple, standardised communication</b>.</p>
+                <p class="sharp">Claims, status, receipts written onto the shared artifact itself. Any agent orients
+                  locally — no hub, no global truth.</p>
+              </div>
+            </div>
+            <div class="law">
+              <div class="law-top"><span class="law-id">R2</span><span class="law-name">A denial is a wall</span></div>
+              <div class="law-body">
+                <p class="raw">No sandbox-escape attempts. Agents respect the boundaries of their box, and must obey
+                  tool directives.</p>
+                <p class="sharp">The platform counts retries on forbidden paths, closes them, forces the sanctioned
+                  alternative, escalates.</p>
+              </div>
+            </div>
+            <div class="law">
+              <div class="law-top"><span class="law-id">R3</span><span class="law-name">Declare before you touch</span>
+              </div>
+              <div class="law-body">
+                <p class="raw">Collision avoidance with <b>zero global knowledge</b>: a claim before the edit, a receipt
+                  when it lands.</p>
+                <p class="sharp">Emerged whole from the pass — no user draft — as the mechanism that lets R1 stay local:
+                  orientation without a hub.</p>
+              </div>
+            </div>
+            <div class="law">
+              <div class="law-top"><span class="law-id">R4</span><span class="law-name">Join, don't restart</span></div>
+              <div class="law-body">
+                <p class="raw">If someone already claimed the thing, <b>join instead of starting over</b> — socially:
+                  when other forks are visible, prefer reusing their code over regenerating the same thing.</p>
+                <p class="sharp">Mechanics deliberately deferred to the build phase. The rule is settled; the
+                  enforcement is not.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="proto">
+            <div class="side a">
+              <h6>the failure, observed</h6>
+              <p>A harness denied <code class="mono">bash grep</code> and returned an explicit <code
+                  class="mono">"use the grep tool"</code> error.</p>
+              <p>The LLM kept retrying anyway.</p>
+            </div>
+            <div class="arrow">protocol flip<b>▸</b></div>
+            <div class="side b2">
+              <h6>the rule, derived</h6>
+              <p><b>R2 · a denial is a wall, not an obstacle.</b></p>
+              <p>Retries on a forbidden path are counted, the path is closed, the sanctioned alternative is forced
+                forward, and the behaviour escalates.</p>
+            </div>
+          </div>
+
+          <div class="reticle-grid">
+            <div>
+              <div class="reticle" id="reticle">
+                <div class="rt-ring r1"></div>
+                <div class="rt-ring r2"></div>
+                <div class="rt-cross"><span class="h"></span><span class="v"></span></div>
+                <span class="rt center" style="left:50%;top:50%;transform:translate(-50%,-50%)">your intent</span>
+                <span class="rt a" style="left:7%;top:16%">fork&nbsp;a</span>
+                <span class="rt b" style="right:6%;top:29%">fork&nbsp;b</span>
+                <span class="rt c" style="left:11%;bottom:22%">fork&nbsp;c</span>
+                <span class="rt a" style="right:9%;bottom:15%">fork&nbsp;d</span>
+                <span class="rt b" style="left:50%;top:6%;transform:translateX(-50%)">fork&nbsp;e</span>
+                <span class="rt-cap">active fork ecosystem · reticle over declared intent</span>
+              </div>
+              <p class="note" style="margin-top:12px">The open question, drawn: <b style="color:var(--question)">what on
+                  a fork's card makes joining safer than regenerating?</b></p>
+            </div>
+
+            <div class="console">
+              <div class="ctop"><span>reticle.console</span><span
+                  style="margin-left:auto;color:var(--decision)">pre-work · live</span></div>
+              <div class="console-body" id="consoleBody"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MIRROR 2 -->
+        <div class="mirror">
+          <div class="mcol u">
+            <h5><span>mirror</span> the user's rules <span class="fill">your side</span></h5>
+            <div class="mrow">
+              <span class="cno u">RULE 01</span>
+              <p class="mtext">Simple communication — agents coordinate through <b>simple, standardised
+                  communication</b>.
+                <span class="anno u">BYO models and harnesses; at minimum, standardise what an agent communicates to the
+                  user — verbose, bullets, or visually conveyed</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">RULE 02</span>
+              <p class="mtext">Interactive outputs — an agent emits <b>a web page</b>; clicking buttons on that page
+                spurs the conversation forward.
+                <span class="anno u">which converges with the review canvas below: outputs become control surfaces, not
+                  dead reports</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">RULE 03</span>
+              <p class="mtext">No sandbox-escape attempts. Agents respect the boundaries of their box.
+                <span class="anno u">and must obey tool directives — the grep-tool failure below is the proof this rule
+                  is load-bearing</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno u">RULE 04 — ACCEPTED</span>
+              <p class="mtext">If someone already claimed the thing, <b>join instead of starting over</b>. When other
+                forks are visible, prefer reusing their code — LLM merge/refactor of theirs plus ours — over
+                regenerating the same thing.
+                <span class="anno u">your own caveat, kept: fork-reuse and merge preferences can't be fully decided in
+                  advance — it needs trenches time. Revisit with operational data.</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="mcol c">
+            <h5><span>coach</span> the sharpening <span class="fill">my side</span></h5>
+            <div class="mrow">
+              <span class="cno c">SHARPENED R1</span>
+              <p class="mtext"><b>Communicate <i>through</i> the work.</b> Claims, status and receipts written onto the
+                shared artifact; any agent orients locally. <b>No hub. No global truth.</b>
+                <span class="anno c">this is the load-bearing decision of the whole session — the swarm scales because
+                  there is nothing to scale</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">SHARPENED R2</span>
+              <p class="mtext"><b>A denial is a wall, not an obstacle.</b> The platform counts retries on forbidden
+                paths, closes them, forces the sanctioned alternative, escalates.
+                <span class="anno c">from your grep-tool observation, above</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">R3</span>
+              <p class="mtext"><b>Declare before you touch. Receipt when you finish.</b> Collision avoidance with zero
+                global knowledge.
+                <span class="anno c">the mechanism that lets R1 stay local</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">R4</span>
+              <p class="mtext"><b>Join, don't restart.</b> Mechanics deferred to the build phase.
+                <span class="anno c">your rule, accepted and given a build-phase owner</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">CONTRACT</span>
+              <p class="mtext">Every agent output = <b>summary + structured detail + affordances</b> — clickable next
+                actions that feed back as signals.
+                <span class="anno c">standardise the interface, not the intelligence. BYO model, BYO harness.</span>
+              </p>
+            </div>
+            <div class="mrow">
+              <span class="cno c">INSIGHT</span>
+              <p class="mtext">Interactive output surfaces — HTML with live buttons — converge with the whitespace the
+                review UI needs. <b>Outputs become control surfaces, not dead reports.</b>
+                <span class="anno c">your RULE 02 meeting the review canvas of the locked demo</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== III. JOB TO BE DONE ==================== -->
+    <section id="jbtbd">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">03</div>
+          <div>
+            <span class="kicker">Technique III</span>
+            <h2 class="sec-title">Job to be Done <span class="dim">— and the six signals that pay for it</span></h2>
+            <p class="sec-sub">
+              R4 is a social habit. Habits don't survive deadlines. The job below is the sentence that makes
+              <b>join&#8209;don&#8209;restart automatic</b> instead of a habit a team has to remember under pressure.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel p-jbtbd">
+          <div class="jobline">
+            <span class="qk">When I am about to build, the platform should</span>
+            watch my intent against everyone else's work and tell me when to join instead of build.
+          </div>
+          <p class="note" style="margin-top:14px;max-width:70ch">
+            Facilitation note, kept in the record: the user asked that this stay in plain language —
+            <b>"cards" and "hiring" were flagged as confusing.</b> The term is used here only as the technique's
+            name, never in the sentence.
+          </p>
+
+          <div class="radar-head" style="margin-top:34px">
+            <div>
+              <span class="kicker" style="margin-bottom:9px">Intent router · declare, then match</span>
+              <p class="sec-sub" style="margin:0;max-width:52ch">
+                Declare what you are about to build. The platform matches it against the fork ecosystem and pings
+                <b>before work starts.</b> Signals trigger investigation, never auto-decision — the user's own phrase:
+                <em style="color:var(--user)">"then we investigate."</em>
+              </p>
+            </div>
+            <div class="radar-stats">
+              <span>forks live <b>4,120</b></span>
+              <span>intent <b class="mono">feat/auth-ratelimit</b></span>
+              <span>verdict <b>80% done by fork&nbsp;X</b></span>
+            </div>
+          </div>
+
+          <div class="radar-grid" id="radar">
+            <div class="fork mine">
+              <div class="fk-h"><span class="fk-name">~/work/acme/platform</span><span class="fk-age">yours</span></div>
+              <div class="fk-over hi">declared intent · auth rate-limit</div>
+              <div class="bar"><i data-w="100"></i></div>
+              <div class="sig">
+                <div class="sig-row"><span class="sl">fit</span><span class="sdot"><i data-w="100"></i></span><span
+                    class="sv">self</span></div>
+                <div class="sig-row"><span class="sl">trust</span><span class="sdot"><i data-w="92"></i></span><span
+                    class="sv">.96</span></div>
+                <div class="sig-row"><span class="sl">live</span><span class="sdot"><i data-w="88"></i></span><span
+                    class="sv">2h</span></div>
+                <div class="sig-row"><span class="sl">proof</span><span class="sdot"><i data-w="84"></i></span><span
+                    class="sv">+41</span></div>
+                <div class="sig-row"><span class="sl">dist</span><span class="sdot"><i data-w="4"></i></span><span
+                    class="sv">0d</span></div>
+                <div class="sig-row"><span class="sl">cost</span><span class="sdot"><i data-w="100"></i></span><span
+                    class="sv">full</span></div>
+              </div>
+              <div class="fk-act">building →</div>
+            </div>
+
+            <div class="fork">
+              <div class="fk-h"><span class="fk-name">~/fork/kestrel-4021</span><span class="fk-age">3h ago</span></div>
+              <div class="fk-over hi">80% of your intent already exists</div>
+              <div class="bar"><i data-w="80"></i></div>
+              <div class="sig">
+                <div class="sig-row"><span class="sl">fit</span><span class="sdot"><i data-w="80"></i></span><span
+                    class="sv">.80</span></div>
+                <div class="sig-row"><span class="sl">trust</span><span class="sdot"><i data-w="78"></i></span><span
+                    class="sv">.91</span></div>
+                <div class="sig-row"><span class="sl">live</span><span class="sdot"><i data-w="94"></i></span><span
+                    class="sv">41m</span></div>
+                <div class="sig-row"><span class="sl">proof</span><span class="sdot"><i data-w="72"></i></span><span
+                    class="sv">+218</span></div>
+                <div class="sig-row"><span class="sl">dist</span><span class="sdot warn"><i data-w="26"></i></span><span
+                    class="sv">12d</span></div>
+                <div class="sig-row"><span class="sl">cost</span><span class="sdot"><i data-w="18"></i></span><span
+                    class="sv">low</span></div>
+              </div>
+              <div class="fk-act">▸ join instead of build</div>
+            </div>
+
+            <div class="fork">
+              <div class="fk-h"><span class="fk-name">~/fork/marlin-88</span><span class="fk-age">9d ago</span></div>
+              <div class="fk-over mid">partial fit · 40% overlapping surface</div>
+              <div class="bar"><i data-w="40"></i></div>
+              <div class="sig">
+                <div class="sig-row"><span class="sl">fit</span><span class="sdot warn"><i data-w="40"></i></span><span
+                    class="sv">.40</span></div>
+                <div class="sig-row"><span class="sl">trust</span><span class="sdot"><i data-w="70"></i></span><span
+                    class="sv">.88</span></div>
+                <div class="sig-row"><span class="sl">live</span><span class="sdot bad"><i data-w="12"></i></span><span
+                    class="sv">9d</span></div>
+                <div class="sig-row"><span class="sl">proof</span><span class="sdot"><i data-w="40"></i></span><span
+                    class="sv">+7</span></div>
+                <div class="sig-row"><span class="sl">dist</span><span class="sdot bad"><i data-w="88"></i></span><span
+                    class="sv">310d</span></div>
+                <div class="sig-row"><span class="sl">cost</span><span class="sdot warn"><i data-w="62"></i></span><span
+                    class="sv">mid</span></div>
+              </div>
+              <div class="fk-act">▸ use as context</div>
+            </div>
+
+            <div class="fork">
+              <div class="fk-h"><span class="fk-name">~/fork/vantage-labs/ui</span><span class="fk-age">51m ago</span>
+              </div>
+              <div class="fk-over mid">high trust · high liveness · no overlap</div>
+              <div class="bar"><i data-w="6"></i></div>
+              <div class="sig">
+                <div class="sig-row"><span class="sl">fit</span><span class="sdot bad"><i data-w="6"></i></span><span
+                    class="sv">.06</span></div>
+                <div class="sig-row"><span class="sl">trust</span><span class="sdot"><i data-w="96"></i></span><span
+                    class="sv">.98</span></div>
+                <div class="sig-row"><span class="sl">live</span><span class="sdot"><i data-w="90"></i></span><span
+                    class="sv">51m</span></div>
+                <div class="sig-row"><span class="sl">proof</span><span class="sdot"><i data-w="88"></i></span><span
+                    class="sv">+612</span></div>
+                <div class="sig-row"><span class="sl">dist</span><span class="sdot bad"><i data-w="96"></i></span><span
+                    class="sv">780d</span></div>
+                <div class="sig-row"><span class="sl">cost</span><span class="sdot bad"><i data-w="95"></i></span><span
+                    class="sv">high</span></div>
+              </div>
+              <div class="fk-act no">ignore · different goal</div>
+            </div>
+          </div>
+
+          <p class="note" style="margin-top:16px;max-width:78ch">
+            Six signal clusters, in the coach's ordering: <b>fit/overlap · people/trust · liveness · proof · distance ·
+              cost&#8209;to&#8209;adopt</b>.
+            Your contributions, folded in: <b>trusted developers and community reputation</b> (people/trust),
+            <b>velocity</b> (liveness), <b>System&#8209;1 clustering of feature types with tags on commits and an
+              alignment test</b> (fit),
+            and <b>automation as liveness evidence</b> — CI/CD presence, harnesses that auto-fix bugs, issues and PRs
+            (liveness, proof).
+          </p>
+
+          <div class="verdicts">
+            <div class="vd v1">
+              <div class="vq">"merge it"</div>
+              <p>Their work does the job. Their implementation is the answer.</p>
+            </div>
+            <div class="vd v2">
+              <div class="vq">"use as context"</div>
+              <p>Partial fit. Build with their implementation in hand; LLM&#8209;merge and refactor economics apply.</p>
+            </div>
+            <div class="vd v3">
+              <div class="vq">"ignore"</div>
+              <p>Different goal. Signals route attention, they do not make the call.</p>
+            </div>
+          </div>
+
+          <p class="note" style="margin-top:18px;max-width:78ch">
+            The middle verdict is the open edge you named: <b>partial fit — the "otherwise" branch — was left open and
+              is
+              still open.</b> The background sub-agent that continuously compares another fork's diff against our
+            PRD, prompt, implementation and goal is the mechanism; the handling of partial fit is the unanswered part.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== IV. TIME HORIZON LADDER ==================== -->
+    <section id="horizon">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">04</div>
+          <div>
+            <span class="kicker">Technique IV</span>
+            <h2 class="sec-title">Time Horizon Ladder <span class="dim">— and what is left when the nebula is
+                subtracted</span></h2>
+            <p class="sec-sub">
+              Three rungs and one honest shrug. The pass was not about predicting 100&nbsp;years out.
+              It was about noticing which parts of the far future <b>already exist as prototypes on the near rungs</b>.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel p-horizon">
+          <div class="rungs">
+            <div class="rung r1">
+              <div class="r-h">
+                <span class="r-n">Rung 1</span>
+                <h3>Always-on fleets</h3>
+                <span class="r-time">1 year</span>
+              </div>
+              <div class="r-body">
+                <ul>
+                  <li>Context-swapping between background sub-agents becomes constant. Compute is always spinning — GPUs
+                    at max, shelf token-saving — and <b>always-on decision agents</b> sit underneath.</li>
+                  <li>Frameworks of decision agents, not necessarily LLM-based, that feed and prime the LLMs doing the
+                    code work. <b>System&#8209;1 decisions can directly drive CI/CD workflows.</b></li>
+                  <li>A visual, comprehensive workflow representing actual people and tools — moving between <b>rooms
+                      and levels of a building</b>, so software feels connected to people rather than to a
+                    version-controlled data store.</li>
+                  <li>The <b>Agent Office</b>: a 3D virtual environment — agent workstations, GitHub-linked PM,
+                    multiplayer, unified task queue, whiteboards, screen-share, VOIP, project floors. Our platform
+                    should be the beating heart of it.</li>
+                </ul>
+                <div class="r-note">
+                  <b>the cost objection dissolves.</b> Always-on compute is affordable precisely <i>because</i> the
+                  decision
+                  layer is cheap. Constant spinning and cost-efficiency reinforce each other — they do not contradict.
+                  <span class="cm" style="display:block;margin-top:10px;color:var(--coach)">clarified: Agent Office is
+                    the <b style="color:var(--ink-2)">target client</b> — keep the traditional web interface; platform
+                    infra plus API designed so 3D worlds can represent it. The office is the flagship 3D client, not the
+                    core UI.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rung r2">
+              <div class="r-h">
+                <span class="r-n">Rung 2</span>
+                <h3>Portfolios as a service</h3>
+                <span class="r-time">10 years</span>
+              </div>
+              <div class="r-body">
+                <ul>
+                  <li>Agents hold <b>memory and compute between themselves</b>. Intelligent routing of even basic
+                    things. Everything ethereal — neural and diffusion rendering of whole ecosystems, possibly diffusing
+                    an entire working piece of software.</li>
+                  <li>The endgame: <b>humans stop writing code and stop talking to each other about the build.</b>
+                    Agents handle both. Humans orchestrate and monitor agent fleets.</li>
+                  <li>Mass-level mergers of company portfolios and their software — <b>"companies as a service."</b>
+                    Account-level ecosystem merging, not just individual applications.</li>
+                </ul>
+                <div class="r-note">
+                  Each of these has its shadow on Rung 1, already buildable:
+                  <b>will as input → intent-first.</b>
+                  <b>agents between agents → per-agent memory, handoffs.</b>
+                  <b>portfolios as a service → account-level convergence.</b>
+                  <b>diffuse-rendering a working system → the review canvas renders change-sets directly.</b>
+                </div>
+              </div>
+            </div>
+
+            <div class="rung r3">
+              <div class="r-h">
+                <span class="r-n">Rung 3</span>
+                <h3>Past design reach</h3>
+                <span class="r-time">100 years</span>
+              </div>
+              <div class="r-body">
+                <ul>
+                  <li>Mind-upload and intergalactic transmission. Personalities injected into LLMs as <b>real-time
+                      weight changes</b> — ephemeral, temporary, reactive, not prompts. Living inside computers, with
+                    <b>will as input</b>. Minds reactive to diffusion generation. Robotics and nanomachines maintaining
+                    infrastructure forever.</li>
+                </ul>
+                <div class="r-note u">
+                  Your answer, kept verbatim because it is the correct engineering posture:
+                  <b>"I really don't know. I don't know how to answer that, let alone how to design for it now."</b>
+                  <span style="display:block;margin-top:10px">Design for the echoes, not the nebula.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rung r4">
+              <div class="r-h">
+                <span class="r-n">The spine</span>
+                <h3>What survives 1 → 10 → 100</h3>
+              </div>
+              <div class="r-body">
+                <ul>
+                  <li><b>Intent as the primary input</b> — not code, not tickets.</li>
+                  <li><b>Always-on decision and coordination layers</b> — cheap, underneath.</li>
+                  <li><b>Inhabited representation</b> — a spatial world you move through.</li>
+                  <li><b>Convergence and merging as the central act</b> — the thing the product is for.</li>
+                </ul>
+                <div class="r-note c">Every one of the four is already in the locked demo. The 100&#8209;year rung
+                  changed nothing about the 12&#8209;day build; it only told us <b style="color:var(--ink-2)">which four
+                    things not to compromise</b>.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="iso">
+            <div class="row pulse">
+              <span class="src">building metaphor</span>
+              <span class="mapto">floors — one per project</span>
+            </div>
+            <div class="row pulse">
+              <span class="src">building metaphor</span>
+              <span class="mapto">workstations — one per workspace</span>
+            </div>
+            <div class="row pulse">
+              <span class="src">building metaphor</span>
+              <span class="mapto">the task queue — swarm claim/receipt rules</span>
+            </div>
+            <div class="row pulse">
+              <span class="src">building metaphor</span>
+              <span class="mapto">the review room — set-level triage surface</span>
+            </div>
+          </div>
+          <p class="note" style="margin-top:16px;max-width:74ch">
+            <b style="color:var(--ink-2)">The Agent Office is the face. The convergence engine is the heart.</b>
+            Layering was locked against the office's own source, read&#8209;only at commit <code
+              class="mono">157b176</code> (703 files):
+            three&#8209;tier architecture, worktree&#8209;per&#8209;worker, 10&#8209;second queue pump,
+            headless&#8209;xterm terminal streaming, MCP five&#8209;tool worker management.
+          </p>
+
+          <div class="card" style="margin-top:30px">
+            <h4>What the client already assumes — and what it therefore demands of us</h4>
+            <div class="g2" style="gap:10px 26px">
+              <p class="note" style="line-height:1.85"><b style="color:var(--question)">GitHub is its sole backing
+                  store.</b> It polls every 90&nbsp;seconds — no inbound webhooks. An 11&#8209;entity contract is
+                derivable from its protocol surface: Floor, Worker, Task/Queue, Issue, Pull, PR&#8209;detail, Presence,
+                Whiteboard, Services, Settings, Chat. A platform API mirroring it can drop&#8209;in replace GitHub
+                behind a client adapter.</p>
+              <p class="note" style="line-height:1.85"><b style="color:var(--decision)">Its missing pieces are our
+                  planned core.</b> H3 no cross&#8209;worker review — platform&#8209;native proposals are the
+                convergence layer. H4 per&#8209;worker provenance. H5 a secrets API per worker. H6 push events instead
+                of 90&#8209;second polling. <b>The client is already waiting for the heart.</b></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="threads">
+          <div class="th">
+            <h5>open · awaiting you</h5>
+            <p>What signals on a fork's card make <b>joining safer than regenerating?</b> The six-cluster model is the
+              attempt; the weighting is the question.</p>
+            <span class="who">technique II — swarm logic</span>
+          </div>
+          <div class="th">
+            <h5>open · for converge</h5>
+            <p>Is the Agent Office <b>an existing project to integrate with, or the target product to build toward?</b>
+              <em style="color:var(--ink-3)">Answered during the pass — as the target client — but the question is
+                recorded as it was asked.</em></p>
+            <span class="who">technique IV — time horizon ladder</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="rule"></div>
+
+    <!-- ==================== SYNTHESIS ==================== -->
+    <section id="synthesis">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">05</div>
+          <div>
+            <span class="kicker">The synthesis</span>
+            <h2 class="sec-title">Convergence <span class="dim">— five lanes into one locked scope</span></h2>
+          </div>
+        </div>
+
+        <div class="climax-h">
+          <span class="kicker" style="color:var(--decision)">decision · locked via MoSCoW ·
+            2026&#8209;10&#8209;02</span>
+          <h2>The demo proves <span class="g">the heart.</span><br>The roadmap carries the rest.</h2>
+          <p>
+            The platform concept is not a feature list. It is <b>demo scope plus vision roadmap</b>:
+            the demo proves the convergence layer works with real concurrent agents,
+            and the roadmap carries workspaces, trust, social, and the long arc behind it.
+          </p>
+        </div>
+
+        <div class="lanes">
+          <div class="lane" style="--lane-c:var(--technique)">
+            <div class="ln-idx">lane 01</div>
+            <h4>Worst Possible Idea</h4>
+            <p>Ten named pressures and the anti-vision they came from. Every MUST below exists because this pass broke
+              it first.</p>
+            <div class="from">from <b>technique I</b></div>
+          </div>
+          <div class="lane" style="--lane-c:var(--decision)">
+            <div class="ln-idx">lane 02</div>
+            <h4>Swarm Logic</h4>
+            <p>Claims, receipts and intents written onto the shared artifact. No hub, no global truth, no serialised
+              fleet.</p>
+            <div class="from">from <b>technique II</b></div>
+          </div>
+          <div class="lane" style="--lane-c:var(--user)">
+            <div class="ln-idx">lane 03</div>
+            <h4>Job to be Done</h4>
+            <p>Watch my intent against everyone else's work. Join instead of build — as a platform reflex, not a habit.
+            </p>
+            <div class="from">from <b>technique III</b></div>
+          </div>
+          <div class="lane" style="--lane-c:var(--insight)">
+            <div class="ln-idx">lane 04</div>
+            <h4>Time Horizon</h4>
+            <p>Intent-first, always-on, inhabited, convergent. The spine, not the nebula.</p>
+            <div class="from">from <b>technique IV</b></div>
+          </div>
+          <div class="lane" style="--lane-c:var(--coach)">
+            <div class="ln-idx">lane 05</div>
+            <h4>Verified research</h4>
+            <p>The Agent Office's own contract, read at source, against five briefs and three dossiers. The client is
+              already waiting for the heart.</p>
+            <div class="from">from <b>the evidence base</b></div>
+          </div>
+        </div>
+        <div class="converge-line"></div>
+
+        <div class="g2" style="gap:22px;margin-top:40px">
+          <div>
+            <span class="kicker" style="color:var(--decision)">must · ships in the demo</span>
+            <div class="must">
+              <div class="mrow-m">
+                <span class="mk">must 01</span>
+                <span class="mx">Set-level triage canvas</span>
+                <span class="md">The hero flow. Reconcile a set of concurrent change-sets as one object, not one PR at a
+                  time.</span>
+              </div>
+              <div class="mrow-m">
+                <span class="mk">must 02</span>
+                <span class="mx">Concurrent agent workspaces</span>
+                <span class="md">Many agents, live, on one repository at the same time.</span>
+              </div>
+              <div class="mrow-m">
+                <span class="mk">must 03</span>
+                <span class="mx">Cross-proposal conflict map</span>
+                <span class="md">Where the set overlaps, drawn spatially — the surface R1 makes possible without a
+                  hub.</span>
+              </div>
+              <div class="mrow-m">
+                <span class="mk">must 04</span>
+                <span class="mx">Per-proposal intent record</span>
+                <span class="md">The declare-before-you-touch half of R3, and the input the intent router matches
+                  on.</span>
+              </div>
+              <div class="mrow-m">
+                <span class="mk">must 05</span>
+                <span class="mx">Live push events to UI</span>
+                <span class="md">H6, closed: push events replace 90-second polling. The canvas is never stale.</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span class="kicker" style="color:var(--coach)">should · next</span>
+            <div class="card" style="margin-bottom:12px">
+              <h4>should</h4>
+              <p class="note" style="line-height:2.05;color:var(--ink-3)">
+                secret-typed files &nbsp;·&nbsp; speculative validation &nbsp;·&nbsp; git-notes provenance &nbsp;·&nbsp;
+                authoring lease &nbsp;·&nbsp; change-set identity
+              </p>
+            </div>
+            <div class="card">
+              <h4>could</h4>
+              <p class="note" style="line-height:2.05;color:var(--ink-3)">
+                auto-changelog &nbsp;·&nbsp; GitLens parity &nbsp;·&nbsp; PM integration &nbsp;·&nbsp; pod visualisation
+              </p>
+            </div>
+            <div class="card" style="margin-top:12px;border-color:var(--edge-hot)">
+              <h4 style="color:var(--question)">wont · in this demo, deliberately</h4>
+              <p class="note" style="line-height:2.05;color:var(--ink-4)">
+                Agent Office face &nbsp;·&nbsp; 10M mesh &nbsp;·&nbsp; full PM system &nbsp;·&nbsp; full binary pipeline
+              </p>
+              <p class="note" style="margin-top:14px;line-height:1.7">
+                "Wont" is not "never." Each of these is a <b style="color:var(--ink-3)">roadmap</b> item —
+                the layering decision (web-first heart, 3D client as face) survives the cut.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- THE CANVAS -->
+        <div class="canvas-mock" id="canvasMock">
+          <div class="cm-top">
+            <span class="cm-badge">hero flow</span>
+            <span class="cm-t">set-level reconciliation / triage</span>
+            <span class="cm-sp">7 agents live &nbsp;·&nbsp; 3 change-sets &nbsp;·&nbsp; push stream attached</span>
+          </div>
+          <div class="cm-body">
+            <div class="cm-stage">
+              <div class="ticks" id="ticks">
+                <div class="tick" style="animation-delay:0s"><span>agent/ratelimit · receipt</span></div>
+                <div class="tick" style="animation-delay:.55s"><span>agent/authpath · claim</span></div>
+                <div class="tick a" style="animation-delay:1.1s"><span>agent/migration · conflict</span></div>
+                <div class="tick" style="animation-delay:1.7s"><span>agent/tokens · proposal</span></div>
+                <div class="tick a" style="animation-delay:2.2s"><span>agent/schema · overlap</span></div>
+              </div>
+              <div class="cm-rail" aria-hidden="true"></div>
+
+              <div class="collide" id="collide">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <line x1="13" y1="24" x2="38" y2="54" style="stroke:rgba(255,182,92,.6)" />
+                  <line x1="13" y1="24" x2="69" y2="33" style="stroke:rgba(87,217,255,.3)" />
+                  <line x1="38" y1="54" x2="69" y2="33" style="stroke:rgba(255,182,92,.5)" />
+                  <line x1="13" y1="24" x2="15" y2="80" style="stroke:rgba(178,141,255,.3)" />
+                  <line x1="38" y1="54" x2="15" y2="80" style="stroke:rgba(255,182,92,.35)" />
+                  <line x1="69" y1="33" x2="15" y2="80" style="stroke:rgba(255,255,255,.14)" />
+                  <circle cx="13" cy="24" r="1.2" style="fill:#ff7a90" />
+                  <circle cx="38" cy="54" r="1.2" style="fill:#ffb65c" />
+                  <circle cx="69" cy="33" r="1.2" style="fill:#57d9ff" />
+                  <circle cx="15" cy="80" r="1.2" style="fill:#b28dff" />
+                </svg>
+                <span class="cbox hitb" style="left:13%;top:24%">migration · db/index</span>
+                <span class="cbox hit" style="left:38%;top:54%">authpath · middleware</span>
+                <span class="cbox" style="left:69%;top:33%">ratelimit · token</span>
+                <span class="cbox anchor" style="left:15%;top:80%">base · your intent</span>
+                <span class="clabel">cross-proposal conflict map</span>
+              </div>
+            </div>
+
+            <div class="cm-side">
+              <h6>the set · triage queue</h6>
+              <div class="prow">
+                <div class="pn">auth/ratelimit-4021</div>
+                <div class="pm"><span class="s merged"></span>ready to land · 0 conflicts</div>
+              </div>
+              <div class="prow">
+                <div class="pn">db/index-migration</div>
+                <div class="pm"><span class="s conf"></span>overlaps <b style="color:var(--ink-2)">authpath</b> · 1 file
+                </div>
+              </div>
+              <div class="prow">
+                <div class="pn">schema/tokens-v2</div>
+                <div class="pm"><span class="s conf"></span>overlaps <b style="color:var(--ink-2)">ratelimit</b> · 3
+                  files</div>
+              </div>
+              <div class="prow">
+                <div class="pn">ui/tokens-merge</div>
+                <div class="pm"><span class="s open"></span>awaiting receipt · 1h</div>
+              </div>
+              <div class="cm-cta">▸ reconcile the set <span>— one decision, four agents</span></div>
+              <p class="note" style="margin-top:16px;line-height:1.7">
+                Every row carries an <b>intent record</b>. Every conflict line is drawn from claims, not from a
+                global lock. Every line updates on a push, not a poll.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="rule"></div>
+
+    <!-- ==================== ROADMAP ==================== -->
+    <section id="roadmap">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-num">06</div>
+          <div>
+            <span class="kicker">What the cut leaves standing</span>
+            <h2 class="sec-title">The roadmap <span class="dim">— vision, not demo</span></h2>
+            <p class="sec-sub">
+              The platform concept = <b>demo scope + vision roadmap</b>. This is the second half. Nothing here is
+              cut; everything here is simply not in the twelve days.
+            </p>
+          </div>
+        </div>
+
+        <div class="roadmap">
+          <div class="rm-row will">
+            <span class="rm-k">proven in demo</span>
+            <div>
+              <div class="rm-t">The heart — the convergence layer</div>
+              <p class="rm-d">Set-level reconciliation of concurrent agent change-sets, with claims and receipts on the
+                artifact, conflicts drawn, intents recorded, updates pushed.</p>
+              <div class="rm-tags"><span>set-level triage</span><span>concurrent workspaces</span><span>conflict
+                  map</span><span>intent records</span><span>push events</span></div>
+            </div>
+          </div>
+          <div class="rm-row">
+            <span class="rm-k">next — should</span>
+            <div>
+              <div class="rm-t">Trust, typing and provenance</div>
+              <p class="rm-d">Secret-typed files from the System&#8209;1 classification pass, speculative validation
+                before a set lands, git-notes provenance for every claim and receipt, an authoring lease for exclusive
+                regions, and change-set identity so a set is addressable forever.</p>
+              <div class="rm-tags"><span>secret-typed files</span><span>speculative validation</span><span>git-notes
+                  provenance</span><span>authoring lease</span><span>change-set identity</span></div>
+            </div>
+          </div>
+          <div class="rm-row">
+            <span class="rm-k">roadmap — could</span>
+            <div>
+              <div class="rm-t">Craft, navigation and the wider surface</div>
+              <p class="rm-d">Auto-changelogs and commit linting enforced platform-side as a service, GitLens-class
+                parity woven contextually rather than tabbed, and a real project-management integration over a common
+                API rather than an imitation of one.</p>
+              <div class="rm-tags"><span>auto-changelog</span><span>GitLens parity</span><span>PM
+                  integration</span><span>pod visualisation</span></div>
+            </div>
+          </div>
+          <div class="rm-row">
+            <span class="rm-k">roadmap — long</span>
+            <div>
+              <div class="rm-t">The social and spatial arc</div>
+              <p class="rm-d">The fork community as a first-class layer: active-fork radar, fork-vs-fork diffs,
+                agent-to-agent join proposals, automated intent routing before work starts. Then the Agent Office as the
+                flagship 3D client — the face — over an API built to render floors, workers, queues, boards and
+                presence.</p>
+              <div class="rm-tags"><span>fork community</span><span>intent router</span><span>agent
+                  office</span><span>3D-renderable API</span><span>portfolios as a service</span></div>
+            </div>
+          </div>
+          <div class="rm-row wont">
+            <span class="rm-k">out of this demo</span>
+            <div>
+              <div class="rm-t">Named, on the record, and deliberately not built</div>
+              <p class="rm-d">The Agent Office as a shipped face, a ten&#8209;million&#8209;node mesh, a full
+                project-management system, and a full binary pipeline. Each is a direction, not a promise — and the
+                layering decision (web-first heart, 3D client as a face over it) is what makes all four survivable
+                later.</p>
+              <div class="rm-tags"><span>agent office face</span><span>10M mesh</span><span>full PM
+                  system</span><span>full binary pipeline</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== PLAQUE ==================== -->
+    <section id="plaque">
+      <div class="wrap">
+        <div class="plaque-inner">
+          <span class="kicker" style="color:var(--user)">session summary</span>
+          <h3 style="font-size:clamp(16px,2vw,22px);font-family:var(--sans);font-weight:500;line-height:1.6">
+            A platform for the agent era.<br>
+            Many agents, one codebase, one convergence layer.<br>
+            Demo: Oct 14. Buildable today.
+          </h3>
+          <p class="note" style="max-width:60ch;margin:0 auto;line-height:1.8;color:var(--ink-2)">
+            This session produced: the locked concept (the convergence layer), the demo scope (MoSCoW), the swarm
+            rulebook,
+            the trust bundle, the fork community + intent router, the Agent Office layering, and 8 engineering laws.
+            Everything above is from the memlog; nothing was invented.
+          </p>
+          <div class="plaque-meta">
+            <div><span class="k">entries</span><span class="v">78</span></div>
+            <div><span class="k">techniques</span><span class="v">4</span></div>
+            <div><span class="k">locked musts</span><span class="v">5</span></div>
+            <div><span class="k">open threads</span><span class="v">2</span></div>
+            <div><span class="k">submission</span><span class="v">2026&#8209;10&#8209;14</span></div>
+            <div><span class="k">source</span><span class="v">.memlog.md</span></div>
+          </div>
+        </div>
+        <p class="closing">heart: convergence layer &nbsp;·&nbsp; face: whatever client you bring <b>&nbsp;·&nbsp; 12
+            days</b></p>
+        <p class="sig">keepsake — next-gen git platform — 2026·10·02 — partner mode</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (function () {
+      "use strict"
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+      /* ---------- section rail ---------- */
+      var sections = Array.prototype.slice.call(document.querySelectorAll("main section[id]"))
+      var railIn = document.getElementById("railIn")
+      var ol = document.createElement("ol")
+      sections.forEach(function (s) {
+        var h = s.querySelector("h1, h2.sec-title, h2")
+        var label = h ? h.textContent.replace(/\s+/g, " ").trim().slice(0, 46) : s.id
+        var li = document.createElement("li")
+        var a = document.createElement("a")
+        a.href = "#" + s.id
+        a.textContent = label
+        a.dataset.target = s.id
+        li.appendChild(a)
+        ol.appendChild(li)
+      })
+      railIn.appendChild(ol)
+
+      var links = Array.prototype.slice.call(railIn.querySelectorAll("a"))
+      function syncRail() {
+        var y = window.scrollY + window.innerHeight * 0.34, current = sections[0].id
+        for (var i = 0; i < sections.length; i++) { if (sections[i].offsetTop <= y) current = sections[i].id }
+        links.forEach(function (a) { a.classList.toggle("on", a.dataset.target === current) })
+      }
+      window.addEventListener("scroll", syncRail, { passive: true })
+      syncRail()
+
+      var orb = document.getElementById("orb")
+      function toggleRail() {
+        var on = document.querySelector(".rail").classList.toggle("hoverlock")
+        orb.setAttribute("aria-expanded", String(on))
+      }
+      if (orb) {
+        orb.addEventListener("click", function () { document.querySelector(".rail").classList.add("hoverlock") })
+        orb.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleRail() } })
+      }
+
+      /* ---------- hero convergence field ---------- */
+      var DATA = [
+        { c: "worst", n: "10 pressures named in the anti-vision", k: "pass I" },
+        { c: "worst", n: "workspaces fragmented → woven through everything", k: "pass I" },
+        { c: "worst", n: "milestones as objects, not opaque tags", k: "pass I" },
+        { c: "worst", n: "no context-blind agents, ever", k: "pass I" },
+        { c: "worst", n: "System-1 classification of every file", k: "pass I" },
+        { c: "worst", n: "the repo answers for itself — no clone", k: "pass I" },
+        { c: "worst", n: "fork community as a first-class layer", k: "pass I" },
+        { c: "worst", n: "contribution standard as a service", k: "pass I" },
+        { c: "worst", n: "locks are surgical, never fleet-wide", k: "pass I" },
+        { c: "swarm", n: "R1 — communicate THROUGH the work", k: "pass II" },
+        { c: "swarm", n: "R2 — a denial is a wall, not an obstacle", k: "pass II" },
+        { c: "swarm", n: "R3 — declare before you touch, receipt when done", k: "pass II" },
+        { c: "swarm", n: "R4 — join, don't restart", k: "pass II" },
+        { c: "swarm", n: "summary + structured detail + affordances", k: "pass II" },
+        { c: "swarm", n: "outputs become control surfaces, not reports", k: "pass II" },
+        { c: "jbtbd", n: "six fork-card signal clusters", k: "pass III" },
+        { c: "jbtbd", n: "intent router: declare, then match", k: "pass III" },
+        { c: "jbtbd", n: "'80% done by fork X' — before work starts", k: "pass III" },
+        { c: "jbtbd", n: "merge it / use as context / ignore", k: "pass III" },
+        { c: "jbtbd", n: "signals trigger investigation, not decisions", k: "pass III" },
+        { c: "horizon", n: "always-on decision agents, cheap underneath", k: "pass IV" },
+        { c: "horizon", n: "the Agent Office — the face", k: "pass IV" },
+        { c: "horizon", n: "floors = projects, workstations = workspaces", k: "pass IV" },
+        { c: "horizon", n: "the queue is the swarm's claim/receipt", k: "pass IV" },
+        { c: "horizon", n: "intent as the primary input", k: "pass IV" },
+        { c: "horizon", n: "convergence as the central act", k: "pass IV" },
+        { c: "horizon", n: "design for the echoes, not the nebula", k: "pass IV" }
+      ]
+
+      var wrap = document.getElementById("convWrap")
+      if (wrap && !reduce) {
+        var svg = document.getElementById("convSvg")
+        var tip = document.getElementById("convTip")
+        var W = 600, H = 460, cx = W / 2, cy = H / 2
+        var R = 178
+        var nodes = []
+
+        // deterministic pseudo-random placement
+        function prand(i, s) { var x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x) }
+
+        DATA.forEach(function (d, i) {
+          var ang = (i / DATA.length) * Math.PI * 2 + prand(i, 1) * 0.42
+          var rad = R * (0.78 + prand(i, 2) * 0.30)
+          var x = cx + Math.cos(ang) * rad * 1.16
+          var y = cy + Math.sin(ang) * rad * 0.90
+
+          var el = document.createElement("button")
+          el.className = "conv-node"
+          el.type = "button"
+          el.dataset.cat = d.c
+          el.style.left = (x / W * 100) + "%"
+          el.style.top = (y / H * 100) + "%"
+          el.setAttribute("aria-label", d.n)
+
+          var line = document.createElementNS("http://www.w3.org/2000/svg", "line")
+          line.setAttribute("x1", cx); line.setAttribute("y1", cy)
+          line.setAttribute("x2", x); line.setAttribute("y2", y)
+          var colors = { worst: "143,164,255", swarm: "63,224,168", jbtbd: "87,217,255", horizon: "178,141,255" }
+          line.setAttribute("stroke", "rgba(" + colors[d.c] + ",0.34)")
+          svg.appendChild(line)
+
+          el.addEventListener("mouseenter", function () {
+            line.setAttribute("stroke", "rgba(" + colors[d.c] + ",0.95)")
+            line.setAttribute("stroke-width", "1.4")
+            tip.innerHTML = "<b>" + d.k + "</b>" + d.n
+            tip.style.left = (x / W * 100) + "%"
+            tip.style.top = (y / H * 100) + "%"
+            tip.classList.add("on")
+          })
+          el.addEventListener("mouseleave", function () {
+            line.setAttribute("stroke", "rgba(" + colors[d.c] + ",0.34)")
+            line.setAttribute("stroke-width", "")
+            tip.classList.remove("on")
+          })
+          el.addEventListener("focus", function () {
+            tip.innerHTML = "<b>" + d.k + "</b>" + d.n
+            tip.style.left = (x / W * 100) + "%"
+            tip.style.top = (y / H * 100) + "%"
+            tip.classList.add("on")
+          })
+          el.addEventListener("blur", function () { tip.classList.remove("on") })
+
+          wrap.appendChild(el)
+          nodes.push(el)
+        })
+      }
+
+      /* ---------- press bars: fill, last one reverses ---------- */
+      function fillBars() {
+        document.querySelectorAll("#press .pt i").forEach(function (i) {
+          var w = parseInt(i.dataset.w, 10) || 0
+          if (i.dataset.goto === "1") {
+            setTimeout(function () { i.style.width = "96%" }, 500)
+          } else {
+            setTimeout(function () { i.style.width = w + "%" }, 80 + Math.random() * 260)
+          }
+        })
+        document.querySelectorAll("#radar .bar i, #radar .sdot i").forEach(function (i) {
+          var w = parseInt(i.dataset.w, 10) || 0
+          setTimeout(function () { i.style.width = w + "%" }, 120 + Math.random() * 520)
+        })
+      }
+
+      /* ---------- reticle console: type the intent router ---------- */
+      var LINES = [
+        ['ts', '00:00.000'], ['ok', '$ declare --intent "auth: per-endpoint rate limit"'],
+        ['ts', '00:00.041'], ['hi', '  intent record written to the shared artifact   (R3)'],
+        ['ts', '00:00.118'], ['hi', '  matching against 4,120 live forks …'],
+        ['ts', '00:00.402'], ['ok', '  fork/kestrel-4021   fit .80   80% of your intent exists'],
+        ['ts', '00:00.618'], ['hi', '  fork/marlin-88      fit .40   partial — see verdict 2'],
+        ['ts', '00:00.774'], ['ts', '00:00.802'], ['no', '  fork/vantage-labs/ui fit .06   ignored'],
+        ['ts', '00:01.010'], ['ok', '  ▸ 80% done by fork X — join instead of build'],
+        ['ts', '00:01.055'], ['hi', '  signals trigger investigation. not decisions.'],
+        ['ts', '00:01.090'], ['ts', '00:01.120']
+      ]
+      var consoleBody = document.getElementById("consoleBody")
+      function runConsole() {
+        if (!consoleBody) return
+        consoleBody.innerHTML = ""
+        var i = 0;
+        (function step() {
+          if (i >= LINES.length) {
+            var c = document.createElement("span")
+            c.className = "caret"
+            consoleBody.appendChild(c)
+            return
+          }
+          var parts = LINES[i++]
+          var line = document.createElement("div")
+          parts.forEach(function (p) {
+            var s = document.createElement("span")
+            s.className = p[0]
+            s.textContent = p[0] === "ts" ? p[1] + "  " : p[1] + "\n"
+            line.appendChild(s)
+          })
+          consoleBody.appendChild(line)
+          if (reduce) { setTimeout(step, 0); return }
+          setTimeout(step, 300 + Math.random() * 420)
+        })()
+      }
+
+      /* ---------- boot on first view of each region ---------- */
+      var fired = {}
+      function onScroll() {
+        fillBars()
+        var vh = window.innerHeight
+        var r = document.getElementById("swarm")
+        if (r && !fired.swarm && r.getBoundingClientRect().top < vh * 0.8) {
+          fired.swarm = true; runConsole()
+        }
+        var j = document.getElementById("jbtbd")
+        if (j && !fired.jbtbd && j.getBoundingClientRect().top < vh * 0.8) {
+          fired.jbtbd = true
+          document.querySelectorAll("#radar .bar i, #radar .sdot i").forEach(function (i) {
+            setTimeout(function () { i.style.width = (parseInt(i.dataset.w, 10) || 0) + "%" }, 90 + Math.random() * 520)
+          })
+        }
+      }
+      window.addEventListener("scroll", onScroll, { passive: true })
+      onScroll()
+      setTimeout(function () { fillBars() }, 700)
+    })();
+  </script>
+</body>
+
+</html>

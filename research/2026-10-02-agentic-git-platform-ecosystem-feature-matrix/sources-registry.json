@@ -1,0 +1,6441 @@
+{
+ "generated": "2026-10-02",
+ "sources": [
+  {
+   "id": 1,
+   "url": "https://blog.codacy.com/ai-code-review-tools-compared-2026-why-most-cant-safely-block-a-merge-and-what-code-governance-fixes",
+   "title": "Codacy \u2014 AI Code Review Tools Compared",
+   "type": "Vendor blog",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 2,
+   "url": "https://qodex.ai/blog/best-ai-code-review-tools",
+   "title": "Qodex \u2014 10 Best AI Code Review Tools",
+   "type": "Vendor blog",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 3,
+   "url": "https://arxiv.org/html/2607.03316v2",
+   "title": "arXiv 2607.03316 \u2014 Is Agentic Code Review Helpful?",
+   "type": "Paper",
+   "date": "2026-07",
+   "scraped": true,
+   "tier": "90",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 4,
+   "url": "https://www.greptile.com/docs/how-greptile-works/graph-based-codebase-context",
+   "title": "Greptile \u2014 Graph-based Codebase Context",
+   "type": "Docs",
+   "date": "n.d.",
+   "scraped": true,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 5,
+   "url": "https://greptile.com/pricing",
+   "title": "Greptile \u2014 Pricing",
+   "type": "Official",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 6,
+   "url": "https://greptile.com/content-library/best-ai-code-review-tools",
+   "title": "Greptile \u2014 Best AI Code Review Tools",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 7,
+   "url": "https://macroscope.com/content/macroscope-vs-greptile-ai-code-review-comparison",
+   "title": "Macroscope \u2014 vs Greptile",
+   "type": "Comparison",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 8,
+   "url": "https://macroscope.com/content/usage-based-pricing",
+   "title": "Macroscope \u2014 Usage-based pricing",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": "URL truncated in table (row 8); reconstructed from title/pattern \u2014 unverified path."
+  },
+  {
+   "id": 9,
+   "url": "https://kodus.io/",
+   "title": "Kodus \u2014 site / self-hosted / BYO-LLM",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 10,
+   "url": "https://github.com/kodustech/kodus-ai",
+   "title": "Kodus \u2014 GitHub repo",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 11,
+   "url": "https://docs.kodus.io/how_to_use/en/pricing",
+   "title": "Kodus \u2014 Pricing Deep Dive",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 12,
+   "url": "https://www.usagepricing.com/blueprint/activity/qodo-2026-06-30-packaging",
+   "title": "UsagePricing \u2014 Qodo repackaging",
+   "type": "Tracker",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 13,
+   "url": "https://docs.reviewpad.com/reviewpad-ai",
+   "title": "Reviewpad \u2014 Reviewpad AI docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 14,
+   "url": "https://www.cbinsights.com/company/reviewpad",
+   "title": "CBInsights \u2014 Reviewpad",
+   "type": "Directory",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 15,
+   "url": "https://sourcery.ai/comparisons/ellipsis-alternative",
+   "title": "Sourcery \u2014 Ellipsis alternative",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 16,
+   "url": "https://ellipsis.dev/docs/code-review",
+   "title": "Ellipsis \u2014 Code Review docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 17,
+   "url": "https://qodex.ai/blog/qodo-alternatives",
+   "title": "Qodex \u2014 Qodo alternatives",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 18,
+   "url": "https://cursor.com/pricing",
+   "title": "Cursor \u2014 Pricing",
+   "type": "Official",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 19,
+   "url": "https://github.com/features/copilot/plans",
+   "title": "GitHub \u2014 Copilot plans / code review docs",
+   "type": "Official",
+   "date": "2026",
+   "scraped": true,
+   "tier": "85",
+   "workers": [
+    "W1",
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 20,
+   "url": "https://graphite.com/pricing",
+   "title": "Graphite \u2014 Pricing",
+   "type": "Official",
+   "date": "2026",
+   "scraped": true,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 21,
+   "url": "https://www.graphite.com/",
+   "title": "Graphite \u2014 Homepage",
+   "type": "Official",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 22,
+   "url": "https://graphite.com/l/graphite-vs-coderabbit",
+   "title": "Graphite \u2014 vs CodeRabbit",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 23,
+   "url": "https://graphite.dev/blog/series-b-diamond-launch",
+   "title": "Graphite \u2014 Series B / Diamond",
+   "type": "Blog",
+   "date": "2025-03",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 24,
+   "url": "https://tracxn.com/d/companies/graphite/__EaYfnzIk42fkU06_bXD25Gaa-Qk3nGiKgt-McAYOaks/funding-and-investors",
+   "title": "Tracxn \u2014 Graphite funding",
+   "type": "Directory",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W1"
+   ],
+   "notes": "Reconstructed from evidence F2.5 (table row 24 truncated)."
+  },
+  {
+   "id": 25,
+   "url": "https://diamond.graphite.dev/",
+   "title": "Diamond \u2014 agentic AI code review",
+   "type": "Product",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 26,
+   "url": "https://tenki.cloud/benchmarks/code-reviewer",
+   "title": "Tenki \u2014 AI Code Review Benchmark",
+   "type": "Benchmark",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 27,
+   "url": "https://coderabbit.ai/newsroom/coderabbit-series-b-60-million",
+   "title": "CodeRabbit \u2014 Series B newsroom",
+   "type": "Company",
+   "date": "2025-09",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 28,
+   "url": "https://www.reuters.com/technology/ai-code-review-platform-coderabbit-valued-15-billion-latest-funding-round-2026-08-12",
+   "title": "Reuters \u2014 CodeRabbit $1.5B",
+   "type": "News",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 29,
+   "url": "https://techcrunch.com/2025/09/16/coderabbit-raises-60m-valuing-the-2-year-old-ai-code-review-startup-at-550m/",
+   "title": "TechCrunch \u2014 CodeRabbit $60M",
+   "type": "News",
+   "date": "2025-09",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 30,
+   "url": "https://www.businesswire.com/news/home/20260812311754/",
+   "title": "BusinessWire \u2014 CodeRabbit $143M",
+   "type": "PR",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": "URL truncated in table (row 30) \u2014 reconstructed from title."
+  },
+  {
+   "id": 31,
+   "url": "https://news.ycombinator.com/item?id=44953032",
+   "title": "HN \u2014 CodeRabbit RCE exploit",
+   "type": "Forum",
+   "date": "2025-08",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 32,
+   "url": "https://news.ycombinator.com/item?id=46315359",
+   "title": "HN \u2014 CodeRabbit suggestions thread",
+   "type": "Forum",
+   "date": "2026",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 33,
+   "url": "https://bito.ai/pricing",
+   "title": "Bito \u2014 Pricing",
+   "type": "Official",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 34,
+   "url": "https://deepsource.com/pricing",
+   "title": "DeepSource \u2014 Pricing / joined Harness",
+   "type": "Official",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 35,
+   "url": "https://sonarsource.com/plans-and-pricing/",
+   "title": "SonarSource \u2014 Plans and pricing",
+   "type": "Official",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 36,
+   "url": "https://docs.trunk.io/merge-queue/merge-queue",
+   "title": "Trunk \u2014 Merge Queue overview",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": true,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 37,
+   "url": "https://trunk.io/trunk-vs-mergify",
+   "title": "Trunk \u2014 vs Mergify/Aviator/GitHub MQ",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 38,
+   "url": "https://docs.trunk.io/setup-and-administration/billing",
+   "title": "Trunk \u2014 Billing and plans",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 39,
+   "url": "https://docs.trunk.io/merge-queue/administration/metrics",
+   "title": "Trunk \u2014 MQ metrics",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 40,
+   "url": "https://staging.mergify.com/compare-mergify",
+   "title": "Mergify \u2014 How does Mergify compare",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 41,
+   "url": "https://www.aviator.co/pricing",
+   "title": "Aviator \u2014 Pricing",
+   "type": "Official",
+   "date": "2026",
+   "scraped": true,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 42,
+   "url": "https://www.aviator.co/aviator-vs-graphite",
+   "title": "Aviator \u2014 vs Graphite",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 43,
+   "url": "https://www.aviator.co/aviator-mergequeue-mergify",
+   "title": "Aviator \u2014 MergeQueue vs Mergify",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 44,
+   "url": "https://docs.aviator.co/mergequeue/how-to-guides/merging-stacked-prs",
+   "title": "Aviator \u2014 Merge stacked PRs docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 45,
+   "url": "https://github.com/bors-ng/bors-ng",
+   "title": "Bors-NG \u2014 README",
+   "type": "Repo",
+   "date": "2024-04",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 46,
+   "url": "https://docs.jj-vcs.dev/starlight/git-comparison",
+   "title": "Jujutsu \u2014 Git comparison",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 47,
+   "url": "https://github.com/arxanas/git-branchless",
+   "title": "git-branchless \u2014 Concepts / README",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 48,
+   "url": "https://github.com/gitbutlerapp/version-control-bench",
+   "title": "version-control-bench",
+   "type": "Benchmark",
+   "date": "2026-07",
+   "scraped": true,
+   "tier": "65",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 49,
+   "url": "https://github.com/gitbutlerapp/docs/blob/master/docs/features/virtual-branches/README.md",
+   "title": "GitButler \u2014 Virtual branches docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 50,
+   "url": "https://docs.gitbutler.com/ai-agents/overview",
+   "title": "GitButler \u2014 AI agents overview",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 51,
+   "url": "https://sapling-scm.com/docs/introduction/",
+   "title": "Sapling \u2014 Introduction / Stacks",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 52,
+   "url": "https://github.com/facebook/sapling",
+   "title": "facebook/sapling \u2014 README",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 53,
+   "url": "https://lwn.net/Articles/915104",
+   "title": "LWN \u2014 Meta's Sapling SCM",
+   "type": "News",
+   "date": "2022-11",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 54,
+   "url": "https://docs.github.com/en/pull-requests/reference/stacked-pull-requests",
+   "title": "GitHub \u2014 Stacked pull requests",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 55,
+   "url": "https://github.com/github/gh-stack",
+   "title": "github/gh-stack \u2014 README",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": true,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 56,
+   "url": "https://github.com/slackhq/gh-stacked-diff",
+   "title": "slackhq/gh-stacked-diff",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 57,
+   "url": "https://gerrit-review.googlesource.com/Documentation/\u2026",
+   "title": "Gerrit \u2014 How Gerrit Works / Change-Ids",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W1"
+   ],
+   "notes": "URL truncated in table (row 57) \u2014 host confirmed, path incomplete; see evidence URL gerrit.googlesource.com/gerrit/+/master/Documentation/user-changeid.txt (separate entry)."
+  },
+  {
+   "id": 58,
+   "url": "https://cacm.acm.org/research/why-google-stores-billions-of-lines-of-code-in-a-single-repository",
+   "title": "CACM \u2014 Why Google Stores Billions of Lines",
+   "type": "Article",
+   "date": "2016-06",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 59,
+   "url": "https://dl.acm.org/doi/fullHtml/10.1145/2854146",
+   "title": "ACM DL \u2014 Piper / trunk-based",
+   "type": "Paper",
+   "date": "2016",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 60,
+   "url": "https://courses.cs.vt.edu/cs3704/spring22/student_presentations/Group-4.pdf",
+   "title": "VT notes \u2014 Piper scale figures",
+   "type": "Notes",
+   "date": "2022",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 61,
+   "url": "https://news.ycombinator.com/item?id=13563336",
+   "title": "HN \u2014 Google Piper thread",
+   "type": "Forum",
+   "date": "2017",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 62,
+   "url": "https://news.ycombinator.com/item?id=35810324",
+   "title": "HN \u2014 Stacked PRs Pros and Cons",
+   "type": "Forum",
+   "date": "2023",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 63,
+   "url": "https://news.ycombinator.com/item?id=32214809",
+   "title": "HN \u2014 In Praise of Stacked PRs",
+   "type": "Forum",
+   "date": "2022",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 64,
+   "url": "https://news.ycombinator.com/item?id=45371283",
+   "title": "HN \u2014 Theatre of Pull Requests",
+   "type": "Forum",
+   "date": "2025",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 65,
+   "url": "https://news.ycombinator.com/item?id=34033040",
+   "title": "HN \u2014 Sapling traction",
+   "type": "Forum",
+   "date": "2022\u201324",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 66,
+   "url": "https://man.archlinux.org/man/git-branchless.1.en",
+   "title": "Arch manual \u2014 git-branchless(1)",
+   "type": "Manual",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 67,
+   "url": "https://stg.graphite.com/docs/graphite-merge-queue",
+   "title": "Graphite \u2014 Merge Queue docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 68,
+   "url": "https://macroscope.com/budget-code-review",
+   "title": "Macroscope \u2014 Budget Mode",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W1"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 69,
+   "url": "https://docs.github.com/en/\u2026/request-a-code-review",
+   "title": "Qodex/GitHub \u2014 Copilot code review docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W1"
+   ],
+   "notes": "URL truncated in table (row 69) \u2014 path incomplete; not reconstructable with certainty."
+  },
+  {
+   "id": 70,
+   "url": "https://trunk.io/trunk-vs-aviator",
+   "title": "Trunk \u2014 vs Aviator",
+   "type": "Comparison",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W1"
+   ],
+   "notes": "Inline evidence F2.5 (not in table)."
+  },
+  {
+   "id": 71,
+   "url": "https://sapling-scm.com/docs/overview/stacks/",
+   "title": "Sapling \u2014 Stacks docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W1"
+   ],
+   "notes": "Inline evidence F2.7 (not in table)."
+  },
+  {
+   "id": 72,
+   "url": "https://github.com/arxanas/git-branchless/wiki/Concepts",
+   "title": "git-branchless \u2014 Concepts (wiki)",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W1"
+   ],
+   "notes": "Inline evidence F2.8 (not in table)."
+  },
+  {
+   "id": 73,
+   "url": "https://gerrit.googlesource.com/gerrit/+/master/Documentation/user-changeid.txt",
+   "title": "Gerrit \u2014 Change-Id documentation",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W1"
+   ],
+   "notes": "Inline evidence F2.10 (not in table)."
+  },
+  {
+   "id": 74,
+   "url": "https://arxiv.org/html/2607.04697v2",
+   "title": "AI Agent PRs on GitHub (arXiv:2607.04697v2)",
+   "type": "Paper",
+   "date": "2026-07",
+   "scraped": true,
+   "tier": "92",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 75,
+   "url": "https://github.blog/news-insights/company-news/welcome-home-agents/",
+   "title": "GitHub \u2014 Agent HQ",
+   "type": "Official",
+   "date": "2025-10",
+   "scraped": true,
+   "tier": "78",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 76,
+   "url": "https://docs.github.com/en/copilot/concepts/agents/coding-agent/agent-management",
+   "title": "GitHub Docs \u2014 agent management",
+   "type": "Docs",
+   "date": "current",
+   "scraped": true,
+   "tier": "85",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 77,
+   "url": "https://github.blog/ai-and-ml/github-copilot/how-to-orchestrate-agents-using-mission-control/",
+   "title": "GitHub \u2014 mission control guide",
+   "type": "Official",
+   "date": "2025-12",
+   "scraped": true,
+   "tier": "78",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 78,
+   "url": "https://superset.sh/parallel-coding-agents",
+   "title": "Superset \u2014 Parallel Coding Agents",
+   "type": "Vendor",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 79,
+   "url": "https://superset.sh/blog/roadmap-to-100-agents",
+   "title": "Superset \u2014 Roadmap to 100 Agents",
+   "type": "Vendor",
+   "date": "2026-02",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 80,
+   "url": "https://jules.google/docs/usage-limits",
+   "title": "Jules \u2014 Limits and Plans",
+   "type": "Docs",
+   "date": "current",
+   "scraped": true,
+   "tier": "88",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 81,
+   "url": "https://cognition.com/blog/new-self-serve-plans-for-devin",
+   "title": "Cognition \u2014 Devin plans",
+   "type": "Vendor",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 82,
+   "url": "https://cursor.com/changelog/04-24-26",
+   "title": "Cursor \u2014 3.2 changelog",
+   "type": "Changelog",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "85",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 83,
+   "url": "https://docs.gitlab.com/user/duo_agent_platform/",
+   "title": "GitLab \u2014 Duo Agent Platform",
+   "type": "Docs",
+   "date": "current",
+   "scraped": true,
+   "tier": "85",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 84,
+   "url": "https://ir.gitlab.com/news/news-details/2026/GitLab-Announces-the-General-Availability-of-GitLab-Duo-Agent-Platform",
+   "title": "GitLab IR \u2014 Duo GA",
+   "type": "Press",
+   "date": "2026-01",
+   "scraped": true,
+   "tier": "82",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 85,
+   "url": "https://ir.gitlab.com/news/news-details/2026/GitLab-19-4-Brings-New-Agentic-Automation-at-a-Lower-Cost/default.aspx",
+   "title": "GitLab IR \u2014 19.4",
+   "type": "Press",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "82",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 86,
+   "url": "https://ampcode.com/docs/pricing",
+   "title": "Amp \u2014 Pricing",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "80",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 87,
+   "url": "http://sdd.sh/agents",
+   "title": "sdd.sh \u2014 agents compared",
+   "type": "Blog",
+   "date": "2026-05",
+   "scraped": true,
+   "tier": "42",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 88,
+   "url": "https://www.openhands.dev/",
+   "title": "OpenHands \u2014 Home",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": true,
+   "tier": "60",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 89,
+   "url": "https://openhands.dev/enterprise",
+   "title": "OpenHands \u2014 Enterprise",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 90,
+   "url": "https://www.businesswire.com/news/home/20260506314667/en/",
+   "title": "Business Wire \u2014 OpenHands Control Plane",
+   "type": "Press",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 91,
+   "url": "https://docs.tangled.org/git",
+   "title": "Tangled \u2014 docs",
+   "type": "Docs",
+   "date": "2025-12",
+   "scraped": true,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 92,
+   "url": "https://thenewstack.io/ai-generated-code-crisis/",
+   "title": "The New Stack \u2014 AI PR crisis",
+   "type": "Analysis",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 93,
+   "url": "https://www.infoq.com/news/2026/09/radicle-network-vulnerabilities",
+   "title": "InfoQ \u2014 Radicle vulns",
+   "type": "News",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "68",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 94,
+   "url": "https://www.developer-tech.com/news/codeberg-members-vote-reject-llm-training-vibe-coding/",
+   "title": "developer-tech \u2014 Codeberg LLM vote",
+   "type": "News",
+   "date": "2026-07",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 95,
+   "url": "https://github.blog/changelog/2026-08-28-upcoming-changes-to-github-copilot-policies-and-billing",
+   "title": "GitHub \u2014 Copilot billing changes",
+   "type": "Changelog",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 96,
+   "url": "https://github.blog/changelog/2026-07-01-set-ai-credit-session-limits-in-copilot-cli-and-sdk",
+   "title": "GitHub \u2014 AI credit session limits",
+   "type": "Changelog",
+   "date": "2026-07",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 97,
+   "url": "https://github.com/resources/whitepapers/gartner-magic-quadrant-for-enterprise-ai-coding-agents",
+   "title": "GitHub \u2014 Gartner MQ",
+   "type": "Whitepaper",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 98,
+   "url": "https://www.atlassian.com/software/bitbucket/features/ai",
+   "title": "Atlassian \u2014 AI & Bitbucket",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 99,
+   "url": "https://www.atlassian.com/software/rovo-dev/pricing",
+   "title": "Atlassian \u2014 Rovo Dev pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 100,
+   "url": "https://bitbucket.org/product/pricing",
+   "title": "Bitbucket \u2014 Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 101,
+   "url": "https://about.gitea.com/pricing/",
+   "title": "Gitea \u2014 Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 102,
+   "url": "https://about.gitea.com/products/gitea-enterprise",
+   "title": "Gitea Enterprise",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 103,
+   "url": "https://forgejo.org/faq/",
+   "title": "Forgejo \u2014 FAQ",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 104,
+   "url": "https://forgejo.org/2026-05-monthly-report",
+   "title": "Forgejo \u2014 May 2026 report",
+   "type": "Release notes",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 105,
+   "url": "https://sourcehut.org/",
+   "title": "Sourcehut \u2014 Home/TOS",
+   "type": "Official",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 106,
+   "url": "https://sourcehut.org/blog/2026-08-27-tos-changes-and-llms",
+   "title": "Sourcehut \u2014 TOS changes re LLMs",
+   "type": "Blog",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 107,
+   "url": "https://sourcehut.org/pricing",
+   "title": "Sourcehut \u2014 Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 108,
+   "url": "https://tangled.org/",
+   "title": "Tangled \u2014 Home",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 109,
+   "url": "https://tangled.org/tangled.org/core",
+   "title": "Tangled core repo",
+   "type": "Source",
+   "date": "2026",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 110,
+   "url": "https://www.antler.co/blog/why-we-invested-in-tangled",
+   "title": "Antler \u2014 Tangled investment",
+   "type": "VC",
+   "date": "2026",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 111,
+   "url": "https://radicle.dev/2026/09/23/disclosure-of-vulnerability-in-network-protocol",
+   "title": "radicle.dev \u2014 disclosure",
+   "type": "Disclosure",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 112,
+   "url": "https://github.com/radicle-dev",
+   "title": "Radicle \u2014 GitHub org",
+   "type": "Profile",
+   "date": "2026",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 113,
+   "url": "https://sourcegraph.com/blog/agentic-batch-changes-pricing",
+   "title": "Sourcegraph \u2014 outcome pricing",
+   "type": "Vendor",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W2"
+   ],
+   "notes": "Blocked scrape (403/anti-bot) per worker-2 gaps."
+  },
+  {
+   "id": 114,
+   "url": "https://www.businesswire.com/news/home/20260701185004/en/",
+   "title": "Business Wire \u2014 Sourcegraph GA",
+   "type": "Press",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 115,
+   "url": "https://factory.ai/enterprise",
+   "title": "Factory \u2014 Enterprise",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 116,
+   "url": "https://factory.com/news/software-factory",
+   "title": "Factory 2.0",
+   "type": "Vendor",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 117,
+   "url": "https://factory.ai/news/series-c",
+   "title": "Factory \u2014 Series C",
+   "type": "Vendor",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 118,
+   "url": "https://docs.factory.ai/",
+   "title": "Factory \u2014 Docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 119,
+   "url": "https://zencoder.ai/pricing",
+   "title": "Zencoder \u2014 Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 120,
+   "url": "https://zencoder.ai/product/universal-ai-platform",
+   "title": "Zencoder \u2014 Universal AI Platform",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 121,
+   "url": "https://aisotools.com/blog/sweep-review-2026",
+   "title": "AISO \u2014 Sweep Review 2026",
+   "type": "Review",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 122,
+   "url": "https://github.com/aider-ai/aider",
+   "title": "Aider \u2014 GitHub repo",
+   "type": "Source",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 123,
+   "url": "https://claude.com/blog/subagents-in-claude-code",
+   "title": "Claude \u2014 Subagents",
+   "type": "Official",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 124,
+   "url": "https://www.anthropic.com/engineering/claude-code-best-practices",
+   "title": "Claude Code \u2014 best practices",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 125,
+   "url": "https://replit.com/enterprise",
+   "title": "Replit \u2014 Enterprise",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 126,
+   "url": "https://replit.com/pricing",
+   "title": "Replit \u2014 Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 127,
+   "url": "https://aisotools.com/replit-pricing",
+   "title": "AISO \u2014 Replit pricing",
+   "type": "Review",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 128,
+   "url": "https://orchestrator.inc/llms.txt",
+   "title": "Agent Orchestrator \u2014 llms.txt",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 129,
+   "url": "https://docs.orchestrator.inc/",
+   "title": "Agent Orchestrator \u2014 docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 130,
+   "url": "https://parallelcode.app/",
+   "title": "Parallel Code",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 131,
+   "url": "https://nimblegate.com/blog/parallel-ai-coding-agents",
+   "title": "nimblegate \u2014 parallel overlap",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 132,
+   "url": "https://codex.danielvaughan.com/2026/06/11/codex-cli-open-source-maintainers-automated-triage-pr-review-release-notes-workflows/",
+   "title": "Codex KB \u2014 maintainer triage",
+   "type": "Blog",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 133,
+   "url": "https://agents.md/",
+   "title": "agents.md",
+   "type": "Standard",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 134,
+   "url": "https://rulestack.kynth.studio/format/agents-md",
+   "title": "RuleStack \u2014 AGENTS.md stats",
+   "type": "Tracker",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 135,
+   "url": "https://axis-intelligence.com/github-statistics",
+   "title": "Axis Intelligence \u2014 GitHub stats",
+   "type": "Aggregator",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 136,
+   "url": "https://githubuniverse.com/",
+   "title": "GitHub Universe 2026",
+   "type": "Official",
+   "date": "2026-10",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 137,
+   "url": "https://octoverse.github.com/",
+   "title": "Octoverse 2025",
+   "type": "Report",
+   "date": "2025-10",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 138,
+   "url": "https://www.techtarget.com/it-infrastructure/news/366633584/",
+   "title": "TechTarget \u2014 Agent HQ",
+   "type": "News",
+   "date": "2025-10",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 139,
+   "url": "https://www.infoq.com/news/2026/03/agoda-ai-code-bottleneck/",
+   "title": "InfoQ/Agoda \u2014 comprehension debt",
+   "type": "News",
+   "date": "2026-03",
+   "scraped": false,
+   "tier": "62",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 140,
+   "url": "https://lucumr.pocoo.org/2026/7/24/codeberg-divides/",
+   "title": "Armin Ronacher \u2014 Codeberg Divides",
+   "type": "Blog",
+   "date": "2026-07",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 141,
+   "url": "https://hackaday.com/2026/07/24/codeberg-bans-cryptocurrency-and-llm-generated-code-projects/",
+   "title": "Hackaday \u2014 Codeberg bans",
+   "type": "News",
+   "date": "2026-07",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 142,
+   "url": "https://devtoollab.com/blog/best-background-coding-agents",
+   "title": "DevToolLab \u2014 background agents",
+   "type": "Blog",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 143,
+   "url": "https://dev.to/sangrokjung/claude-code-vs-codex-2026-what-500-reddit-developers-really-think-31pb",
+   "title": "dev.to \u2014 Claude vs Codex survey",
+   "type": "Survey",
+   "date": "2026-03",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 144,
+   "url": "https://www.llm-tier.com/compare/devin-vs-jules",
+   "title": "llm-tier \u2014 Devin vs Jules",
+   "type": "Benchmark",
+   "date": "2026",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 145,
+   "url": "https://www.metatext.io/benchmarks/swe-bench-verified",
+   "title": "Metatext \u2014 SWE-bench leaderboard",
+   "type": "Leaderboard",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 146,
+   "url": "https://www.codesota.com/browse/agentic/swe-bench",
+   "title": "CodeSOTA \u2014 SWE-bench",
+   "type": "Leaderboard",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 147,
+   "url": "https://forgefed.org/",
+   "title": "ForgeFed \u2014 spec",
+   "type": "Spec",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 148,
+   "url": "https://github.com/forgefed/forgefed",
+   "title": "ForgeFed \u2014 GitHub repo",
+   "type": "Spec",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 149,
+   "url": "https://www.gentoo.org/news/2026/02/16/codeberg.html",
+   "title": "Gentoo on Codeberg",
+   "type": "Project news",
+   "date": "2026-02",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 150,
+   "url": "https://www.linuxjournal.com/content/debian-experiments-ai-assisted-bug-triage",
+   "title": "Linux Journal \u2014 Debian AI triage",
+   "type": "News",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W2"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 151,
+   "url": "https://github.com/genno-whittlery/agent-notes/blob/main/2026-agents-md-standard.md",
+   "title": "agent-notes \u2014 AGENTS.md standard tracker",
+   "type": "Tracker",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W2"
+   ],
+   "notes": "Inline evidence A4-9 (not in table)."
+  },
+  {
+   "id": 152,
+   "url": "https://repomix.com/guide",
+   "title": "Repomix Guide",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 153,
+   "url": "https://github.com/yamadashy/repomix",
+   "title": "yamadashy/repomix",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 154,
+   "url": "https://gitingest.com/",
+   "title": "Gitingest",
+   "type": "Site",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 155,
+   "url": "https://repoprep.com/gitingest-alternative",
+   "title": "Repoprep \u2014 Gitingest alt",
+   "type": "Marketing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 156,
+   "url": "https://agents.md/index",
+   "title": "AGENTS.md",
+   "type": "Spec",
+   "date": "2025",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 157,
+   "url": "https://gist.github.com/mvandermeulen/98d63c53ccb0b161971fd479904952f5",
+   "title": "AGENTS.md best practices",
+   "type": "Gist",
+   "date": "2025",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 5.2 (table row 6 truncated)."
+  },
+  {
+   "id": 158,
+   "url": "https://ap0110.org/docs/agents-md",
+   "title": "AGENTS.md \u2014 AP0110",
+   "type": "Wiki",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 159,
+   "url": "https://wearables.developer.meta.com/docs/develop/dat/ai-assisted-agents-md",
+   "title": "Meta AGENTS.md",
+   "type": "Docs",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 5.2 (table row 8 truncated)."
+  },
+  {
+   "id": 160,
+   "url": "https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation",
+   "title": "Anthropic \u2014 donating MCP/AAIF",
+   "type": "Announcement",
+   "date": "2025-12-09",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 161,
+   "url": "https://dl.acm.org/doi/10.1145/3796519",
+   "title": "MCP landscape & threats",
+   "type": "Paper",
+   "date": "2026",
+   "scraped": false,
+   "tier": "95",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 162,
+   "url": "https://www.solidaitech.com/2026/06/agentic-ai.html",
+   "title": "SolidAITech \u2014 MCP stats",
+   "type": "Blog",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 163,
+   "url": "https://github.com/github/spec-kit",
+   "title": "github/spec-kit",
+   "type": "Repo",
+   "date": "2025-08",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 164,
+   "url": "https://github.github.io/spec-kit",
+   "title": "Spec Kit docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 165,
+   "url": "https://github.com/github/spec-kit/newsletters/2026-June.md",
+   "title": "Spec Kit June newsletter",
+   "type": "Repo doc",
+   "date": "2026-06",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 166,
+   "url": "https://specdriven.com/landscape/kiro",
+   "title": "Spec-Driven \u2014 Kiro",
+   "type": "Review",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 167,
+   "url": "https://specdriven.com/landscape/github-spec-kit",
+   "title": "Spec-Driven \u2014 Spec Kit",
+   "type": "Review",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 168,
+   "url": "https://specdriven.com/landscape/openspec",
+   "title": "Spec-Driven \u2014 OpenSpec",
+   "type": "Review",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 169,
+   "url": "https://kiro.dev/docs/specs.md",
+   "title": "Kiro Specs docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 170,
+   "url": "https://tessl.io/blog/\u2026kiro",
+   "title": "Tessl \u2014 AWS backs Kiro",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": "URL truncated in table (row 19) \u2014 path incomplete."
+  },
+  {
+   "id": 171,
+   "url": "https://github.com/tesslio/spec-driven-development-tile",
+   "title": "Tessl SDD tile",
+   "type": "Repo",
+   "date": "2025-12",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 172,
+   "url": "https://www.thoughtworks.com/en-us/radar/languages-and-frameworks/github-spec-kit",
+   "title": "Thoughtworks Radar \u2014 Spec Kit",
+   "type": "Analyst",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 5.4 (table row 21 truncated)."
+  },
+  {
+   "id": 173,
+   "url": "https://codex.danielvaughan.com/2026/04/27/spec-driven-development-tooling-codex-cli-spec-kit-cc-sdd-codex-spec/",
+   "title": "danielvaughan \u2014 SDD tooling",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 5.4 (table row 22 truncated)."
+  },
+  {
+   "id": 174,
+   "url": "https://github.com/git-ai-project/git-ai",
+   "title": "git-ai-project/git-ai",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 175,
+   "url": "https://usegitai.com/docs/get-started/how-git-ai-works",
+   "title": "Git AI \u2014 how it works",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 176,
+   "url": "https://usegitai.com/blog/message-level-attribution",
+   "title": "Git AI \u2014 message-level attribution",
+   "type": "Blog",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 177,
+   "url": "https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md",
+   "title": "Git AI standard v3.0.0",
+   "type": "Spec",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 5.5 (table row 26 truncated)."
+  },
+  {
+   "id": 178,
+   "url": "https://github.com/mesa-dot-dev/agentblame",
+   "title": "agentblame",
+   "type": "Repo",
+   "date": "2026-01",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 179,
+   "url": "https://sourcegraph.com/",
+   "title": "Sourcegraph",
+   "type": "Marketing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 180,
+   "url": "https://sourcegraph.com/blog/deep-search",
+   "title": "Sourcegraph Deep Search",
+   "type": "Blog",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 181,
+   "url": "https://cognition.com/blog/deepwiki",
+   "title": "Cognition \u2014 DeepWiki",
+   "type": "Blog",
+   "date": "2025-05",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 182,
+   "url": "https://github.com/mcp/cognitionai/deepwiki",
+   "title": "DeepWiki MCP",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 183,
+   "url": "https://docs.devin.ai/work-with-devin/deepwiki",
+   "title": "Devin DeepWiki docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 184,
+   "url": "https://github.com/ast-grep/ast-grep",
+   "title": "ast-grep",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 185,
+   "url": "https://ast-grep.github.io/advanced/tool-comparison.html",
+   "title": "ast-grep comparison",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 186,
+   "url": "https://github.com/semgrep/semgrep",
+   "title": "semgrep",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 187,
+   "url": "https://github.com/openrewrite/rewrite",
+   "title": "openrewrite",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 188,
+   "url": "https://moderne.ai/solutions/scale-openrewrite",
+   "title": "Moderne \u2014 scale OpenRewrite",
+   "type": "Marketing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 189,
+   "url": "https://difftastic.com",
+   "title": "Difftastic",
+   "type": "Site",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 190,
+   "url": "https://github.com/wilfred/difftastic",
+   "title": "Wilfred/difftastic",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 191,
+   "url": "https://getunblocked.com/pricing",
+   "title": "Unblocked pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 192,
+   "url": "https://temporal.io/blog/why-a-context-engine-needs-durable-execution-how-unblocked-rebuilt-its-ingestion-backbone-on-temporal",
+   "title": "Unblocked \u00d7 Temporal",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 5.8 (table row 41 truncated)."
+  },
+  {
+   "id": 193,
+   "url": "https://dev.fast",
+   "title": "dev.fast Whiteboard",
+   "type": "Product",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 194,
+   "url": "https://github.com/devdotfast/whiteboard",
+   "title": "devdotfast/whiteboard",
+   "type": "Repo",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 195,
+   "url": "https://andrew.ooo/posts/whiteboard-review-yc-open-source-design-canvas-ai-coding-agents/",
+   "title": "Whiteboard review",
+   "type": "Blog",
+   "date": "2026-09-27",
+   "scraped": true,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 6.1 (table row 44 truncated)."
+  },
+  {
+   "id": 196,
+   "url": "https://oflight.co.jp/en/columns/\u2026",
+   "title": "Oflight \u2014 Whiteboard",
+   "type": "Blog",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W3"
+   ],
+   "notes": "URL truncated in table (row 45) \u2014 path incomplete."
+  },
+  {
+   "id": 197,
+   "url": "https://docs.codesee.io/docs/getting-started",
+   "title": "CodeSee docs",
+   "type": "Docs",
+   "date": "2025-05",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 198,
+   "url": "https://marketplace.visualstudio.com/\u2026codesee.maps",
+   "title": "CodeSee Review Maps",
+   "type": "Marketplace",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": "URL truncated in table (row 47) \u2014 extension id incomplete."
+  },
+  {
+   "id": 199,
+   "url": "https://appmap.io/",
+   "title": "AppMap",
+   "type": "Product",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 200,
+   "url": "https://marketplace.visualstudio.com/items?itemName=Swimm.swimm",
+   "title": "Swimm",
+   "type": "Marketplace",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 6.2 (table row 49 truncated)."
+  },
+  {
+   "id": 201,
+   "url": "https://mermaid.js.org/syntax/zenuml.html",
+   "title": "Mermaid ZenUML",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 202,
+   "url": "https://github.com/mermaid-js/zenuml-core",
+   "title": "zenuml-core",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 203,
+   "url": "https://github.com/ZenUml/diagram",
+   "title": "ZenUml/diagram plugin",
+   "type": "Repo",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 204,
+   "url": "https://tldraw.dev/pricing",
+   "title": "tldraw pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 205,
+   "url": "https://tldraw.dev/blog/announcing-tldraw-sync",
+   "title": "tldraw sync",
+   "type": "Blog",
+   "date": "2024-08",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 206,
+   "url": "https://github.com/tldraw/tldraw/blob/main/LICENSE.md",
+   "title": "tldraw LICENSE",
+   "type": "License",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 207,
+   "url": "https://npmjs.com/package/@tldraw/sync",
+   "title": "@tldraw/sync",
+   "type": "Package",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 208,
+   "url": "https://xyflow.com/pro-license",
+   "title": "xyflow Pro License",
+   "type": "Legal",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 209,
+   "url": "https://pixijs.io/docs/",
+   "title": "PixiJS docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 210,
+   "url": "https://pixijs.com/8.x/guides/components/renderers",
+   "title": "PixiJS renderers",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 211,
+   "url": "https://liveblocks.io/pricing",
+   "title": "Liveblocks pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 212,
+   "url": "https://liveblocks.io/docs/pricing/plans",
+   "title": "Liveblocks plans",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 213,
+   "url": "https://www.partykit.io/",
+   "title": "PartyKit",
+   "type": "Product",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 214,
+   "url": "https://blog.cloudflare.com/cloudflare-acquires-partykit",
+   "title": "Cloudflare acquires PartyKit",
+   "type": "Blog",
+   "date": "2024-04",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 215,
+   "url": "https://blog.partykit.io/posts/partykit-is-joining-cloudflare",
+   "title": "PartyKit joining Cloudflare",
+   "type": "Blog",
+   "date": "2024-04",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 216,
+   "url": "https://docs.partykit.io/how-partykit-works",
+   "title": "PartyKit how it works",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 217,
+   "url": "https://jazz.tools",
+   "title": "Jazz",
+   "type": "Product",
+   "date": "2026",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 218,
+   "url": "https://jazz.tools/docs/concepts/local-first-data-model",
+   "title": "Jazz local-first model",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 219,
+   "url": "https://jazz.tools/blog/what-is-jazz",
+   "title": "Jazz \"What is Jazz\"",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 220,
+   "url": "https://github.com/garden-co/jazz",
+   "title": "garden-co/jazz",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 221,
+   "url": "https://electric-sql.com/docs/reference/alternatives",
+   "title": "ElectricSQL alternatives",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 222,
+   "url": "https://www.youngju.dev/blog/culture/2026-05-15-crdt-local-first-engines-2026-yjs-automerge-loro-replicache-liveblocks-deep-dive.en",
+   "title": "youngju \u2014 CRDT/local-first 2026",
+   "type": "Blog",
+   "date": "2026-05-15",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 6.5 (table row 71 truncated)."
+  },
+  {
+   "id": 223,
+   "url": "https://www.youngju.dev/blog/culture/2026-05-16-realtime-collaboration-engines-sync-2026-liveblocks-partykit-yjs-automerge-electricsql-replicache-zero-jazz-tools-deep-dive.en",
+   "title": "youngju \u2014 realtime engines 2026",
+   "type": "Blog",
+   "date": "2026-05-16",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Reconstructed from evidence 6.7/6.9 (table row 72 truncated)."
+  },
+  {
+   "id": 224,
+   "url": "https://secsync.com/docs/benchmarks",
+   "title": "secsync benchmarks",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 225,
+   "url": "https://loro.dev/docs/performance",
+   "title": "Loro performance",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "65",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 226,
+   "url": "https://github.com/dmonad/crdt-benchmarks",
+   "title": "dmonad/crdt-benchmarks",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 227,
+   "url": "https://arxiv.org/abs/2510.18893",
+   "title": "CodeCRDT (Pugachev)",
+   "type": "Paper",
+   "date": "2025-10-18",
+   "scraped": true,
+   "tier": "95",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 228,
+   "url": "https://www.scitepress.org/Papers/2022/112788/112788.pdf",
+   "title": "CoAST \u2014 CRDT for AST",
+   "type": "Paper",
+   "date": "2022",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 229,
+   "url": "https://arxiv.org/pdf/1810.02137",
+   "title": "OT vs CRDT for co-editors",
+   "type": "Paper",
+   "date": "2018\u201319",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W3"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 230,
+   "url": "https://usegitai.com/",
+   "title": "Git AI \u2014 home",
+   "type": "Site",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Inline evidence 5.5 (not in table)."
+  },
+  {
+   "id": 231,
+   "url": "https://unpkg.com/yjs%4013.4.11/docs/index.html",
+   "title": "Yjs API docs (unpkg mirror)",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Inline evidence 6.5 (not in table)."
+  },
+  {
+   "id": 232,
+   "url": "https://www.loro.dev/",
+   "title": "Loro \u2014 home",
+   "type": "Product",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Inline evidence 6.5 (not in table)."
+  },
+  {
+   "id": 233,
+   "url": "https://www.loro.dev/docs",
+   "title": "Loro \u2014 docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Inline evidence 6.5 (not in table)."
+  },
+  {
+   "id": 234,
+   "url": "https://jazz.tools/docs",
+   "title": "Jazz \u2014 docs",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W3"
+   ],
+   "notes": "Inline evidence 6.7 (not in table)."
+  },
+  {
+   "id": 235,
+   "url": "https://developers.cloudflare.com/workers/platform/limits/",
+   "title": "Workers Limits",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 236,
+   "url": "https://developers.cloudflare.com/workers/platform/pricing/",
+   "title": "Workers Pricing",
+   "type": "Docs",
+   "date": "2026-08",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 237,
+   "url": "https://developers.cloudflare.com/durable-objects/platform/limits/",
+   "title": "DO Limits",
+   "type": "Docs",
+   "date": "2026-06",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 238,
+   "url": "https://developers.cloudflare.com/durable-objects/platform/pricing/",
+   "title": "DO Pricing",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 239,
+   "url": "https://developers.cloudflare.com/workflows/reference/limits/",
+   "title": "Workflows Limits",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 240,
+   "url": "https://developers.cloudflare.com/workflows/reference/pricing/",
+   "title": "Workflows Pricing",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 241,
+   "url": "https://developers.cloudflare.com/sandbox/",
+   "title": "Sandboxes",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 242,
+   "url": "https://developers.cloudflare.com/agents/",
+   "title": "Agents",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 243,
+   "url": "https://developers.cloudflare.com/containers/",
+   "title": "Containers",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 244,
+   "url": "https://developers.cloudflare.com/containers/platform/limits/",
+   "title": "Containers Limits",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 245,
+   "url": "https://developers.cloudflare.com/queues/platform/limits/",
+   "title": "Queues Limits",
+   "type": "Docs",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 246,
+   "url": "https://developers.cloudflare.com/ai-gateway/",
+   "title": "AI Gateway",
+   "type": "Docs",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 247,
+   "url": "https://developers.cloudflare.com/ai-gateway/reference/limits/",
+   "title": "AI Gateway Limits",
+   "type": "Docs",
+   "date": "2026-09",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 248,
+   "url": "https://developers.cloudflare.com/browser-rendering/",
+   "title": "Browser Run",
+   "type": "Docs",
+   "date": "2026-08",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 249,
+   "url": "https://developers.cloudflare.com/vectorize/",
+   "title": "Vectorize",
+   "type": "Docs",
+   "date": "2026-04",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 250,
+   "url": "https://developers.cloudflare.com/agents/model-context-protocol/",
+   "title": "MCP",
+   "type": "Docs",
+   "date": "2026-06",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 251,
+   "url": "https://developers.cloudflare.com/agents/runtime/execution/durable-execution/",
+   "title": "Durable execution (fibers)",
+   "type": "Docs",
+   "date": "2026-08",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 252,
+   "url": "https://developers.cloudflare.com/artifacts/",
+   "title": "Artifacts",
+   "type": "Docs",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 253,
+   "url": "https://blog.cloudflare.com/next-git-platform-on-cloudflare/",
+   "title": "Next Git platform (competition)",
+   "type": "Blog",
+   "date": "2026-10-01",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 254,
+   "url": "https://blog.cloudflare.com/agents-week-in-review/",
+   "title": "Agents Week recap",
+   "type": "Blog",
+   "date": "2026-04-20",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 255,
+   "url": "https://blog.cloudflare.com/ai-code-review/",
+   "title": "AI Code Review at scale",
+   "type": "Blog",
+   "date": "2026-04-20",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 256,
+   "url": "https://blog.cloudflare.com/workflows-v2/",
+   "title": "Workflows control plane v2",
+   "type": "Blog",
+   "date": "2026-04-15",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 257,
+   "url": "https://blog.cloudflare.com/internal-ai-engineering-stack/",
+   "title": "Internal AI engineering stack",
+   "type": "Blog",
+   "date": "2026-04-20",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 258,
+   "url": "https://developers.cloudflare.com/changelog/post/2026-04-15-workflows-limits-raised",
+   "title": "Workflows limits raised",
+   "type": "Changelog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 259,
+   "url": "https://upstash.com/blog/ai-agent-sandbox-providers-compared-2026",
+   "title": "15 agent sandboxes compared",
+   "type": "Comparison",
+   "date": "2026-09-17",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 260,
+   "url": "https://bex.co/blog/2026/09/09/e2b-daytona-modal-sandbox-pricing-self-hosted",
+   "title": "Sandbox price parity",
+   "type": "Blog",
+   "date": "2026-09-09",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 261,
+   "url": "https://docs.e2b.dev/faq/calculate-sandbox-price",
+   "title": "E2B price formula",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 262,
+   "url": "https://e2b.dev/pricing",
+   "title": "E2B Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 263,
+   "url": "https://www.inngest.com/blog/best-job-queue-alternatives",
+   "title": "Job queue alternatives",
+   "type": "Blog",
+   "date": "2026-08-26",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 264,
+   "url": "https://www.inngest.com/pricing",
+   "title": "Inngest Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 265,
+   "url": "https://temporal.io/pricing",
+   "title": "Temporal Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 266,
+   "url": "https://trigger.dev/pricing",
+   "title": "Trigger.dev Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 267,
+   "url": "https://restate.dev/pricing/",
+   "title": "Restate Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 268,
+   "url": "https://modal.com/pricing",
+   "title": "Modal Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 269,
+   "url": "https://modal.com/resources/best-serverless-platforms-rl-environment-compute",
+   "title": "Modal RL environment compute",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 270,
+   "url": "https://modal.com/resources/best-serverless-sandboxes-ai-code-execution",
+   "title": "Modal code-exec sandboxes",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 271,
+   "url": "https://arize.com/ai-agents/agent-frameworks/",
+   "title": "Agent frameworks (Arize)",
+   "type": "Research",
+   "date": "2026-10-01",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 272,
+   "url": "https://edera.dev/stories/kata-vs-firecracker-vs-gvisor-isolation-compared",
+   "title": "Kata vs Firecracker vs gVisor",
+   "type": "Blog",
+   "date": "2026-01-30",
+   "scraped": true,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 273,
+   "url": "https://northflank.com/pricing",
+   "title": "Northflank Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 274,
+   "url": "https://docs.fly.io/about/billing",
+   "title": "Fly.io Billing",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 275,
+   "url": "https://fly.io/pricing",
+   "title": "Fly.io Pricing",
+   "type": "Pricing",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 276,
+   "url": "https://docs.fly.io/reference/suspend-resume",
+   "title": "Fly Machine suspend/resume",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 277,
+   "url": "https://langgraphjs.guide/comparison",
+   "title": "LangGraph/CrewAI/OpenAI compare",
+   "type": "Guide",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 278,
+   "url": "https://docs.crewai.com/v1.15.2/en/guides/migration/migrating-from-langgraph",
+   "title": "LangGraph\u2192CrewAI migration",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 279,
+   "url": "https://docs.langchain.com/oss/python/deepagents/comparison",
+   "title": "Deep Agents vs Claude Agent SDK",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 280,
+   "url": "https://open.cx/blog/ai-agent-frameworks-langgraph-crewai-autogen-2026",
+   "title": "Agent frameworks (Open.cx)",
+   "type": "Blog",
+   "date": "2026-05-30",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 281,
+   "url": "https://letsdatascience.com/blog/ai-agent-frameworks-compared",
+   "title": "Agent frameworks 2026",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 282,
+   "url": "https://learn.microsoft.com/sv-se/agents/architecture/multi-agent-orchestrator-sub-agent",
+   "title": "Orchestrator/subagent patterns",
+   "type": "Docs",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 283,
+   "url": "https://github.com/microsoftdocs/architecture-center/.../ai-agent-design-patterns.md",
+   "title": "AI agent design patterns",
+   "type": "Docs",
+   "date": "2026-02",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": "URL truncated in table (row 49) \u2014 repo path incomplete."
+  },
+  {
+   "id": 284,
+   "url": "https://splunk.com/en_us/blog/learn/openai-swarm-framework.html",
+   "title": "OpenAI Swarm guide",
+   "type": "Blog",
+   "date": "2026-09-23",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 285,
+   "url": "https://github.com/aixgo-dev/aixgo/blob/main/docs/PATTERNS.md",
+   "title": "Aixgo patterns",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 286,
+   "url": "https://blog.cloudflare.com/sandbox-ga/",
+   "title": "Sandbox GA",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 287,
+   "url": "https://blog.cloudflare.com/project-think/",
+   "title": "Project Think",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 288,
+   "url": "https://blog.cloudflare.com/code-mode/",
+   "title": "Code Mode",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 289,
+   "url": "https://blog.cloudflare.com/enterprise-mcp/",
+   "title": "Enterprise MCP",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 290,
+   "url": "https://developers.cloudflare.com/durable-objects/api/websockets",
+   "title": "DO WebSockets API",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 291,
+   "url": "https://developers.cloudflare.com/durable-objects/",
+   "title": "DO overview",
+   "type": "Docs",
+   "date": "2026-07",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 292,
+   "url": "https://developers.cloudflare.com/reference-architecture/diagrams/storage/durable-object-control-data-plane-pattern",
+   "title": "DO control/data-plane",
+   "type": "Docs",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 293,
+   "url": "https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing",
+   "title": "Workers for Platforms pricing",
+   "type": "Docs",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 294,
+   "url": "https://cloudflare.com/press/press-releases/2026/...",
+   "title": "Agent Cloud press release",
+   "type": "Press",
+   "date": "2026-04-13",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": "URL truncated in table (row 60) \u2014 path incomplete."
+  },
+  {
+   "id": 295,
+   "url": "https://infoq.com/news/2026/05/cloudflare-artifacts-ai-agents",
+   "title": "Artifacts beta (InfoQ)",
+   "type": "News",
+   "date": "2026-05-08",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 296,
+   "url": "https://infoq.com/news/2026/05/cloudflare-workflows-v2-release",
+   "title": "Workflows V2 (InfoQ)",
+   "type": "News",
+   "date": "2026-05-15",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 297,
+   "url": "https://par.nsf.gov/servlets/purl/10176031",
+   "title": "Firecracker/gVisor study",
+   "type": "Paper",
+   "date": "2021",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 298,
+   "url": "https://dl.acm.org/doi/10.1007/s10586-021-03517-8",
+   "title": "RunC/gVisor/Kata analysis",
+   "type": "Paper",
+   "date": "2021",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 299,
+   "url": "https://johal.in/benchmark-gvisor-10-vs-kata-containers-30-vs",
+   "title": "gVisor/Kata/Firecracker benchmark",
+   "type": "Blog",
+   "date": "2026-04-28",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 300,
+   "url": "https://eitt.academy/knowledge-base/container-cold-start-times-comparison-2024-2026",
+   "title": "Cold-start comparison",
+   "type": "Reference",
+   "date": "2026",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 301,
+   "url": "https://github.com/firecracker-microvm/firecracker",
+   "title": "Firecracker repo",
+   "type": "Repo",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 302,
+   "url": "https://0xgosu.dev/blog/cloudflare-ai-code-review-orchestration",
+   "title": "Cloudflare AI review analysis",
+   "type": "Blog",
+   "date": "2026-05-30",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 303,
+   "url": "https://blog.cloudflare.com/engineering-standards-enforcement",
+   "title": "Standards enforcement with AI",
+   "type": "Blog",
+   "date": "2026-08-04",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 304,
+   "url": "https://withruntime.com/compare/e2b-vs-fly-machines",
+   "title": "E2B vs Fly Machines",
+   "type": "Comparison",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 305,
+   "url": "https://truefoundry.com/ar/blog/baseten-vs-modal",
+   "title": "Baseten vs Modal",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 306,
+   "url": "https://mecanik.dev/en/posts/cloudflare-ai-gateway",
+   "title": "AI Gateway cost analysis",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 307,
+   "url": "https://blog.blazingcdn.com/en-us/cloudflares-pricing-changes-in-2025...",
+   "title": "Cloudflare pricing changes",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "30",
+   "workers": [
+    "W4"
+   ],
+   "notes": "URL truncated in table (row 73) \u2014 path incomplete."
+  },
+  {
+   "id": 308,
+   "url": "https://www.ietf.org/archive/id/draft-mcguinness-oauth-ai-agent-instance-00.html",
+   "title": "OAuth 2.0 AI Agent Instance Profile",
+   "type": "Spec",
+   "date": "2026-07",
+   "scraped": false,
+   "tier": "95",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 309,
+   "url": "https://www.ietf.org/archive/id/draft-klrc-aiagent-auth-03.html",
+   "title": "AI Agent Auth & Authz (klrc)",
+   "type": "Spec",
+   "date": "2026",
+   "scraped": false,
+   "tier": "95",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 310,
+   "url": "https://www.ietf.org/archive/id/draft-aip-agent-identity-protocol-00.html",
+   "title": "Agent Identity Protocol",
+   "type": "Spec",
+   "date": "2026-03",
+   "scraped": false,
+   "tier": "95",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 311,
+   "url": "https://www.ietf.org/archive/id/draft-ietf-oauth-v2-1-13.html",
+   "title": "OAuth 2.1 framework",
+   "type": "Spec",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "95",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 312,
+   "url": "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/authorization/index.mdx",
+   "title": "MCP spec 2026-07-28 Authorization",
+   "type": "Spec",
+   "date": "2026-07",
+   "scraped": false,
+   "tier": "95",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence E.17 (table row 5 truncated)."
+  },
+  {
+   "id": 313,
+   "url": "https://github.com/microsoft/mcp-for-beginners/blob/main/02-Security/mcp-best-practices.md",
+   "title": "MCP Security Best Practices (MS)",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence E.17 (table row 6 truncated)."
+  },
+  {
+   "id": 314,
+   "url": "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices",
+   "title": "MCP Security Best Practices (official)",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 315,
+   "url": "https://community.owasp.org/attacks/MCP_Tool_Poisoning",
+   "title": "MCP Tool Poisoning (OWASP)",
+   "type": "Docs",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 316,
+   "url": "https://owasp.org/www-project-mcp-top-10/2025/MCP05-2025\u2013Command-Injection&Execution",
+   "title": "OWASP MCP Top 10 \u2014 MCP05",
+   "type": "Docs",
+   "date": "2025",
+   "scraped": false,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence E.19 (table row 9 truncated)."
+  },
+  {
+   "id": 317,
+   "url": "https://techcommunity.microsoft.com/blog/microsoft-security-blog/the-state-of-mcp-security-in-2026/4531327",
+   "title": "State of MCP security 2026 (MS)",
+   "type": "Blog",
+   "date": "2026-06",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Scraped with noise per table note."
+  },
+  {
+   "id": 318,
+   "url": "https://wso2.com/api-platform/learn/mcp-server-security-best-practices",
+   "title": "MCP Server Security (WSO2)",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 319,
+   "url": "https://www.redhat.com/en/blog/mcp-security-implementing-robust-authentication-and-authorization",
+   "title": "MCP security authz (Red Hat)",
+   "type": "Blog",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 320,
+   "url": "https://www.mongodb.com/docs/mcp-server/local-mcp/security-best-practices",
+   "title": "MongoDB MCP Server Security",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 321,
+   "url": "https://doit.maryland.gov/policies/ai/.../MCP-Guidance...",
+   "title": "Maryland DoIT MCP Guidance v2",
+   "type": "Policy",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W5"
+   ],
+   "notes": "URL truncated in table (row 14) \u2014 path incomplete."
+  },
+  {
+   "id": 322,
+   "url": "https://docs.cloud.google.com/iam/docs/agent-identity-overview",
+   "title": "Agent Identity (Google Cloud IAM)",
+   "type": "Docs",
+   "date": "2026",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 323,
+   "url": "https://techcommunity.microsoft.com/blog/microsoft-entra-blog/microsoft%E2%80%99s-perspective-on-agentic-identity-standards/2111910",
+   "title": "MS perspective on agentic identity",
+   "type": "Blog",
+   "date": "2026-04",
+   "scraped": false,
+   "tier": "72",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence D.15 (table row 16 truncated)."
+  },
+  {
+   "id": 324,
+   "url": "https://okta.com/blog/ai/okta-helps-secure-ai-agent-identity",
+   "title": "Okta secure AI agent identity",
+   "type": "Vendor",
+   "date": "2025-06",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 325,
+   "url": "https://www.okta.com/en-gb/newsroom/articles/auth0-may-2026-product-innovations",
+   "title": "Auth0 for AI Agents (2026)",
+   "type": "Vendor",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "62",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 326,
+   "url": "https://www.okta.com/en-gb/newsroom/press-releases/auth0-platform-innovation",
+   "title": "Auth0 Auth for GenAI press",
+   "type": "Vendor",
+   "date": "2025-04",
+   "scraped": false,
+   "tier": "62",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 327,
+   "url": "https://auth0.com/resources/whitepapers/securing-ai-agents-the-new-identity-challenge",
+   "title": "Auth0 AI Agents whitepaper",
+   "type": "Vendor",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "58",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 328,
+   "url": "https://par.nsf.gov/servlets/purl/10505647",
+   "title": "Secrets-scanning comparative study",
+   "type": "Paper",
+   "date": "2023\u201324",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 329,
+   "url": "https://gitleaks.io/",
+   "title": "gitleaks (site/mirror)",
+   "type": "Vendor/OSS",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 330,
+   "url": "https://gitleaks.org/",
+   "title": "gitleaks (org mirror)",
+   "type": "Vendor/OSS",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 331,
+   "url": "https://github.com/trufflesecurity/trufflehog",
+   "title": "trufflehog repo",
+   "type": "OSS",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 332,
+   "url": "https://github.com/security/plans",
+   "title": "GitHub Advanced Security plans",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 333,
+   "url": "https://redresscompliance.com/microsoft-github-advanced-security-licensing",
+   "title": "GHAS pricing (Redress)",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 334,
+   "url": "https://www.i-programmer.info/news/149-security/17916-github-splits-advanced-security-into-separate-products.html",
+   "title": "GHAS splits (i-programmer)",
+   "type": "News",
+   "date": "2025-03",
+   "scraped": false,
+   "tier": "60",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence A.4 (table row 26 truncated)."
+  },
+  {
+   "id": 335,
+   "url": "https://www.doppler.com/pricing",
+   "title": "Doppler pricing",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 336,
+   "url": "https://envmanager.com/blog/doppler-pricing-alternatives",
+   "title": "Doppler pricing explained",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 337,
+   "url": "https://doppler.com/doppler-vs-vault",
+   "title": "Doppler vs Vault",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 338,
+   "url": "https://infisical.com/blog/hashicorp-vault-alternatives",
+   "title": "Infisical Vault alternatives",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 339,
+   "url": "https://infisical.com/compare/infisical-vs-hashicorp-vault",
+   "title": "Infisical vs Vault",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "52",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 340,
+   "url": "https://outmano.com/compare/cookieyes-vs-infisical",
+   "title": "Infisical pricing (outmano)",
+   "type": "Aggregator",
+   "date": "2026",
+   "scraped": false,
+   "tier": "35",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 341,
+   "url": "https://deployable.sh/apps/infisical/pricing",
+   "title": "Infisical pricing (deployable)",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 342,
+   "url": "https://github.com/slsa-framework/slsa/blob/main/spec/verifying-artifacts.md",
+   "title": "SLSA verifying artifacts",
+   "type": "Spec",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "92",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence C.11 (table row 34 truncated)."
+  },
+  {
+   "id": 343,
+   "url": "https://slsa.dev/provenance",
+   "title": "SLSA provenance",
+   "type": "Spec",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "92",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 344,
+   "url": "https://pkg.go.dev/github.com/jobroe10/slsa-github-generator/signing/sigstore",
+   "title": "SLSA generator sigstore pkg",
+   "type": "Docs",
+   "date": "2022",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 345,
+   "url": "https://gerrit.googlesource.com/gerrit/+/refs/heads/master/Documentation/access-control.txt",
+   "title": "Gerrit access-control.txt",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "92",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 346,
+   "url": "https://github.com/GerritCodeReview/plugins_code-owners/blob/master/resources/Documentation/backend-find-owners.md",
+   "title": "Gerrit code-owners backend",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence F.21 (table row 38 truncated)."
+  },
+  {
+   "id": 347,
+   "url": "https://gerrit.googlesource.com/plugins/find-owners/+/master/src/main/resources/Documentation/syntax.md",
+   "title": "Gerrit find-owners syntax",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence F.21 (table row 39 truncated)."
+  },
+  {
+   "id": 348,
+   "url": "https://github.com/AGWA/git-crypt/blob/master/README.md",
+   "title": "git-crypt README",
+   "type": "OSS/Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 349,
+   "url": "https://manpages.debian.org/testing/git-crypt/git-crypt.1.en.html",
+   "title": "git-crypt manpage",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 350,
+   "url": "https://pkg.go.dev/github.com/getsops/sops/v3",
+   "title": "getsops/sops",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 351,
+   "url": "https://github.com/ivandeex/git-sops",
+   "title": "ivandeex/git-sops",
+   "type": "OSS",
+   "date": "Current",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 352,
+   "url": "https://opensource.com/article/19/2/secrets-management-tools-git",
+   "title": "4 secrets tools for Git",
+   "type": "Blog",
+   "date": "2019-02",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 353,
+   "url": "https://arxiv.org/pdf/2509.09294",
+   "title": "Altered Histories in VCS (arXiv)",
+   "type": "Paper",
+   "date": "2025-09",
+   "scraped": false,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 354,
+   "url": "https://github.com/raksbisht/secret-history",
+   "title": "secret-history",
+   "type": "OSS",
+   "date": "2026",
+   "scraped": false,
+   "tier": "32",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 355,
+   "url": "https://github.com/LakshmiSravyaVedantham/secret-time-machine",
+   "title": "secret-time-machine",
+   "type": "OSS",
+   "date": "2026",
+   "scraped": false,
+   "tier": "32",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 356,
+   "url": "https://git-scm.com/docs/git-history/2.54.0",
+   "title": "git-history docs (2.54)",
+   "type": "Docs",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "90",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 357,
+   "url": "https://www.webauthn.me/passkeys",
+   "title": "WebAuthn/Passkeys (webauthn.me)",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 358,
+   "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys",
+   "title": "Passkeys (MDN)",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 359,
+   "url": "https://developers.yubico.com/WebAuthn/Passkeys.html",
+   "title": "Passkeys (Yubico)",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 360,
+   "url": "https://fidoalliance.org/passkeys/",
+   "title": "Passkeys (FIDO Alliance)",
+   "type": "Docs",
+   "date": "Current",
+   "scraped": false,
+   "tier": "78",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 361,
+   "url": "https://dora.dev/dora-report-2025",
+   "title": "DORA 2025 report",
+   "type": "Report",
+   "date": "2025-09",
+   "scraped": true,
+   "tier": "92",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 362,
+   "url": "https://dora.dev/research/2025/2025-DORA-Report-Infographic.pdf",
+   "title": "DORA 2025 Infographic PDF",
+   "type": "Report",
+   "date": "2025",
+   "scraped": false,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Scrape failed (PDF engines) per worker-5 gaps."
+  },
+  {
+   "id": 363,
+   "url": "https://cloud.google.com/blog/products/ai-machine-learning/announcing-the-2025-dora-report",
+   "title": "DORA 2025 announcement (Google Cloud)",
+   "type": "Blog",
+   "date": "2025-09",
+   "scraped": false,
+   "tier": "74",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 364,
+   "url": "https://www.theregister.com/software/2025/09/24/dora-report-reframes-ai-as-central-to-software-development/1122275",
+   "title": "The Register \u2014 DORA 2025",
+   "type": "News",
+   "date": "2025-09",
+   "scraped": false,
+   "tier": "74",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 365,
+   "url": "https://www.thoughtworks.com/en-ca/insights/reports/the-2025-dora-report",
+   "title": "Thoughtworks \u2014 2025 DORA report",
+   "type": "Vendor",
+   "date": "2025-09",
+   "scraped": false,
+   "tier": "74",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 366,
+   "url": "https://stackoverflow.blog/2025/07/29/developers-remain-willing-but-reluctant-to-use-ai-the-2025-developer-survey-results-are-here",
+   "title": "SO Survey 2025 press/blog",
+   "type": "Survey",
+   "date": "2025",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 367,
+   "url": "https://survey.stackoverflow.co/2025/AI",
+   "title": "SO Survey 2025 \u2014 AI section",
+   "type": "Survey",
+   "date": "2025",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 368,
+   "url": "https://survey.stackoverflow.co/2025",
+   "title": "SO Survey 2025 \u2014 results",
+   "type": "Survey",
+   "date": "2025",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Inline evidence A.25 (not in table)."
+  },
+  {
+   "id": 369,
+   "url": "https://stackoverflow.co/company/press/archive/stack-overflow-2025-developer-survey",
+   "title": "SO 2025 survey press release",
+   "type": "Survey",
+   "date": "2025",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 370,
+   "url": "https://stackoverflow.co/internal/resources/2025-stack-overflow-developer-survey-for-leaders/ai-adoption",
+   "title": "SO 2025 for leaders \u2014 AI adoption",
+   "type": "Survey",
+   "date": "2025",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 371,
+   "url": "https://github.blog/2025-10-28-octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1",
+   "title": "Octoverse 2025",
+   "type": "Blog",
+   "date": "2025-10",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 372,
+   "url": "https://github.blog/news-insights/octoverse/what-986-million-code-pushes-say-about-the-developer-workflow-in-2025/",
+   "title": "986M code pushes",
+   "type": "Blog",
+   "date": "2025-11",
+   "scraped": false,
+   "tier": "80",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 373,
+   "url": "https://azure.microsoft.com/.../github-universe-2025-...",
+   "title": "GitHub Universe 2025",
+   "type": "Blog",
+   "date": "2025-10",
+   "scraped": false,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": "URL truncated in table (row 54) \u2014 path incomplete."
+  },
+  {
+   "id": 374,
+   "url": "https://about.gitlab.com/press/releases/2025-11-10-gitlab-survey-reveals-the-ai-paradox",
+   "title": "GitLab AI Paradox (press)",
+   "type": "Press",
+   "date": "2025-11",
+   "scraped": true,
+   "tier": "82",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 375,
+   "url": "https://ir.gitlab.com/news/.../GitLab-Survey-Reveals-the-AI-Paradox...",
+   "title": "GitLab AI Paradox (IR)",
+   "type": "Press",
+   "date": "2025-11",
+   "scraped": false,
+   "tier": "82",
+   "workers": [
+    "W5"
+   ],
+   "notes": "URL truncated in table (row 55) \u2014 path incomplete."
+  },
+  {
+   "id": 376,
+   "url": "https://gitclear.com/the_ai_code_quality_maintainability_gap",
+   "title": "GitClear Maintainability Gap",
+   "type": "Report",
+   "date": "2026",
+   "scraped": true,
+   "tier": "70",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 377,
+   "url": "https://gitclear-public.s3.../GitClear-AI-Copilot-Code-Quality-2025.pdf",
+   "title": "GitClear Copilot Code Quality 2025",
+   "type": "Report",
+   "date": "2025-02",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W5"
+   ],
+   "notes": "URL truncated in table (row 57) \u2014 S3 path incomplete."
+  },
+  {
+   "id": 378,
+   "url": "https://gitclear.com/press_mentions",
+   "title": "GitClear press mentions",
+   "type": "Aggregator",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 379,
+   "url": "https://arxiv.org/html/2603.27249v4",
+   "title": "\"Endless Stream of AI Slop\"",
+   "type": "Paper",
+   "date": "2026",
+   "scraped": true,
+   "tier": "88",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 380,
+   "url": "https://arxiv.org/html/2602.04226v1",
+   "title": "Why Agentic-PRs Get Rejected",
+   "type": "Paper",
+   "date": "2026",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 381,
+   "url": "https://arxiv.org/pdf/2605.22534v1",
+   "title": "Agentic PRs merged/rejected",
+   "type": "Paper",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 382,
+   "url": "https://arxiv.org/pdf/2601.15195",
+   "title": "Where AI Coding Agents Fail",
+   "type": "Paper",
+   "date": "2026-01",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 383,
+   "url": "https://arxiv.org/abs/2605.17548",
+   "title": "Rethinking Code Review (arXiv)",
+   "type": "Paper",
+   "date": "2026-05",
+   "scraped": false,
+   "tier": "85",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 384,
+   "url": "https://www.emergentmind.com/topics/aidev-dataset-corpus",
+   "title": "AIDev dataset (Emergent Mind)",
+   "type": "Aggregator",
+   "date": "2026",
+   "scraped": false,
+   "tier": "55",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 385,
+   "url": "https://news.ycombinator.com/item?id=48329446",
+   "title": "HN \u2014 PR review load thread",
+   "type": "Forum",
+   "date": "2026-05",
+   "scraped": true,
+   "tier": "45",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 386,
+   "url": "https://news.ycombinator.com/item?id=47545748",
+   "title": "HN \u2014 review disengagement thread",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 387,
+   "url": "https://news.ycombinator.com/item?id=46168091",
+   "title": "HN \u2014 PR fatigue thread",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 388,
+   "url": "https://news.ycombinator.com/item?id=47049848",
+   "title": "HN \u2014 slop/standards thread",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 389,
+   "url": "https://news.ycombinator.com/item?id=43402136",
+   "title": "HN \u2014 AI PRs thread",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "45",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 390,
+   "url": "https://www.reddit.com/r/ExperiencedDevs/comments/1nx21xo/",
+   "title": "r/ExperiencedDevs thread 1nx21xo",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 391,
+   "url": "https://www.reddit.com/r/ExperiencedDevs/comments/1kr8clp/",
+   "title": "r/ExperiencedDevs thread 1kr8clp",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 392,
+   "url": "https://www.reddit.com/r/ExperiencedDevs/comments/1vg0cx8/what_do_you_do_when_a_developer_submits_ai",
+   "title": "r/ExperiencedDevs thread 1vg0cx8",
+   "type": "Forum",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 393,
+   "url": "https://tianpan.co/forum/t/we-ship-98-more-prs-with-ai-but-review-time-exploded-91-is-code-review-the-new-bottleneck/2132",
+   "title": "10x.pub 98% more PRs",
+   "type": "Forum",
+   "date": "2026-03",
+   "scraped": true,
+   "tier": "35",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence C.38 (table row 67 truncated)."
+  },
+  {
+   "id": 394,
+   "url": "https://getdx.com/blog/5-metrics-in-dx-to-measure-ai-impact/",
+   "title": "DX 5 AI metrics",
+   "type": "Vendor",
+   "date": "2025\u201326",
+   "scraped": true,
+   "tier": "68",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 395,
+   "url": "https://getdx.com/blog/2026-dx-benchmarks-are-now-available/",
+   "title": "DX 2026 benchmarks",
+   "type": "Vendor",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 396,
+   "url": "https://getdx.com/blog/insights/",
+   "title": "DX Research insights",
+   "type": "Vendor",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 397,
+   "url": "https://linearb.io/compare/dx-vs-linearb",
+   "title": "LinearB vs DX",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 398,
+   "url": "https://swarmia.com/pricing",
+   "title": "Swarmia pricing",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "68",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 399,
+   "url": "https://jellyfish.co/jellyfish-vs-dx/",
+   "title": "Jellyfish vs DX",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "50",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 400,
+   "url": "https://www.sleuth.io/post/sleuth-jellyfish-swarmia",
+   "title": "Sleuth vs Swarmia vs Jellyfish",
+   "type": "Vendor",
+   "date": "2025\u201326",
+   "scraped": false,
+   "tier": "48",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 401,
+   "url": "https://pandev-metrics.com/docs/blog/best-linearb-alternative-2026",
+   "title": "PanDev LinearB alternatives",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "40",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 402,
+   "url": "https://blog.jetbrains.com/research/2026/08/ai-coding-agent-adoption-2026",
+   "title": "JetBrains agent adoption 2026",
+   "type": "Research",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "75",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 403,
+   "url": "https://www.i-programmer.info/news/99-professional/19118-jetbrains-reveals-widespread-adoption-of-ai-coding-agents-.html",
+   "title": "JetBrains coverage (i-programmer)",
+   "type": "News",
+   "date": "2026-09",
+   "scraped": false,
+   "tier": "54",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Reconstructed from evidence E.41 (table row 75 truncated)."
+  },
+  {
+   "id": 404,
+   "url": "https://gigazine.net/gsc_news/en/20260824-ai-coding-agent-adoption-trends",
+   "title": "JetBrains coverage (GIGAZINE)",
+   "type": "News",
+   "date": "2026-08",
+   "scraped": false,
+   "tier": "54",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 405,
+   "url": "https://www.nipralo.com/blogs/best-ai-coding-tools-2026",
+   "title": "AI coding market sizing",
+   "type": "Blog",
+   "date": "2026",
+   "scraped": false,
+   "tier": "25",
+   "workers": [
+    "W5"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 406,
+   "url": "https://github.com/security/advanced-security",
+   "title": "GitHub Advanced Security (product page)",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Inline evidence A.6 (not in table)."
+  },
+  {
+   "id": 407,
+   "url": "https://infisical.com/blog/hashicorp-vault-pricing",
+   "title": "Infisical \u2014 HashiCorp Vault pricing",
+   "type": "Vendor",
+   "date": "2026",
+   "scraped": false,
+   "tier": "",
+   "workers": [
+    "W5"
+   ],
+   "notes": "Inline evidence B.9 (not in table)."
+  },
+  {
+   "id": 408,
+   "url": "https://cognition.com/blog/multi-agents-working",
+   "title": "Cognition \u2014 \u201cMulti-Agents: What\u2019s Actually Working\u201d (vendor doctrine)",
+   "type": "vendor primary",
+   "date": "",
+   "scraped": "",
+   "tier": "70-89",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "verify phase; snippet-level"
+  },
+  {
+   "id": 409,
+   "url": "https://github.com/surya-koritala/sigbound",
+   "title": "sigbound (surya-koritala) \u2014 parallel agents, merge, parking, serve UI",
+   "type": "repo primary",
+   "date": "",
+   "scraped": "",
+   "tier": "50-69",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "verify phase; ~50\u2605; self-reported tests"
+  },
+  {
+   "id": 410,
+   "url": "https://github.com/clash-sh/clash",
+   "title": "clash \u2014 cross-worktree conflict detection (read-only)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": "",
+   "tier": "50-69",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "verify phase"
+  },
+  {
+   "id": 411,
+   "url": "https://ataraxy-labs.com/products",
+   "title": "weave (ataraxy-labs) \u2014 entity-level Git merge driver",
+   "type": "vendor primary",
+   "date": "",
+   "scraped": "",
+   "tier": "50-69",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "verify phase; snippet"
+  },
+  {
+   "id": 412,
+   "url": "https://datatracker.ietf.org/doc/draft-mcguinness-oauth-ai-agent-instance/",
+   "title": "IETF \u2014 OAuth AI Agent Instance draft (mcguinness)",
+   "type": "specification",
+   "date": "",
+   "scraped": "",
+   "tier": "90-100",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "verify phase"
+  },
+  {
+   "id": 413,
+   "url": "https://developers.cloudflare.com/artifacts/concepts/best-practices/",
+   "title": "Cloudflare Artifacts \u2014 best practices",
+   "type": "official documentation",
+   "date": "",
+   "scraped": "",
+   "tier": "70-89",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "recon phase"
+  },
+  {
+   "id": 414,
+   "url": "https://developers.cloudflare.com/artifacts/platform/limits/",
+   "title": "Cloudflare Artifacts \u2014 limits",
+   "type": "official documentation",
+   "date": "",
+   "scraped": "",
+   "tier": "70-89",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "recon phase"
+  },
+  {
+   "id": 415,
+   "url": "https://developers.cloudflare.com/artifacts/platform/pricing/",
+   "title": "Cloudflare Artifacts \u2014 pricing",
+   "type": "official documentation",
+   "date": "",
+   "scraped": "",
+   "tier": "70-89",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "recon phase"
+  },
+  {
+   "id": 416,
+   "url": "https://github.com/excalidraw/excalidraw",
+   "title": "Excalidraw \u2014 open-source canvas (MIT)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": "",
+   "tier": "50-69",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 417,
+   "url": "https://automerge.org/",
+   "title": "Automerge \u2014 CRDT engine (v3 columnar)",
+   "type": "project site",
+   "date": "",
+   "scraped": "",
+   "tier": "50-69",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 418,
+   "url": "https://www.sigstore.dev/",
+   "title": "Sigstore \u2014 keyless signing (Fulcio/Rekor)",
+   "type": "project site",
+   "date": "",
+   "scraped": "",
+   "tier": "70-89",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 419,
+   "url": "https://reactflow.dev/",
+   "title": "React Flow (@xyflow) \u2014 node-graph canvas library",
+   "type": "project site",
+   "date": "",
+   "scraped": "",
+   "tier": "50-69",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": ""
+  },
+  {
+   "id": 420,
+   "url": "https://10x.pub/",
+   "title": "10x.pub \u2014 AI review bottleneck practitioner post",
+   "type": "blog post",
+   "date": "",
+   "scraped": "",
+   "tier": "30-49",
+   "workers": [
+    "verify",
+    "recon",
+    "report"
+   ],
+   "notes": "secondary citation of vendor benchmarks"
+  },
+  {
+   "id": 421,
+   "url": "https://developers.cloudflare.com/artifacts/api/workers-binding/",
+   "title": "Cloudflare Artifacts \u2014 Workers binding API",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 422,
+   "url": "https://developers.cloudflare.com/artifacts/api/rest-api/",
+   "title": "Cloudflare Artifacts \u2014 REST API",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 423,
+   "url": "https://developers.cloudflare.com/artifacts/api/git-protocol/",
+   "title": "Cloudflare Artifacts \u2014 Git protocol",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 424,
+   "url": "https://developers.cloudflare.com/artifacts/api/wrangler/",
+   "title": "Cloudflare Artifacts \u2014 Wrangler CLI",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 425,
+   "url": "https://developers.cloudflare.com/artifacts/api/errors/",
+   "title": "Cloudflare Artifacts \u2014 error codes",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 426,
+   "url": "https://developers.cloudflare.com/artifacts/guides/event-subscriptions/",
+   "title": "Cloudflare Artifacts \u2014 event subscriptions",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 427,
+   "url": "https://developers.cloudflare.com/artifacts/guides/authentication/",
+   "title": "Cloudflare Artifacts \u2014 authentication",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 428,
+   "url": "https://developers.cloudflare.com/artifacts/guides/import-repositories/",
+   "title": "Cloudflare Artifacts \u2014 import repositories",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 429,
+   "url": "https://developers.cloudflare.com/artifacts/guides/artifact-fs/",
+   "title": "Cloudflare Artifacts \u2014 ArtifactFS",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 430,
+   "url": "https://developers.cloudflare.com/artifacts/guides/data-localization/",
+   "title": "Cloudflare Artifacts \u2014 data localization",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 431,
+   "url": "https://developers.cloudflare.com/artifacts/guides/build-and-deploy-on-push/",
+   "title": "Cloudflare Artifacts \u2014 build & deploy on push",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 432,
+   "url": "https://developers.cloudflare.com/artifacts/concepts/how-artifacts-works/",
+   "title": "Cloudflare Artifacts \u2014 how it works",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 433,
+   "url": "https://developers.cloudflare.com/artifacts/concepts/repositories/",
+   "title": "Cloudflare Artifacts \u2014 repositories",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 434,
+   "url": "https://developers.cloudflare.com/artifacts/observability/metrics/",
+   "title": "Cloudflare Artifacts \u2014 metrics",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 435,
+   "url": "https://developers.cloudflare.com/artifacts/platform/changelog/",
+   "title": "Cloudflare Artifacts \u2014 changelog",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 436,
+   "url": "https://developers.cloudflare.com/artifacts/get-started/workers/",
+   "title": "Cloudflare Artifacts \u2014 Workers quickstart",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 437,
+   "url": "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/artifacts-integration/",
+   "title": "Cloudflare Workers Builds \u2014 Artifacts integration",
+   "type": "official documentation",
+   "date": "2026-10",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "recon"
+   ],
+   "notes": "recon phase (ArtifactsRecon)"
+  },
+  {
+   "id": 438,
+   "url": "https://www.businesswire.com/news/home/20251118768131/en/OpenHands-Raises-$18.8M-Series-A-to-Bring-Open-Source-Cloud-Coding-Agents-to-Enterprises",
+   "title": "BusinessWire \u2014 OpenHands $18.8M Series A (2025-11-18)",
+   "type": "press release",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 439,
+   "url": "https://www.infoq.com/news/2026/08/cursor-origin-alternative-github",
+   "title": "InfoQ \u2014 Cursor Origin coverage (2026-08)",
+   "type": "news article",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 440,
+   "url": "https://siliconangle.com/2026/08/17/cursor-launches-origin-code-hosting-service-to-compete-with-github",
+   "title": "SiliconANGLE \u2014 Cursor Origin launch (2026-08)",
+   "type": "news article",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 441,
+   "url": "https://techcrunch.com/2026/03/05/cursor-is-rolling-out-a-new-system-for-agentic-coding",
+   "title": "TechCrunch \u2014 Cursor agentic coding system (2026-03)",
+   "type": "news article",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 442,
+   "url": "https://www.eigent.ai/blog/cursor-origin-git-forge",
+   "title": "Eigent \u2014 Cursor Origin blog",
+   "type": "blog post",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 443,
+   "url": "https://cursor.com/changelog/3-0",
+   "title": "Cursor changelog 3.0",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 444,
+   "url": "https://cursor.com/changelog/05-07-26",
+   "title": "Cursor changelog 05-07-26",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 445,
+   "url": "https://cursor.com/changelog/02-24-26",
+   "title": "Cursor changelog 02-24-26",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 446,
+   "url": "https://cursor.com/changelog/2-0",
+   "title": "Cursor changelog 2.0",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 447,
+   "url": "https://cursor.com/changelog/03-25-26",
+   "title": "Cursor changelog 03-25-26",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 448,
+   "url": "https://cursor.com/changelog/08-13-26",
+   "title": "Cursor changelog 08-13-26",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 449,
+   "url": "https://prod.cursor.com/en-US/changelog",
+   "title": "Cursor changelog (prod mirror)",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 450,
+   "url": "https://prod.cursor.com/blog/agent-computer-use",
+   "title": "Cursor \u2014 agent computer use (blog)",
+   "type": "vendor blog",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 451,
+   "url": "https://cursor.com/blog/scaling-agents",
+   "title": "Cursor \u2014 scaling agents (blog)",
+   "type": "vendor blog",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 452,
+   "url": "https://sourcegraph.com/blog/introducing-agentic-batch-changes",
+   "title": "Sourcegraph \u2014 Introducing Agentic Batch Changes",
+   "type": "vendor blog",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 453,
+   "url": "https://sourcegraph.com/blog/agentic-batch-changes-public-beta",
+   "title": "Sourcegraph \u2014 Agentic Batch Changes public beta",
+   "type": "vendor blog",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 454,
+   "url": "https://sourcegraph.com/changelog/agentic-batch-changes-ga",
+   "title": "Sourcegraph \u2014 Agentic Batch Changes GA changelog",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 455,
+   "url": "https://sourcegraph.com/changelog/2026-09-21",
+   "title": "Sourcegraph \u2014 changelog 2026-09-21",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 456,
+   "url": "https://superset.sh/blog/parallel-coding-agents-guide",
+   "title": "Superset \u2014 parallel coding agents guide",
+   "type": "vendor blog",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 457,
+   "url": "https://superset.sh/blog",
+   "title": "Superset \u2014 blog",
+   "type": "vendor blog",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 458,
+   "url": "https://superset.sh/compare/superset-vs-parallel-code",
+   "title": "Superset \u2014 vs Parallel Code",
+   "type": "vendor comparison",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 459,
+   "url": "https://superset.sh/compare/superset-vs-aider",
+   "title": "Superset \u2014 vs Aider",
+   "type": "vendor comparison",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 460,
+   "url": "https://docs.superset.sh/first-workspace",
+   "title": "Superset \u2014 first workspace docs",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 461,
+   "url": "https://github.com/superset-sh/superset",
+   "title": "Superset \u2014 GitHub repo",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 462,
+   "url": "https://factory.com/news/missions",
+   "title": "Factory \u2014 Missions (news)",
+   "type": "vendor primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 463,
+   "url": "https://factory.com/product/missions",
+   "title": "Factory \u2014 Missions (product)",
+   "type": "vendor primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 464,
+   "url": "https://jules.google/docs/tasks-repos",
+   "title": "Jules \u2014 tasks & repos docs",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 465,
+   "url": "https://aws.amazon.com/documentation-overview/kiro",
+   "title": "AWS \u2014 Kiro documentation overview",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 466,
+   "url": "https://kiro.dev/docs/cli/v3/specs/",
+   "title": "Kiro \u2014 CLI v3 specs docs",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 467,
+   "url": "https://aws.amazon.com/about-aws/whats-new/2026/02/kiro-launch-aws-govcloud-us",
+   "title": "AWS \u2014 Kiro GovCloud launch",
+   "type": "press release",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 468,
+   "url": "https://aws.amazon.com/about-aws/whats-new/2026/03/aws-sam-kiro-power",
+   "title": "AWS \u2014 SAM + Kiro",
+   "type": "press release",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 469,
+   "url": "https://cloud.google.com/security/codemender",
+   "title": "Google Cloud \u2014 CodeMender",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 470,
+   "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/codemender",
+   "title": "Google Cloud \u2014 CodeMender (Gemini Enterprise Agent Platform)",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 471,
+   "url": "https://deepmind.google/blog/introducing-codemender-an-ai-agent-for-code-security",
+   "title": "DeepMind \u2014 Introducing CodeMender",
+   "type": "official blog",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 472,
+   "url": "https://arxiv.org/pdf/2604.03551v2",
+   "title": "arXiv 2604.03551 \u2014 AgenticFlict (PDF)",
+   "type": "research paper",
+   "date": "",
+   "scraped": true,
+   "tier": "90-100",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 473,
+   "url": "https://arxiv.org/html/2604.03551v2",
+   "title": "arXiv 2604.03551 \u2014 AgenticFlict (HTML)",
+   "type": "research paper",
+   "date": "",
+   "scraped": true,
+   "tier": "90-100",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 474,
+   "url": "https://arxiv.org/pdf/2605.22534",
+   "title": "arXiv 2605.22534 (PDF)",
+   "type": "research paper",
+   "date": "",
+   "scraped": true,
+   "tier": "90-100",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 475,
+   "url": "https://arxiv.org/html/2605.22534v1",
+   "title": "arXiv 2605.22534 (HTML)",
+   "type": "research paper",
+   "date": "",
+   "scraped": true,
+   "tier": "90-100",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 476,
+   "url": "https://arxiv.org/pdf/2601.20106",
+   "title": "arXiv 2601.20106 (PDF)",
+   "type": "research paper",
+   "date": "",
+   "scraped": true,
+   "tier": "90-100",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 477,
+   "url": "https://dl.acm.org/doi/10.1145/3805760.3814923",
+   "title": "ACM \u2014 AgenticFlict paper (DOI)",
+   "type": "research paper",
+   "date": "",
+   "scraped": true,
+   "tier": "90-100",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 478,
+   "url": "https://docs.openhands.dev/sdk/guides/parallel-tool-execution",
+   "title": "OpenHands SDK \u2014 parallel tool execution",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 479,
+   "url": "https://docs.openhands.dev/sdk/guides/agent-delegation",
+   "title": "OpenHands SDK \u2014 agent delegation (404 at check)",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 480,
+   "url": "https://www.openhands.dev/whitepapers/modernize-legacy-systems-with-ai-agents",
+   "title": "OpenHands \u2014 legacy modernization whitepaper",
+   "type": "vendor primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 481,
+   "url": "https://www.liveblocks.io/docs/pricing/plans/free",
+   "title": "Liveblocks \u2014 free plan docs",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 482,
+   "url": "https://github.com/drjc1001/parallel-dev",
+   "title": "parallel-dev (fringe candidate)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 483,
+   "url": "https://github.com/sympozium-ai/sympozium",
+   "title": "sympozium (fringe candidate)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 484,
+   "url": "https://github.com/farol-team/gnap",
+   "title": "gnap (fringe candidate)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 485,
+   "url": "https://github.com/ss-andrade/mergepilot",
+   "title": "mergepilot (fringe candidate)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 486,
+   "url": "https://github.com/pbakaus/agent-reviews",
+   "title": "agent-reviews (fringe candidate)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "30-49",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 487,
+   "url": "https://www.openhands.dev/product/sdk",
+   "title": "OpenHands \u2014 product/sdk",
+   "type": "vendor primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 488,
+   "url": "https://www.openhands.dev/pricing",
+   "title": "OpenHands \u2014 pricing",
+   "type": "official documentation",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 489,
+   "url": "https://www.openhands.dev/press",
+   "title": "OpenHands \u2014 press",
+   "type": "press release",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 490,
+   "url": "https://github.com/OpenHands/OpenHands",
+   "title": "OpenHands \u2014 GitHub repo",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 491,
+   "url": "https://raw.githubusercontent.com/OpenHands/OpenHands/main/README.md",
+   "title": "OpenHands \u2014 README (raw)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 492,
+   "url": "https://raw.githubusercontent.com/surya-koritala/sigbound/main/README.md",
+   "title": "sigbound \u2014 README (raw)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "50-69",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  },
+  {
+   "id": 493,
+   "url": "https://github.com/spugachev/CodeCRDT",
+   "title": "CodeCRDT \u2014 repo (spugachev)",
+   "type": "repo primary",
+   "date": "",
+   "scraped": true,
+   "tier": "70-89",
+   "workers": [
+    "verify"
+   ],
+   "notes": "verify phase (URLs recovered from VerifyRound1)"
+  }
+ ]
+}

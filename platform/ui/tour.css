@@ -1,0 +1,1049 @@
+/* nextgit — interactive tour styling
+   Design system aligns with styles.css:
+   near-black (#0a0e14), subtle 1px borders, monospace accents,
+   accessible contrast, strict no-emoji, smooth transitions.
+*/
+
+:root {
+  --bg-app: #0a0e14;
+  --bg-surface: #0f141c;
+  --bg-surface-elevated: #141b24;
+  --bg-card: #111822;
+  --bg-card-hover: #151e2b;
+  --bg-subtle: #182230;
+  --bg-inset: #070a0e;
+
+  --border-subtle: #1c2634;
+  --border-default: #253346;
+  --border-focus: #3e5473;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #8b9bb0;
+  --text-muted: #57657a;
+  --text-dim: #3d4959;
+
+  --status-green: #2ea043;
+  --status-green-bg: rgba(46, 160, 67, 0.12);
+  --status-green-border: rgba(46, 160, 67, 0.35);
+
+  --status-red: #f85149;
+  --status-red-bg: rgba(248, 81, 73, 0.12);
+  --status-red-border: rgba(248, 81, 73, 0.35);
+
+  --status-amber: #d29922;
+  --status-amber-bg: rgba(210, 153, 34, 0.12);
+  --status-amber-border: rgba(210, 153, 34, 0.35);
+
+  --status-neutral: #7d8590;
+  --status-neutral-bg: rgba(125, 133, 144, 0.12);
+  --status-neutral-border: rgba(125, 133, 144, 0.3);
+
+  --accent-blue: #58a6ff;
+  --accent-blue-bg: rgba(88, 166, 255, 0.1);
+  --accent-blue-border: rgba(88, 166, 255, 0.3);
+
+  --diff-add-bg: rgba(46, 160, 67, 0.15);
+  --diff-add-text: #3fb950;
+  --diff-del-bg: rgba(248, 81, 73, 0.15);
+  --diff-del-text: #f85149;
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.tour-container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* Header */
+.tour-header {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.tour-header-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.brand-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.brand-title .sep {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin: 0 0.15rem;
+}
+
+.brand-subtitle {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.875rem;
+}
+
+.tour-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-nav {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.btn-nav:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-focus);
+  text-decoration: none;
+}
+
+/* Stepper / Progress Bar */
+.stepper-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-track {
+  height: 4px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  width: 10%;
+  transition: width 0.25s ease;
+}
+
+.step-indicators {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+}
+
+.step-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.step-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+}
+.step-btn.is-active {
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  font-weight: 600;
+}
+.step-btn.is-completed {
+  color: var(--status-green);
+}
+
+/* Step Card & Typography */
+.tour-stage {
+  margin-bottom: 2rem;
+}
+
+.step-card {
+  display: none;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.step-card.is-active {
+  display: block;
+  animation: fadeIn 0.18s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.step-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.step-tag {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  padding: 0.1rem 0.4rem;
+}
+
+.step-counter {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.step-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.lead-text {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.body-text {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+/* Callout Box */
+.callout {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-blue);
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 1rem 0;
+  line-height: 1.5;
+}
+.callout strong {
+  color: var(--text-primary);
+}
+.callout.callout-warn {
+  border-left-color: var(--status-amber);
+}
+.callout.callout-clean {
+  border-left-color: var(--status-green);
+}
+.callout.callout-danger {
+  border-left-color: var(--status-red);
+}
+
+/* Step Navigation Controls (Prev / Next) */
+.tour-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.btn-ctrl {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 0.45rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-ctrl:hover:not(:disabled) {
+  border-color: var(--border-focus);
+  background: var(--bg-subtle);
+}
+.btn-ctrl:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-ctrl.btn-primary {
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+.btn-ctrl.btn-primary:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+
+/* Interactive Glossary Tooltips */
+.glossary-term {
+  border-bottom: 1px dotted var(--accent-blue);
+  color: var(--text-primary);
+  cursor: help;
+  position: relative;
+  display: inline;
+}
+.glossary-term:hover,
+.glossary-term:focus {
+  color: var(--accent-blue);
+}
+
+.glossary-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-focus);
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  width: 260px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+.glossary-tooltip-term {
+  color: var(--accent-blue);
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+  display: block;
+}
+.glossary-term:hover .glossary-tooltip,
+.glossary-term:focus .glossary-tooltip,
+.glossary-term.is-tooltip-open .glossary-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Three Cards Grid (Decoded terms in Step 0) */
+.terms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.term-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+  border-left: 3px solid var(--border-default);
+}
+.term-card.highlight-blue {
+  border-left-color: var(--accent-blue);
+}
+.term-card.highlight-green {
+  border-left-color: var(--status-green);
+}
+.term-card.highlight-amber {
+  border-left-color: var(--status-amber);
+}
+.term-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+.term-def {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Mini-Sim Common Styles */
+.sim-container {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-default);
+  padding: 1.25rem;
+  margin: 1.25rem 0;
+}
+
+.sim-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sim-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.sim-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sim-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 0.25rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sim-btn:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-focus);
+}
+.sim-btn.is-active {
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.sim-explanation {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.sim-explanation strong {
+  color: var(--text-primary);
+}
+
+/* Mini-Sim 1: GitHub View vs Fleet View */
+.view-github-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.gh-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.5rem;
+  overflow-x: auto;
+}
+.gh-tab {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+.gh-tab.is-active {
+  background: var(--bg-surface-elevated);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue-border);
+}
+.gh-pr-view {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+}
+.gh-pr-title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+.gh-blindspot {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: var(--status-red-bg);
+  border: 1px solid var(--status-red-border);
+  color: var(--status-red);
+  font-size: 0.6875rem;
+}
+
+.view-fleet-mode {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.fleet-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.75rem;
+  font-size: 0.75rem;
+}
+.fleet-card.has-conflict {
+  border-color: var(--status-red-border);
+  background: rgba(248, 81, 73, 0.05);
+}
+.fleet-card.is-landed {
+  border-style: dashed;
+  opacity: 0.6;
+}
+.fleet-repo {
+  font-weight: 600;
+  color: var(--accent-blue);
+  margin-bottom: 0.25rem;
+}
+.fleet-intent {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+.fleet-tag {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.625rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+}
+.fleet-tag.tag-conflict {
+  color: var(--status-red);
+  border-color: var(--status-red-border);
+  background: var(--status-red-bg);
+}
+.fleet-tag.tag-clean {
+  color: var(--status-green);
+  border-color: var(--status-green-border);
+  background: var(--status-green-bg);
+}
+.fleet-tag.tag-landed {
+  color: var(--text-muted);
+}
+
+/* Mini-Sim 2: Workspaces Branching */
+.sim2-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0;
+}
+.sim2-baseline {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sim2-branches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.sim2-branch-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  transform: translateY(10px);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+.sim2-branch-card.is-spawned {
+  transform: translateY(0);
+  opacity: 1;
+}
+.sim2-branch-card .agent-title {
+  color: var(--accent-blue);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.sim2-branch-card .task-desc {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Annotated Proposal Card (Step 3) */
+.annotated-layout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.25rem;
+  margin: 1.25rem 0;
+}
+@media (max-width: 768px) {
+  .annotated-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.annotated-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.annotated-region {
+  border: 1px solid transparent;
+  padding: 0.5rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.annotated-region:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-focus);
+}
+.annotated-region.is-inspected {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+}
+.annotated-details-pane {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.details-pane-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--accent-blue-border);
+}
+.details-pane-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+}
+.details-pane-desc {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Mini-Sim 3: Collision Simulation */
+.sim3-snippets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+@media (max-width: 640px) {
+  .sim3-snippets {
+    grid-template-columns: 1fr;
+  }
+}
+.snippet-box {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 0.75rem;
+}
+.snippet-header {
+  font-size: 0.6875rem;
+  color: var(--accent-blue);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  display: flex;
+  justify-content: space-between;
+}
+.code-block {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  white-space: pre;
+  color: var(--text-primary);
+  overflow-x: auto;
+}
+.code-line-del {
+  background: var(--diff-del-bg);
+  color: var(--diff-del-text);
+  display: block;
+}
+.code-line-add {
+  background: var(--diff-add-bg);
+  color: var(--diff-add-text);
+  display: block;
+}
+.sim3-result {
+  background: var(--bg-inset);
+  border: 1px solid var(--status-red-border);
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+}
+.sim3-result-header {
+  color: var(--status-red);
+  font-weight: 600;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.conflict-region {
+  background: rgba(248, 81, 73, 0.15);
+  border: 1px dashed var(--status-red);
+  padding: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: #ffb4af;
+  margin-top: 0.35rem;
+}
+
+/* Mini-Sim 4: Shipping Simulation */
+.sim4-stage {
+  padding: 1rem 0;
+}
+.sim4-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all 0.3s ease;
+}
+.sim4-card.is-landed {
+  opacity: 0.6;
+  border-style: dashed;
+  background: var(--bg-surface);
+}
+.sim4-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.sim4-terminal {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 0.6rem 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-top: 0.75rem;
+  min-height: 50px;
+}
+.terminal-step {
+  margin-bottom: 0.2rem;
+}
+.terminal-step.success {
+  color: var(--status-green);
+}
+
+/* Live Proposal Cards in Step 6 */
+.live-proposals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.live-tour-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  position: relative;
+}
+.live-tour-card.is-conflict {
+  border-left: 3px solid var(--status-red);
+}
+.live-tour-card.is-clean {
+  border-left: 3px solid var(--status-green);
+}
+.live-tour-card.is-landed {
+  border-style: dashed;
+  opacity: 0.6;
+}
+.live-card-annotation {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  align-self: flex-start;
+}
+.live-card-annotation.ann-conflict {
+  color: var(--status-red);
+  background: var(--status-red-bg);
+  border-color: var(--status-red-border);
+}
+.live-card-annotation.ann-landed {
+  color: var(--status-green);
+  background: var(--status-green-bg);
+  border-color: var(--status-green-border);
+}
+.live-card-annotation.ann-clean {
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+}
+
+/* Exercise / Quiz (Step 7) */
+.quiz-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.quiz-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 640px) {
+  .quiz-options {
+    grid-template-columns: 1fr;
+  }
+}
+.quiz-option-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  padding: 1rem;
+  text-align: left;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.quiz-option-btn:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-focus);
+}
+.quiz-option-btn.is-selected {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+}
+.quiz-repo-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--accent-blue);
+}
+.quiz-intent {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.quiz-feedback {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-default);
+  padding: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.quiz-feedback.feedback-safe {
+  border-color: var(--status-green-border);
+  background: rgba(46, 160, 67, 0.08);
+}
+.quiz-feedback.feedback-conflict {
+  border-color: var(--status-red-border);
+  background: rgba(248, 81, 73, 0.08);
+}
+.quiz-feedback.feedback-landed {
+  border-color: var(--status-amber-border);
+  background: rgba(210, 153, 34, 0.08);
+}
+.feedback-headline {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+}
+.feedback-safe .feedback-headline {
+  color: var(--status-green);
+}
+.feedback-conflict .feedback-headline {
+  color: var(--status-red);
+}
+.feedback-landed .feedback-headline {
+  color: var(--status-amber);
+}
+
+/* Feature Matrix (Step 8) */
+.scope-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+@media (max-width: 640px) {
+  .scope-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.scope-col {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+}
+.scope-col-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.scope-col.omitted .scope-col-header {
+  color: var(--text-muted);
+}
+.scope-col.future .scope-col-header {
+  color: var(--accent-blue);
+}
+.scope-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.scope-list li {
+  position: relative;
+  padding-left: 1rem;
+}
+.scope-list li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+/* Final CTA Card (Step 9) */
+.role-actions-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.role-bullets {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+.role-bullets li {
+  padding-left: 1.25rem;
+  position: relative;
+  color: var(--text-secondary);
+}
+.role-bullets li strong {
+  color: var(--text-primary);
+}
+.role-bullets li::before {
+  content: "›";
+  position: absolute;
+  left: 0;
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+.cta-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.btn-launch-app {
+  background: var(--status-green-bg);
+  border: 1px solid var(--status-green-border);
+  color: var(--status-green);
+  padding: 0.6rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+.btn-launch-app:hover {
+  background: rgba(46, 160, 67, 0.22);
+  border-color: var(--status-green);
+  color: #fff;
+  text-decoration: none;
+}
+
+/* Footer */
+.tour-footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  font-size: 0.6875rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

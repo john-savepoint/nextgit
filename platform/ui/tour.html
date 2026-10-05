@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — Interactive Tour</title>
+  <link rel="stylesheet" href="tour.css">
+</head>
+<body>
+  <div class="tour-container">
+    <!-- Header -->
+    <header class="tour-header">
+      <div class="tour-header-top">
+        <div class="brand-group">
+          <h1 class="brand-title">NextGit<span class="sep">/</span><span class="brand-subtitle">Interactive Tour</span></h1>
+        </div>
+        <div class="tour-nav-links">
+          <a href="index.html" class="btn-nav">Open Triage App</a>
+        </div>
+      </div>
+
+      <!-- Stepper / Progress Bar -->
+      <nav class="stepper-progress" aria-label="Tour navigation">
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div id="step-indicators" class="step-indicators" role="tablist">
+          <button class="step-btn is-active" type="button" role="tab" data-step="0">0. Intro</button>
+          <button class="step-btn" type="button" role="tab" data-step="1">1. The Problem</button>
+          <button class="step-btn" type="button" role="tab" data-step="2">2. Workspaces</button>
+          <button class="step-btn" type="button" role="tab" data-step="3">3. Proposals</button>
+          <button class="step-btn" type="button" role="tab" data-step="4">4. Collisions</button>
+          <button class="step-btn" type="button" role="tab" data-step="5">5. Shipping</button>
+          <button class="step-btn" type="button" role="tab" data-step="6">6. Real Platform</button>
+          <button class="step-btn" type="button" role="tab" data-step="7">7. Exercise</button>
+          <button class="step-btn" type="button" role="tab" data-step="8">8. Scope</button>
+          <button class="step-btn" type="button" role="tab" data-step="9">9. Your Role</button>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Main Tour Stage -->
+    <main class="tour-stage">
+      <!-- STEP 0: INTRO -->
+      <section class="step-card is-active" id="step-0" role="tabpanel" aria-labelledby="tab-0">
+        <div class="step-meta-row">
+          <span class="step-tag">Foundations</span>
+          <span class="step-counter">Step 1 of 10</span>
+        </div>
+        <h2 class="step-title">Welcome to NextGit</h2>
+        <p class="lead-text">
+          The place where many AI agents work on your code at once — you see everything, catch the collisions, ship what you want.
+        </p>
+
+        <p class="body-text">
+          Software engineering is changing. You no longer direct a single programmer writing one file.
+          You dispatch four, ten, or fifty agents at the same time. Today's tools make this chaos.
+          NextGit brings order to multi-agent software development.
+        </p>
+
+        <div class="callout">
+          <strong>Glossary rule:</strong> Dotted terms like
+          <span class="glossary-term" tabindex="0">NextGit<span class="glossary-tooltip"><span class="glossary-tooltip-term">NextGit</span>A platform that coordinates multiple autonomous agents working on the same codebase simultaneously.</span></span>
+          show instant plain-English definitions on hover or tap.
+        </div>
+
+        <h3 class="sim-title" style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Three core terms decoded</h3>
+        <div class="terms-grid">
+          <div class="term-card highlight-blue">
+            <div class="term-name">NextGit</div>
+            <div class="term-def">
+              The project and engine. A serverless platform that tracks, diffs, and merges work from autonomous AI coding agents.
+            </div>
+          </div>
+          <div class="term-card highlight-green">
+            <div class="term-name">Convergence</div>
+            <div class="term-def">
+              The core concept. Bringing multiple parallel branches of changes back together into one coherent codebase without human merge headaches.
+            </div>
+          </div>
+          <div class="term-card highlight-amber">
+            <div class="term-name">Proposal</div>
+            <div class="term-def">
+              One agent's submitted work package. It contains code changes, changed files, and a plain-text intent describing the goal.
+            </div>
+          </div>
+          <div class="term-card highlight-blue">
+            <div class="term-name">Collision</div>
+            <div class="term-def">
+              A merge conflict. When two agents modify the exact same lines from different base assumptions, both cannot land simultaneously.
+            </div>
+          </div>
+      </section>
+
+      <!-- STEP 1: THE PROBLEM -->
+      <section class="step-card" id="step-1" role="tabpanel" aria-labelledby="tab-1">
+        <div class="step-meta-row">
+          <span class="step-tag">The Problem</span>
+          <span class="step-counter">Step 2 of 10</span>
+        </div>
+        <h2 class="step-title">Single-Threaded Review Is Broken</h2>
+        <p class="lead-text">
+          AI agents write code in parallel now. Traditional tools show one <span class="glossary-term" tabindex="0">pull request<span class="glossary-tooltip"><span class="glossary-tooltip-term">Pull Request</span>A request to review and merge one branch of code into another.</span></span> at a time.
+        </p>
+
+        <p class="body-text">
+          When four agents work at once, traditional pull request lists hide <span class="glossary-term" tabindex="0">collisions<span class="glossary-tooltip"><span class="glossary-tooltip-term">Collision</span>When two independent changes edit the exact same region of code.</span></span> until after you merge.
+          You approve PR #1, and PR #2 breaks silently. NextGit replaces sequential review with a unified fleet view.
+        </p>
+
+        <!-- Mini-Sim 1 -->
+        <div class="sim-container" id="sim-1">
+          <div class="sim-toolbar">
+            <span class="sim-title">Simulation 1: Single PR Review vs Fleet View</span>
+            <div class="sim-actions">
+              <button class="sim-btn is-active" type="button" id="btn-view-github">Traditional GitHub View</button>
+              <button class="sim-btn" type="button" id="btn-view-fleet">NextGit Fleet View</button>
+            </div>
+          </div>
+
+          <div id="sim1-viewport">
+            <!-- Rendered by tour.js -->
+          </div>
+
+          <div class="sim-explanation" id="sim1-explanation">
+            <!-- Dynamic explanation text -->
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2: WORKSPACES -->
+      <section class="step-card" id="step-2" role="tabpanel" aria-labelledby="tab-2">
+        <div class="step-meta-row">
+          <span class="step-tag">Architecture</span>
+          <span class="step-counter">Step 3 of 10</span>
+        </div>
+        <h2 class="step-title">Isolated Workspaces for Every Agent</h2>
+        <p class="lead-text">
+          Every agent gets its own clean copy of your code to edit. No agent blocks another while typing.
+        </p>
+
+        <p class="body-text">
+          Agents never edit the baseline repository directly. Each agent receives a lightweight, serverless
+          <span class="glossary-term" tabindex="0">workspace<span class="glossary-tooltip"><span class="glossary-tooltip-term">Workspace</span>An isolated copy of the repository where one agent can build, test, and commit code safely.</span></span>.
+          When the agent finishes its assigned task, it pushes a proposal back to the convergence engine.
+        </p>
+
+        <!-- Mini-Sim 2 -->
+        <div class="sim-container" id="sim-2">
+          <div class="sim-toolbar">
+            <span class="sim-title">Simulation 2: Dispatching Workspaces</span>
+            <div class="sim-actions">
+              <button class="sim-btn" type="button" id="btn-spawn-workspaces">Give 4 agents tasks</button>
+              <button class="sim-btn" type="button" id="btn-reset-workspaces">Reset</button>
+            </div>
+          </div>
+
+          <div class="sim2-diagram" id="sim2-diagram">
+            <div class="sim2-baseline">
+              <div>
+                <strong>demo</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(baseline repo · branch: main)</span>
+              </div>
+              <span class="step-tag" style="background: var(--bg-surface);">Baseline</span>
+            </div>
+            <div class="sim2-branches" id="sim2-branches">
+              <!-- Spawned cards go here -->
+            </div>
+          </div>
+
+          <div class="sim-explanation" id="sim2-explanation">
+            Click <strong>Give 4 agents tasks</strong> to simulate dispatching 4 parallel workers.
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3: WHAT A PROPOSAL IS -->
+      <section class="step-card" id="step-3" role="tabpanel" aria-labelledby="tab-3">
+        <div class="step-meta-row">
+          <span class="step-tag">Core Unit</span>
+          <span class="step-counter">Step 4 of 10</span>
+        </div>
+        <h2 class="step-title">What a Proposal Is</h2>
+        <p class="lead-text">
+          A proposal is an agent's submitted work package. It tells you what changed, why it changed, and whether it is safe to <span class="glossary-term" tabindex="0">ship<span class="glossary-tooltip"><span class="glossary-tooltip-term">Ship / Land</span>Folds a proposal onto the baseline repository default branch server-side.</span></span>.
+        </p>
+
+        <p class="body-text">
+          Instead of wading through raw commits, NextGit formats each proposal into an actionable card.
+          Click any highlighted region below to inspect how it works:
+        </p>
+
+        <div class="annotated-layout">
+          <!-- Interactive Sample Card -->
+          <div class="annotated-card" id="annotated-sample-card">
+            <div class="annotated-region is-inspected" data-part="repo" tabindex="0">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:600; color:var(--accent-blue);">agent-1</span>
+                <span class="step-tag" style="font-size:0.625rem;">ready</span>
+              </div>
+            </div>
+
+            <div class="annotated-region" data-part="intent" tabindex="0">
+              <div style="background:var(--bg-surface); border-left:2px solid var(--accent-blue); padding:0.4rem 0.6rem; font-size:0.75rem;">
+                <span style="color:var(--text-muted); text-transform:uppercase; font-size:0.625rem; margin-right:0.35rem;">intent:</span>
+                Feature: refreshSession() extends a live session by TTL
+              </div>
+            </div>
+
+            <div class="annotated-region" data-part="stats" tabindex="0">
+              <div style="display:flex; gap:0.75rem; font-size:0.6875rem;">
+                <span><strong>1</strong> file</span>
+                <span style="color:var(--status-green);">+5</span>
+                <span style="color:var(--status-red);">-0</span>
+              </div>
+            </div>
+
+            <div class="annotated-region" data-part="files" tabindex="0">
+              <div style="background:var(--bg-inset); border:1px solid var(--border-subtle); padding:0.4rem 0.6rem; font-size:0.6875rem;">
+                <span style="color:var(--status-amber);">M</span> src/auth.ts
+              </div>
+            </div>
+
+            <div class="annotated-region" data-part="actions" tabindex="0">
+              <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                <span class="btn-card-action" style="pointer-events:none;">preview merge</span>
+                <span class="btn-card-action btn-land" style="pointer-events:none;">Land into demo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inspector Explanation Pane -->
+          <div class="annotated-details-pane">
+            <span class="details-pane-badge" id="details-pane-badge">Agent Identity</span>
+            <h4 class="details-pane-title" id="details-pane-title">Repository &amp; State</h4>
+            <div class="details-pane-desc" id="details-pane-desc">
+              Identifies which agent workspace produced this code. It tracks the branch status and whether the proposal is ready or already landed.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 4: WHAT A COLLISION IS -->
+      <section class="step-card" id="step-4" role="tabpanel" aria-labelledby="tab-4">
+        <div class="step-meta-row">
+          <span class="step-tag">Conflict Detection</span>
+          <span class="step-counter">Step 5 of 10</span>
+        </div>
+        <h2 class="step-title">What a Collision Is</h2>
+        <p class="lead-text">
+          Two agents edited the same lines of code. Both changes cannot ship unchanged.
+        </p>
+
+        <p class="body-text">
+          A collision happens when concurrent agents modify the exact same function or lines from different <span class="glossary-term" tabindex="0">baseline<span class="glossary-tooltip"><span class="glossary-tooltip-term">Baseline</span>The main repository and branch (demo:main) that all agents fork from.</span></span> assumptions.
+          NextGit finds this by <strong>actually attempting the merge in memory</strong> before anything ships.
+        </p>
+
+        <!-- Mini-Sim 3 -->
+        <div class="sim-container" id="sim-3">
+          <div class="sim-toolbar">
+            <span class="sim-title">Simulation 3: Live Collision Detection on src/auth.ts</span>
+            <div class="sim-actions">
+              <button class="sim-btn is-active" type="button" id="btn-sim3-merge">Try to ship both</button>
+              <button class="sim-btn" type="button" id="btn-sim3-reset">Reset</button>
+            </div>
+          </div>
+
+          <div class="sim3-snippets">
+            <div class="snippet-box">
+              <div class="snippet-header">
+                <span>agent-1</span>
+                <span>Adds refreshSession()</span>
+              </div>
+              <div class="code-block">+ export function refreshSession(session, ttl) {
++   return { ...session, expiresAt: Date.now() + ttl };
++ }
+  export function isExpired(session) { ... }</div>
+            </div>
+            <div class="snippet-box">
+              <div class="snippet-header">
+                <span>agent-2</span>
+                <span>Adds clock skew leewayMs</span>
+              </div>
+              <div class="code-block"><span class="code-line-del">- export function isExpired(session) {</span>
+<span class="code-line-add">+ export function isExpired(session, now, leewayMs = 0) {</span>
+<span class="code-line-add">+   return now > session.expiresAt + leewayMs;</span>
+  }</div>
+            </div>
+          </div>
+
+          <div id="sim3-result-container">
+            <!-- Dynamic merge result -->
+          </div>
+
+          <div class="sim-explanation" id="sim3-explanation">
+            Both agents touched the boundary around <code>isExpired</code>. Click <strong>Try to ship both</strong> to see how NextGit catches the collision.
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 5: SHIPPING -->
+      <section class="step-card" id="step-5" role="tabpanel" aria-labelledby="tab-5">
+        <div class="step-meta-row">
+          <span class="step-tag">One-Click Landing</span>
+          <span class="step-counter">Step 6 of 10</span>
+        </div>
+        <h2 class="step-title">Shipping Clean Proposals</h2>
+        <p class="lead-text">
+          One click folds the proposal onto the main branch on the server. No local git clone required.
+        </p>
+
+        <p class="body-text">
+          When a proposal has no collisions, you can land it immediately. NextGit performs a server-side <span class="glossary-term" tabindex="0">3-way merge<span class="glossary-tooltip"><span class="glossary-tooltip-term">3-Way Merge</span>Diffing two branches against their shared ancestor commit to combine them automatically.</span></span>,
+          creates a merge commit, updates the default branch, and marks the proposal as landed.
+        </p>
+
+        <!-- Mini-Sim 4 -->
+        <div class="sim-container" id="sim-4">
+          <div class="sim-toolbar">
+            <span class="sim-title">Simulation 4: One-Click Ship Flow</span>
+            <div class="sim-actions">
+              <button class="sim-btn" type="button" id="btn-sim4-reset">Reset Card</button>
+            </div>
+          </div>
+
+          <div class="sim4-stage">
+            <div class="sim4-card" id="sim4-card">
+              <div class="sim4-action-row">
+                <div>
+                  <span style="font-weight:600; color:var(--accent-blue);">agent-4</span>
+                  <span style="color:var(--text-muted); font-size:0.6875rem; margin-left:0.5rem;">src/feature.ts (+43 lines)</span>
+                </div>
+                <div>
+                  <button class="btn-card-action btn-land" id="btn-sim4-ship" type="button">Ship it</button>
+                </div>
+              </div>
+              <div class="proposal-intent" style="margin:0; font-size:0.75rem;">
+                <span class="intent-label">intent:</span> Feature: feature-flag module with isEnabled()
+              </div>
+              <div class="sim4-terminal" id="sim4-terminal">
+                Waiting for operator decision...
+              </div>
+            </div>
+          </div>
+
+          <div class="sim-explanation" id="sim4-explanation">
+            Click <strong>Ship it</strong> to watch the serverless merge pipeline execute in real time.
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 6: THE REAL THING -->
+      <section class="step-card" id="step-6" role="tabpanel" aria-labelledby="tab-6">
+        <div class="step-meta-row">
+          <span class="step-tag">Live Platform</span>
+          <span class="step-counter">Step 7 of 10</span>
+        </div>
+        <h2 class="step-title">The Real Thing: Live Proposals</h2>
+        <p class="lead-text">
+          Below is the live state of the platform right now, fetched from the backend.
+        </p>
+
+        <p class="body-text">
+          These cards are read-only views of real agent proposals. Notice the annotations pointing out real collisions,
+          clean additions, and changes that have already landed.
+        </p>
+
+        <div id="live-proposals-status" class="callout">
+          Fetching live proposal state from platform worker...
+        </div>
+
+        <div class="live-proposals-grid" id="live-proposals-grid">
+          <!-- Rendered by tour.js -->
+        </div>
+      </section>
+
+      <!-- STEP 7: EXERCISE -->
+      <section class="step-card" id="step-7" role="tabpanel" aria-labelledby="tab-7">
+        <div class="step-meta-row">
+          <span class="step-tag">Knowledge Check</span>
+          <span class="step-counter">Step 8 of 10</span>
+        </div>
+        <h2 class="step-title">Exercise: Which Would You Ship?</h2>
+        <p class="lead-text">
+          Put yourself in the driver's seat. Choose one proposal below to ship first.
+        </p>
+
+        <p class="body-text">
+          Select any of the options to see how NextGit analyzes safety, dependencies, and conflicts.
+        </p>
+
+        <div class="quiz-container">
+          <div class="quiz-options">
+            <button class="quiz-option-btn" type="button" data-quiz="agent-1">
+              <span class="quiz-repo-title">agent-1: Session Refresh</span>
+              <span class="quiz-intent">Adds refreshSession() to src/auth.ts</span>
+            </button>
+            <button class="quiz-option-btn" type="button" data-quiz="agent-2">
+              <span class="quiz-repo-title">agent-2: Clock Skew Fix</span>
+              <span class="quiz-intent">Edits isExpired() in src/auth.ts</span>
+            </button>
+            <button class="quiz-option-btn" type="button" data-quiz="agent-3">
+              <span class="quiz-repo-title">agent-3: Memo Cache</span>
+              <span class="quiz-intent">Adds read-through cache to src/store.ts</span>
+            </button>
+            <button class="quiz-option-btn" type="button" data-quiz="agent-4">
+              <span class="quiz-repo-title">agent-4: Feature Flags</span>
+              <span class="quiz-intent">Creates new file src/feature.ts</span>
+            </button>
+          </div>
+
+          <div id="quiz-feedback" class="quiz-feedback" hidden>
+            <!-- Feedback populated by tour.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 8: WHAT'S NOT HERE (YET) & WHY -->
+      <section class="step-card" id="step-8" role="tabpanel" aria-labelledby="tab-8">
+        <div class="step-meta-row">
+          <span class="step-tag">Roadmap</span>
+          <span class="step-counter">Step 9 of 10</span>
+        </div>
+        <h2 class="step-title">What Is Not Here (Yet) and Why</h2>
+        <p class="lead-text">
+          We deliberately did not rebuild today's GitHub. The competition calls for the new layer.
+        </p>
+
+        <p class="body-text">
+          Rebuilding existing issue trackers, pull request comment threads, and profile pages would distract from the core problem:
+          multi-agent convergence. Here is how we draw the boundary:
+        </p>
+
+        <div class="scope-grid">
+          <div class="scope-col omitted">
+            <div class="scope-col-header">Deliberately Set Aside</div>
+            <ul class="scope-list">
+              <li>Full repository file browsers</li>
+              <li>Markdown issue threads and bug discussions</li>
+              <li>User profile avatars and social followers</li>
+              <li>Generic CI build logs and status widgets</li>
+              <li>Inline comment chains that drag on for days</li>
+            </ul>
+          </div>
+          <div class="scope-col future">
+            <div class="scope-col-header">What Comes Next</div>
+            <ul class="scope-list">
+              <li>Support for dozens or hundreds of concurrent agents</li>
+              <li>Multi-project fleet coordination</li>
+              <li>Alternative clients (including 3D graph views over the same API)</li>
+              <li>Automated conflict resolution bots using LLMs</li>
+              <li>Semantic diffing beyond plain line-based merges</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 9: WHERE YOU COME IN -->
+      <section class="step-card" id="step-9" role="tabpanel" aria-labelledby="tab-9">
+        <div class="step-meta-row">
+          <span class="step-tag">Operator Role</span>
+          <span class="step-counter">Step 10 of 10</span>
+        </div>
+        <h2 class="step-title">Where You Come In</h2>
+        <p class="lead-text">
+          You are the conductor. Agents write code; you control convergence.
+        </p>
+
+        <p class="body-text">
+          NextGit eliminates the manual drudgery of rebasing and conflicting git branches. Your workflow takes seconds:
+        </p>
+
+        <div class="role-actions-card">
+          <ul class="role-bullets">
+            <li><strong>Read intents:</strong> Glance at what each agent intended to accomplish in plain words.</li>
+            <li><strong>Watch collisions:</strong> Spot conflicting pairs before they touch your production codebase.</li>
+            <li><strong>Ship with one click:</strong> Land clean proposals straight into your baseline with zero local clones.</li>
+            <li><strong>Decide what is next:</strong> Reject invalid changes or steer agents toward clean files.</li>
+          </ul>
+
+          <div class="cta-row">
+            <a href="index.html" class="btn-launch-app">Open the Triage App</a>
+            <button class="btn-ctrl" type="button" id="btn-restart-tour">Restart Tour</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Stepper Navigation Controls -->
+    <footer class="tour-controls">
+      <button class="btn-ctrl" type="button" id="btn-prev" disabled>Previous</button>
+      <div id="step-display-indicator" style="color: var(--text-muted); font-size: 0.75rem;">Step 1 of 10</div>
+      <button class="btn-ctrl btn-primary" type="button" id="btn-next">Next</button>
+    </footer>
+
+    <!-- Minimal footer -->
+    <div class="tour-footer">
+      <span>NextGit — Serverless Convergence Engine</span>
+      <a href="index.html">Back to Live Triage</a>
+    </div>
+  </div>
+
+  <script type="module" src="tour.js"></script>
+</body>
+</html>

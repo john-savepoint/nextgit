@@ -1,0 +1,15 @@
+[
+  {"claim": "GitHub ships concurrent agent sessions, Agents tab/page, PR-routed review", "class": "capability", "pub_date": "2025-10"},
+  {"claim": "No product found that reviews/integrates multiple concurrent agent changes as a set", "class": "capability", "pub_date": "2026-10"},
+  {"claim": "Entire platform unshipped (Checkpoints CLI + distributed Git network only)", "class": "capability", "pub_date": "2026-09"},
+  {"claim": "Macroscope Murmur: per-agent VMs + Director fleet control (vendor-primary)", "class": "capability", "pub_date": "2026-09"},
+  {"claim": "Sculptor: containers, merge-without-conflicts hand-back, full session preservation", "class": "capability", "pub_date": "2025-09"},
+  {"claim": "Whiteboard: cross-platform OSS AST diff + agent trajectory audit, single-branch", "class": "capability", "pub_date": "2026-10"},
+  {"claim": "GitLab Duo Agent Platform GA in 18.8", "class": "capability", "pub_date": "2026-01"},
+  {"claim": "CodeRabbit pricing $24/$48/$72 per dev/mo + $0.40/agent-minute", "class": "pricing", "pub_date": "2026-10"},
+  {"claim": "Greptile $30/seat/mo credit-metered review", "class": "pricing", "pub_date": "2026-10"},
+  {"claim": "Vibe Kanban shutdown (free-user economics)", "class": "trajectory", "pub_date": "2026-04"},
+  {"claim": "Terragon shutdown", "class": "trajectory", "pub_date": "2026-01"},
+  {"claim": "Cursor acquired Graphite", "class": "trajectory", "pub_date": "2025-12"},
+  {"claim": "Practitioner review-bottleneck and multi-agent conflict pain (HN)", "class": "sentiment", "pub_date": "2026-08"}
+]

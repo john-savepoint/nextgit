@@ -1,0 +1,1494 @@
+{
+  "generated": "2026-10-02",
+  "source": "Collated from worker-1..5-trajectory.md and verify-round-1-trajectory.md in this directory",
+  "categories": [
+    "AI Code Review & PR Automation",
+    "Merge Queues & Landing Automation",
+    "Stacked Diffs & Next-Gen VCS",
+    "Autonomous Coding Agents",
+    "Multi-Agent Coordination & Conflict",
+    "Git Hosting & Forges",
+    "Cloudflare Platform Primitives",
+    "Context, Code Intelligence & Provenance",
+    "Visual/Spatial Review UX",
+    "Collaborative Canvas & Sync Infrastructure",
+    "Durable Execution & Sandboxing",
+    "Trust Layer: Secrets, Identity & Supply Chain",
+    "Engineering Analytics & Market Voice"
+  ],
+  "tools": [
+    {
+      "name": "CodeRabbit",
+      "category": "AI Code Review & PR Automation",
+      "what": "Polished default AI PR reviewer.",
+      "standout": "Most complete workflow: chat, one-click fixes, Triage, learnings, CLI/IDE, security+dependency scans; 2M reviews/wk; valued $550M to $1.5B in 11 months; a review-bot RCE with write access was demonstrated on 1M repos.",
+      "concurrency": "Per-PR review; no multi-agent coordination.",
+      "conflict": "None; advisory ('inconclusive result doesn't block').",
+      "triage": "PR summary, inline comments, Triage queue, one-click fixes.",
+      "context": "Diff + repo context; learns from accepted comments; no per-line provenance.",
+      "pricing": "Free public repos; Essentials $24/dev/mo annual ($30 mo); Team $48/$60; $0.25/reviewed file continued.",
+      "stack": "LLM over diff + repo context; multi-host.",
+      "confidence": "High",
+      "sources": [
+        "https://qodex.ai/blog/best-ai-code-review-tools",
+        "https://www.reuters.com/technology/ai-code-review-platform-coderabbit-valued-15-billion-latest-funding-round-2026-08-12",
+        "https://news.ycombinator.com/item?id=44953032"
+      ]
+    },
+    {
+      "name": "Greptile",
+      "category": "AI Code Review & PR Automation",
+      "what": "Codebase-aware LLM reviewer with full-codebase index.",
+      "standout": "Builds a complete graph of the codebase (files/functions/vars/imports/calls); parallel review agents; learns from comments; TREX agent writes and runs tests in a sandbox.",
+      "concurrency": "Parallel review agents (per-review fan-out).",
+      "conflict": "None; advisory, no gate.",
+      "triage": "PR comments + summary; TREX test evidence.",
+      "context": "Full codebase graph + agentic multi-hop search.",
+      "pricing": "Free (1 dev, 50 credits); Pro $30/seat/mo incl 50 credits, $1/extra; TREX = 3 credits; Chat +$20/user.",
+      "stack": "Graph indexing + agentic search; GitLab/self-host/Perforce.",
+      "confidence": "High",
+      "sources": [
+        "https://www.greptile.com/docs/how-greptile-works/graph-based-codebase-context",
+        "https://macroscope.com/content/macroscope-vs-greptile-ai-code-review-comparison"
+      ]
+    },
+    {
+      "name": "Macroscope",
+      "category": "AI Code Review & PR Automation",
+      "what": "Parser/AST-based LLM reviewer.",
+      "standout": "Language-specific codewalkers + AST/reference graph; Check Run Agents (named required checks, per-agent model routing, external tool calls); Fix It For Me CI autofix loop; Approvability.",
+      "concurrency": "Check-run agents (named, per-agent model routing).",
+      "conflict": "None; Check Runs can be required checks.",
+      "triage": "GitHub Checks + auto-fix PR; CI-failure read-and-retry loop.",
+      "context": "AST per file + reference graph; deterministic parsers.",
+      "pricing": "$0.05/KB reviewed (10KB min = $0.50 floor; ~$0.95 avg); $100 free; Agent included.",
+      "stack": "Language parsers + deterministic check runs; GitHub-only.",
+      "confidence": "High",
+      "sources": [
+        "https://macroscope.com/content/macroscope-vs-greptile-ai-code-review-comparison",
+        "https://qodex.ai/blog/best-ai-code-review-tools"
+      ]
+    },
+    {
+      "name": "Qodo Merge / PR-Agent",
+      "category": "AI Code Review & PR Automation",
+      "what": "Open-source rules-based reviewer.",
+      "standout": "Open-source PR-Agent core; Rule System across devs and agents; Enterprise Gerrit/on-prem; repackaged from per-seat to pooled credits in 2026.",
+      "concurrency": "None.",
+      "conflict": "None; rules can enforce policy.",
+      "triage": "PR description/improve/review commands; configurable rules.",
+      "context": "Context engine + configurable rules.",
+      "pricing": "Pooled credits $0.012/credit; $30 pack = 2,500 credits (~18 reviews); 14-day trial; free tier and per-seat dropped.",
+      "stack": "Context engine + rules; OSS core + enterprise.",
+      "confidence": "High",
+      "sources": [
+        "https://www.usagepricing.com/blueprint/activity/qodo-2026-06-30-packaging",
+        "https://qodex.ai/blog/best-ai-code-review-tools"
+      ]
+    },
+    {
+      "name": "Codacy",
+      "category": "AI Code Review & PR Automation",
+      "what": "Deterministic governance reviewer that fails closed.",
+      "standout": "Deterministic gates that fail closed (only the rule/threshold tier reliably blocks a merge); Verity blocks on prompt-conformance (unique); MCP server; AI overlay on a rule engine.",
+      "concurrency": "None.",
+      "conflict": "Deterministic fail-closed merge gate.",
+      "triage": "Quality gates + AI overlay.",
+      "context": "Rule engine + gates + AI overlay.",
+      "pricing": "Free Developer; Team $18/dev/mo annual ($21 mo).",
+      "stack": "Rule engine + gates + AI overlay; MCP server.",
+      "confidence": "High",
+      "sources": [
+        "https://blog.codacy.com/ai-code-review-tools-compared-2026-why-most-cant-safely-block-a-merge-and-what-code-governance-fixes"
+      ]
+    },
+    {
+      "name": "Cursor Bugbot",
+      "category": "AI Code Review & PR Automation",
+      "what": "Host-native reviewer inside Cursor.",
+      "standout": "Auto-runs on PR update or /review-bugbot; fail-on-unresolved org-gated; benchmarked 29/58% (Greptile study) and 42% (Macroscope study).",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Cursor editor + PR review; fail-on-unresolved gate.",
+      "context": "LLM over diff + repo.",
+      "pricing": "Cursor Pro $20/mo; Bugbot usage-based.",
+      "stack": "Cursor ecosystem (VS Code fork).",
+      "confidence": "High",
+      "sources": [
+        "https://qodex.ai/blog/best-ai-code-review-tools",
+        "https://macroscope.com/content/macroscope-vs-greptile-ai-code-review-comparison"
+      ]
+    },
+    {
+      "name": "Trunk",
+      "category": "Merge Queues & Landing Automation",
+      "what": "Merge queue + CI test-analytics platform.",
+      "standout": "Predictive testing against a projected head so merged SHA equals tested SHA; parallel lanes; batching; anti-flake; CI-layer flaky detection/quarantine; priority merging; direct-merge-to-main.",
+      "concurrency": "Parallel lanes; queue serializes landing.",
+      "conflict": "Queue ordering; no semantic conflict engine.",
+      "triage": "Queue dashboard + CI insights + metrics.",
+      "context": "PR + CI span telemetry.",
+      "pricing": "Free <=5 committers/5M spans; Team <=50; Enterprise custom.",
+      "stack": "GitHub app + predictive/parallel queue.",
+      "confidence": "High",
+      "sources": [
+        "https://docs.trunk.io/merge-queue/merge-queue",
+        "https://trunk.io/trunk-vs-aviator",
+        "https://docs.trunk.io/setup-and-administration/billing"
+      ]
+    },
+    {
+      "name": "Aviator",
+      "category": "Merge Queues & Landing Automation",
+      "what": "Merge queue with monorepo routing and self-hosting.",
+      "standout": "Affected-targets routing via build graph (Bazel/NX/Pants/Turborepo/Gradle); ChangeSets cross-repo coordination; FlexReview; real self-hosting; MIT av CLI; SOC 2 Type II.",
+      "concurrency": "Parallel queues/lanes.",
+      "conflict": "Blast-radius lane assignment.",
+      "triage": "MergeQueue + FlexReview reviewer routing.",
+      "context": "Build-graph model of the repo.",
+      "pricing": "Free; Team $20/dev/mo; Scale $50/dev/mo; Enterprise custom.",
+      "stack": "Build-graph-aware queue.",
+      "confidence": "High",
+      "sources": [
+        "https://www.aviator.co/pricing",
+        "https://www.aviator.co/aviator-vs-graphite"
+      ]
+    },
+    {
+      "name": "Mergify",
+      "category": "Merge Queues & Landing Automation",
+      "what": "GitHub merge queue with batching and bisect.",
+      "standout": "Batching + bisect-on-batch-failure; CI Insights; Test Insights (flaky quarantine); Merge Protections; YAML rules; 2k+ orgs merging 75k+ PRs/mo.",
+      "concurrency": "Queue batching.",
+      "conflict": "Queue ordering.",
+      "triage": "CI insights; merge protections.",
+      "context": "CI ingestion.",
+      "pricing": "14-day trial; tiered (contact).",
+      "stack": "GitHub-only queue + CI ingestion.",
+      "confidence": "High",
+      "sources": [
+        "https://staging.mergify.com/compare-mergify"
+      ]
+    },
+    {
+      "name": "Graphite",
+      "category": "Stacked Diffs & Next-Gen VCS",
+      "what": "Stacked-diff workflow + merge queue + AI review.",
+      "standout": "Stack-aware merge queue; gt CLI; AI review (ex-Diamond); PR inbox; dev metrics; MCP; Cursor Cloud Agents; adoption at Shopify/Vercel/Snowflake/Figma/X; $72M raised.",
+      "concurrency": "Stack + queue integration.",
+      "conflict": "Queue ordering; no semantic merge.",
+      "triage": "PR inbox + stacked review.",
+      "context": "GitHub app + stack metadata.",
+      "pricing": "Hobby free; Starter $20; Team $40; Enterprise custom.",
+      "stack": "Closed-source CLI + GitHub app + server queue.",
+      "confidence": "High",
+      "sources": [
+        "https://graphite.com/pricing",
+        "https://graphite.dev/blog/series-b-diamond-launch",
+        "https://docs.github.com/en/pull-requests/reference/stacked-pull-requests"
+      ]
+    },
+    {
+      "name": "GitButler",
+      "category": "Stacked Diffs & Next-Gen VCS",
+      "what": "Virtual-branch VCS client.",
+      "standout": "Multiple virtual branches in one working tree; drag hunks between lanes; commit/push each independently; agents via but CLI; vendor benchmark: agents ~65% faster with 78% fewer VCS commands (self-run).",
+      "concurrency": "Several virtual branches in one worktree (parallel streams).",
+      "conflict": "Hunk-level lane assignment (manual or agent).",
+      "triage": "Lane UI for assigning hunks.",
+      "context": "Virtual-branch engine.",
+      "pricing": "Free tier; paid (contact).",
+      "stack": "Virtual-branch engine + GitHub remote.",
+      "confidence": "Medium",
+      "sources": [
+        "https://github.com/gitbutlerapp/docs/blob/master/docs/features/virtual-branches/README.md",
+        "https://github.com/gitbutlerapp/version-control-bench"
+      ]
+    },
+    {
+      "name": "Jujutsu (jj)",
+      "category": "Stacked Diffs & Next-Gen VCS",
+      "what": "DAG-first branchless VCS over Git storage.",
+      "standout": "No staging area or current branch; rewriting a commit auto-rebases all descendants; operation-log undo; Git-compatible; conflicts first-class.",
+      "concurrency": "Concurrent lanes as changes (no branch names).",
+      "conflict": "Automatic descendant rebase; conflicts are first-class objects.",
+      "triage": "No review UX.",
+      "context": "Operation log (undo/history).",
+      "pricing": "Free (Apache-2.0).",
+      "stack": "DAG-first VCS over Git storage.",
+      "confidence": "High",
+      "sources": [
+        "https://docs.jj-vcs.dev/starlight/git-comparison"
+      ]
+    },
+    {
+      "name": "Sapling",
+      "category": "Stacked Diffs & Next-Gen VCS",
+      "what": "Meta-scale VCS with first-class commit stacks.",
+      "standout": "First-class commit stacks; smartlog; amend/undo anywhere; proven at Meta scale (10M+ files); Mercurial-derived.",
+      "concurrency": "Commit stacks.",
+      "conflict": "Stack re-parenting.",
+      "triage": "Smartlog.",
+      "context": "Stack metadata.",
+      "pricing": "Free (GPL-2.0).",
+      "stack": "Mercurial-derived; Mononoke + EdenFS internally.",
+      "confidence": "High",
+      "sources": [
+        "https://sapling-scm.com/docs/overview/stacks/",
+        "https://sapling-scm.com/docs/introduction/"
+      ]
+    },
+    {
+      "name": "Gerrit",
+      "category": "Stacked Diffs & Next-Gen VCS",
+      "what": "Central review forge with server-side submit queue.",
+      "standout": "Change-Id gives a logical change a stable identity across patchsets; refs/for/ upload; topics; server-side submit queue; per-project ACLs plus per-file OWNERS path grants.",
+      "concurrency": "Server-side submit queue.",
+      "conflict": "Submit queue ordering; path-scoped ownership.",
+      "triage": "Patchset review with stable change identity.",
+      "context": "Change-Id + in-repo OWNERS (provenance/identity primitive).",
+      "pricing": "Free (Apache-2.0).",
+      "stack": "Central repo + Pending Changes store.",
+      "confidence": "High",
+      "sources": [
+        "https://gerrit.googlesource.com/gerrit/+/master/Documentation/user-changeid.txt",
+        "https://gerrit.googlesource.com/gerrit/+/refs/heads/master/Documentation/access-control.txt"
+      ]
+    },
+    {
+      "name": "Devin (Cognition)",
+      "category": "Autonomous Coding Agents",
+      "what": "Cloud autonomous agent with fleet/migration mode.",
+      "standout": "Fleet of agents to migrate all repos in parallel; Devin Review generator-verifier loop; DeepWiki; manager Devin spawns child Devins via internal MCP; doctrine: multi-agent works only when writes stay single-threaded.",
+      "concurrency": "Fleet + child Devins via MCP; deliberately single-threaded writes.",
+      "conflict": "Avoids parallel writers by doctrine.",
+      "triage": "Devin Review + PR review.",
+      "context": "DeepWiki + session memory.",
+      "pricing": "Free to $20 Pro to $200 Max; Teams $80 min; Enterprise custom; ACU ~ 15 min work.",
+      "stack": "Cloud VM; event-driven workflows.",
+      "confidence": "High",
+      "sources": [
+        "https://cognition.com/blog/new-self-serve-plans-for-devin",
+        "https://cognition.com/blog/multi-agents-working"
+      ]
+    },
+    {
+      "name": "OpenAI Codex (cloud)",
+      "category": "Autonomous Coding Agents",
+      "what": "Cloud + CLI + IDE coding agent.",
+      "standout": "Parallel cloud tasks; 90+ MCP plugins (claim); subagent delegation; OS-native sandbox; Code review; GPT-5.x-Codex.",
+      "concurrency": "Parallel cloud tasks + subagent delegation.",
+      "conflict": "None.",
+      "triage": "Code review; PR output.",
+      "context": "Cloud sandbox; MCP plugin surface.",
+      "pricing": "Bundled in ChatGPT ($0 entry) / API $1.75/$14 per M.",
+      "stack": "Cloud sandbox + CLI.",
+      "confidence": "Medium",
+      "sources": [
+        "https://codex.danielvaughan.com/2026/06/14/beyond-model-chasing-benchmark-convergence-codex-cli-configuration-competitive-advantage/"
+      ]
+    },
+    {
+      "name": "Google Jules",
+      "category": "Autonomous Coding Agents",
+      "what": "Cloud async coding agent.",
+      "standout": "Published concurrency 3/15/60 by tier; 15/100/300 tasks/day; REST API (alpha); GitHub App; approval-gated plans; async VM to PR.",
+      "concurrency": "3/15/60 concurrent (tiered, documented).",
+      "conflict": "None.",
+      "triage": "PR + approval-gated plan review.",
+      "context": "Gemini; GitHub PR workflow.",
+      "pricing": "Free to AI Pro $19.99 to AI Ultra $99.99+.",
+      "stack": "jules.googleapis.com.",
+      "confidence": "High",
+      "sources": [
+        "https://jules.google/docs/usage-limits"
+      ]
+    },
+    {
+      "name": "Factory (Droids + Missions)",
+      "category": "Autonomous Coding Agents",
+      "what": "Enterprise agent platform with Missions orchestration.",
+      "standout": "Subagents, Missions, Droid Computers, Connectors, Skills, Hooks; 'Agent Readiness'; states 'coordination is hard. Agents conflict, duplicate work, and drift without structure'; parallelizes only where coordination overhead is low; validation workers; git as source of truth.",
+      "concurrency": "Missions parallelize only low-coordination work; serialization by default.",
+      "conflict": "Serialization + targeted parallelism instead of conflict-aware merge.",
+      "triage": "Milestone/feature review; git as source of truth.",
+      "context": "Droid sessions + Connectors.",
+      "pricing": "~$20-$200/mo to Enterprise custom (air-gapped).",
+      "stack": "Model-agnostic harness; CLI/desktop/web/IDE (ACP).",
+      "confidence": "High",
+      "sources": [
+        "https://factory.com/news/missions",
+        "https://factory.ai/enterprise",
+        "https://docs.factory.ai/"
+      ]
+    },
+    {
+      "name": "Sourcegraph Amp",
+      "category": "Autonomous Coding Agents",
+      "what": "Terminal/editor agent + enterprise orchestrator.",
+      "standout": "BYO-key at cost; 'orbs' (per-minute, auto-pause); outcome pricing per merged changeset; Agentic Batch Changes across hundreds-thousands of repos showing changeset mergeability (mergeable/conflicting/blocked).",
+      "concurrency": "Batch Changes across many repos (not one repo).",
+      "conflict": "Changeset mergeability status.",
+      "triage": "Batch Changes UI.",
+      "context": "Full-repo index + Deep Search.",
+      "pricing": "Hobby free to $20 to Gigawatt; Teams $0; Enterprise custom; per-merged-changeset outcome pricing (outlier worth copying).",
+      "stack": "Multi-model routing; MCP; own runners.",
+      "confidence": "Medium",
+      "sources": [
+        "https://ampcode.com/docs/pricing",
+        "https://sourcegraph.com/blog/agentic-batch-changes-pricing",
+        "https://www.businesswire.com/news/home/20260701185004/en/"
+      ]
+    },
+    {
+      "name": "OpenHands",
+      "category": "Autonomous Coding Agents",
+      "what": "Open-source agent platform; closest prior art (verified NOT implementing the premise in the strong sense).",
+      "standout": "One-to-thousands agents; Large Codebase SDK claims multiple agents work in parallel 'without conflicts' via dependency-ordered sequencing; Agent Control Plane (governance); MIT core; Option 3 = per-conversation Docker sandboxes; docs tell the user to use worktrees/dirs to avoid conflicting edits.",
+      "concurrency": "Concurrent conversations each in its own sandbox; sub-agent delegation within a conversation.",
+      "conflict": "Isolation-based avoidance + static-analysis dependency sequencing (prevention, not merge/lock/detect).",
+      "triage": "None for reconciling parallel proposals; verified no visual triage UX.",
+      "context": "Agent Canvas + session state; MCP; ACP.",
+      "pricing": "Free OSS to $20 Pro (at-cost LLM) to Enterprise/self-hosted VPC; Individual caps 10 conversations/day.",
+      "stack": "Agent Canvas + CLI + Cloud; ACP; MCP.",
+      "confidence": "Medium",
+      "sources": [
+        "https://www.openhands.dev/",
+        "https://openhands.dev/product/sdk",
+        "https://github.com/OpenHands/OpenHands",
+        "https://openhands.dev/pricing"
+      ]
+    },
+    {
+      "name": "Claude Code",
+      "category": "Autonomous Coding Agents",
+      "what": "Terminal-native coding agent.",
+      "standout": "Subagents with isolated contexts; parallel sessions; Agent Teams (<=15 subagents, claim); hooks/skills/subagents; Agent SDK; MCP.",
+      "concurrency": "Subagents + parallel sessions (<=15 subagents claim).",
+      "conflict": "Isolated contexts; no shared-repo conflict engine.",
+      "triage": "Terminal review + PRs.",
+      "context": "Agent SDK; hooks; skills; subagent memory.",
+      "pricing": "No free; Max $100/$200; API.",
+      "stack": "Terminal-native; Agent SDK.",
+      "confidence": "Medium",
+      "sources": [
+        "https://claude.com/blog/subagents-in-claude-code",
+        "https://www.anthropic.com/engineering/claude-code-best-practices"
+      ]
+    },
+    {
+      "name": "Superset",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Open-source agentic IDE running 100+ CLI agents in isolated worktrees.",
+      "standout": "Worktree-per-task; fleet dashboard; diff review; presets; PR feedback; orchestration APIs; 'Race Agents on One Task'; reliably 5-7 agents, goal 100; 'the real limit is how many independent, well-scoped tasks you can produce and review'; 14.8k downloads.",
+      "concurrency": "100+ agents in worktrees (5-7 reliable today).",
+      "conflict": "Avoidance by worktree isolation; no shared-repo conflict engine.",
+      "triage": "Diff review + fleet dashboard.",
+      "context": "Persistent sessions; MCP; overlap webhooks.",
+      "pricing": "Free OSS to commercial.",
+      "stack": "git worktree isolation; any CLI agent.",
+      "confidence": "High",
+      "sources": [
+        "https://superset.sh/blog/roadmap-to-100-agents",
+        "https://superset.sh/parallel-coding-agents",
+        "https://github.com/superset-sh/superset"
+      ]
+    },
+    {
+      "name": "sigbound",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Closest shipping prior art to the premise (~80%); Go, Apache-2.0, ~50 stars, created 2026-07.",
+      "standout": "Parallel agents in worktrees then merges the work; model conflict resolution flags low-confidence cases for review; gates merge on build/test; self-repair; file lanes; repo-owned sigbound.policy; 'run parking' holds sensitive paths for human sig ack; sig serve HTTP API + UI for reviewing conflicts and acking parked landings; multi-machine bundles.",
+      "concurrency": "Parallel worktree agents with file lanes.",
+      "conflict": "Detects + model-resolves conflicts, parks low-confidence/sensitive edits behind human ack.",
+      "triage": "sig serve UI (conflict review + ack) + CLI.",
+      "context": "Policy file + multi-machine bundles.",
+      "pricing": "Free OSS (self-host).",
+      "stack": "Go; CLI/local-first.",
+      "confidence": "Medium",
+      "sources": [
+        "https://github.com/surya-koritala/sigbound"
+      ]
+    },
+    {
+      "name": "Cursor Origin",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Agent-native git forge embedded in Cursor (closed beta Aug 2026).",
+      "standout": "Cloud agents in isolated VMs; 'Origin' hosting + PR subscription (agent monitors CI and fixes checks); sigbound's own compare bills it as the closed hosted version of parallel + merge + AI conflict resolution + gated + self-repair.",
+      "concurrency": "Cloud agents in isolated VMs.",
+      "conflict": "AI conflict resolution + gated merge (claimed).",
+      "triage": "Agent-native forge PR UX.",
+      "context": "Cursor ecosystem.",
+      "pricing": "Pro/Teams/Enterprise (closed beta).",
+      "stack": "Closed; Cursor-hosted.",
+      "confidence": "Medium",
+      "sources": [
+        "https://cursor.com/changelog/3-0",
+        "https://cursor.com/changelog/04-24-26"
+      ]
+    },
+    {
+      "name": "clash",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Read-only cross-worktree conflict detector; Rust, MIT, ~65 stars, 2026-02.",
+      "standout": "Detects conflicts across git worktrees using git merge-tree; fires as a Claude Code pre-write hook; conflict matrix TUI; watch mode; JSON output for orchestrators.",
+      "concurrency": "Cross-worktree detection.",
+      "conflict": "Detects only; never resolves.",
+      "triage": "Conflict matrix TUI.",
+      "context": "git merge-tree analysis.",
+      "pricing": "Free (MIT).",
+      "stack": "Rust CLI + hook + TUI.",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/clash-sh/clash"
+      ]
+    },
+    {
+      "name": "weave (ataraxy-labs)",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Entity-level Git merge driver; MIT; npm @ataraxy-labs/sem.",
+      "standout": "Replaces line-based 3-way merge; auto-resolves false conflicts when two agents edit the same file differently; surfaces real contextual conflicts.",
+      "concurrency": "Merge-layer reconciliation for parallel writers.",
+      "conflict": "Semantic/entity-level auto-merge + real-conflict surfacing.",
+      "triage": "None.",
+      "context": "Entity/AST model of files.",
+      "pricing": "Free (MIT).",
+      "stack": "Git merge driver.",
+      "confidence": "Medium",
+      "sources": [
+        "https://ataraxy-labs.com/products"
+      ]
+    },
+    {
+      "name": "CAID (arXiv 2603.21489, Jul 2026)",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Research: asynchronous SWE agent coordination.",
+      "standout": "Branch-and-merge coordination built on git worktree/commit/merge primitives; per-agent self-verification + self conflict resolution at commit time; benchmarks Commit0/PaperBench; closest architectural match to the premise.",
+      "concurrency": "Branch-and-merge asynchronous agents.",
+      "conflict": "Self conflict resolution at commit time.",
+      "triage": "None.",
+      "context": "git-native (branch/commit/merge).",
+      "pricing": "N/A (research).",
+      "stack": "SWE agent framework.",
+      "confidence": "High",
+      "sources": [
+        "https://arxiv.org/abs/2603.21489"
+      ]
+    },
+    {
+      "name": "grite (arXiv 2606.19616, Jun 2026)",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Research: server-less git-native multi-agent coordination substrate.",
+      "standout": "Signed append-only coordination log stored in git; advisory leases + shared task state reduce duplicate/conflicting work; pre-PR coordination dataset.",
+      "concurrency": "Advisory leases + shared task state.",
+      "conflict": "Lease-based avoidance (advisory, not enforced).",
+      "triage": "Pre-PR coordination log.",
+      "context": "git-stored append-only log (provenance).",
+      "pricing": "N/A (research).",
+      "stack": "git-native.",
+      "confidence": "High",
+      "sources": [
+        "https://arxiv.org/abs/2606.19616"
+      ]
+    },
+    {
+      "name": "CodeCRDT (arXiv 2510.18893, Oct 2025)",
+      "category": "Multi-Agent Coordination & Conflict",
+      "what": "Research: CRDT-coordinated multi-agent LLM coding (600-trial study).",
+      "standout": "100% convergence, zero merge failures; up to 21.1% speedup on some tasks and up to 39.4% slowdown on others; residual semantic conflict rate 5-10%; key finding: CRDTs solve transport, never correctness.",
+      "concurrency": "Lock-free concurrent code generation with strong eventual consistency.",
+      "conflict": "Character-level CRDT convergence; 5-10% semantic conflicts remain.",
+      "triage": "None (evidence that human review + decision log are load-bearing).",
+      "context": "Observation-driven CRDT.",
+      "pricing": "N/A (research).",
+      "stack": "CRDT + LLM agents.",
+      "confidence": "High",
+      "sources": [
+        "https://arxiv.org/abs/2510.18893"
+      ]
+    },
+    {
+      "name": "GitHub (Agent HQ)",
+      "category": "Git Hosting & Forges",
+      "what": "Centralized forge + agent platform.",
+      "standout": "Agent HQ unites agents from Anthropic/OpenAI/Google/Cognition/xAI; mission control; agent identity; one-click merge conflict resolution; agentic code review; Code Quality; control plane; metrics; third-party agents are GitHub Apps; MCP Registry; native merge queue + gh stack; 180M developers; 'LGTM doesn't always mean the code is healthy'.",
+      "concurrency": "Multiple concurrent agent sessions; conflict avoidance pushed to humans ('be thoughtful about partitioning work').",
+      "conflict": "One-click merge conflict resolution; no cross-agent conflict engine.",
+      "triage": "PR review + mission control (watch/steer logs, batching).",
+      "context": "AGENTS.md; MCP Registry; agent identity.",
+      "pricing": "Free to Copilot Pro $10 to Pro+ $39 to Max to Business/Enterprise (usage-based from 2026-06).",
+      "stack": "REST/GraphQL + Apps + webhooks + MCP; Actions.",
+      "confidence": "High",
+      "sources": [
+        "https://github.blog/news-insights/company-news/welcome-home-agents/",
+        "https://docs.github.com/en/copilot/concepts/agents/coding-agent/agent-management",
+        "https://github.blog/ai-and-ml/github-copilot/how-to-orchestrate-agents-using-mission-control/"
+      ]
+    },
+    {
+      "name": "GitLab (Duo Agent Platform)",
+      "category": "Git Hosting & Forges",
+      "what": "Centralized forge + opinionated agent platform (GA).",
+      "standout": "Agentic Chat; Planner/Security/Data Analyst agents; custom agents (AI Catalog); external agents (Claude Code, Codex CLI); flows incl issue-to-MR, code review, Fix CI/CD, SAST; autonomous merge-conflict resolution; governance dashboard; MCP tools; names the 'AI paradox' (only ~20% of dev time is writing code).",
+      "concurrency": "Agent platform flows.",
+      "conflict": "Native autonomous merge-conflict resolution ('resolve merge conflicts, edit conflicting files, push a resolution commit') - strongest shipped competitor feature.",
+      "triage": "MR review + governance dashboard.",
+      "context": "Context layer; MCP tools.",
+      "pricing": "Free to Premium $29/user to Ultimate; Duo Pro $19/user; Credits $12/$24 per user/mo.",
+      "stack": "Self-managed/Dedicated/self-hosted models; Claude Sonnet 4; LDAP/SAML.",
+      "confidence": "High",
+      "sources": [
+        "https://docs.gitlab.com/user/duo_agent_platform/",
+        "https://ir.gitlab.com/news/news-details/2026/GitLab-Announces-the-General-Availability-of-GitLab-Duo-Agent-Platform"
+      ]
+    },
+    {
+      "name": "Bitbucket (Rovo Dev)",
+      "category": "Git Hosting & Forges",
+      "what": "Atlassian forge with context-coupled agent.",
+      "standout": "Rovo Dev is context-aware (planning/coding/reviews); AI code review; agentic CI/CD; Teamwork Graph couples Jira/Confluence context; Rovo CLI with Claude/Codex.",
+      "concurrency": "None natively.",
+      "conflict": "None.",
+      "triage": "Rovo Dev reviews + Bitbucket PRs.",
+      "context": "Teamwork Graph (Jira/Confluence context).",
+      "pricing": "Free <=5 to Standard $3.65/user to Premium; Rovo Dev $20/dev/mo (2,000 credits).",
+      "stack": "Atlassian platform.",
+      "confidence": "Medium",
+      "sources": [
+        "https://www.atlassian.com/software/bitbucket/features/ai",
+        "https://www.atlassian.com/software/rovo-dev/pricing"
+      ]
+    },
+    {
+      "name": "Forgejo",
+      "category": "Git Hosting & Forges",
+      "what": "Self-hosted open forge with federation.",
+      "standout": "ForgeFed/ActivityPub federation; Forgejo Actions; v15 JWT federated Actions identities; Pagure migration; MIT-adjacent OSS.",
+      "concurrency": "None natively.",
+      "conflict": "None.",
+      "triage": "Standard forge PR review.",
+      "context": "Federation (ActivityPub); federated CI identities.",
+      "pricing": "Free OSS.",
+      "stack": "Go; self-hosted runners.",
+      "confidence": "High",
+      "sources": [
+        "https://forgejo.org/faq/",
+        "https://forgejo.org/2026-05-monthly-report"
+      ]
+    },
+    {
+      "name": "Codeberg",
+      "category": "Git Hosting & Forges",
+      "what": "Non-profit public forge (Forgejo instance).",
+      "standout": "Members voted 358-144 (14 abstentions) to restrict 'vibe-coded' projects and reject LLM training on hosted data; crawler defenses; hosts Gentoo mirror.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Standard forge PR review.",
+      "context": "AI opt-out must be first-class; hosted-data training refusal.",
+      "pricing": "Free (donations).",
+      "stack": "Forgejo, Berlin, Codeberg e.V.",
+      "confidence": "High",
+      "sources": [
+        "https://www.developer-tech.com/news/codeberg-members-vote-reject-llm-training-vibe-coding/"
+      ]
+    },
+    {
+      "name": "Tangled",
+      "category": "Git Hosting & Forges",
+      "what": "Decentralized forge on ATProto.",
+      "standout": "knots (headless Git hosts), spindles (MicroVM CI), appview; stacked PRs; seven XRPC webhook methods; identity = ATProto; 7,000+ users; EUR 3.8M seed.",
+      "concurrency": "None natively.",
+      "conflict": "None.",
+      "triage": "Stacked PRs + appview.",
+      "context": "ATProto decentralized identity.",
+      "pricing": "Free hosting + self-host.",
+      "stack": "AT Protocol; Go/TS components.",
+      "confidence": "High",
+      "sources": [
+        "https://docs.tangled.org/git",
+        "https://tangled.org/tangled.org/core",
+        "https://www.antler.co/blog/why-we-invested-in-tangled"
+      ]
+    },
+    {
+      "name": "Radicle",
+      "category": "Git Hosting & Forges",
+      "what": "P2P decentralized forge.",
+      "standout": "Sovereign P2P, no central entity; Heartwood (3rd-gen); delegate-based canonical branch; disclosed two critical wire-protocol vulns (cleartext private repos, node impersonation) requiring a breaking migration to Iroh (QUIC/TLS).",
+      "concurrency": "None natively.",
+      "conflict": "None.",
+      "triage": "None.",
+      "context": "Delegate-based canonical branch.",
+      "pricing": "Free OSS + seeds.",
+      "stack": "Rust; Noise to Iroh (QUIC/TLS).",
+      "confidence": "High",
+      "sources": [
+        "https://www.infoq.com/news/2026/09/radicle-network-vulnerabilities",
+        "https://radicle.dev/2026/09/23/disclosure-of-vulnerability-in-network-protocol"
+      ]
+    },
+    {
+      "name": "Cloudflare Workers",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Serverless compute on V8 isolates.",
+      "standout": "CPU-time is the binding constraint (10ms free / 5min paid, default 30s); HTTP wall time unlimited while connected; 128MB/isolate; 6 concurrent waiting-for-headers; up to 10,000 (configurable 10M) subrequests.",
+      "concurrency": "Massive stateless horizontal fan-out.",
+      "conflict": "None.",
+      "triage": "None.",
+      "context": "None directly.",
+      "pricing": "Free to $5/mo + $0.30/M req, $0.02/M CPU-ms (10M req + 30M CPU-ms included).",
+      "stack": "V8 isolates; 128 MB.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/workers/platform/limits/",
+        "https://developers.cloudflare.com/workers/platform/pricing/"
+      ]
+    },
+    {
+      "name": "Cloudflare Durable Objects",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Stateful single-writer coordination actor with embedded SQLite.",
+      "standout": "One globally-unique, single-threaded object per key; embedded SQLite (10GB/object, value <=2MB, WS msg <=32MiB); hibernation 'allows the object to hibernate without disconnecting clients when idle' so review rooms are cheap when idle; ~1,000 req/s soft cap; unlimited objects per namespace; recommended shape one DO per repo/room (100 DOs x 100 hibernatable WS ~ $20.65/mo vs ~$142.95/mo non-hibernating).",
+      "concurrency": "One DO per repo/room as coordination hub; scale is horizontal.",
+      "conflict": "Single-writer serialization per object; natural place for leases/locks.",
+      "triage": "Realtime review rooms via hibernatable WebSockets.",
+      "context": "SQLite state per object; change-set index, agent roster, finding ledger.",
+      "pricing": "Free to $0.15/M req, $12.50/M GB-s (1M req + 400k GB-s included).",
+      "stack": "DO + SQLite; alarms; WebSocket Hibernation API.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/durable-objects/platform/limits/",
+        "https://developers.cloudflare.com/durable-objects/platform/pricing/",
+        "https://developers.cloudflare.com/durable-objects/api/websockets"
+      ]
+    },
+    {
+      "name": "Cloudflare Workflows",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Durable execution for agent-triggered work.",
+      "standout": "50,000 concurrent instances; 300 instances/s created; 2M queued; <=25,000 steps; step.sleep <=365 days; 1GB state/instance; waiting instances do not consume concurrency slots (millions may sleep); v2 control plane (SousChef + Gatekeeper).",
+      "concurrency": "50k concurrent; millions sleeping free of slots.",
+      "conflict": "Per-step retries; waitForEvent human approval gates.",
+      "triage": "Human-approval waits (waitForEvent).",
+      "context": "Durable step state/history.",
+      "pricing": "Billing from 2026-08-10; 500k steps/mo included + $0.80/100k.",
+      "stack": "DO-based.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/workflows/reference/limits/",
+        "https://blog.cloudflare.com/workflows-v2/"
+      ]
+    },
+    {
+      "name": "Cloudflare Containers + Sandbox SDK",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Serverless Linux microVM per agent.",
+      "standout": "Each instance is a microVM with its own kernel and network; lite (1/16 vCPU, 256MiB) to standard-4 (4 vCPU, 12GiB); account limits 6 TiB memory / 1,500 vCPU / 30 TB disk; Sandbox SDK adds PTY, R2 mounts, agent-CLI runners; GA at Agents Week.",
+      "concurrency": "1,500 concurrent vCPU per account is the hard ceiling on simultaneous heavy sandboxes.",
+      "conflict": "Per-task isolation (its own kernel).",
+      "triage": "None.",
+      "context": "R2 mounts; container snapshots.",
+      "pricing": "Paid; 25 GiB-h/mo included + $0.0000025/GiB-s; 375 vCPU-min/mo + $0.000020/vCPU-s.",
+      "stack": "Containers + DO-scheduled; Region:Earth.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/sandbox/",
+        "https://developers.cloudflare.com/containers/platform/limits/"
+      ]
+    },
+    {
+      "name": "Cloudflare Agents SDK",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Agent runtime/harness: agent = Durable Object + SQLite + fibers.",
+      "standout": "Each agent runs on a DO with its own SQL, WebSocket connections and scheduling; scales to tens of millions of instances; runFiber() persists work in SQLite so it can be recovered; startFiber() gives durable acceptance/safe dedupe retries; onFiberRecovered(); sub-agents share the parent alarm slot.",
+      "concurrency": "Isolated per-agent DO; tens of millions of instances.",
+      "conflict": "Single-writer per agent DO; sessions/routing built in.",
+      "triage": "None (realtime surfaces via DO WebSockets).",
+      "context": "Durable fibers; sessions; schedules.",
+      "pricing": "Paid (DO rates).",
+      "stack": "DO + SQLite + fibers.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/agents/",
+        "https://developers.cloudflare.com/agents/runtime/execution/durable-execution/"
+      ]
+    },
+    {
+      "name": "Cloudflare Artifacts",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Git-compatible repo storage for tens of millions of repos.",
+      "standout": "Create tens of millions of repos, fork from any remote, hand off a URL to any Git client; pushes publish cf.artifacts.repo.pushed; Workers binding can fork the project for an agent, read files, and issue repo-scoped Git tokens; US/EU jurisdiction per namespace; the competition explicitly asks for 'the layer above it: how agents coordinate their work, how changes are reviewed and merged'.",
+      "concurrency": "Repo/branch per agent task.",
+      "conflict": "None by itself; the coordination layer is what must be built.",
+      "triage": "None.",
+      "context": "Repo-scoped Git tokens; push events.",
+      "pricing": "Billing starts 2026-10-15.",
+      "stack": "Git + REST + Workers binding.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/artifacts/",
+        "https://blog.cloudflare.com/next-git-platform-on-cloudflare/"
+      ]
+    },
+    {
+      "name": "Cloudflare AI Gateway",
+      "category": "Cloudflare Platform Primitives",
+      "what": "LLM gateway / inference control plane.",
+      "standout": "Caching, rate-limit, retries, fallback, BYOK, analytics, ZDR; 10 gateways free / 20 paid; 1-line SDK; routing across providers.",
+      "concurrency": "Rate-limit/fallback across a fleet of agents.",
+      "conflict": "None.",
+      "triage": "None.",
+      "context": "Central cost/analytics for agent inference.",
+      "pricing": "Free; 10M logs + $0.60/M.",
+      "stack": "1-line SDK; provider routing.",
+      "confidence": "High",
+      "sources": [
+        "https://developers.cloudflare.com/ai-gateway/",
+        "https://developers.cloudflare.com/ai-gateway/reference/limits/"
+      ]
+    },
+    {
+      "name": "Cloudflare internal AI code reviewer (case study)",
+      "category": "Cloudflare Platform Primitives",
+      "what": "Cloudflare's own CI-native multi-agent reviewer - the reference template.",
+      "standout": "131,246 review runs across 48,095 MRs in 5,169 repos; median 3m39s; mean cost $1.19 (median $0.98, P99 $4.45); tiers trivial $0.20 / lite $0.67 / full $1.68; 85.7% cache hits; up to seven specialists; 'break glass' only 0.6%; findings persisted across re-reviews via MCP; honest limits (architecture awareness, cross-system impact, concurrency bugs, cost scaling with diff size).",
+      "concurrency": "Coordinator + specialist sub-reviewers with risk-tiered fan-out.",
+      "conflict": "None (review, not merge).",
+      "triage": "Prepared briefing over one shared cached context file; risk-tiered review depth.",
+      "context": "One shared cached context file; MCP-persisted findings ledger.",
+      "pricing": "Internal (cost data published).",
+      "stack": "Coordinator + specialists on the Cloudflare stack.",
+      "confidence": "High",
+      "sources": [
+        "https://blog.cloudflare.com/ai-code-review/"
+      ]
+    },
+    {
+      "name": "Repomix",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Repo-context packager.",
+      "standout": "Whole-repo to a single AI-friendly file (plain/XML/Markdown); token counting; split output; gitignore-aware; MCP; 28,502 stars; MIT.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "None.",
+      "context": "Whole-repo packing (table stakes).",
+      "pricing": "Free (MIT).",
+      "stack": "TS/Node CLI.",
+      "confidence": "High",
+      "sources": [
+        "https://repomix.com/guide",
+        "https://github.com/yamadashy/repomix"
+      ]
+    },
+    {
+      "name": "AGENTS.md",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Cross-vendor agent-instruction standard.",
+      "standout": "Repo-root instructions; nested 'closest file wins' for monorepos; ~20,000+ repos; formalized Aug 2025 by OpenAI/Google/Cursor/Factory/Sourcegraph; Linux Foundation-governed; static file with no runtime sync.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "None.",
+      "context": "Static intent layer (a file, not live coordination).",
+      "pricing": "Free spec.",
+      "stack": "Markdown; AAIF/LF.",
+      "confidence": "High",
+      "sources": [
+        "https://agents.md/",
+        "https://gist.github.com/mvandermeulen/98d63c53ccb0b161971fd479904952f5",
+        "https://rulestack.kynth.studio/format/agents-md"
+      ]
+    },
+    {
+      "name": "MCP (Model Context Protocol)",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Universal agent-to-tool context protocol.",
+      "standout": "Donated to the Agentic AI Foundation (AAIF) Dec 2025, co-founded by Anthropic/Block/OpenAI with support from Google/Microsoft/AWS/Cloudflare/Bloomberg; >10,000 servers (18,000+ indexed by 2026); spec mandates OAuth 2.1 resource-server model and forbids token passthrough; 'MUST NOT use sessions for authentication'.",
+      "concurrency": "None (transport).",
+      "conflict": "None.",
+      "triage": "None.",
+      "context": "Context transport (MCP resources for live state); Cloudflare is a founding AAIF supporter.",
+      "pricing": "Free spec.",
+      "stack": "JSON-RPC; Streamable HTTP + OAuth.",
+      "confidence": "High",
+      "sources": [
+        "https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation",
+        "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/authorization/index.mdx"
+      ]
+    },
+    {
+      "name": "Spec Kit",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Spec-driven development toolkit (GitHub).",
+      "standout": "spec -> plan -> tasks; works with 20+ agents; 104,718 stars; MIT; Thoughtworks Radar 'Assess'; maturity ladder spec-first to spec-anchored to spec-as-source; no shared spec format across tools.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Spec artifacts reviewed before code.",
+      "context": "Spec artifacts as source of truth (snapshot, not live).",
+      "pricing": "Free (MIT).",
+      "stack": "Markdown + CLI.",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/github/spec-kit",
+        "https://www.thoughtworks.com/en-us/radar/languages-and-frameworks/github-spec-kit"
+      ]
+    },
+    {
+      "name": "Git AI",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Line-level AI provenance in Git Notes.",
+      "standout": "On commit, stores line-level attribution data in Git Notes linking each line of AI-generated code to agent/model/session; survives rebases, merges, stash/pops, squashes, resets, cherry-picks; publishes attribution standard v3.0.0; now part of OpenAI.",
+      "concurrency": "None.",
+      "conflict": "Survives history rewrites (rebase/merge-safe).",
+      "triage": "None.",
+      "context": "Per-line, rebase-safe authorship provenance keyed to agent/model/session.",
+      "pricing": "Free CLI.",
+      "stack": "Git extension; Git Notes; spec v3.0.0.",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/git-ai-project/git-ai",
+        "https://usegitai.com/",
+        "https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md"
+      ]
+    },
+    {
+      "name": "DeepWiki",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Auto-generated repo wikis + MCP server.",
+      "standout": "Indexes repos and produces wikis with architecture diagrams and source links; exposes a remote no-auth MCP server with 3 tools (a compact, stealable interface).",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Wiki browsing + MCP queries.",
+      "context": "Code intelligence packaged as MCP tools.",
+      "pricing": "Free; paid via Devin.",
+      "stack": "Devin indexing; MCP.",
+      "confidence": "High",
+      "sources": [
+        "https://cognition.com/blog/deepwiki",
+        "https://github.com/mcp/cognitionai/deepwiki"
+      ]
+    },
+    {
+      "name": "ast-grep / Semgrep",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Structural AST search and static analysis.",
+      "standout": "ast-grep searches/rewrites by AST pattern via tree-sitter (15.8k stars, MIT); Semgrep does semantic patterns over 30+ languages (16,816 stars); both structural, neither merges.",
+      "concurrency": "None.",
+      "conflict": "None (search/analysis, not merge).",
+      "triage": "None.",
+      "context": "Structural (AST/semantic) code indexing.",
+      "pricing": "Free (MIT / OSS core).",
+      "stack": "Rust + tree-sitter (ast-grep); OCaml + tree-sitter (Semgrep).",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/ast-grep/ast-grep",
+        "https://github.com/semgrep/semgrep"
+      ]
+    },
+    {
+      "name": "OpenRewrite / Moderne",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Multi-repo automated refactoring at scale.",
+      "standout": "OpenRewrite recipes run one repo at a time; Moderne pre-computes LSTs across every repo then runs recipes in parallel, opening coordinated pull requests with a full audit trail.",
+      "concurrency": "Parallel multi-repo recipe execution.",
+      "conflict": "None.",
+      "triage": "Coordinated PRs with audit trail.",
+      "context": "LST structural index (provenance of transforms).",
+      "pricing": "Free (Apache) to enterprise.",
+      "stack": "Java LST; recipe DSL.",
+      "confidence": "High",
+      "sources": [
+        "https://moderne.ai/solutions/scale-openrewrite"
+      ]
+    },
+    {
+      "name": "Difftastic",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Structural (tree-sitter) diff.",
+      "standout": "Syntax-aware diff; maintainer states 'AST merging is a hard problem that difftastic does not address' - clear evidence that structural merge is unsolved whitespace.",
+      "concurrency": "None.",
+      "conflict": "Does NOT address AST merge.",
+      "triage": "None.",
+      "context": "Structural diff of code.",
+      "pricing": "Free (MIT).",
+      "stack": "Rust + tree-sitter.",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/wilfred/difftastic"
+      ]
+    },
+    {
+      "name": "Unblocked",
+      "category": "Context, Code Intelligence & Provenance",
+      "what": "Commercial context layer.",
+      "standout": "Reconciles conflicts between code/chat/docs/prod sources; enforces existing access controls; delivers ranked, compressed context to any MCP client; ingestion rebuilt on Temporal durable execution; SOC2; $19-$29/user/mo.",
+      "concurrency": "None.",
+      "conflict": "Reconciles conflicts between context sources.",
+      "triage": "None.",
+      "context": "Rank + compress + ACL-gate context; durable ingestion.",
+      "pricing": "$19 to $29/user/mo.",
+      "stack": "Temporal ingestion; MCP.",
+      "confidence": "Medium",
+      "sources": [
+        "https://getunblocked.com/pricing",
+        "https://temporal.io/blog/why-a-context-engine-needs-durable-execution-how-unblocked-rebuilt-its-ingestion-backbone-on-temporal"
+      ]
+    },
+    {
+      "name": "Whiteboard (dev.fast)",
+      "category": "Visual/Spatial Review UX",
+      "what": "Direct prior art for visual/spatial agent-drawn review; YC W26, MIT, 1.7k stars.",
+      "standout": "A canvas the existing agent draws on through an MCP server, so a large agent-written change arrives as a structured 'whiteboard session' instead of a 40-file diff; diagrams linked to code (pinned line ranges); Rust AST-aware semantic diff; decision log ('records which decisions were your requirements and which the agent made alone'); writes use an authoring lease per review so two agents cannot silently overwrite each other; every saved version keeps command inputs as receipts. Limits: single-repo, ~736MB build, snapshot-only sharing, no editing.",
+      "concurrency": "Authoring lease per review (advisory lock per review).",
+      "conflict": "Authoring lease + per-version command receipts prevent concurrent-writer clobbering.",
+      "triage": "Canvas review; decision log; command receipts.",
+      "context": "Code-linked diagrams; decision log; receipts.",
+      "pricing": "Free local (MIT); hosted TBD.",
+      "stack": "Electron/Code OSS + Rust WASM.",
+      "confidence": "High",
+      "sources": [
+        "https://andrew.ooo/posts/whiteboard-review-yc-open-source-design-canvas-ai-coding-agents/",
+        "https://github.com/devdotfast/whiteboard"
+      ]
+    },
+    {
+      "name": "CodeSee",
+      "category": "Visual/Spatial Review UX",
+      "what": "Pre-agent visual review (code maps).",
+      "standout": "Review Maps create diagrams from pull requests; automatic multi-language maps.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "PR Review Maps.",
+      "context": "Static code maps.",
+      "pricing": "Free beta to paid.",
+      "stack": "Multi-language maps.",
+      "confidence": "Medium",
+      "sources": [
+        "https://docs.codesee.io/docs/getting-started"
+      ]
+    },
+    {
+      "name": "AppMap",
+      "category": "Visual/Spatial Review UX",
+      "what": "Runtime-evidence visual review.",
+      "standout": "Provides runtime evidence for AI-assisted development: calls, queries, exceptions, side effects (execution traces, not just static maps).",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Runtime trace review.",
+      "context": "Runtime execution evidence.",
+      "pricing": "Free to paid.",
+      "stack": "Runtime tracing.",
+      "confidence": "Medium",
+      "sources": [
+        "https://appmap.io/"
+      ]
+    },
+    {
+      "name": "Mermaid / D2 / ZenUML",
+      "category": "Visual/Spatial Review UX",
+      "what": "Diagrams-in-PR.",
+      "standout": "Text diagrams dominate docs; ZenUML is JS-based, needs no server, ships a visual modeling plugin for Codex and Claude Code; Mermaid renders ZenUML sequence diagrams; diagrams are static and not resolvable to code (the gap Whiteboard attacks).",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Diagrams embedded in PRs.",
+      "context": "Diagrams not linked to code line ranges.",
+      "pricing": "Free OSS.",
+      "stack": "JS renderers.",
+      "confidence": "Medium",
+      "sources": [
+        "https://mermaid.js.org/syntax/zenuml.html",
+        "https://github.com/mermaid-js/zenuml-core",
+        "https://github.com/ZenUml/diagram"
+      ]
+    },
+    {
+      "name": "Yjs",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "CRDT engine (text).",
+      "standout": "Network agnostic (p2p); scales to an unlimited number of users; rich adapter ecosystem; de-facto text standard; MIT.",
+      "concurrency": "Unlimited concurrent editors (text).",
+      "conflict": "Character-level CRDT convergence; no semantic merge.",
+      "triage": "None.",
+      "context": "Shared text/document state.",
+      "pricing": "Free (MIT).",
+      "stack": "YATA; MIT.",
+      "confidence": "High",
+      "sources": [
+        "https://unpkg.com/yjs@13.4.11/docs/index.html"
+      ]
+    },
+    {
+      "name": "Automerge 3",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "CRDT engine (JSON tree).",
+      "standout": "JSON-tree generalist; Automerge 3 cut document size roughly 10x via column-oriented storage; strong TypeScript story; better fit than Yjs for a canvas of code nodes/threads.",
+      "concurrency": "Concurrent JSON-tree edits.",
+      "conflict": "CRDT convergence on tree/map; no semantic code merge.",
+      "triage": "None.",
+      "context": "Structured document/tree state.",
+      "pricing": "Free (MIT).",
+      "stack": "Rust; automerge-repo.",
+      "confidence": "High",
+      "sources": [
+        "https://www.youngju.dev/blog/culture/2026-05-15-crdt-local-first-engines-2026-yjs-automerge-loro-replicache-liveblocks-deep-dive.en"
+      ]
+    },
+    {
+      "name": "Loro",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "CRDT engine with movable-tree primitive.",
+      "standout": "Movable Tree as a first-class primitive; where concurrent moves on Yjs can produce cycles or orphaned nodes, Loro guarantees it at the algorithm level; Fugue text; time travel; ~970KB WASM gzipped; thin adapter ecosystem, no canonical server.",
+      "concurrency": "Concurrent moves/edits with tree correctness.",
+      "conflict": "Algorithm-level movable-tree correctness (no cycles/orphans).",
+      "triage": "None.",
+      "context": "Block-tree/canvas state.",
+      "pricing": "Free (MIT).",
+      "stack": "Rust to WASM/NAPI.",
+      "confidence": "High",
+      "sources": [
+        "https://www.loro.dev/",
+        "https://www.loro.dev/docs"
+      ]
+    },
+    {
+      "name": "Liveblocks",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "Hosted sync SaaS.",
+      "standout": "Presence/comments/notifications/AI copilots (AI editors that join the room like collaborators); meters collaboration minutes, comments, storage, notifications; MAU Unlimited on all plans per current docs (Free real caps: 500 active rooms, 10 simultaneous connections/room, 3,000 collaboration minutes, 200 comments).",
+      "concurrency": "Realtime rooms with presence/comments.",
+      "conflict": "CRDT-backed convergence (managed Yjs).",
+      "triage": "Comments + notifications + AI copilots.",
+      "context": "Managed collaboration state.",
+      "pricing": "Free (capped) to metered tiers; multi-region + self-host Enterprise only.",
+      "stack": "Managed Yjs.",
+      "confidence": "High",
+      "sources": [
+        "https://liveblocks.io/pricing",
+        "https://liveblocks.io/docs/pricing/plans/free"
+      ]
+    },
+    {
+      "name": "PartyKit",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "Sync SaaS - already owned by Cloudflare.",
+      "standout": "Cloudflare acquired PartyKit (Apr 2024); deploys to your own Cloudflare account on workerd/Durable Objects; Yjs via y-partykit; 'deploy to your own Cloudflare account and pay for the resources you use'.",
+      "concurrency": "DO-room based realtime (one room per object).",
+      "conflict": "Yjs/CRDT backed; DO single-writer per room.",
+      "triage": "None built-in.",
+      "context": "Durable Object rooms.",
+      "pricing": "Free to Workers usage ($0.30/1M req; $0.50/M GB-s).",
+      "stack": "workerd/Durable Objects.",
+      "confidence": "High",
+      "sources": [
+        "https://blog.cloudflare.com/cloudflare-acquires-partykit",
+        "https://docs.partykit.io/how-partykit-works"
+      ]
+    },
+    {
+      "name": "Jazz",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "Local-first relational DB with permissions.",
+      "standout": "Local-first relational database with row-level permissions and real-time sync; no separate API layer; uses the same Rust database engine core everywhere (client and server).",
+      "concurrency": "Multi-client sync.",
+      "conflict": "Row-level permissions gate replication.",
+      "triage": "None.",
+      "context": "Row-level permission-scoped sync (per-file/per-agent ACLs).",
+      "pricing": "Free to Cloud paid.",
+      "stack": "Rust to WASM/native.",
+      "confidence": "Medium",
+      "sources": [
+        "https://jazz.tools/docs",
+        "https://jazz.tools/"
+      ]
+    },
+    {
+      "name": "ElectricSQL",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "Postgres-to-SQLite sync engine.",
+      "standout": "Syncs Postgres to SQLite in a 'Shape' - a SQL where clause selects a partial dataset; written in Elixir; logical replication.",
+      "concurrency": "Partial sync per client/agent.",
+      "conflict": "'Shape' predicate scopes what is replicated.",
+      "triage": "None.",
+      "context": "Predicate-based partial sync (shape) for per-agent scoping.",
+      "pricing": "Free OSS to cloud.",
+      "stack": "Elixir; logical replication.",
+      "confidence": "Medium",
+      "sources": [
+        "https://electric-sql.com/docs/reference/alternatives"
+      ]
+    },
+    {
+      "name": "tldraw",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "Infinite-canvas SDK + sync.",
+      "standout": "50.7k stars; license adapted from the Scratch license - must preserve 'Made with tldraw' watermark unless a business license is purchased; multiplayer sync included; canvas-specific realtime sync (tldraw sync).",
+      "concurrency": "Multiplayer canvas sync included.",
+      "conflict": "CRDT/Yjs-based sync.",
+      "triage": "Canvas comments/presence.",
+      "context": "Canvas document state.",
+      "pricing": "Free with watermark to paid business license.",
+      "stack": "React; custom sync to Yjs.",
+      "confidence": "High",
+      "sources": [
+        "https://tldraw.dev/pricing",
+        "https://github.com/tldraw/tldraw/blob/main/LICENSE.md"
+      ]
+    },
+    {
+      "name": "React Flow (xyflow)",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "Node-graph canvas SDK.",
+      "standout": "Node-graph SDK; MIT core plus a separate perpetual, non-transferable Pro license; the default for diagram/flow editors.",
+      "concurrency": "None built-in.",
+      "conflict": "None.",
+      "triage": "Node-graph editor UI.",
+      "context": "Node/edge graph state.",
+      "pricing": "Free core to Pro license.",
+      "stack": "React.",
+      "confidence": "High",
+      "sources": [
+        "https://xyflow.com/pro-license"
+      ]
+    },
+    {
+      "name": "PixiJS",
+      "category": "Collaborative Canvas & Sync Infrastructure",
+      "what": "GPU-2D canvas renderer.",
+      "standout": "WebGL and WebGPU renderers; fastest, most lightweight 2D library; MIT.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Rendering layer.",
+      "context": "None.",
+      "pricing": "Free (MIT).",
+      "stack": "WebGL/WebGPU.",
+      "confidence": "High",
+      "sources": [
+        "https://pixijs.io/docs/",
+        "https://pixijs.com/8.x/guides/components/renderers"
+      ]
+    },
+    {
+      "name": "Temporal",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Durable execution (replay model).",
+      "standout": "Workflows and activities: sequential code whose history replays on crash; you run workers that poll; polyglot; 99.99% HA; billed per action.",
+      "concurrency": "Durable multi-step agent jobs.",
+      "conflict": "History replay on crash.",
+      "triage": "None.",
+      "context": "Durable execution history.",
+      "pricing": "$50 per million actions (to $25/M), $0.042/GBhr active storage; $150 credits entry.",
+      "stack": "Workflows + Activities; polyglot.",
+      "confidence": "High",
+      "sources": [
+        "https://temporal.io/pricing",
+        "https://www.inngest.com/blog/best-job-queue-alternatives"
+      ]
+    },
+    {
+      "name": "Restate",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Durable execution (journal + virtual objects).",
+      "standout": "Journals durable handlers and virtual objects (stateful entities keyed by ID) inside a compact single-binary runtime; orchestration managed, handlers on your infra; the virtual-object idea maps directly onto one Durable Object per agent session.",
+      "concurrency": "Single-writer ID-keyed virtual objects (maps to one DO per session).",
+      "conflict": "Per-key serialization without hand-rolled locks.",
+      "triage": "None.",
+      "context": "Durable handler/object journaling.",
+      "pricing": "Free 100k actions to $75/mo (5M) to $300/mo (20M), $25/M overage.",
+      "stack": "Single binary; handler+object journaling.",
+      "confidence": "High",
+      "sources": [
+        "https://restate.dev/pricing/",
+        "https://www.inngest.com/blog/best-job-queue-alternatives"
+      ]
+    },
+    {
+      "name": "E2B",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Agent sandbox (Firecracker microVM).",
+      "standout": "Firecracker per sandbox with its own kernel; ~150ms start; fork; Apache-2.0; Hobby 20 concurrent, Pro 100 expandable to 1,100, Enterprise tens of thousands.",
+      "concurrency": "Tiered concurrency (20/100/1100/tens-of-thousands).",
+      "conflict": "Per-sandbox kernel isolation.",
+      "triage": "None.",
+      "context": "Ephemeral compute per agent.",
+      "pricing": "$100 credit to $150/mo + $0.0504/vCPU-h + $0.0162/GiB-h (billed per second, wall-clock - idle time bills).",
+      "stack": "Firecracker; GCP; BYOC.",
+      "confidence": "High",
+      "sources": [
+        "https://e2b.dev/pricing",
+        "https://docs.e2b.dev/faq/calculate-sandbox-price"
+      ]
+    },
+    {
+      "name": "Modal",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Sandbox / serverless (gVisor).",
+      "standout": "gVisor isolation; GPU sandboxes; documents operation at 100,000+ concurrent sandboxes (up to 50,000 concurrent per customer); meters provisioned resources while running and nothing while idle (active-CPU billing, unlike E2B/Daytona wall-clock).",
+      "concurrency": "100k+ concurrent (documented); scale-to-zero.",
+      "conflict": "gVisor userspace kernel (10-30% syscall overhead on I/O-heavy work).",
+      "triage": "None.",
+      "context": "GPU/ML and code-exec sandboxes.",
+      "pricing": "$30 credit; ~3x function rate; per-second, active-CPU billing.",
+      "stack": "gVisor; per-second.",
+      "confidence": "High",
+      "sources": [
+        "https://modal.com/resources/best-serverless-platforms-rl-environment-compute",
+        "https://bex.co/blog/2026/09/09/e2b-daytona-modal-sandbox-pricing-self-hosted"
+      ]
+    },
+    {
+      "name": "Daytona",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Fast-start sandbox.",
+      "standout": "Sub-90ms start; container default with Kata/gVisor opt-in; vCPU pools 10 to 500 by tier; same unit price as E2B ($0.0504/vCPU-h + $0.0162/GiB-h) but wall-clock metering.",
+      "concurrency": "vCPU pools 10 to 500 by tier.",
+      "conflict": "Container by default; Kata/gVisor opt-in.",
+      "triage": "None.",
+      "context": "Fast-start ephemeral agents.",
+      "pricing": "$200 credit to $0.0504/vCPU-h.",
+      "stack": "Docker default.",
+      "confidence": "High",
+      "sources": [
+        "https://bex.co/blog/2026/09/09/e2b-daytona-modal-sandbox-pricing-self-hosted",
+        "https://upstash.com/blog/ai-agent-sandbox-providers-compared-2026"
+      ]
+    },
+    {
+      "name": "Fly Machines",
+      "category": "Durable Execution & Sandboxing",
+      "what": "MicroVM compute with suspend/resume.",
+      "standout": "Firecracker microVMs; suspend/resume keeps memory; 100-500ms wake; per-second billing by CPU/RAM.",
+      "concurrency": "Suspend/resume pools.",
+      "conflict": "Firecracker + cgroups isolation.",
+      "triage": "None.",
+      "context": "App/agent VMs with state retention.",
+      "pricing": "Per-second by CPU/RAM.",
+      "stack": "Firecracker + cgroups.",
+      "confidence": "High",
+      "sources": [
+        "https://docs.fly.io/reference/suspend-resume",
+        "https://fly.io/pricing"
+      ]
+    },
+    {
+      "name": "Firecracker",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Isolation primitive (microVMs).",
+      "standout": "Rust microVMs; boot in ~100-200ms; KVM for hardware-enforced isolation; the defensible default for adversarial multi-tenant agent code (dedicated kernel per sandbox).",
+      "concurrency": "High-density microVMs.",
+      "conflict": "Hardware-enforced per-VM kernel isolation.",
+      "triage": "None.",
+      "context": "None.",
+      "pricing": "Free OSS (AWS).",
+      "stack": "Minimal VMM + jailer.",
+      "confidence": "High",
+      "sources": [
+        "https://edera.dev/stories/kata-vs-firecracker-vs-gvisor-isolation-compared",
+        "https://github.com/firecracker-microvm/firecracker"
+      ]
+    },
+    {
+      "name": "gVisor",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Isolation primitive (userspace kernel).",
+      "standout": "Userspace kernel written in Go; no nested virtualization; used by Modal and Beam; adds 10-30% syscall-interception overhead on I/O-heavy workloads; shares the host kernel (weaker than Firecracker for adversarial code).",
+      "concurrency": "High-density sandboxes.",
+      "conflict": "Userspace syscall interception (defense-in-depth).",
+      "triage": "None.",
+      "context": "None.",
+      "pricing": "Free OSS.",
+      "stack": "Sentry; Go.",
+      "confidence": "High",
+      "sources": [
+        "https://edera.dev/stories/kata-vs-firecracker-vs-gvisor-isolation-compared"
+      ]
+    },
+    {
+      "name": "Claude Agent SDK",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Agent harness (loop + tools + permissions).",
+      "standout": "Claude-driven loop with built-in file, shell, MCP, hook, permission and subagent capabilities; the 2026 direction is harnesses (loop + context + permissions + persistence + subagents) replacing bare frameworks; closest harness shape to a git platform.",
+      "concurrency": "Subagent capability built in.",
+      "conflict": "Permissions/hooks gate tool use.",
+      "triage": "None.",
+      "context": "Context + permission model + persistence.",
+      "pricing": "Free OSS SDK.",
+      "stack": "Claude loop + hooks.",
+      "confidence": "High",
+      "sources": [
+        "https://arize.com/ai-agents/agent-frameworks/",
+        "https://docs.langchain.com/oss/python/deepagents/comparison"
+      ]
+    },
+    {
+      "name": "LangGraph",
+      "category": "Durable Execution & Sandboxing",
+      "what": "Orchestration runtime.",
+      "standout": "Explicit nodes, edges, state transitions and checkpoints; HITL interrupts; graph-routing coordination pattern; OSS plus a paid platform.",
+      "concurrency": "Graph-routed multi-agent state.",
+      "conflict": "Checkpointed state; interrupts for humans.",
+      "triage": "HITL interrupt review.",
+      "context": "Graph state checkpoints.",
+      "pricing": "OSS (+ paid platform).",
+      "stack": "Graph state machine.",
+      "confidence": "High",
+      "sources": [
+        "https://arize.com/ai-agents/agent-frameworks/",
+        "https://langgraphjs.guide/comparison"
+      ]
+    },
+    {
+      "name": "gitleaks",
+      "category": "Trust Layer: Secrets, Identity & Supply Chain",
+      "what": "Secret scanner (OSS baseline).",
+      "standout": "Most trusted open-source secret scanner (16M->20M docker downloads, 17k->19k stars, MIT); regex+entropy; top recall (88%); GitHub Action; gitleaks.toml rules.",
+      "concurrency": "Scan runs per commit/CI.",
+      "conflict": "None.",
+      "triage": "CI scan results.",
+      "context": "Rule-based detection; post-hoc (secret already exists).",
+      "pricing": "Free OSS.",
+      "stack": "Go; gitleaks.toml.",
+      "confidence": "High",
+      "sources": [
+        "https://gitleaks.io/",
+        "https://gitleaks.org/",
+        "https://par.nsf.gov/servlets/purl/10505647"
+      ]
+    },
+    {
+      "name": "TruffleHog",
+      "category": "Trust Layer: Secrets, Identity & Supply Chain",
+      "what": "Secret scanner with live verification.",
+      "standout": "Classifies over 800 secret types and can log in to confirm whether a secret is live or not; verification is its edge.",
+      "concurrency": "Scan runs per commit/CI.",
+      "conflict": "None.",
+      "triage": "Verification results (live vs dead).",
+      "context": "Live-credential verification.",
+      "pricing": "Free OSS to enterprise.",
+      "stack": "Go; per-provider verifiers.",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/trufflesecurity/trufflehog",
+        "https://par.nsf.gov/servlets/purl/10505647"
+      ]
+    },
+    {
+      "name": "SOPS + git-crypt (secret-typed files)",
+      "category": "Trust Layer: Secrets, Identity & Supply Chain",
+      "what": "Path-driven in-repo encryption.",
+      "standout": "Mechanism proven: git-crypt transparently encrypts chosen files at commit when paths/attributes match and decrypts on checkout, enabling secret material in the same repo without locking the whole repo; git-sops keeps the worktree decrypted while the git index, blobs and remote stay encrypted; SOPS stores keys in cleartext and encrypts only values. No agent-aware policy layer exists.",
+      "concurrency": "None.",
+      "conflict": "Path/attribute-driven encryption (no merge awareness).",
+      "triage": "None.",
+      "context": "Secret-typed files (ciphertext in repo; plaintext never in a blob with git-sops).",
+      "pricing": "Free OSS.",
+      "stack": "git-crypt (GPG); SOPS (KMS/age/PGP); git smudge/clean.",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/AGWA/git-crypt/blob/master/README.md",
+        "https://github.com/ivandeex/git-sops",
+        "https://pkg.go.dev/github.com/getsops/sops/v3"
+      ]
+    },
+    {
+      "name": "SPIFFE / SPIRE",
+      "category": "Trust Layer: Secrets, Identity & Supply Chain",
+      "what": "Agent/workload identity (OSS).",
+      "standout": "spiffe:// SVIDs (X.509 + JWT); a single OAuth client identifier can represent an agent platform running many concurrent agent instances (IETF draft-mcguinness); companion drafts say agents should use SPIFFE, WIMSE, OAuth and OpenID SSF; the model IETF builds on.",
+      "concurrency": "One identity per concurrent agent instance (IETF instance profile).",
+      "conflict": "Cryptographic per-instance identity enables independent scopes/revocation.",
+      "triage": "None.",
+      "context": "Attested workload identity + trust bundles.",
+      "pricing": "Free OSS.",
+      "stack": "X.509 + JWT; trust bundles.",
+      "confidence": "High",
+      "sources": [
+        "https://www.ietf.org/archive/id/draft-mcguinness-oauth-ai-agent-instance-00.html",
+        "https://www.ietf.org/archive/id/draft-klrc-aiagent-auth-03.html",
+        "https://docs.cloud.google.com/iam/docs/agent-identity-overview"
+      ]
+    },
+    {
+      "name": "Okta/Auth0 for AI Agents",
+      "category": "Trust Layer: Secrets, Identity & Supply Chain",
+      "what": "Agent identity (commercial).",
+      "standout": "Auth for MCP; Agent as Principal; On-Behalf-Of; Token Vault; 'Auth0 now secures MCP and autonomous agents as first-class identities'; OAuth token exchange; Microsoft frames MCP/A2A/OAuth/SPIFFE as the backbone; identity is becoming commodity, differentiation shifts to policy over identity.",
+      "concurrency": "First-class agent principals.",
+      "conflict": "Agent-as-principal + on-behalf-of scoping.",
+      "triage": "None.",
+      "context": "OAuth token exchange; Token Vault.",
+      "pricing": "Free to paid to enterprise.",
+      "stack": "OAuth token exchange.",
+      "confidence": "High",
+      "sources": [
+        "https://www.okta.com/en-gb/newsroom/articles/auth0-may-2026-product-innovations",
+        "https://www.okta.com/en-gb/newsroom/press-releases/auth0-platform-innovation",
+        "https://techcommunity.microsoft.com/blog/microsoft-entra-blog/microsoft%E2%80%99s-perspective-on-agentic-identity-standards/2111910"
+      ]
+    },
+    {
+      "name": "SLSA",
+      "category": "Trust Layer: Secrets, Identity & Supply Chain",
+      "what": "Supply-chain provenance framework.",
+      "standout": "Levels 1-4 with in-toto attestations; 'provenance doesn't do anything unless somebody inspects it. SLSA calls that inspection verification'; sigstore/Fulcio/Rekor underpin keyless signing in the SLSA GitHub generator.",
+      "concurrency": "Provenance per build/write.",
+      "conflict": "None.",
+      "triage": "Verification of artifacts.",
+      "context": "Build/artifact provenance (provenance as first-class).",
+      "pricing": "Free spec.",
+      "stack": "Provenance predicate; sigstore (Fulcio + Rekor).",
+      "confidence": "High",
+      "sources": [
+        "https://github.com/slsa-framework/slsa/blob/main/spec/verifying-artifacts.md",
+        "https://slsa.dev/provenance"
+      ]
+    },
+    {
+      "name": "GitClear",
+      "category": "Engineering Analytics & Market Voice",
+      "what": "Code-quality analytics (maintainability tax).",
+      "standout": "623M changes analysed: cross-file function calls down 35%, refactoring line moves down 70%, long-term legacy maintenance down 74% vs 2022; copy/paste +41%, code-block duplication +81%, error-masking +47%, two-week churn +15%; Diff Delta per-model attribution; live industry charts.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Quality/maintainability dashboards.",
+      "context": "Lineage-aware diff attribution over 600M+ commits.",
+      "pricing": "Free scorecard to paid.",
+      "stack": "Lineage-aware diff (600M+ commits).",
+      "confidence": "Medium",
+      "sources": [
+        "https://www.gitclear.com/the_ai_code_quality_maintainability_gap"
+      ]
+    },
+    {
+      "name": "DX",
+      "category": "Engineering Analytics & Market Voice",
+      "what": "Engineering analytics (AI impact).",
+      "standout": "4-dimension AI framework (speed, effectiveness, quality, impact); TrueThroughput; PR Cycle Time; PR Revert Rate; Developer Experience Index (DXI); 'AI output explains 63% of developer time savings but shows a weak link to increased innovation ratio'.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Exec/manager dashboards.",
+      "context": "Survey + telemetry across dev experience.",
+      "pricing": "~$10-20/seat/mo to quote.",
+      "stack": "Survey + telemetry.",
+      "confidence": "High",
+      "sources": [
+        "https://getdx.com/blog/5-metrics-in-dx-to-measure-ai-impact/",
+        "https://getdx.com/blog/2026-dx-benchmarks-are-now-available/"
+      ]
+    },
+    {
+      "name": "LinearB",
+      "category": "Engineering Analytics & Market Voice",
+      "what": "Engineering analytics (throughput).",
+      "standout": "DORA + leading indicators; AI-aware automation; benchmarks from 8.1M+ pull requests across 4,800+ organizations.",
+      "concurrency": "None.",
+      "conflict": "None.",
+      "triage": "Throughput dashboards.",
+      "context": "PR/repo telemetry.",
+      "pricing": "Custom (mid-range).",
+      "stack": "PR/repo telemetry.",
+      "confidence": "Medium",
+      "sources": [
+        "https://linearb.io/compare/dx-vs-linearb"
+      ]
+    }
+  ]
+}

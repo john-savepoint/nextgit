@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nextgit-platform",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "artifacts": [
+    {
+      "binding": "ARTIFACTS",
+      "namespace": "nextgit"
+    }
+  ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "nextgit-events",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5
+      }
+    ]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "LIVE",
+      "id": "9850d064f5bc43649125b9d8e9e130d2"
+    }
+  ],
+  "assets": {
+    "directory": "./ui",
+    "binding": "ASSETS"
+  }
+}

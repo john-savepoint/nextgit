@@ -1,0 +1,21 @@
+[
+  {"claim": "No shipping product integrates N concurrent agent change-sets as one set for comparison/review/merge (absence, un-falsified across six imported searches + independent C1 check)", "class": "capability", "pub_date": "2026-10"},
+  {"claim": "GitHub ships concurrent agent sessions; review/merge routes one PR at a time", "class": "capability", "pub_date": "2026-10"},
+  {"claim": "Whiteboard (dev/fast) ships cross-platform source-available AST-diff visual review, one branch at a time; hosted tier announced", "class": "capability", "pub_date": "2026-09"},
+  {"claim": "GitGhost AI (private beta) is a multiplayer agent workspace with per-change trails; no set-level convergence semantics", "class": "capability", "pub_date": "2026-09"},
+  {"claim": "Typed secret files + signed agent identity + per-change rationale records remain unclaimed as a platform bundle", "class": "capability", "pub_date": "2026-10"},
+  {"claim": "Worktree-isolated fork-per-agent beats shared-workspace soft isolation; optimum is task-dependent (4 agents on Commit0, 2 on PaperBench)", "class": "pattern", "pub_date": "2026-07"},
+  {"claim": "Stacked diffs / patch series proven at production scale (Meta ~100%, Google chained CLs, Uber/Twitter/Rubrik)", "class": "pattern", "pub_date": "2023-10"},
+  {"claim": "GitHub merge queue silently deleted code on 2026-04-23 (2092 PRs / 230 repos; 3h33m undetected)", "class": "failure", "pub_date": "2026-04"},
+  {"claim": "Subagent merges can silently drop features with no error or test signal (Autonoma pattern)", "class": "failure", "pub_date": "2026-04"},
+  {"claim": "Merge-queue flake amplification: P(disruption)=1-(1-f)^k; 3% flake x 8-deep batches = 21.6%", "class": "scale-perf", "pub_date": "2026-09"},
+  {"claim": "isomorphic-git 1.42.6 supports merge + mergeDriver; CVE-2026-89011 fixed in 1.42.0 (affects <1.42.0); seven advisories Jun–Sep 2026; large-repo packfile issue open", "class": "version-compat", "pub_date": "2026-09"},
+  {"claim": "Artifacts smart-HTTP: push v1-only (v2 receive-pack unsupported); clone/fetch v1+v2; no server-side merge/diff/conflict APIs", "class": "capability", "pub_date": "2026-04"},
+  {"claim": "Artifacts ~64MiB push cap still open, no ETA; push-side only, clone/fetch unaffected", "class": "capability", "pub_date": "2026-06"},
+  {"claim": "Binding-side diffing viable: readFile/readCommit/readTree/readBlob over refs; Workers Paid CPU 30s default to 5min configurable", "class": "capability", "pub_date": "2026-10"},
+  {"claim": "Git notes refs are supported in Artifacts for provenance metadata ('use git notes for prompts and model output')", "class": "capability", "pub_date": "2026-04"},
+  {"claim": "Cloudflare internal review: coordinator + 7 specialist reviewers, risk tiers, arbitration loop; median 3m39s; 131,246 runs / 48,095 MRs in 30 days", "class": "capability", "pub_date": "2026-04"},
+  {"claim": "Weave v0.5.4: entity-level 3-way merge + advisory CRDT (decoupled); 1.3k stars; no production deployment reports", "class": "vitality", "pub_date": "2026-09"},
+  {"claim": "grit: function-level AST locking, claim-work-done; 119 stars, Apache-2.0; no review/compare layer", "class": "vitality", "pub_date": "2026-09"},
+  {"claim": "Artifacts ecosystem tiny: vibesdk viewer plus a few demos/tutorials; no third-party product", "class": "landscape", "pub_date": "2026-10"}
+]

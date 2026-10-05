@@ -1,0 +1,896 @@
+// nextgit-platform — platform worker.
+// 1) Artifacts event consumer: logs push/fork/create events off the queue and
+//    records the recent feed in KV (GET /events).
+// 2) Change-set API: reads concurrent agent proposals server-side (no clones).
+//    A proposal's change-set is measured against its FORK POINT — the most
+//    recent commit shared with the base — not the base's current head, so the
+//    set is "what the agent changed" and stays stable as the baseline moves.
+// 3) Proposal set + conflict map: pairwise 3-way merge simulation (diff3) across
+//    concurrent proposals — real conflict detection, no clones — plus a per-
+//    proposal `landing` verdict from folding that proposal onto the base head.
+// 4) Fold merge: applies proposals onto the baseline in order (diff3), per file,
+//    with the fork point as the 3-way ancestor.
+// 5) Landing: the same fold pushed to the base repo as one commit, server-side
+//    (POST /land) — the browser's one-click "ship it", no CLI.
+
+import { createTwoFilesPatch, diffLines } from "diff";
+import { diff3Merge } from "node-diff3";
+import { mintWriteToken, pushLand, type LandFile } from "./land";
+
+interface Env {
+  ARTIFACTS: Artifacts;
+  LIVE: KVNamespace;
+  ASSETS: Fetcher;
+}
+
+const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
+const MAX_PATCH_CHARS = 30_000; // truncate inline patches
+const MAX_FILES_WITH_PATCH = 50; // patch budget per change-set
+const NOTES_REF = "refs/notes/commits"; // git-notes for commit intent
+const EVENTS_KEY = "recent"; // KV key: recent event feed
+const MAX_EVENTS = 50; // event feed cap
+
+type FileMap = Map<string, string>; // path -> blob hash
+
+interface ChangeFile {
+  path: string;
+  status: "added" | "modified" | "removed";
+  baseHash?: string;
+  headHash?: string;
+  binary?: boolean;
+  additions?: number;
+  deletions?: number;
+  intent?: string;
+  secret?: boolean;
+  keys?: string[];
+  note?: string;
+  patch?: string;
+}
+
+
+interface FileTexts {
+  base: string | null;
+  head: string | null;
+}
+
+async function walkTree(repo: ArtifactsRepo, treeHash: string, prefix: string, out: FileMap): Promise<void> {
+  const entries = await repo.readTree(treeHash);
+  if (!entries) return;
+  for (const entry of entries) {
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.type === "tree") {
+      await walkTree(repo, entry.hash, path, out);
+    } else if (entry.type === "blob" || entry.type === "exec") {
+      out.set(path, entry.hash);
+    }
+  }
+}
+
+async function snapshot(repo: ArtifactsRepo, ref: string): Promise<{ treeHash: string; files: FileMap; headSha: string }> {
+  const commits = await repo.log({ ref, limit: 1 });
+  if (!commits.length) throw new Error(`cannot resolve ref "${ref}"`);
+  const treeHash = commits[0].treeHash;
+  const files: FileMap = new Map();
+  await walkTree(repo, treeHash, "", files);
+  return { treeHash, files, headSha: commits[0].hash };
+}
+
+// ---------------------------------------------------------------------------
+// Fork point — the commit a proposal branched off the base at.
+//
+// A proposal's change-set is "what the agent changed", so it must be measured
+// against the fork point, not the base's CURRENT head. Once anything lands on
+// the base, diffing a still-pending proposal against the new head shows the
+// landed change in reverse (an apparent deletion of work that is already
+// there) — noise that disappears entirely when the baseline moves.
+//
+// The fork point is the most recent commit shared by both first-parent
+// histories: walk each log, intersect the hashes, and take the newest member
+// of that intersection in the PROPOSAL's log (newest by position, since
+// `log` is newest-first). No shared commit → fall back to the base head, which
+// is the legacy "everything is new relative to the base" behaviour.
+// ---------------------------------------------------------------------------
+
+const FORK_LOG_LIMIT = 200;
+
+interface CommitHead {
+  hash: string;
+  treeHash: string;
+  files: FileMap;
+  sha: string;
+  ref: string;
+}
+
+async function commitHead(repo: ArtifactsRepo, sha: string, ref: string): Promise<CommitHead> {
+  const commits = await repo.log({ ref: sha, limit: 1 });
+  const commit = commits[0];
+  if (!commit || commit.hash !== sha) throw new Error(`cannot resolve commit "${sha}"`);
+  const files: FileMap = new Map();
+  await walkTree(repo, commit.treeHash, "", files);
+  return { hash: commit.hash, treeHash: commit.treeHash, files, sha, ref };
+}
+
+async function forkPoint(
+  baseRepo: ArtifactsRepo,
+  baseRef: string,
+  proposalRepo: ArtifactsRepo,
+  proposalRef: string,
+): Promise<CommitHead> {
+  const baseHead = await snapshot(baseRepo, baseRef);
+  try {
+    const [baseLog, proposalLog] = await Promise.all([
+      baseRepo.log({ ref: baseRef, limit: FORK_LOG_LIMIT }),
+      proposalRepo.log({ ref: proposalRef, limit: FORK_LOG_LIMIT }),
+    ]);
+    const baseShas = new Set(baseLog.map((c) => c.hash));
+    // Newest-first in the proposal's own log, so the first hit is the fork point.
+    const shared = proposalLog.find((c) => baseShas.has(c.hash));
+    if (shared) return await commitHead(proposalRepo, shared.hash, proposalRef);
+  } catch {
+    // Fall through to the base head — the legacy behaviour.
+  }
+  return { hash: baseHead.headSha, treeHash: baseHead.treeHash, files: baseHead.files, sha: baseHead.headSha, ref: baseRef };
+}
+
+
+function isBinary(bytes: Uint8Array): boolean {
+  const n = Math.min(bytes.length, 8000);
+  for (let i = 0; i < n; i++) if (bytes[i] === 0) return true;
+  return false;
+}
+
+interface FileContent {
+  text: string | null;
+  size: number;
+  binary: boolean;
+}
+
+async function readContent(repo: ArtifactsRepo, ref: string, path: string): Promise<FileContent | null> {
+  const blob = await repo.readFile({ ref, path });
+  if (!blob) return null;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (isBinary(bytes)) return { text: null, size: bytes.length, binary: true };
+
+  return { text: new TextDecoder().decode(bytes), size: bytes.length, binary: false };
+}
+
+// Intent carriers. The Artifacts binding resolves branches, tags and commit
+// shas, but never `refs/notes/*`, so the note pushed to refs/notes/commits is
+// read from a branch mirroring that ref; an `.intent` file on the branch itself
+// is the fallback. Notes trees may fan out into subdirs whose blob names are
+// full commit shas, so blobs are matched by path suffix.
+const NOTES_BRANCH = "nextgit-notes";
+const INTENT_FILE = "NEXTGIT_INTENT";
+const MAX_INTENT_CHARS = 500; // intent is free text — cap before it reaches a body
+
+async function readNotes(repo: ArtifactsRepo): Promise<Map<string, string>> {
+  const notes = new Map<string, string>();
+  for (const commit of await repo.log({ ref: NOTES_BRANCH, limit: 20 })) {
+    await walkTree(repo, commit.treeHash, "", notes);
+    if (notes.size) return notes;
+  }
+  return notes;
+}
+
+// ---------------------------------------------------------------------------
+// Intent — the note attached to the head commit.
+// ---------------------------------------------------------------------------
+
+// Branch-reachable intent file.
+async function readIntentFile(repo: ArtifactsRepo, ref: string, headSha: string): Promise<string | undefined> {
+  for (const path of [`${INTENT_FILE}/${headSha}.txt`, `${INTENT_FILE}/intent.txt`]) {
+    const blob = await repo.readFile({ ref, path }).catch(() => null);
+    if (!blob) continue;
+    const text = (await blob.text()).trim();
+    if (text) return text;
+  }
+  return undefined;
+}
+
+// A note is attacker-controlled text — cap it once, here, so no response body can
+// ever carry an unbounded intent string.
+function capIntent(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  return text.length > MAX_INTENT_CHARS ? `${text.slice(0, MAX_INTENT_CHARS)}…` : text;
+}
+
+async function readIntent(repo: ArtifactsRepo, ref: string, headSha: string): Promise<string | undefined> {
+  try {
+    const notes = await readNotes(repo);
+    const hash = notes.get(headSha) ?? Array.from(notes).find(([p]) => p.endsWith(`/${headSha}`))?.[1];
+    if (hash) {
+      const blob = await repo.readBlob(hash);
+      const text = blob ? capIntent((await blob.text()).trim()) : undefined;
+      if (text) return text;
+    }
+    return capIntent(await readIntentFile(repo, ref, headSha));
+  } catch {
+    return undefined; // intent is best-effort — never fail a change-set on it
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Secret classes (CONTRACT masking law) — values must never leave the worker.
+// ---------------------------------------------------------------------------
+
+const SECRET_BASENAMES = new Set(["credentials.json", "secrets.json", ".dev.vars"]);
+const SECRET_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*=/;
+
+function isSecretPath(path: string): boolean {
+  const base = path.slice(path.lastIndexOf("/") + 1);
+  if (base.startsWith(".env")) return true;
+  if (base.endsWith(".pem") || base.endsWith(".key") || base.endsWith(".p12")) return true;
+  if (SECRET_BASENAMES.has(base)) return true;
+  return path.includes("secrets/");
+}
+
+function secretKeys(text: string): string[] {
+  const keys: string[] = [];
+  for (const line of text.split("\n")) {
+    if (!SECRET_KEY_RE.test(line)) continue;
+    const key = line.slice(0, line.indexOf("="));
+    if (!keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
+
+// ---------------------------------------------------------------------------
+// Fold merge — apply proposals onto the baseline in the given order (diff3).
+// ---------------------------------------------------------------------------
+
+interface MergeFile {
+  path: string;
+  action: "write" | "delete";
+  result: "merged" | "conflict" | "withheld-secret";
+  merged?: string;
+  conflictText?: string;
+  note?: string;
+}
+
+function renderMerge(ours: string, ancestor: string, theirs: string): { text: string; conflict: boolean } {
+  const regions = diff3Merge(ours.split("\n"), ancestor.split("\n"), theirs.split("\n"));
+  const parts: string[] = [];
+  let conflict = false;
+  for (const r of regions) {
+    if (r.ok) {
+      parts.push(r.ok.join("\n"));
+    } else if (r.conflict) {
+      conflict = true;
+      parts.push(
+        `<<<<<<< ours\n${r.conflict.a.join("\n")}\n=======\n${r.conflict.b.join("\n")}\n>>>>>>> theirs`,
+      );
+    }
+  }
+  return { text: parts.join("\n"), conflict };
+}
+
+async function computeMerge(
+  env: Env,
+  baseName: string,
+  baseRef: string,
+  repoList: string[],
+  ref: string,
+) {
+  using baseRepo = await env.ARTIFACTS.get(baseName);
+  interface Fold {
+    ancestor: string;
+    ours: string;
+    // The base head's own text for this path, plus whether the base has it at
+    // all. A proposal whose merge result reproduces the base byte-for-byte is
+    // not a change — which is what "already landed" actually means.
+    baseText: string | null;
+    binary: boolean;
+    deleted: boolean;
+    conflicted: boolean;
+    conflictText?: string;
+    secretKeys?: string[];
+    note?: string;
+  }
+  const folds = new Map<string, Fold>();
+
+  for (const repoName of repoList) {
+    using headRepo = await env.ARTIFACTS.get(repoName);
+    const cs = await computeChangeSet(env, baseName, baseRef, repoName, ref, { includeTexts: true });
+    for (const f of cs.files) {
+      let fold = folds.get(f.path);
+      if (!fold) {
+        // 3-way: ancestor = fork-point text (carried on the change-set, already
+        // masked for secret paths), ours = the CURRENT base head, theirs =
+        // proposal head. Using the fork point as ancestor is what keeps a
+        // proposal mergeable against a baseline that moved under it.
+        const ancestorText = f.status === "added" ? "" : (cs.texts[f.path]?.base ?? "");
+        const baseBlob = await readContent(baseRepo, baseRef, f.path);
+        const oursText = baseBlob?.text ?? "";
+        fold = {
+          ancestor: ancestorText,
+          ours: oursText,
+          baseText: baseBlob?.text ?? null,
+          binary: false,
+          deleted: false,
+          conflicted: false,
+        };
+        folds.set(f.path, fold);
+      }
+      if (isSecretPath(f.path)) {
+        // Secret text never enters `cs.texts`, so read the surviving side straight
+        // from its repo: the base repo for a removal, the proposal for anything
+        // else — the same text /proposals derives its keys from.
+        const repo = f.status === "removed" ? baseRepo : headRepo;
+        const at = f.status === "removed" ? baseRef : ref;
+        fold.secretKeys = secretKeys((await readContent(repo, at, f.path))?.text ?? "");
+        continue;
+      }
+      if (f.binary) {
+        fold.binary = true;
+        continue;
+      }
+
+      if (f.status === "removed") {
+        fold.deleted = true;
+        fold.conflicted = false;
+        fold.note = `removed by ${repoName}`;
+        continue;
+      }
+
+      const merged = renderMerge(fold.ours, fold.ancestor, cs.texts[f.path]?.head ?? "");
+      if (merged.conflict) {
+        fold.conflicted = true;
+        fold.conflictText = merged.text;
+        fold.note = `conflicts with ${repoName}`;
+        continue; // a conflicted file stops absorbing later proposals
+      }
+      fold.ours = merged.text;
+      fold.deleted = false;
+    }
+  }
+
+  const files: MergeFile[] = [];
+  const conflicted: string[] = [];
+  for (const path of Array.from(folds.keys()).sort()) {
+    const fold = folds.get(path)!;
+    const action: "write" | "delete" = fold.deleted ? "delete" : "write";
+
+    if (fold.secretKeys) {
+      files.push({
+        path,
+        action,
+        result: "withheld-secret",
+        note: `secret-class file; ${fold.secretKeys.length} key(s) withheld`,
+      });
+      continue;
+    }
+    if (fold.deleted) {
+      // Removing a file the base no longer has is also a no-op.
+      if (fold.baseText === null) continue;
+      files.push({ path, action, result: "merged", note: fold.note ?? "removed by a proposal" });
+      continue;
+    }
+    if (fold.binary) {
+      files.push({ path, action, result: "merged", note: "binary file; text merge skipped" });
+      continue;
+    }
+    if (fold.conflicted) {
+      conflicted.push(path);
+      files.push({ path, action, result: "conflict", conflictText: fold.conflictText ?? "", note: fold.note });
+      continue;
+    }
+    // A merged result identical to the base head is not a change — this is what
+    // an already-landed proposal folds to. Dropping it here is what makes
+    // /land's `no-changes` and /proposals' `landed` agree: both count the same
+    // surviving file list.
+    if (fold.ours === fold.baseText) continue;
+    files.push({ path, action, result: "merged", merged: fold.ours });
+  }
+
+  return {
+    base: { repo: baseName, ref: baseRef },
+    repos: repoList,
+    status: conflicted.length ? "conflict" : "clean",
+    files,
+    conflicted,
+  };
+}
+
+async function computeChangeSet(
+  env: Env,
+  baseName: string,
+  baseRef: string,
+  headName: string,
+  ref: string,
+  opts: { includeTexts?: boolean } = {},
+) {
+  using baseRepo = await env.ARTIFACTS.get(baseName);
+  using headRepo = await env.ARTIFACTS.get(headName);
+
+  // The change-set is measured against the FORK POINT, not the base's current
+  // head: "what the agent changed" stays stable as the baseline moves.
+  const fork = await forkPoint(baseRepo, baseRef, headRepo, ref);
+  const base = { treeHash: fork.treeHash, files: fork.files };
+  const head = await snapshot(headRepo, ref);
+  const intent = await readIntent(headRepo, ref, head.headSha);
+
+  const files: ChangeFile[] = [];
+  for (const [path, headHash] of head.files) {
+    const baseHash = base.files.get(path);
+    if (baseHash === undefined) files.push({ path, status: "added", headHash });
+    else if (baseHash !== headHash) files.push({ path, status: "modified", baseHash, headHash });
+  }
+  for (const [path, baseHash] of base.files) {
+    if (!head.files.has(path)) files.push({ path, status: "removed", baseHash });
+  }
+  files.sort((a, b) => a.path.localeCompare(b.path));
+
+  if (intent) for (const f of files) if (!isSecretPath(f.path)) f.intent = intent;
+
+  const stats = {
+    files: files.length,
+    added: files.filter((f) => f.status === "added").length,
+    modified: files.filter((f) => f.status === "modified").length,
+    removed: files.filter((f) => f.status === "removed").length,
+    additions: 0,
+    deletions: 0,
+  };
+
+  const texts: Record<string, FileTexts> = {};
+  let patchBudget = MAX_FILES_WITH_PATCH;
+  for (const f of files) {
+    const [oldSide, newSide] = await Promise.all([
+      f.status !== "added" ? readContent(baseRepo, fork.ref, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
+      f.status !== "removed" ? readContent(headRepo, ref, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
+    ]);
+
+    if (oldSide?.binary || newSide?.binary) {
+      f.binary = true;
+      continue;
+    }
+    const o = oldSide?.text ?? "";
+    const n = newSide?.text ?? "";
+
+    if (isSecretPath(f.path)) {
+      // Secret-class file: report key names only. Values never leave the worker,
+      // so the patch is omitted and the text is withheld from merge inputs.
+      f.secret = true;
+      f.keys = secretKeys(f.status === "removed" ? o : n);
+    }
+
+    if (o.length + n.length > MAX_DIFF_FILE_CHARS || patchBudget <= 0) {
+      f.note = "too large for inline diff";
+      continue;
+    }
+
+    if (opts.includeTexts && !f.secret) texts[f.path] = { base: o, head: n };
+
+    const parts = diffLines(o, n);
+    let additions = 0;
+    let deletions = 0;
+    for (const p of parts) {
+      const count = p.count ?? 0;
+      if (p.added) additions += count;
+      else if (p.removed) deletions += count;
+    }
+    f.additions = additions;
+    f.deletions = deletions;
+    stats.additions += additions;
+    stats.deletions += deletions;
+
+    // Secret-class text stops here: stats are kept, the patch never exists.
+    if (f.secret) continue;
+
+    let patch = createTwoFilesPatch(`a/${f.path}`, `b/${f.path}`, o, n, "", "", { context: 3 });
+    if (patch.length > MAX_PATCH_CHARS) {
+      patch = patch.slice(0, MAX_PATCH_CHARS) + `\n... [patch truncated at ${MAX_PATCH_CHARS} chars]`;
+    }
+    f.patch = patch;
+    patchBudget--;
+  }
+
+  return {
+    // `sha` is the fork point actually diffed against, so a caller can see
+    // which baseline the change-set is pinned to.
+    base: { repo: baseName, ref: baseRef, treeHash: base.treeHash, sha: fork.sha },
+    head: { repo: headName, ref, treeHash: head.treeHash },
+    stats,
+    files,
+    texts,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Conflict detection — pairwise diff3 over concurrent proposals.
+// ---------------------------------------------------------------------------
+
+type ConflictKind =
+  | "text-conflict"
+  | "modify/delete"
+  | "add/add"
+  | "undetermined"
+  | "mergeable"
+  | "identical-add"
+  | "both-removed";
+
+interface ProposalEntry {
+  repo: string;
+  status: "added" | "modified" | "removed";
+  texts: FileTexts | null;
+}
+
+const KIND_SEVERITY: Record<ConflictKind, number> = {
+  "text-conflict": 4,
+  "modify/delete": 4,
+  "add/add": 4,
+  undetermined: 3,
+  mergeable: 1,
+  "identical-add": 1,
+  "both-removed": 1,
+};
+
+function classifyPair(a: ProposalEntry, b: ProposalEntry): {
+  kind: ConflictKind;
+  conflict: boolean | null;
+  region?: { baseLines: number; aLines: number; bLines: number };
+} {
+  if (a.status === "removed" && b.status === "removed") return { kind: "both-removed", conflict: false };
+  if ((a.status === "removed") !== (b.status === "removed")) return { kind: "modify/delete", conflict: true };
+  if (a.status === "added" && b.status === "added") {
+    if (a.texts && b.texts && a.texts.head === b.texts.head) return { kind: "identical-add", conflict: false };
+    return { kind: "add/add", conflict: true };
+  }
+  if (!a.texts || !b.texts || a.texts.head === null || b.texts.head === null || a.texts.base === null) {
+    return { kind: "undetermined", conflict: null };
+  }
+  try {
+    const regions = diff3Merge(a.texts.head.split("\n"), a.texts.base.split("\n"), b.texts.head.split("\n"));
+    const conflicted = regions.filter((r) => r.conflict);
+    if (conflicted.length === 0) return { kind: "mergeable", conflict: false };
+    const c = conflicted[0].conflict;
+    return {
+      kind: "text-conflict",
+      conflict: true,
+      region: { baseLines: c.o?.length ?? 0, aLines: c.a?.length ?? 0, bLines: c.b?.length ?? 0 },
+    };
+  } catch (err) {
+    return { kind: "undetermined", conflict: null };
+  }
+}
+
+async function computeProposals(env: Env, baseName: string, baseRef: string, ref: string, repoList: string[] | null) {
+  let repos = repoList;
+  if (!repos || !repos.length) {
+    const list = await env.ARTIFACTS.list({ limit: 200 });
+    repos = list.repos.filter((r) => r.name.startsWith("agent-") && r.status === "ready").map((r) => r.name).sort();
+  }
+  const proposals: Array<{
+    repo: string;
+    intent?: string;
+    stats?: unknown;
+    landing?: { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number };
+    files?: Array<{
+      path: string;
+      status: string;
+      additions?: number;
+      deletions?: number;
+      binary?: boolean;
+      secret?: boolean;
+      keys?: string[];
+      note?: string;
+    }>;
+    error?: string;
+  }> = [];
+
+  const fileIndex = new Map<string, ProposalEntry[]>();
+
+  for (const name of repos) {
+    try {
+      const cs = await computeChangeSet(env, baseName, baseRef, name, ref, { includeTexts: true });
+      // `landing` folds THIS proposal alone onto the CURRENT base head — exactly
+      // the operation POST /land would perform. The verdict the UI shows is
+      // therefore computed by the same fold the landing uses, not a guess:
+      //   landed          — the fold would change nothing (already in the base)
+      //   ready (N files) — clean fold of N files
+      //   conflict / withheld-secret — mirrors the 409 /land would return
+      const fold = await computeMerge(env, baseName, baseRef, [name], ref);
+      const landing = fold.files.some((f) => f.result === "withheld-secret")
+        ? ({ status: "withheld-secret", files: fold.files.length } as const)
+        : fold.status === "conflict"
+          ? ({ status: "conflict", files: fold.conflicted.length } as const)
+          : fold.files.length === 0
+            ? ({ status: "landed", files: 0 } as const)
+            : ({ status: "ready", files: fold.files.length } as const);
+      proposals.push({
+        repo: name,
+        intent: cs.files.find((f) => f.intent)?.intent,
+        stats: cs.stats,
+        files: cs.files.map((f) => ({
+          path: f.path,
+          status: f.status,
+          additions: f.additions,
+          deletions: f.deletions,
+          binary: f.binary,
+          secret: f.secret,
+          keys: f.keys,
+          note: f.note,
+        })),
+        landing,
+      });
+      for (const f of cs.files) {
+        const t = cs.texts[f.path] ?? null;
+        const entries = fileIndex.get(f.path) ?? [];
+        entries.push({ repo: name, status: f.status, texts: t });
+        fileIndex.set(f.path, entries);
+      }
+    } catch (err) {
+      proposals.push({ repo: name, error: String((err as Error)?.message ?? err) });
+    }
+  }
+
+  const conflicts: Array<{
+    file: string;
+    repos: string[];
+    kind: ConflictKind;
+    pairs: Array<{ a: string; b: string; kind: ConflictKind; conflict: boolean | null; region?: unknown }>;
+  }> = [];
+
+  for (const [file, entries] of fileIndex) {
+    if (entries.length < 2) continue;
+    const pairs = [];
+    let worst: ConflictKind = "mergeable";
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const r = classifyPair(entries[i], entries[j]);
+        pairs.push({ a: entries[i].repo, b: entries[j].repo, kind: r.kind, conflict: r.conflict, region: r.region });
+        if (KIND_SEVERITY[r.kind] > KIND_SEVERITY[worst]) worst = r.kind;
+      }
+    }
+    conflicts.push({ file, repos: entries.map((e) => e.repo), kind: worst, pairs });
+  }
+  conflicts.sort((a, b) => a.file.localeCompare(b.file));
+
+  const allPairs = conflicts.flatMap((c) => c.pairs);
+  const summary = {
+    proposals: proposals.length,
+    changedFiles: fileIndex.size,
+    sharedFiles: conflicts.length,
+    conflictingPairs: allPairs.filter((p) => p.conflict === true).length,
+    cleanPairs: allPairs.filter((p) => p.conflict === false).length,
+  };
+
+  return { base: { repo: baseName, ref: baseRef }, ref, proposals, conflicts, summary };
+}
+
+interface LiveEvent {
+  type?: string;
+  repo?: string;
+  ref?: string;
+  after?: string;
+  at: string;
+}
+
+async function readEvents(env: Env): Promise<LiveEvent[]> {
+  const raw = await env.LIVE.get(EVENTS_KEY, "json");
+  return Array.isArray(raw) ? (raw as LiveEvent[]) : [];
+}
+
+async function recordEvent(env: Env, event: LiveEvent): Promise<void> {
+  const events = await readEvents(env);
+  await env.LIVE.put(EVENTS_KEY, JSON.stringify([event, ...events].slice(0, MAX_EVENTS)));
+}
+
+// ---------------------------------------------------------------------------
+// POST /land — fold proposals onto the base repo and push one commit, in-worker.
+// ---------------------------------------------------------------------------
+
+const MAX_LAND_REPOS = 16;
+
+/** Repo names are used in a remote path, so keep them to a safe charset. */
+const REPO_NAME_RE = /^[A-Za-z0-9._-]+$/;
+
+function badRequest(error: string): Response {
+  return Response.json({ ok: false, error }, { status: 400 });
+}
+
+interface LandRequestBody {
+  base?: unknown;
+  repos?: unknown;
+  baseRef?: unknown;
+  ref?: unknown;
+}
+
+function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string } | Response {
+  if (!raw || typeof raw !== "object") return badRequest("JSON body required");
+  const body = raw as LandRequestBody;
+  const base = typeof body.base === "string" && body.base ? body.base : "demo";
+  const ref = typeof body.ref === "string" && body.ref ? body.ref : "main";
+  const baseRef = typeof body.baseRef === "string" && body.baseRef ? body.baseRef : ref;
+
+  if (!Array.isArray(body.repos) || !body.repos.length) return badRequest("repos must be a non-empty array");
+  if (body.repos.length > MAX_LAND_REPOS) return badRequest(`at most ${MAX_LAND_REPOS} repos per land`);
+  const repos: string[] = [];
+  for (const r of body.repos) {
+    if (typeof r !== "string" || !REPO_NAME_RE.test(r)) return badRequest(`invalid repo name: ${JSON.stringify(r)}`);
+    if (repos.includes(r)) return badRequest(`duplicate repo: ${r}`);
+    repos.push(r);
+  }
+  if (!REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+  // Refs go into a remote refspec; reject anything that could forge one. A
+  // `..` segment would escape the branch namespace on the push.
+  const refRe = /^[\w./-]+$/;
+  for (const r of [ref, baseRef]) {
+    if (!refRe.test(r) || r.includes("..") || r.startsWith("/") || r.endsWith("/")) {
+      return badRequest(`invalid ref: ${JSON.stringify(r)}`);
+    }
+  }
+  return { base, repos, baseRef, ref };
+}
+
+async function handleLand(request: Request, env: Env): Promise<Response> {
+  const parsed = parseLandBody(await request.json().catch(() => null));
+  if (parsed instanceof Response) return parsed;
+  const { base, repos, baseRef, ref } = parsed;
+
+  // One fold, identical semantics to GET /merge.
+  const merge = await computeMerge(env, base, baseRef, repos, ref);
+
+  const secretFiles = merge.files.filter((f) => f.result === "withheld-secret").map((f) => f.path);
+  if (secretFiles.length) {
+    // Values must never leave the worker and must never be pushed by it.
+    return Response.json({ ok: false, error: "withheld-secret", files: secretFiles }, { status: 409 });
+  }
+  if (merge.status === "conflict") {
+    const detail = merge.files
+      .filter((f) => f.result === "conflict")
+      .map((f) => `${f.path}: ${f.note ?? "conflict"}`)
+      .join("; ");
+    return Response.json({ ok: false, error: "conflict", conflicted: merge.conflicted, detail }, { status: 409 });
+  }
+  // Nothing to land. The fold produced no files at all, so a commit would be an
+  // empty change on the base. This is the same condition /proposals reads as
+  // "landed", so the button and the endpoint can never disagree.
+  if (merge.files.length === 0) {
+    return Response.json(
+      { ok: false, error: "no-changes", detail: `fold of ${repos.join(",")} onto ${base}:${baseRef} changes nothing` },
+      { status: 409 },
+    );
+  }
+
+  const writeable: LandFile[] = merge.files
+    .filter((f) => f.action === "write" && typeof f.merged === "string")
+    .map((f) => ({ path: f.path, action: "write", result: f.result, merged: f.merged }));
+  for (const f of merge.files) {
+    if (f.action === "delete") writeable.push({ path: f.path, action: "delete", result: f.result });
+  }
+
+  using baseRepo = await env.ARTIFACTS.get(base);
+  const info = await baseRepo.info();
+  const token = await mintWriteToken(baseRepo);
+
+  try {
+    const { commit } = await pushLand({
+      remote: info.remote,
+      token,
+      baseRef,
+      repos,
+      files: writeable,
+    });
+    const landed = {
+      repos,
+      commit,
+      files: writeable.map((f) => f.path).sort(),
+      at: new Date().toISOString(),
+    };
+    // The queue consumer records the real repo.pushed event; this keeps the
+    // feed useful even if queue delivery lags behind the push response.
+    await recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at });
+    return Response.json({ ok: true, landed });
+  } catch (err) {
+    const detail = String((err as Error)?.message ?? err);
+    // Documented fallback: hand back the exact fold plus a one-time write
+    // token so any git CLI can finish the push in one command.
+    return Response.json(
+      {
+        ok: false,
+        error: "push-failed",
+        detail,
+        repos,
+        remote: info.remote,
+        branch: baseRef,
+        files: writeable,
+        commands: [
+          `git clone ${info.remote} land`,
+          "cd land",
+          `git config http.extraheader "Authorization: Bearer ${token}"`,
+          ...writeable.flatMap((f) =>
+            f.action === "delete"
+              ? [`git rm --quiet -- ${JSON.stringify(f.path)}`]
+              : [`printf %s ${JSON.stringify(f.merged ?? "")} > ${JSON.stringify(f.path)}`, `git add -- ${JSON.stringify(f.path)}`],
+          ),
+          `git commit -m ${JSON.stringify(`land(${repos.join(",")}): fold proposal(s)`)}`,
+          `git push origin HEAD:refs/heads/${baseRef}`,
+        ],
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    try {
+      if (url.pathname === "/health") {
+        return Response.json({ ok: true, service: "nextgit-platform", namespace: "nextgit" });
+      }
+
+      if (url.pathname === "/changes" && request.method === "GET") {
+        const repo = url.searchParams.get("repo");
+        if (!repo) return Response.json({ ok: false, error: "repo parameter required" }, { status: 400 });
+        const base = url.searchParams.get("base") ?? "demo";
+        const ref = url.searchParams.get("ref") ?? "main";
+        const baseRef = url.searchParams.get("baseRef") ?? "main";
+        const changeSet = await computeChangeSet(env, base, baseRef, repo, ref);
+        return Response.json({ ok: true, changeSet });
+      }
+
+      if (url.pathname === "/proposals" && request.method === "GET") {
+        const base = url.searchParams.get("base") ?? "demo";
+        const ref = url.searchParams.get("ref") ?? "main";
+        const baseRef = url.searchParams.get("baseRef") ?? "main";
+        const reposParam = url.searchParams.get("repos");
+        const repoList = reposParam ? reposParam.split(",").map((s) => s.trim()).filter(Boolean) : null;
+        const result = await computeProposals(env, base, baseRef, ref, repoList);
+        return Response.json({ ok: true, ...result });
+      }
+
+      if (url.pathname === "/merge" && request.method === "GET") {
+        const base = url.searchParams.get("base") ?? "demo";
+        const ref = url.searchParams.get("ref") ?? "main";
+        const baseRef = url.searchParams.get("baseRef") ?? "main";
+        const reposParam = url.searchParams.get("repos");
+        const repoList = reposParam ? reposParam.split(",").map((s) => s.trim()).filter(Boolean) : null;
+        if (!repoList || !repoList.length) return Response.json({ ok: false, error: "repos parameter required" }, { status: 400 });
+        const merge = await computeMerge(env, base, baseRef, repoList, ref);
+        return Response.json({ ok: true, merge });
+      }
+
+      if (url.pathname === "/land" && request.method === "POST") {
+        return await handleLand(request, env);
+      }
+
+      if (url.pathname === "/events" && request.method === "GET") {
+        return Response.json({ ok: true, events: await readEvents(env) });
+      }
+      // Everything else is the triage UI from platform/ui via wrangler assets.
+      return env.ASSETS.fetch(request);
+    } catch (err) {
+      return Response.json({ ok: false, error: String((err as Error)?.message ?? err) }, { status: 500 });
+    }
+  },
+
+  async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
+    for (const message of batch.messages) {
+      const event = message.body as {
+        type?: string;
+        source?: { namespace?: string; repoName?: string };
+        payload?: { ref?: string; after?: string };
+      };
+      console.log(
+        "artifacts-event",
+        JSON.stringify({
+          type: event?.type,
+          namespace: event?.source?.namespace,
+          repo: event?.source?.repoName,
+          ref: event?.payload?.ref,
+          after: event?.payload?.after,
+          at: new Date().toISOString(),
+        }),
+      );
+      await recordEvent(env, {
+        type: event?.type,
+        repo: event?.source?.repoName,
+        ref: event?.payload?.ref,
+        after: event?.payload?.after,
+        at: new Date().toISOString(),
+      });
+      message.ack();
+    }
+  },
+};
