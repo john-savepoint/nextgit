@@ -1,19 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-05T14:05:44.216Z",
-  "head": "b324b73",
+  "generatedAt": "2026-10-05T16:12:19.001Z",
+  "head": "d5f6b5b",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-04 ",
+    "lastUpdated": "2026-10-05 ",
     "branch": "main",
-    "lastCommit": "b324b73",
+    "lastCommit": "d5f6b5b",
     "standingRedSet": null
   },
   "queue": {
-    "total": 21,
+    "total": 22,
     "byStatus": {
-      "pending": 19,
-      "done": 2
+      "pending": 18,
+      "blocked": 1,
+      "done": 3
     },
     "items": [
       {
@@ -107,9 +108,9 @@
         "title": "Post-submission roadmap"
       },
       {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Bootstrap health sweep"
+        "status": "blocked",
+        "priority": "P2",
+        "title": "Re-adjudicate bootstrap-health-sweep gates"
       }
     ]
   },

@@ -1,5 +1,6 @@
 # Log — NextGit (one line per session)
 
-- 2026-10-02 | analyst session | read all sources + terms; research dossiers; brainstorm (91 entries); SPEC written | next: build
-- 2026-10-03 | build sessions | worker + UI + scripts shipped; real CLI agents; server-side landing; fork-point; tour | next: judge layer
-- 2026-10-04 | judge research + bootstrap | Clef verified live; 36 ideas recorded; spine + loop installed | next: P0 wire the Clef judge layer
+- 2026-10-02 | analyst session | all sources read; research dossiers; brainstorm (91 entries) | next: spec
+- 2026-10-03 | spec session | SPEC-next-git-platform written + preservation-validated | next: build
+- 2026-10-04 | build sessions | worker + UI + scripts; real CLI agents; server-side landing; fork-point | next: tour
+- 2026-10-05 | tour + judge + bootstrap | tour live; Clef verified; spine + loop installed; first loop order accepted (runner `d5f6b5b`) | next: P0 judge layer (clear the spawn outage first)

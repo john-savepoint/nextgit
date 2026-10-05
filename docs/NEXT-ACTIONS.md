@@ -20,8 +20,9 @@
 - [pending] P2 — Corpus copies — fetch competition terms + launch blog into `docs/corpus/` for the submission audit
 - [pending] P2 — tsc hygiene — install TypeScript in `platform/`, fix the 4 pre-existing errors; acceptance: `npx tsc --noEmit` clean
 - [pending] P3 — Post-submission roadmap — R2 asset tier, Agent Office integration, fork community, Clef RL fine-tune track
-- [pending] P3 — Bootstrap health sweep — run the live smoke + syntax checks through the runner (the bootstrap acceptance order); acceptance: BUILD-LOG row with verbatim evidence
-- [done] P0 — Judge-layer research + live proof — Clef verified callable 2026-10-04; 36 ideas recorded in `docs/judge-layer-ideas.md`
+- [blocked] P2 — Re-adjudicate bootstrap-health-sweep gates — re-run the quality + spec-fit lenses against commit `d5f6b5b` (runner now fail-closed; tests pass); acceptance: gate-*.md rewritten with post-fix verdicts, or any sustained findings recorded — blocker: agent-spawn outage (`stealth/space-bunny-alpha` 404); owner: John (restore session model route)
+- [done] P3 — Bootstrap health sweep — first loop order: 4/4 checks green across 5+ independent reproductions; gates caught real findings (NUL injection, fictional jaq guard, two fail-opens, heal-budget bug, citation rot); all gate-required caller remedies applied (runner committed `d5f6b5b`, fail-closed, 9-case test); same-lens re-adjudication pending spawn restoration (see P2); evidence: `porting/runs/bootstrap-health-sweep/`
+- [done] P0 — Judge-layer research + live proof — Clef verified callable 2026-10-05; 36 ideas recorded in `docs/judge-layer-ideas.md`
 - [done] P1 — State spine + loop scaffolding — `docs/` spine, `porting/` runner, `.omp/commands/`, `scripts/status-index.mjs` (this bootstrap)
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.
