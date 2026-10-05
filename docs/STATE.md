@@ -1,7 +1,7 @@
 # State — NextGit
 
 **Last updated:** 2026-10-04 (project-init bootstrap: spine + loop scaffolding + status index installed; Clef judge layer verified callable; queue now targets the full competition run)
-**Branch:** `main` · **Last commit:** `pending — recorded after the bootstrap commit` (state spine + loop scaffolding + judge-layer ideas)
+**Branch:** `main` · **Last commit:** `b324b73` (state spine + loop scaffolding + judge-layer ideas — bootstrap commit)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · live smoke: `curl -s $PLATFORM/health` → `ok:true`, `curl -s $PLATFORM/proposals` → summary shape sane · `bun scripts/status-index.mjs --check` → current. Current status: **PASS (2026-10-04)**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-04):**
 - `_bmad-output/specs/spec-next-git-platform/SPEC.md` + companions (`demo-scope.md`, `engineering-laws.md`, `stack.md`, `interface-contract.md`, `fork-community.md`) — the frozen contract

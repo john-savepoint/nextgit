@@ -1,0 +1,125 @@
+{
+  "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
+  "generatedAt": "2026-10-05T14:05:44.216Z",
+  "head": "b324b73",
+  "branch": "main",
+  "state": {
+    "lastUpdated": "2026-10-04 ",
+    "branch": "main",
+    "lastCommit": "b324b73",
+    "standingRedSet": null
+  },
+  "queue": {
+    "total": 21,
+    "byStatus": {
+      "pending": 19,
+      "done": 2
+    },
+    "items": [
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Wire the Clef judge layer"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Write the PRD"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "UX spec for the triage surface"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Architecture doc"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Demo scenario reset + fresh real-agent fleet"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Video script + storyboard"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Record + edit the submission video"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Submission package"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Auto-land gate live"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Fleet-scale demo"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Unlock marquee agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Trust beat: content-based secret detection"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Game-industry story page"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Tour v2"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Performance: cache `/proposals`"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Corpus copies"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "tsc hygiene"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Post-submission roadmap"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Bootstrap health sweep"
+      }
+    ]
+  },
+  "roadmap": {
+    "axes": 0,
+    "items": []
+  },
+  "enforcement": {
+    "testFiles": 0,
+    "migrations": 0,
+    "auditRecords": 0
+  }
+}
