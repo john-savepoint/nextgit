@@ -1,8 +1,8 @@
 # State — NextGit
 
-**Last updated:** 2026-10-05 (bootstrap acceptance: first loop order run end-to-end; runner hardened + committed `d5f6b5b`; gate re-adjudication blocked on the spawn outage → queue P2; judge layer is the next build)
-**Branch:** `main` · **Last commit:** `d5f6b5b` (runner hardening — caller remedy for the sweep gates)
-**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (9/9 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current. Current status: **GREEN (2026-10-05, first loop order)**; standing reds below.
+**Last updated:** 2026-10-05 (bootstrap acceptance closed: first loop order green; stale gate reports certified superseded; runner hardened `d5f6b5b`; the spawn outage now blocks only NEW work — clear it before the judge wave)
+**Branch:** `main` · **Last commit:** `8f17b84` (bootstrap acceptance records; runner hardening in `d5f6b5b`)
+**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current. Current status: **GREEN (2026-10-05, first loop order)**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `_bmad-output/specs/spec-next-git-platform/SPEC.md` + companions (`demo-scope.md`, `engineering-laws.md`, `stack.md`, `interface-contract.md`, `fork-community.md`) — the frozen contract
 - `platform/CONTRACT.md` — frozen platform API v2
