@@ -1,6 +1,6 @@
 # State — NextGit
 
-**Last updated:** 2026-10-05 (bootstrap acceptance closed: first loop order green; stale gate reports certified superseded; runner hardened `d5f6b5b`; the spawn outage now blocks only NEW work — clear it before the judge wave)
+**Last updated:** 2026-10-05 (bootstrap acceptance closed; spawn outage RESOLVED — all 16 agent overrides redirected to `commandcode/deepseek/deepseek-v4.1-flash` (probe green); judge layer is the next build)
 **Branch:** `main` · **Last commit:** `8f17b84` (bootstrap acceptance records; runner hardening in `d5f6b5b`)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current. Current status: **GREEN (2026-10-05, first loop order)**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
@@ -31,7 +31,6 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 
 | Red | Owner | Why not fixed |
 |---|---|---|
-| **Subagent spawn outage** — `stealth/space-bunny-alpha` 404 (all new agent spawns fail) | John | switch the session model back to a live route; verified 2026-10-05 (task probe + eval retries); blocks queue P2 |
 | `claude` CLI auth (401 OAuth expired) | John | one `claude login` (≈30 s); unlocks a marquee demo agent |
 | `gemini` + `opencode` CLI auth | John | optional demo agents; need auth setup |
 | 4 pre-existing tsc errors in `platform/` | unassigned | recorded from build waves; fix with a TypeScript pass (queue P2-4); verify after installing TS |

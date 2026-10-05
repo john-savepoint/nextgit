@@ -14,6 +14,7 @@
 3. Test count corrected: the suite has 10 cases, not 9 — STATE / CHECKPOINT / BUILD-LOG / NEXT-ACTIONS now say 10/10.
 4. spec-fit HIGH-3 disposition: `line-map.md` stands as a partial frozen snapshot (heal-4 vintage; 9 of 14 runner citations mapped; runner numbers shifted again post-`d5f6b5b`) — run-dir line citations are point-in-time; not chased further.
 5. The spawn outage now blocks only NEW work (the judge wave and P2-class items); the bootstrap order itself is fully closed.
+6. **Spawn outage RESOLVED (2026-10-05):** root cause — `~/.omp/agent/config.yml` pinned all 16 subagent types to `commandcode{N}/stealth/space-bunny-alpha:max` (dead provider endpoints), so every spawn failed regardless of session model; all 16 redirected to `commandcode/deepseek/deepseek-v4.1-flash:max` (the route the session's own roles already use). Backup: `config.yml.bak-pre-deepseek-fix`. Live spawn probe green (SpawnProbe2 → "OK", 6.1 s). All work orders unblocked.
 
 ## 2026-10-05 — project-init bootstrap (spine + loop)
 **Shipped:** `docs/` spine (STATE/CHECKPOINT/LOG/BUILD-LOG/NEXT-ACTIONS), `docs/SKILLS.md`, `docs/judge-layer-ideas.md` (36 ideas), `porting/wf-template.ddw.js` + `porting/wf-batch.ddw.js`, `.omp/commands/{nextgit-start,nextgit-warm,nextgit-continue,goal}.md`, `.omp/agents.md`, `scripts/status-index.mjs` + `docs/status-index.json`; git repo initialized (`b324b73`, `f001a1f`). The acceptance run is the next entry up.
