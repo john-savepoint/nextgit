@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T16:34:42.270Z",
-  "head": "2e070cf",
+  "generatedAt": "2026-10-06T18:37:55.005Z",
+  "head": "dd978b7",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -10,10 +10,10 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 513,
+    "total": 661,
     "byStatus": {
-      "pending": 449,
-      "done": 63,
+      "pending": 595,
+      "done": 65,
       "partial": 1
     },
     "items": [
@@ -296,6 +296,236 @@
         "status": "pending",
         "priority": "P0",
         "title": "Registry harvest wave: itemize every source into harvest JSONs"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove every concurrent proposal is one set in a single response"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the proposal card anatomy and the secret-row treatment"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the collision map renders every conflict with its evidence"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the single error surface, Retry now, and silent ticker degradation"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the action banner state machine and card reset"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove click-first actions with inline confirm and no dialogs"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove GET /changes returns identities, stats, per-file rows and the secret patch policy"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove change-sets are diffed against the fork point with the bounded first-parent walk"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /land folds with the fork point as the 3-way ancestor"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /proposals classifies every pair, carries regions, and agrees with the summary counts"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove GET /merge folds proposals in order with clean, conflict and withheld-secret outcomes"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Render dedicated banners for no-changes, stale, and base-moved landing outcomes"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Expose base and proposal head SHAs on the read surfaces"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Send the reviewed heads from the canvas on land and surface stale"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Extend the land regression probe to 4 concurrent lands"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Extend the landing record: checks, results, merged/tested hashes, artifact ref"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Serve the landing record at GET /landings/{commit}"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /land folds and pushes one commit server-side, no caller git"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove card confirm → landing… two-step and the in-flight banner copy"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Stream platform events over an SSE Durable Object hub"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Consume the event stream in the UI; keep polling as the degraded fallback"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove a new top event debounces a /proposals refresh at 500ms"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the fallback cadence: /events 2s, /proposals 8s behind a default-on toggle"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /judge v1 emits typed risk, intent, and collision signals"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove callers cannot inject judge state, questions, or model"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove judge state assembly, secret masking, and skip reasons"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove pinned-model fail-closed 503s and silent UI degradation"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove advisory judge chips render, stay amber, and block nothing"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove secret-class rows serve schema-only on /proposals and /changes"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove secret-class values never enter judge state, logs, or free-text scrub output"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove merge previews render withheld-secret rows with no text"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /land refuses secret-class folds with 409 withheld-secret and pushes nothing"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the N≥4 concurrent real-agent demo floor live"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove omp/codex routes push real proposals to the baseline"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Make the end-to-end demo reproducible from the committed scripts"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Cross-link the operator runbook from the root README"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Complete the submission license surface: package"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Record and gate the 5-10 minute single-take submission video"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify a clean reset from committed scripts reproduces the full demo set live"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the one-click landing beat lands server-side with a receipt"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the demo path is the live Cloudflare Worker + Artifacts namespace"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the colliding-land refusal: 409 conflict, files named, preview-merge guidance"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the secret-touching land refusal: 409 withheld-secret, files named, values held back"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify all seven documented routes live, with documented error shapes"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify /judge pin, repo/ref caps, and the per-caller rate limit"
       },
       {
         "status": "pending",
@@ -956,6 +1186,436 @@
         "status": "pending",
         "priority": "P1",
         "title": "Per-line AI attribution surviving rebase, squash and cherry-pick"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Make both empty states explain what is awaited"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add visible focus styles to every interactive control"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Trap modal focus and return it to the trigger"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Honor prefers-reduced-motion across the triage app"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Raise phone-width touch targets to 44px"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Confine below-AA text registers to meta and ambient chrome"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Stop the proposals grid overflowing below 424px"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the five summary chips are exact, tinted, and labeled"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the default 8s refresh cycle and manual refresh"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove event debounce and land-triggered reload convergence"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove modal dismissal paths and one-level modal depth"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the change-set carries the per-fork commit list"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove a change-set stays byte-identical after the baseline advances"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the diff viewer renders patch rows and the no-patch, secret, error and not-found states"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the merge modal renders merged text, conflict text, withheld notice and the empty/error states"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove in-Worker change-set work stays within the request budget and clones only on /land"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add per-fork commit list to /changes"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Render withheld-secret and conflict card states with Land disabled"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Render the landing counts: landed"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Persist the landing decision as a git note"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the single gated write path"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove /land needs no caller credentials and leaks no token"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove success banner sha8 + tooltip and immediate proposals/events refresh"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove withheld-secret, conflict, and generic failure banners"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove landed card dims 0"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Harden the event consumer: validate payloads and dedupe the feed"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the feed's single-writer, single-consumer, hint-only posture"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the polling cadence fallback contract and the set view"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the events ticker renders the newest 8 events with type, repo and time"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove /events failure goes stale without breaking the proposals surface"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove GET /events serves the newest 50 or fewer events, newest-first"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove exactly one queue consumer and one KV LIVE writer, feed non-authoritative"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove a land and a manual refresh reload /proposals and /events immediately"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the live demo serves the verified UI source byte-for-byte"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Build the judge-v1 labeled proposal set"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Run the injection-testing spike over the judge-v1 labeled set"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Build the judge-v1 evaluation harness over the labeled set"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Tune judge-v1 thresholds and commit the calibration record"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove judge set versioning rejects unknown sets"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the per-caller judge rate cap maps to 429"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Adjudicate content-detected secret arrival in CONTRACT"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Ship content-detected secret arrival per the recorded CONTRACT decision"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the secret-egress law across every channel with an offline canary gate"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the path-driven masking posture and its documented v1 limit"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove intent readers resolve from the nextgit-notes mirror, with the fallback carrier"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the single three-refspec intent push and durability across branch movement"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove cards show the proposal repo and the baseline header"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove a landing records its baseline move in the live feed"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Load harness routes from a declarative registry"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Publish the BYO harness onboarding standard and validate declarations"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Ship workspace manifest and structure map into every workspace"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove one command provisions N workspaces with scoped tokens"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove every workspace push emits a platform event"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove agent-* workspaces self-discover before token handoff"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the BYO harness clone/commit/three-refspec push interface"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Build the authorize"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Enforce the demo repo allowlist on every base/repos param"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Rate-limit /land, /merge, /proposals and /judge"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Fail closed on cookie identities and gate non-demo data on the seam"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Enforce repo git token TTLs: 24 h default, 7 d max"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Write token manifests 0600 and keep tokens out of logs and argv"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Audit token mint/use/revoke in Worker logs and Artifacts token events"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Reveal secret values only through an authorized, audited seam rule"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Render the CAP-8 elevated-reveal beat with the withheld fallback"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Guard every response path against token and credential egress"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify the 10-tab stepper, progress fill and narrow-width scroll"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify steps 0-2 teach with core terms and simulations 1-2"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify steps 3-5: annotated card, collision sim and shipping sim"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify step 6 fetches and annotates the real proposal grid"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify step 7 grades quiz answers over the real proposal set"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify steps 8-9 state non-goals and frame the operator with the CTA"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify tour degradation: fetch failure falls back and the tour continues"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify <=720px single-column stacking and <=640px grid collapse"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add the mechanical runtime-pin guard and reconcile pinned surfaces"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add the concerns-floor guard"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Machine-check the twelve-law carrier map"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the four demo scripts are committed and parse from the repo root"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify failure UI states: exact banner copy, card back to default, dismiss-only persistence"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Enforce route methods and JSON 404s at the API boundary"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Resolve base/ref/baseRef defaults in one place and pin them in CONTRACT"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify CONTRACT"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify base/ref/baseRef default resolution is pinned to demo/main on every route"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify wrong-method requests are answered by the API routes with a JSON error"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify unknown API paths return JSON 404, never the asset handler"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify frozen enums, ISO-8601 UTC timestamps, and the land"
       },
       {
         "status": "pending",
@@ -1884,6 +2544,36 @@
       },
       {
         "status": "pending",
+        "priority": "P2",
+        "title": "Verify click-first, hover parity, and document-order tab order"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Verify degrade-never-fake: banner, sticky panels, silent ticker, honest landing"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Fail closed on blob integrity checks at every materialization path"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Keep clone, change-set, and fork-point reads unchanged for asset pointers"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Prove landing, masking, and fork-point contracts unchanged with asset pointers"
+      },
+      {
+        "status": "pending",
         "priority": "P3",
         "title": "Post-submission roadmap"
       },
@@ -2261,6 +2951,46 @@
         "status": "pending",
         "priority": "P3",
         "title": "Close agent-skill gaps"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Serialize lands with a Durable Object lease"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Enforce the auto-land engagement interlock"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Render auto-land verdicts behind the Land button"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Pin the 11-entity client protocol and push-event vocabulary in CONTRACT"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Serve the platform-backed client protocol entities with platform-native fields"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Pin the CAP-10 contract: intent/matcher, fork signals, upstream route"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Compute six-cluster fork signals and feed matcher verdicts"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Route a fork's work back to its upstream with lineage and evidence"
       },
       {
         "status": "partial",

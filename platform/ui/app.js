@@ -385,6 +385,15 @@ function renderConflicts() {
   if (!el.conflictsList || !el.conflictsMeta) return;
 
   const data = state.proposalsData;
+  if (!data) {
+    // First-load treatment (FR-7): no payload observed yet — cold load or a
+    // failed first fetch while the 8s poll retries. Never assert counts or
+    // emptiness for a set we have not seen.
+    el.conflictsMeta.textContent = "—";
+    el.conflictsList.innerHTML = '<div class="loading-indicator">Loading the set from /proposals...</div>';
+    return;
+  }
+
   const conflicts = data?.conflicts || [];
   el.conflictsMeta.textContent = `${conflicts.length} detected`;
 
@@ -501,6 +510,14 @@ function renderProposals() {
   if (!el.proposalsGrid || !el.proposalsMeta) return;
 
   const data = state.proposalsData;
+  if (!data) {
+    // First-load treatment (FR-7): same contract as renderConflicts — the
+    // treatment stands until the first observed payload.
+    el.proposalsMeta.textContent = "—";
+    el.proposalsGrid.innerHTML = '<div class="loading-indicator">Loading the set from /proposals...</div>';
+    return;
+  }
+
   const proposals = data?.proposals || [];
   el.proposalsMeta.textContent = `${proposals.length} active`;
 
