@@ -33,5 +33,6 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | Red | Owner | Why not fixed |
 |---|---|---|
 | `claude` CLI auth (401 OAuth expired) | John | one `claude login` (≈30 s); unlocks a marquee demo agent |
+| `codex` CLI usage-limited; `pi` insufficient balance | John | fleet currently runs all-omp; restore when quotas reset — optional demo agents |
 | `gemini` + `opencode` CLI auth | John | optional demo agents; need auth setup |
 | 4 pre-existing tsc errors in `platform/` | unassigned | recorded from build waves; fix with a TypeScript pass (queue P2-4); verify after installing TS |

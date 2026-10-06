@@ -22,23 +22,27 @@ Spoken lines below are the words to say; stage directions are in *[brackets]*. T
 
 ## PRE-FLIGHT (start T-25 min; agents can take a while)
 
-Reset the world — baseline, then four real agents:
+Reset the world — baseline, then the agent fleet + the secret fixture:
 
 ```bash
 cd <repo root>
-node platform/scripts/seed.mjs          # restores demo @ main to the baseline skeleton (no-op if already current)
-node platform/scripts/real-agents.mjs   # deletes + re-forks agent-1…4, runs real codex/omp CLIs, pushes, attaches intent notes
+node platform/scripts/seed.mjs             # restores demo @ main to the baseline skeleton (no-op if already current)
+node platform/scripts/real-agents.mjs      # deletes + re-forks agent-1…4, runs real CLI agents, pushes, attaches intent notes
+node platform/scripts/secret-fixture.mjs   # ensures agent-5 (the secret-class fixture) — idempotent
 ```
 
-`real-agents` launches four CLIs concurrently; starved agents are retried serially and can take up to 8 min each — budget 10–15 min. Scratch output: `/tmp/real-agents/report.md`, `/tmp/nextgit-agents.json`. A retry for one agent: `node platform/scripts/real-agents.mjs --only agent-3`.
+`real-agents` launches the four agent runs; today all four run on **omp** (Codex was usage-limited at reset — if it's back, prefer two Codex / two omp and say what you see). Starved agents are retried serially and can take up to 8 min each — budget 10–15 min. Scratch output: `/tmp/real-agents/report.md`, `/tmp/nextgit-agents.json`. A retry for one agent: `node platform/scripts/real-agents.mjs --only agent-3`.
 
-Wait criteria — all four proposals and the real conflict must exist before rolling:
+Wait criteria before rolling:
+- **Namespace exactly `{demo, agent-1…agent-5}`** — a stray `agent-*` repo (e.g. another session's scratch) shows up as a junk card and fails the gate. Wait for any concurrent producer to go quiet.
+- `demo` head = the seeded baseline `6a5dac97` (no landings yet — beat 5 does the landing live).
+- Then take the full gate to green:
 
 ```bash
-curl -sS -A "nextgit-take/1.0" "https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo" \
-  | jq -c '{proposals:.summary.proposals, shared:.summary.sharedFiles, conflictingPairs:.summary.conflictingPairs, conflicts:[.conflicts[].file]}'
-# want: {"proposals":4,"shared":1,"conflictingPairs":1,"conflicts":["src/auth.ts"]}
+node platform/scripts/demo-verify.mjs   # 25/25 PASS — the pre-recording gate; transient connect stalls self-retry
 ```
+
+Target chip numbers: `proposals 5 · shared files 1 · conflicting pairs 1 · changed files 4 · clean pairs 0` — read the live values on the take.
 
 Browser, before rolling:
 
@@ -59,20 +63,20 @@ During the take, narrate live or record clean and dub the lines — the pacing b
 > Four agents just changed the same repository — at the same time, each in its own isolated workspace. None of this is a mockup: real CLI agents, real pushes, minutes ago.
 > Here's the problem it addresses. Agents write code faster than anyone can review it, and they write it in parallel. A July 2026 study replayed the three-way merges on agent-authored pull requests: **41.7% of cross-agent pairs conflict** — twice the rate within a single agent.¹ On today's tools you find that out at the second merge. Here, you find out before the first.
 
-**Live data:** `GET /health` → `{ok:true}` (platform reachable); the on-screen fleet proves the "four agents" claim — no spoken number is unsourced.
+**Live data:** `GET /health` → `{ok:true}` (platform reachable); the on-screen fleet proves the claim — four agent cards plus the secret fixture, no spoken number unsourced.
 
 ## BEAT 2 — THE FLEET — 0:30–2:00 (90s)
 
-**On screen:** header summary chips (`proposals 4 · shared files 1 · conflicting pairs 1 · changed files 3 · clean pairs 0`), then pan across the four cards in **Concurrent Proposals**; the **events** ticker sits just below the header — keep its pulse dot visible.
+**On screen:** header summary chips (`proposals 5 · shared files 1 · conflicting pairs 1 · changed files 4 · clean pairs 0` — read live), then pan across the five cards in **Concurrent Proposals**; the **events** ticker sits just below the header — keep its pulse dot visible.
 
 **Spoken:**
-> This is the set view — every proposal at once. One repo, `demo`. Four agents: two Codex, two omp — each ran in its own isolated fork, no shared checkout, no locks, no coordination between them.
-> Every card carries the task that agent was given, read straight off the commit's git note. agent-1: add `refreshSession`. agent-2: tolerate clock skew in `isExpired`. agent-3: a read-through memo cache for the store. agent-4: a feature-flag module.
-> Those cards arrived on their own, as pushes came in — that ticker is the platform's event stream. Nothing on this page was typed in by hand. Four proposals, one screen — triage the set, not one item at a time.
+> This is the set view — every proposal at once. One repo, `demo`. Four agents — all omp in this take; each ran in its own isolated fork, no shared checkout, no locks, no coordination between them.
+> Every card carries the task that agent was given, read straight off the commit's git note. agent-1: add `refreshSession`. agent-2: tolerate clock skew in `isExpired`. agent-3: a read-through memo cache for the store. agent-4: a feature-flag module. The fifth card is the fixture: agent-5 — a config file the platform types as secret-class on sight.
+> Those cards arrived on their own, as pushes came in — that ticker is the platform's event stream. Nothing on this page was typed in by hand. Five proposals, one screen — triage the set, not one item at a time.
 
 *[Point at each card's intent line as you read it. If a chip count differs, say the count you see.]*
 
-**Live data:** `GET /proposals?base=demo` → `.proposals[]` length 4 with those `intent` strings; `GET /events` → newest events are the agent-repo pushes.
+**Live data:** `GET /proposals?base=demo` → `.proposals[]` length 5 — four with those `intent` strings, plus the secret fixture; `GET /events` → newest events are the agent-repo pushes.
 
 ## BEAT 3 — THE COLLISION — 2:00–3:30 (90s)
 
@@ -92,9 +96,9 @@ During the take, narrate live or record clean and dub the lines — the pacing b
 **Spoken:**
 > Every card also carries a judgment — three typed signals, computed inside the platform. Risk: routine, focused, or senior-security — the thresholds live in code, not in the model. Intent: does the diff actually do what the note claims — verified, mismatch, or insufficient. And an overclaim probability — how much the change talks bigger than it acts. Here: {read the chips as rendered}.
 > This is Clef, Cloudflare's open decision model, running on Workers AI through the platform's own binding — the judgment is one call, typed answers, no prose. The judge writes nothing and lands nothing. **The judge advises; code decides; humans still own irreversible acts.**
-> And the semantics stay honest: if a proposal is skipped — a secret-class file, or nothing left to merge — it shows no chips at all, because a skip is not a verdict. Once a card lands, it drops its chips — no stale opinions on merged code.
+> And the semantics stay honest: if a proposal is skipped — a secret-class file, or nothing left to merge — it shows no chips at all, because a skip is not a verdict. agent-5 is the case in point: its card shows the file is secret-typed — you can see the key names, never the values — and the judge skips it outright. Once a card lands, it drops its chips — no stale opinions on merged code.
 
-**Live data:** the rendered chips themselves (from `POST /judge`, `model: @cf/cloudflare/clef`); skipped repos render no chips by design. Numbers jitter between runs — never pre-commit to one on camera.
+**Live data:** the rendered chips themselves (from `POST /judge`, `model: @cf/cloudflare/clef`); skipped repos render no chips by design — `POST /judge` → `skipped:[{repo:"agent-5",reason:"secret-class"}]`. Numbers jitter between runs — never pre-commit to one on camera.
 
 ## BEAT 5 — THE CLICK — 5:00–6:30 (90s)
 
@@ -112,7 +116,7 @@ During the take, narrate live or record clean and dub the lines — the pacing b
 **On screen:** the full app, static — conflict panel, remaining cards, ticker. Stop moving the mouse.
 
 **Spoken:**
-> What you've seen is one repo, four agents, one collision, one landing. The layer underneath is the point: proposals carry intent and provenance; collisions are computed by attempting the merge; judgments are typed, cheap, and advisory; landing is an API call.
+> What you've seen is one repo, four agents, five proposals, one collision, one landing. The layer underneath is the point: proposals carry intent and provenance; collisions are computed by attempting the merge; judgments are typed, cheap, and advisory; landing is an API call.
 > The same API that renders this page can serve an IDE, a CLI — and, later, the 3D office: clients are surfaces, the platform is the heart. This is our entry in Cloudflare's next-gen Git platform competition, built on Workers, Artifacts, and Clef — and it is running at this URL right now.
 > Convergence is the missing layer of the agent era. This is our first cut at it.
 
@@ -130,9 +134,9 @@ During the take, narrate live or record clean and dub the lines — the pacing b
 | Connection banner appears (any fetch failed) | red bar + `Retry now` | Click `Retry now`; all state is server-side — nothing is lost. Resume the sentence. |
 | Window wrong for capture (sub-1080p, zoom ≠ 100%) | cramped cards, clipped chips | Fix before rolling; verify the header chips and a full card fit in frame. |
 
-## Deliberately not in this take
+## Secret beat — now IN the take (folded)
 
-Secret-typed files (schema-only view, leak scrubbed at commit) are in the demo scope's story but not in this cut: the fleet has no secret-class repo today and the skip path is suite-covered only. Don't claim it on camera; it's the next beat to record once a secret-class workspace exists.
+agent-5 (the reset's secret fixture) makes the secret-class path live and demoable: its card renders schema-only — key names visible, values never — and `/judge` skips it (`reason: secret-class`). Delivered via BEAT 2's fifth card + BEAT 4's closing lines. Still NOT demoable: scrub-on-land for secret files (agent-5 never lands in this take) — don't claim it on camera.
 
 ## Sources
 

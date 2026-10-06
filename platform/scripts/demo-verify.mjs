@@ -33,20 +33,36 @@ const rawBodies = [];
 const check = (name, ok, detail = "") => checks.push({ name, ok: Boolean(ok), detail });
 
 async function fetchJson(path, init = {}) {
-  const res = await fetch(`${PLATFORM}${path}`, {
-    ...init,
-    headers: { "User-Agent": "nextgit-demo-verify/1", ...(init.headers ?? {}) },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  const text = await res.text();
-  rawBodies.push({ path, text });
-  let body = null;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    // non-JSON — the status/ok checks report it
+  // This WSL2 box's connect latency to the Cloudflare edge occasionally
+  // exceeds undici's ~10s connect budget (measured: ~7 transient failures in
+  // one day, all pre-response). Retry before failing the gate — a connect
+  // stall must never masquerade as a demo-state failure.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(`${PLATFORM}${path}`, {
+        ...init,
+        headers: { "User-Agent": "nextgit-demo-verify/1", ...(init.headers ?? {}) },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      const text = await res.text();
+      rawBodies.push({ path, text });
+      let body = null;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        // non-JSON — the status/ok checks report it
+      }
+      return { status: res.status, body };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 3) {
+        console.log(`  (transient fetch failure on ${path} — attempt ${attempt}/3: ${err?.cause?.code ?? err?.message}; retrying)`);
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
+    }
   }
-  return { status: res.status, body };
+  throw lastErr;
 }
 
 async function main() {
@@ -149,7 +165,7 @@ async function main() {
   check(
     "agent-1..4 all judged (no empty-change-set skips)",
     EXPECTED_REPOS.slice(0, 4).every((r) => judgments.some((j) => j.repo === r)) &&
-      !skipped.some((s) => s.repo !== "agent-5"),
+    !skipped.some((s) => s.repo !== "agent-5"),
     JSON.stringify(skipped),
   );
 
