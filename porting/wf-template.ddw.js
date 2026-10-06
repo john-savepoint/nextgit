@@ -110,11 +110,14 @@ export async function runWorkOrder(order, opts = {}) {
   const corpus = (order.corpus ?? [`${root}/docs/STATE.md`, `${root}/platform/CONTRACT.md`]).join(", ");
   const resumed = opts.resume === true;
   const skip = (artifact) => resumed && existsSync(`${runDir}/${artifact}`);
+  // IMPLEMENT also counts a completed heal round as its record: a healed run must not
+  // re-implement over landed code on resume (observed: mute IMPLEMENT + heal-1 landed the work).
+  const implDone = () => skip("implement.md") || (resumed && readdirSync(runDir).some((f) => /^heal-\d+\.md$/.test(f)));
 
   let heals = 0;
   let healedThisRun = 0;
   if (resumed) {
-    try { for (const f of readdirSync(runDir)) { const m = f.match(/^heal-(\d+)\.md$/); if (m) heals = Math.max(heals, Number(m[1])); } } catch {}
+    try { for (const f of readdirSync(runDir)) { const m = f.match(/^heal-(\d+)\.md$/); if (m) heals = Math.max(heals, Number(m[1])); } } catch { }
   }
   const writeState = (phase, extra = {}) =>
     writeFileSync(`${runDir}/run-state.json`, JSON.stringify({ order: order.id, title: order.title, phase, healRound: heals, resumed, updatedAt: new Date().toISOString(), ...extra }, null, 2));
@@ -125,26 +128,30 @@ export async function runWorkOrder(order, opts = {}) {
   // ---- PLAN ----------------------------------------------------------------
   if (!skip("plan.md")) await agent(
     `PLAN phase for work order "${order.id}" — ${order.title}.\n` +
-      `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
-      `Corpus (read first): ${corpus}. Repo root: ${root}.\n` +
-      `Write a file-level plan to ${runDir}/plan.md (files touched, exact changes, the check that proves it). ` +
-      `Do NOT implement anything yet. Do NOT commit. Return only a <=5 line summary.`,
+    `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
+    `Corpus (read first): ${corpus}. Repo root: ${root}.\n` +
+    `Write a file-level plan to ${runDir}/plan.md (files touched, exact changes, the check that proves it). ` +
+    `Do NOT implement anything yet. Do NOT commit. Return only a <=5 line summary.`,
     { agent: agentType, label: `plan:${order.id}` },
   ).wait();
 
   // ---- IMPLEMENT -----------------------------------------------------------
-  if (!skip("implement.md")) await agent(
+  if (!implDone()) await agent(
     `IMPLEMENT phase of ${order.id} per ${runDir}/plan.md.\n` +
-      `Smallest correct diffs; respect existing patterns. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
-      `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
+    `Smallest correct diffs; respect existing patterns. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
+    `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
     { agent: agentType, label: `impl:${order.id}` },
   ).wait();
+  // Loud phase guard: a mute IMPLEMENT (observed once — the agent wrote nothing) must not fail silent.
+  if (!existsSync(`${runDir}/implement.md`)) {
+    writeState("implement-no-artifact", { guard: "IMPLEMENT wrote no implement.md — gates will see an empty change set; heal artifacts count as the implement record on resume" });
+  }
 
   // ---- VERIFY (fresh eyes, no fixes) --------------------------------------
   if (!skip("verify.md")) await agent(
     `VERIFY phase of ${order.id}. You are a FRESH verifier: do not fix anything.\n` +
-      `Run ${order.testCmd} (cwd ${root}) and write the VERBATIM output + a PASS/FAIL judgement to ${runDir}/verify.md. ` +
-      `Also state whether the acceptance for "${order.title}" is observably met: ${order.acceptance}. Return only the verdict line.`,
+    `Run ${order.testCmd} (cwd ${root}) and write the VERBATIM output + a PASS/FAIL judgement to ${runDir}/verify.md. ` +
+    `Also state whether the acceptance for "${order.title}" is observably met: ${order.acceptance}. Return only the verdict line.`,
     { agent: agentType, label: `verify:${order.id}` },
   ).wait();
 
@@ -154,9 +161,9 @@ export async function runWorkOrder(order, opts = {}) {
     const handles = lensList.map((lens) =>
       agent(
         `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
-          `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).\n` +
-          `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
-          `Write the verdict to ${runDir}/gate-${lens}.md AND return it as the structured object {lens, verdict, shipBlockers, highs, mediums, notes} — objects only, no arrays, no prose.`,
+        `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).\n` +
+        `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
+        `Write the verdict to ${runDir}/gate-${lens}.md AND return it as the structured object {lens, verdict, shipBlockers, highs, mediums, notes} — objects only, no arrays, no prose.`,
         { agent: agentType, label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA },
       ),
     );
@@ -185,10 +192,10 @@ export async function runWorkOrder(order, opts = {}) {
       .filter(Boolean);
     await agent(
       `HEAL round ${heals} for ${order.id}.\n` +
-        `The AUTHORITATIVE findings are the gate reports in ${runDir}/gate-*.md — read them first; the inline list below may be partial.\n` +
-        `Inline (extracted, may be empty): ${blockers.length ? blockers.join(" | ") : "(none extracted — use the gate reports)"}\n` +
-        `Group findings by file; ONE writer per file per wave; <=10 files; fix only what the findings name.\n` +
-        `Re-run ${order.testCmd} after the wave. Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
+      `The AUTHORITATIVE findings are the gate reports in ${runDir}/gate-*.md — read them first; the inline list below may be partial.\n` +
+      `Inline (extracted, may be empty): ${blockers.length ? blockers.join(" | ") : "(none extracted — use the gate reports)"}\n` +
+      `Group findings by file; ONE writer per file per wave; <=10 files; fix only what the findings name.\n` +
+      `Re-run ${order.testCmd} after the wave. Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
       { agent: agentType, label: `heal:${order.id}:${heals}` },
     ).wait();
 

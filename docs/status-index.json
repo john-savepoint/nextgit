@@ -1,26 +1,21 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T02:28:27.878Z",
-  "head": "857d0ce",
+  "generatedAt": "2026-10-06T02:35:58.234Z",
+  "head": "7ca477b",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
     "branch": "main",
-    "lastCommit": "857d0ce",
+    "lastCommit": "7ca477b",
     "standingRedSet": null
   },
   "queue": {
     "total": 33,
     "byStatus": {
-      "pending": 28,
-      "done": 5
+      "pending": 27,
+      "done": 6
     },
     "items": [
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "SQLite task backbone"
-      },
       {
         "status": "pending",
         "priority": "P0",

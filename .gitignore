@@ -1,4 +1,6 @@
 node_modules/
 .wrangler/
 porting/runs/
+porting/harvest/
 *.tsbuildinfo
+porting/tasks.db*

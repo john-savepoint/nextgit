@@ -2,7 +2,7 @@
 
 Loop: drive `nextgit-continue` repeatedly until one of:
 
-- the queue has no `pending` rows,
+- `bun porting/tasks.mjs next` exits 1 (no unblocked pending task),
 - the user stops it,
 - or a boundary rule fires: a `blocked` item needing a human decision; a heal budget exhausted; a gate red that is base-identical and unowned.
 

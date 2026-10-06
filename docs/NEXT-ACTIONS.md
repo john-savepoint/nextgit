@@ -2,7 +2,6 @@
 
 > Derived from porting/tasks.db via bun porting/tasks.mjs — never edit by hand; starting fresh? Read docs/STATE.md then docs/CHECKPOINT.md.
 
-- [pending] P0 — SQLite task backbone — `porting/tasks.db` (WAL, claims, events) + `porting/tasks.mjs` CLI (init/import/add/next/claim/release/set/list/view/query) + tests incl. two-process claim contention; `docs/NEXT-ACTIONS.md` becomes a derived view; batch runner reads the DB; acceptance: `bun porting/tests/tasks.test.mjs` all-pass + view round-trip equal; check: bun porting/tests/tasks.test.mjs
 - [pending] P0 — Wire the Clef judge layer — add `"ai"` binding + `POST /judge` to the worker; put risk score + intent-vs-diff verification + semantic-collision chips on proposal cards; acceptance: chips render from live Clef answers in-browser; check: curl `/proposals` shows judge fields + the page renders them (ideas 1-4 in docs/judge-layer-ideas.md)
 - [pending] P0 — Write the PRD (bmad-prd) — product requirements for platform + demo + submission, built from SPEC + dossiers; acceptance: PRD lands under `_bmad-output/planning-artifacts/` and upstream SPEC re-derives clean
 - [pending] P0 — UX spec for the triage surface (bmad-ux) — canvas review flow, judge chips, land flow, recording needs; acceptance: DESIGN/EXPERIENCE docs exist and the video storyboard cites them
@@ -31,6 +30,7 @@
 - [pending] P2 — Contract smoke in platform verify gates (AD-12) — Every platform work order's VERIFY gate curls all six routes asserting shapes/enums/status codes (ratify the bootstrap C2/C3 pattern); tsc joins when the hygiene item lands.
 - [pending] P3 — Post-submission roadmap — R2 asset tier, Agent Office integration, fork community, Clef RL fine-tune track
 
+- [done] P0 — SQLite task backbone — `porting/tasks.db` (WAL, claims, events) + `porting/tasks.mjs` CLI (init/import/add/next/claim/release/set/list/view/query) + tests incl. two-process claim contention; `docs/NEXT-ACTIONS.md` becomes a derived view; batch runner reads the DB; acceptance: `bun porting/tests/tasks.test.mjs` all-pass + view round-trip equal; check: bun porting/tests/tasks.test.mjs
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P0 — Judge-layer research + live proof — Clef verified callable 2026-10-05; 36 ideas recorded in `docs/judge-layer-ideas.md`
 - [done] P1 — State spine + loop scaffolding — `docs/` spine, `porting/` runner, `.omp/commands/`, `scripts/status-index.mjs` (this bootstrap)

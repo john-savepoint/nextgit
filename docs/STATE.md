@@ -1,8 +1,8 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (architecture spine shipped through a 4-lens gate — 2 live HIGH fixes deployed `d0d8b17`; queue migrated to the SQLite task store by a parallel session; pre-commit enforcement re-armed and proven)
-**Branch:** `main` · **Last commit:** `857d0ce` (architecture run; live fixes in `d0d8b17`)
-**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
+**Last updated:** 2026-10-06 (architecture spine through a 4-lens gate — live HIGH fixes `d0d8b17`; task store live — SQLite queue, 52/52 tests, derived `NEXT-ACTIONS.md`; registry harvest wave running; judge layer next)
+**Branch:** `main` · **Last commit:** `7ca477b` (architecture follow-ups; this batch: sqlite closure + spine updates)
+**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · `bun porting/tests/tasks.test.mjs` (52/52 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `_bmad-output/specs/spec-next-git-platform/SPEC.md` + companions (`demo-scope.md`, `engineering-laws.md`, `stack.md`, `interface-contract.md`, `fork-community.md`) — the frozen contract
 - `platform/CONTRACT.md` — frozen platform API v2
@@ -23,9 +23,9 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` (lands or refuses) — reproducible two-command demo |
 | Real agent fleet | working (2 CLIs) | omp + codex verified producing real proposals; claude/gemini/opencode need logins (standing reds, John) |
 | Judge layer (Clef) | verified callable | live typed answers 2026-10-05 (~1.3 s REST, ~$0.00012/call); catalog in `docs/judge-layer-ideas.md`; NOT yet wired |
-| State spine + loop | shipped | first order run end-to-end 2026-10-05 (4/4 green; gates caught real findings); runner committed `d5f6b5b`; regression test `porting/tests/normalize.test.mjs`; queue now SQLite-backed (`porting/tasks.db`, parallel session) |
+| State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) + runner; two orders GREEN (`bootstrap-health-sweep` 2026-10-05, `sqlite-task-backbone` 2026-10-06); tests `porting/tests/{normalize,tasks}.test.mjs` |
 | Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
-| Planning artifacts | partial | SPEC yes; PRD / UX / architecture runs pending (queue P0) |
+| Planning artifacts | in flight | SPEC ✓; architecture spine ✓ (15 ADs); briefs + ux-designs runs in progress (parallel session); PRD pending (queue P0) |
 | Submission package | not started | video + README + LICENSE + repo curation + eligibility — queue P0/P1 |
 
 ## Standing red set (pre-existing, owned)
