@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T20:43:15.617Z",
-  "head": "8415f64",
+  "generatedAt": "2026-10-06T22:44:56.571Z",
+  "head": "0a938ae",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 592,
-      "done": 68,
+      "pending": 588,
+      "done": 72,
       "partial": 1
     },
     "items": [
@@ -296,26 +296,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Registry harvest wave: itemize every source into harvest JSONs"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the single error surface, Retry now, and silent ticker degradation"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the action banner state machine and card reset"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove click-first actions with inline confirm and no dialogs"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove GET /changes returns identities, stats, per-file rows and the secret patch policy"
       },
       {
         "status": "pending",
