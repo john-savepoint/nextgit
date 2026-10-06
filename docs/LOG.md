@@ -8,3 +8,5 @@
 - 2026-10-06 | product brief | brief finalized (structure+prose polish applied; John approved); eligibility resolved — US-resident teammate files the entry (store rows closed) | next: PRD
 - 2026-10-06 | judge-contract-pin | /judge shapes + v1 card-signal vocabulary pinned in CONTRACT.md (+47/−0; 3-lens green, 0 heals) | next: judge wave
 - 2026-10-06 | judge wave | Clef wired + chips live in-browser (0 heals; suite 73/73; browser-verified on agent-1/2/4) | next: land-hardening + video script
+- 2026-10-06 | video script | 5–10 min demo narrative written (6 beats, 7:30 nominal, pre-flight + shot-risk; `_bmad-output/planning-artifacts/demo/video-script.md`) | next: John's review → record
+- 2026-10-06 | land-hardening | concurrency-safe /land + evidence shipped; runner died mid-heal-2 after catching a masked-write-back corruption; orchestrator repaired the line, redeployed, probe green on the deployed artifact | next: demo chain (reset + secret fixture)

@@ -15,7 +15,7 @@
 
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
-import { mintWriteToken, pushLand, type LandFile } from "./land";
+import { BaseMovedError, mintWriteToken, pushLand, type LandFile } from "./land";
 import {
   JUDGE_SET_ID,
   PINNED_MODEL_ID,
@@ -280,6 +280,7 @@ async function computeMerge(
   baseRef: string,
   repoList: string[],
   ref: string,
+  ancestorOut?: Record<string, string>,
 ) {
   using baseRepo = await env.ARTIFACTS.get(baseName);
   interface Fold {
@@ -301,6 +302,7 @@ async function computeMerge(
   for (const repoName of repoList) {
     using headRepo = await env.ARTIFACTS.get(repoName);
     const cs = await computeChangeSet(env, baseName, baseRef, repoName, ref, { includeTexts: true });
+    if (ancestorOut) ancestorOut[repoName] = cs.base.sha; // the fork point the fold used
     for (const f of cs.files) {
       let fold = folds.get(f.path);
       if (!fold) {
@@ -698,6 +700,52 @@ const REPO_NAME_RE = /^[A-Za-z0-9._-]+$/;
 // `..` segment would escape the branch namespace on the push.
 const REF_RE = /^[\w./-]+$/;
 
+// Demo allowlist (AD-9): the demo namespace is `demo` + `agent-*`, scratch
+// chains (`demo-lh-base` / `agent-lh-1`) included. The full auth seam is its
+// own work order; until it lands the allowlist is enforced unconditionally on
+// /land, and the edge rate limit's closest documented substitute (the
+// in-isolate fixed window /judge already uses) guards the write path.
+const DEMO_REPO_RE = /^(demo|agent)(-[A-Za-z0-9._-]+)?$/;
+const LAND_RATE_LIMIT = 20; // requests per caller...
+const LAND_RATE_WINDOW_MS = 60_000; // ...per minute (AD-9 per-caller cap; makes 429 reachable)
+
+const landWindows = new Map<string, { start: number; count: number }>();
+
+/** True when the caller may land now; false when over LAND_RATE_LIMIT/min. */
+function landRateAllow(key: string, now = Date.now()): boolean {
+  if (landWindows.size > 500) {
+    for (const [k, w] of landWindows) {
+      if (now - w.start >= LAND_RATE_WINDOW_MS) landWindows.delete(k);
+    }
+  }
+  const window = landWindows.get(key);
+  if (!window || now - window.start >= LAND_RATE_WINDOW_MS) {
+    landWindows.set(key, { start: now, count: 1 });
+    return true;
+  }
+  if (window.count >= LAND_RATE_LIMIT) return false;
+  window.count++;
+  return true;
+}
+
+/** The head commit sha a repo's ref resolves to (throws when unresolvable). */
+async function repoHead(env: Env, name: string, ref: string): Promise<string> {
+  using repo = await env.ARTIFACTS.get(name);
+  const commits = await repo.log({ ref, limit: 1 });
+  if (!commits.length) throw new Error(`cannot resolve ref "${ref}"`);
+  return commits[0].hash;
+}
+
+/** Stable SHA-256 (hex) over the folded result: action + path + content, path-sorted. */
+async function foldHashOf(files: LandFile[]): Promise<string> {
+  const canonical = [...files]
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map((f) => `${f.action}\n${f.path}\n${f.action === "write" ? f.merged ?? "" : ""}\n\x00`)
+    .join("");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function badRequest(error: string): Response {
   return Response.json({ ok: false, error }, { status: 400 });
 }
@@ -707,9 +755,16 @@ interface LandRequestBody {
   repos?: unknown;
   baseRef?: unknown;
   ref?: unknown;
+  reviewed?: unknown;
 }
 
-function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string } | Response {
+/** Reviewed-state precondition (AD-3): heads as the caller saw them. */
+interface ReviewedHeads {
+  baseHead?: string;
+  heads?: Record<string, string>;
+}
+
+function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string; reviewed?: ReviewedHeads } | Response {
   if (!raw || typeof raw !== "object") return badRequest("JSON body required");
   const body = raw as LandRequestBody;
   const base = typeof body.base === "string" && body.base ? body.base : "demo";
@@ -730,16 +785,84 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
       return badRequest(`invalid ref: ${JSON.stringify(r)}`);
     }
   }
-  return { base, repos, baseRef, ref };
+  // Optional reviewed-state precondition (AD-3). Shape violations are 400;
+  // well-formed values are compared against the current heads in handleLand.
+  let reviewed: ReviewedHeads | undefined;
+  if (body.reviewed !== undefined) {
+    const rawReviewed = body.reviewed;
+    if (!rawReviewed || typeof rawReviewed !== "object" || Array.isArray(rawReviewed)) {
+      return badRequest("reviewed must be an object");
+    }
+    const r = rawReviewed as { baseHead?: unknown; heads?: unknown };
+    const isSha = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 128;
+    reviewed = {};
+    if (r.baseHead !== undefined) {
+      if (!isSha(r.baseHead)) return badRequest("reviewed.baseHead must be a commit sha string");
+      reviewed.baseHead = r.baseHead;
+    }
+    if (r.heads !== undefined) {
+      if (!r.heads || typeof r.heads !== "object" || Array.isArray(r.heads)) return badRequest("reviewed.heads must be an object");
+      const heads: Record<string, string> = {};
+      for (const [name, sha] of Object.entries(r.heads as Record<string, unknown>)) {
+        if (!REPO_NAME_RE.test(name)) return badRequest(`invalid repo name in reviewed.heads: ${JSON.stringify(name)}`);
+        if (!repos.includes(name)) return badRequest(`reviewed.heads names a repo that is not being landed: ${name}`);
+        if (!isSha(sha)) return badRequest(`reviewed.heads.${name} must be a commit sha string`);
+        heads[name] = sha;
+      }
+      for (const name of repos) {
+        if (!(name in heads)) return badRequest(`reviewed.heads is missing repo: ${name}`);
+      }
+      reviewed.heads = heads;
+    }
+  }
+  return { base, repos, baseRef, ref, reviewed };
 }
 
 async function handleLand(request: Request, env: Env): Promise<Response> {
   const parsed = parseLandBody(await request.json().catch(() => null));
   if (parsed instanceof Response) return parsed;
-  const { base, repos, baseRef, ref } = parsed;
+  const { base, repos, baseRef, ref, reviewed } = parsed;
 
-  // One fold, identical semantics to GET /merge.
-  const merge = await computeMerge(env, base, baseRef, repos, ref);
+  const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!landRateAllow(caller)) return Response.json({ ok: false, error: "rate-limited" }, { status: 429 });
+
+  // Demo allowlist (AD-9): only the demo namespace is landable while the
+  // platform is demo-open; the full auth seam ships as its own work order.
+  for (const name of [base, ...repos]) {
+    if (!DEMO_REPO_RE.test(name)) {
+      return Response.json(
+        { ok: false, error: "repo-not-allowed", detail: `repo "${name}" is outside the demo allowlist` },
+        { status: 403 },
+      );
+    }
+  }
+
+  // Pre-fold heads: the reviewed-state precondition compares against them, and
+  // the evidence record + base-moved check use the same values.
+  const baseHeadNow = await repoHead(env, base, baseRef);
+  const proposalHeads: Record<string, string> = {};
+  for (const name of repos) proposalHeads[name] = await repoHead(env, name, ref);
+  if (reviewed?.heads) {
+    for (const name of repos) {
+      if (reviewed.heads[name] !== proposalHeads[name]) {
+        return Response.json(
+          { ok: false, error: "stale", detail: `reviewed head of ${name} does not match the current proposal head` },
+          { status: 409 },
+        );
+      }
+    }
+  }
+  if (reviewed?.baseHead !== undefined && reviewed.baseHead !== baseHeadNow) {
+    return Response.json(
+      { ok: false, error: "stale", detail: "reviewed base head does not match the current base head" },
+      { status: 409 },
+    );
+  }
+
+  // One fold, identical semantics to GET /merge. `ancestors` records each
+  // repo's fork point (the 3-way ancestor) for the evidence record.
+  const ancestors: Record<string, string> = {};
+  const merge = await computeMerge(env, base, baseRef, repos, ref, ancestors);
 
   const secretFiles = merge.files.filter((f) => f.result === "withheld-secret").map((f) => f.path);
   if (secretFiles.length) {
@@ -769,6 +892,7 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
   for (const f of merge.files) {
     if (f.action === "delete") writeable.push({ path: f.path, action: "delete", result: f.result });
   }
+  const foldHash = await foldHashOf(writeable);
 
   using baseRepo = await env.ARTIFACTS.get(base);
   const info = await baseRepo.info();
@@ -781,6 +905,8 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
       baseRef,
       repos,
       files: writeable,
+      expectedBaseHead: baseHeadNow,
+      readBaseHead: () => repoHead(env, base, baseRef),
     });
     const landed = {
       repos,
@@ -788,11 +914,46 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
       files: writeable.map((f) => f.path).sort(),
       at: new Date().toISOString(),
     };
+    // The evidence record (AD-3): the commit is the evidence reference.
+    const evidence = {
+      repos,
+      commit,
+      ancestor: ancestors,
+      heads: { base: baseHeadNow, repos: proposalHeads },
+      foldHash,
+    };
     // The queue consumer records the real repo.pushed event; this keeps the
     // feed useful even if queue delivery lags behind the push response.
-    await recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at });
-    return Response.json({ ok: true, landed });
+    // Best-effort: fire AFTER the 200 is built so a KV write failure degrades
+    // the feed, not the land (AD-6: the consumer is the sole recorder; this
+    // call is a best-effort duplicate). Mirrors the queue consumer at line ~1174
+    // where ack() commits progress.
+    recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at })
+      .catch((e) => console.log("feed-lag", String(e)));
+    return Response.json({ ok: true, landed, evidence });
   } catch (err) {
+    if (err instanceof BaseMovedError) {
+      return Response.json(
+        { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+        { status: 409 },
+      );
+    }
+    // A push rejected because a concurrent land advanced the ref is the
+    // base-moved loser path, not a server error: re-read and convert. Ref
+    // reads can briefly lag a git push — retry once before classifying.
+    let after = await repoHead(env, base, baseRef).catch(() => null);
+    if (after === baseHeadNow) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, 400);
+      await promise;
+      after = await repoHead(env, base, baseRef).catch(() => null);
+    }
+    if (after !== null && after !== baseHeadNow) {
+      return Response.json(
+        { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+        { status: 409 },
+      );
+    }
     const detail = String((err as Error)?.message ?? err);
     // Credential-free failure: no token, no shell snippets. The caller may
     // retry, preview again, or land through the sanctioned control plane —

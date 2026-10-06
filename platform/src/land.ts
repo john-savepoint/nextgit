@@ -36,6 +36,16 @@ export interface LandInput {
  baseRef: string;
  repos: string[];
  files: LandFile[];
+ expectedBaseHead?: string;
+ readBaseHead?: () => Promise<string>;
+}
+
+/** Raised when the base ref moved between the fold and the push (AD-3). */
+export class BaseMovedError extends Error {
+ constructor(readonly currentHead: string) {
+  super(`base ref moved to ${currentHead}`);
+  this.name = "BaseMovedError";
+ }
 }
 
 /**
@@ -78,6 +88,14 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
   author: LAND_COMMIT_AUTHOR,
   committer: LAND_COMMIT_AUTHOR,
  });
+
+ // AD-3 concurrency precondition: re-read the base head after the clone and
+ // before the push; a concurrent land that advanced the ref must refuse this
+ // one instead of committing on top of it (the silent-overwrite path).
+ if (input.expectedBaseHead !== undefined && input.readBaseHead) {
+  const currentHead = await input.readBaseHead();
+  if (currentHead !== input.expectedBaseHead) throw new BaseMovedError(currentHead);
+ }
 
  const result = (await git.push({
   fs: fs as never,

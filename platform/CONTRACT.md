@@ -80,6 +80,28 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 - Clean → the worker creates **one commit** on top of `baseRef` (`land(<repos>): fold proposal(s)`) and pushes it (repo-scoped write token minted via the binding; push performed in-worker over the v1 wire protocol).
 - Fold produces **zero changes** → `409 {ok:false, error:"no-changes", detail}` (nothing to land).
 - Success → `200 { "ok": true, "landed": { "repos": [...], "commit": "<sha>", "files": [...], "at": "<iso>" } }`.
+- `reviewed` — **optional** reviewed-state precondition (AD-3); absent ⇒ legacy behaviour (no precondition checks). When present:
+
+  ```json
+  { "reviewed": { "baseHead": "<sha>", "heads": { "agent-3": "<sha>" } } }
+  ```
+
+  - `reviewed.baseHead` — optional base head sha; must equal the current head of `baseRef`, else `409 {ok:false, error:"stale", detail}` (nothing is folded or pushed).
+  - `reviewed.heads` — optional map of proposal repo → head sha; must cover exactly the requested `repos` (unknown or missing key → `400 {ok:false,error:"bad-request"}`); every value must equal that repo's current head at `ref`, else `409 {ok:false, error:"stale", detail}`. Values are opaque sha strings (non-empty, ≤128 chars) compared by exact equality.
+- Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (the concurrent double-land loser path; a push rejected because the ref moved is reported as `base-moved` too). Nothing is pushed.
+- `200` carries `evidence` in addition to `landed` — the landing record (AD-3); the returned `commit` is the evidence reference:
+
+  ```json
+  { "evidence": { "repos": ["agent-3"], "commit": "<sha>",
+                  "ancestor": { "agent-3": "<sha>" },
+                  "heads": { "base": "<sha>", "repos": { "agent-3": "<sha>" } },
+                  "foldHash": "<sha256 hex>" } }
+  ```
+
+  `ancestor` maps each landed repo to the fork-point commit used as its 3-way ancestor; `heads` are the base and proposal heads the fold was computed against; `foldHash` is a stable SHA-256 over the folded content (files path-sorted; action, path, content).
+- Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
+- Rate limit (AD-9): per-caller caps → `429 {ok:false, error:"rate-limited"}`.
+- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
 

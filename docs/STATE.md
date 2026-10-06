@@ -1,6 +1,6 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (judge layer WIRED + chips browser-verified (0 heals; suite 73/73); brief FINAL; eligibility RESOLVED — US teammate files the entry; next: land hardening → demo chain; PRD handled by the parallel agent)
+**Last updated:** 2026-10-06 (judge layer + land hardening SHIPPED (contract-pinned; concurrency-safe /land; probe green on deployed `69b59673`); video script written (await John's review); masked-write-back corruption repaired + model config restored to deepseek; next: demo chain — scenario reset + secret fixture)
 **Branch:** `main` · **Last commit:** `2cb2864` (brief finalize + eligibility resolution; v3 machinery in `1619073`)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (ALL PASS, exit 0) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
