@@ -1,0 +1,17 @@
+{
+  "slice": "E4-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e4-verify-single-writer-consumer-hint",
+      "note": "Disclosed overlap with sibling slice: E4-verify's e4-verify-single-consumer-kv-writer proves the same one-consumer / one-KV-writer / non-authoritative-feed posture. Justified — NFR-7 is not in the E4-verify pack (confirmed: that pack lists FR-20/21/22 only), so its proof must live here; the story's dedupe-suite + poisoned-feed legs are unique value. Notes state the division. No ship impact."
+    },
+    {
+      "severity": "low",
+      "story": "e4-verify-polling-cadence-set-view",
+      "note": "FR-22's built polling-fallback verification is owned by the sibling E4-verify slice (e4-verify-polling-cadence-toggle, e4-verify-land-reloads-endpoints, e4-verify-events-failure-isolation all ref FR-22); this story verifies the same cadence contract framed as UX-DR-6 but does not list FR-22 in fr_refs. Compile-wide FR-22 verification coverage exists per the disclosed split, so no gap — informational."
+    }
+  ],
+  "summary": "SHIP — 5 stories cover all four assigned requirements with correct kinds: FR-21 sequenced-M2 impl (e4-impl-event-consumer-hardening, M2/P1) + built-core verification; FR-22 required-M1 transport impl (e4-impl-do-hub-sse-transport + e4-impl-ui-consume-event-stream, M1/P0) with the built polling-fallback verification owned by the sibling E4-verify slice (disclosed in notes); NFR-7 impl+verify; UX-DR-6 verification + push-immediacy impl. Ids slug-legal/unique/<=60/no collision (513 store rows queried); deps valid same-compile, acyclic; check_cmds real — spot-ran the polling-cadence chain (exit 0) and the single-writer config + read-only GET /events legs (exit 0); pre-build absences (EventSource/events/stream/probe/test file) are the stories' own deliverables. 0 critical / 0 high."
+}

@@ -1,0 +1,17 @@
+{
+  "slice": "E1-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e1-verify-one-set-one-response",
+      "note": "Acceptance says the conflict map is 'present at rest with the modal still hidden', but this story's check asserts only #conflicts-list presence + conflict-card render (plus no pagination); the modal-hidden clause is asserted only by e1-verify-conflict-map-render. Non-blocking assertion gap between acceptance text and check_cmd."
+    },
+    {
+      "severity": "low",
+      "story": "e1-verify-auto-refresh-cycle",
+      "note": "Acceptance says toggling auto-refresh off stops polling 'while the surface keeps the last payload', but the check asserts only offDelta===0 (zero polls in the 9s window); it does not assert the surface still carries the last payload/cards. Non-blocking assertion gap."
+    }
+  ],
+  "summary": "SHIP. Coverage complete and kind-correct: FR-1..FR-6 + FR-8 (all built) each covered by >=1 verification story, no rebuilds; 10 stories, ids lowercase/e1-verify-slug, unique within the slice and absent from all 513 store rows (read-only query); deps [] (no cycles); notes reference real existing rows (verified) and cross-slice ids (e1-impl-chips-pending-placeholder, e5-verify-typed-signal-envelope) verified present; no missed dedupe. All 10 check_cmds are real and non-placeholder: I ran EVERY one from repo root on this box (read-only live GET + local fixture harness + headless Chrome 144) — all exited 0, and all jq preludes pass under the box's jaq 2.3.0. Two low findings (minor unasserted acceptance clauses) do not block."
+}

@@ -1,0 +1,6 @@
+{
+  "slice": "E13-impl",
+  "verdict": "SHIP",
+  "findings": [],
+  "summary": "FR-46 (sequenced M4; needs implementation) is covered by 3 implementation stories with no rebuilds; ids lowercase/unique with no store collisions; deps resolve (e13-impl-cap10-contract-pin + existing row return-matcher-verdicts-merge-context-or-ignore); all check_cmds are real (target tests are the stories' own pending deliverables, per compile convention); acceptance observable/testable. Dedupe explicitly dispositioned against all 8 listed overlap rows and 7 cited unlisted rows. CONTRACT.md v2 baseline, its seven route sections, fork-community.md verdicts/six clusters, and index.ts seams (forkPoint/classifyPair/foldHashOf/handleLand) verified against source."
+}

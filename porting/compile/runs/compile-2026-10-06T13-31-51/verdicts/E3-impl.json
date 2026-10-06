@@ -1,0 +1,32 @@
+{
+  "slice": "E3-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e3-impl-reviewed-heads-exposed",
+      "note": "Acceptance includes a CONTRACT.md additive bump ('documented additively in CONTRACT.md before the code ships') but no check_cmd leg asserts the doc change (runtime/payload only). Same for e3-impl-land-record-evidence, e3-impl-landings-read-route, e3-impl-landing-decision-note. Advisory: add a CONTRACT.md grep if tightening; sibling slice E3-verify ships the same convention, so not blocking."
+    },
+    {
+      "severity": "low",
+      "story": "e3-verify-nfr4-single-write-path",
+      "note": "check_cmd leg `grep -rn \"pushLand(\" platform/src/` exits 0 regardless of extra call sites, so the 'called exactly once / only from handleLand' clause rests on reading the output (today: 2 matches — definition land.ts:58 + single call index.ts:902, premise confirmed). Probe leg does mechanically prove refused lands leave the base ref unmoved (sections b/c). Consider asserting the match count."
+    },
+    {
+      "severity": "low",
+      "story": "e3-impl-do-land-lease",
+      "note": "Acceptance clause 'lease expiry is observable' lacks a concrete observable/command; the probe-reuse harness covers the race leg only. Unsequenced/P3 roadmap coverage story — acceptable as staged, tighten during build."
+    },
+    {
+      "severity": "low",
+      "story": "e3-verify-nfr4-single-write-path",
+      "note": "Id uses the e3-verify- token inside slice E3-impl, while the generated pack law line suggests E3-impl-<short-slug>. Frozen SCHEMA's <epic>-<impl|verify>- pattern, the lint format regex (^[a-z0-9][a-z0-9-]{0,59}$), compile-wide uniqueness and foreign-store collision checks all pass; kind=verification is the applicable kind for assigned NFR-4. Informational only — no repair required."
+    },
+    {
+      "severity": "low",
+      "story": "e3-impl-reviewed-heads-exposed",
+      "note": "Adjacent store row not in the pack's listed overlaps: enforce-landed-commit-equals-the-human-mergeable-state [pending P1] (acceptance: tree diff reviewed SHA vs landed SHA empty or rebase-explained). Not duplicated by this slice — these stories pin input heads, not output trees — but a cross-reference in notes would guard against a future double-build."
+    }
+  ],
+  "summary": "0 critical + 0 high. Coverage complete for all seven assigned requirements (FR-15/18 impl + FR-19 build-gap; FR-16/17 impl; NFR-4 proof — single pushLand caller confirmed; UX-DR-7 impl; FR-15/19 built-half verification verified present in the E3-verify slice). IDs lowercase/unique/uncollided vs 513 store rows, deps valid+acyclic, check_cmds real and runnable (node --check passes; jaq-compatible jq -ec expressions tested; live read-only spot-checks match every pre-build delta claim); no implementation story rebuilds shipped work. 5 low advisories, none blocking."
+}

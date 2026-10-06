@@ -1,0 +1,196 @@
+{
+  "slice": "E1-impl",
+  "epic": "E1",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e1-impl-chips-pending-placeholder",
+      "title": "Render summary chips as em-dash until the first payload",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-7",
+        "NFR-8",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/index.html — the five .chip-value spans (#val-proposals, #val-shared, #val-conflicts, #val-changed, #val-clean) must ship the em-dash placeholder instead of 0; platform/ui/app.js renderHeader() must not write counts before state.proposalsData exists, so a failed first fetch leaves the placeholders standing. UX spine EXPERIENCE.md State Patterns row 'First load (whole canvas)': chips show — until the first payload. No API/CONTRACT change.",
+      "acceptance": "Cold load before any /proposals response: all five summary chips read exactly `—`. Failed first fetch: chips still read `—` (never a false 0) while the connection banner offers Retry now. First successful payload: chips recompute to the payload counts exactly as they do today.",
+      "check_cmd": "node -e 'const h=require(\"fs\").readFileSync(\"platform/ui/index.html\",\"utf8\");const m=[...h.matchAll(/id=\"val-[a-z]+\">([^<]*)</g)].map(x=>x[1].trim());if(m.length!==5||m.some(v=>v!==\"\\u2014\"))throw new Error(\"index.html chips must ship an em-dash placeholder; got \"+JSON.stringify(m));console.log(\"OK index.html chips\")' && google-chrome --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=4000 --dump-dom file://$PWD/platform/ui/index.html 2>/dev/null | node -e 'const h=require(\"fs\").readFileSync(0,\"utf8\");const get=id=>{const m=h.match(new RegExp(\"id=\"+JSON.stringify(id)+\"[^>]*>([^<]*)<\"));return m?m[1].trim():null};const got=[\"val-proposals\",\"val-shared\",\"val-conflicts\",\"val-changed\",\"val-clean\"].map(get);if(got.some(v=>v!==\"\\u2014\"))throw new Error(\"chips must stay em-dash through a failed first fetch (never a false 0); got \"+JSON.stringify(got));console.log(\"OK: chips stay em-dash on failed first fetch\")'",
+      "deps": [],
+      "notes": "FR-7 consequence 1 (today chips start at 0). Existing store rows build-multiplayer-triage-canvas-with-proposal-artifacts / compute-cross-change-conflict-graph-across-concurrent-change own the count plumbing; this is the first-load placeholder delta only. UX-DR-4 remainder (withheld-secret/conflict card treatments + no-changes banner copy) is owned by E3-impl (FR-15/FR-19) and is not duplicated here."
+    },
+    {
+      "id": "e1-impl-panels-first-load-loading",
+      "title": "Show the first-load loading treatment in both panels",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-7",
+        "NFR-8",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/index.html — #conflicts-list and #proposals-grid ship `<div class=\"loading-indicator\">Loading the set from /proposals...</div>` and #conflicts-meta/#proposals-meta ship `—`. platform/ui/app.js renderConflicts()/renderProposals() — a state.proposalsData == null branch renders that same loading treatment before any empty branch, so a failed first fetch keeps it while the 8s poll retries; the first response swaps to the live panels or the empty states. Copy 'Loading the set from /proposals...' is the FR-7 proposed string [ASSUMPTION — copy]. Note the /proposals round-trip is observed in production at up to ~40s (platform/scripts/demo-verify.mjs), so this treatment covers a real first-contact window.",
+      "acceptance": "First paint (before app.js runs) and any cold-load state with no payload: both panels show `Loading the set from /proposals...` inside their list/grid and both section metas read `—` (never `0 detected` / `0 active`). Failed first fetch: the loading treatment stays while the connection banner offers Retry now. First successful response: panels swap to data or the empty states.",
+      "check_cmd": "node -e 'const idx=require(\"fs\").readFileSync(\"platform/ui/index.html\",\"utf8\");const n=(idx.match(/Loading the set from \\/proposals\\.\\.\\./g)||[]).length;if(n<2)throw new Error(\"index.html must ship the first-load indicator in both panels (expected 2 occurrences, got \"+n+\")\");console.log(\"OK index.html ships loaders\")' && google-chrome --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=4000 --dump-dom file://$PWD/platform/ui/index.html 2>/dev/null | node -e 'const h=require(\"fs\").readFileSync(0,\"utf8\");const n=(h.match(/Loading the set from \\/proposals\\.\\.\\./g)||[]).length;if(n!==2)throw new Error(\"both panels must show the first-load indicator on a failed first fetch; got \"+n);const meta=id=>{const m=h.match(new RegExp(\"id=\"+JSON.stringify(id)+\"[^>]*>([^<]*)<\"));return m?m[1].trim():null};const ms=[meta(\"conflicts-meta\"),meta(\"proposals-meta\")];if(ms.some(v=>v!==\"\\u2014\"))throw new Error(\"section metas must not assert counts before the first payload; got \"+JSON.stringify(ms));console.log(\"OK: first-load treatment retained while retrying\")'",
+      "deps": [],
+      "notes": "FR-7 consequence 2 plus NFR-8's no-false-count rule for the panel meta lines. Empty-state copy handled by E1-impl-empty-state-awaited-copy; loading-vs-empty distinction is the core of UJ-2."
+    },
+    {
+      "id": "e1-impl-empty-state-awaited-copy",
+      "title": "Make both empty states explain what is awaited",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-7",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/app.js — conflicts empty state becomes title 'No convergence conflicts' + desc 'Waiting for concurrent proposals to compare on shared files.' [ASSUMPTION — copy]; proposals empty state keeps title 'No active proposals' + desc 'Waiting for agent branches to propose changes against base.' Both must render only after an observed empty payload (the loading branch from E1-impl-panels-first-load-loading comes first); the as-built conflicts desc ('All concurrent proposals merge cleanly or target orthogonal files.') is replaced because it does not say what is awaited.",
+      "acceptance": "Successful payload with zero conflicts: the map shows 'No convergence conflicts' and a desc that states what is awaited. Successful payload with zero proposals: the grid keeps 'No active proposals' / 'Waiting for agent branches to propose changes against base.'. Neither empty state renders before the first response.",
+      "check_cmd": "node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/app.js\",\"utf8\");const wanted=[\"Waiting for agent branches to propose changes against base.\",\"Waiting for concurrent proposals to compare on shared files.\"];for(const t of wanted){if(!s.includes(t))throw new Error(\"missing awaited-copy: \"+JSON.stringify(t))}const cb=s.slice(s.indexOf(\"function renderConflicts\"),s.indexOf(\"function judgeChipsHtml\"));if(!/No convergence conflicts/.test(cb))throw new Error(\"conflicts empty state missing\");const li=cb.search(/loading/i),ei=cb.indexOf(\"No convergence conflicts\");if(li<0||li>ei)throw new Error(\"renderConflicts must render the loading treatment before the empty state\");const pb=s.slice(s.indexOf(\"function renderProposals\"),s.indexOf(\"function renderProposalsView\"));const li2=pb.search(/loading/i),ei2=pb.indexOf(\"No active proposals\");if(li2<0||li2>ei2)throw new Error(\"renderProposals must render the loading treatment before the empty state\");console.log(\"OK: empty states explain what is awaited; loading precedes empty\")'",
+      "deps": [
+        "e1-impl-panels-first-load-loading"
+      ],
+      "notes": "FR-7 consequence 3. Conflict-card rendering itself (FR-4) is verified in E1-verify; only the empty-state copy/ordering is delta here."
+    },
+    {
+      "id": "e1-impl-focus-visible-styles",
+      "title": "Add visible focus styles to every interactive control",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-9",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/styles.css — add a :focus-visible pass covering .btn-refresh, .btn-tour-header, .btn-tour-help, .toggle-input, .btn-card-action (land/preview/cancel), .btn-file-diff, .btn-close-modal, .connection-banner-action, .action-banner-close, .merge-file-tab; indicator = 2px outline in {colors.border-focus} / border-strong (#3e5473) at 2px offset, no layout shift, no removal of the default indicator without this replacement. EXPERIENCE.md Accessibility Floor 'To build': visible focus on every interactive control — use the border-strong lift; verify non-hover focus parity.",
+      "acceptance": "Keyboard (Tab) focus on each listed control shows a visible indicator in the border-focus register; pointer clicks do not trigger it (:focus-visible semantics); no interactive control is left without an indicator; existing hover styles are unchanged.",
+      "check_cmd": "node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/styles.css\",\"utf8\");const rules=[...s.matchAll(/([^{}]*:focus-visible[^{}]*)\\{([^}]*)\\}/g)];if(!rules.length)throw new Error(\"no :focus-visible rules in styles.css\");const sel=rules.map(r=>r[1]).join(\",\");const bodies=rules.map(r=>r[2]).join(\";\");for(const c of [\"btn-refresh\",\"btn-tour-header\",\"btn-tour-help\",\"toggle-input\",\"btn-card-action\",\"btn-file-diff\",\"btn-close-modal\",\"connection-banner-action\",\"action-banner-close\",\"merge-file-tab\"]){if(!sel.includes(c))throw new Error(\"missing :focus-visible coverage for .\"+c)}if(!/outline|border-color/.test(bodies))throw new Error(\"focus rules must declare a visible indicator\");console.log(\"OK: focus-visible covers every interactive control\")'",
+      "deps": [],
+      "notes": "NFR-9 sub-clause 1. Complements E1-impl-modal-focus-management (focus movement into the dialog); the built interaction floor (FR-8) is verified in E1-verify."
+    },
+    {
+      "id": "e1-impl-modal-focus-management",
+      "title": "Trap modal focus and return it to the trigger",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-9",
+        "UX-DR-5",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/app.js — openModal(): store the opener in state.modalReturnFocus (document.activeElement) and move focus onto el.btnCloseModal after unhiding; the existing window keydown handler gains a Tab/Shift+Tab trap cycling focusables inside el.inspectorModal (e.key === \"Tab\"); closeModal(): restore focus to state.modalReturnFocus when it is still in the document, then clear it. Escape, backdrop click, `close` and the one-level-deep single modal shell are preserved. Pin these wiring names for the check: state.modalReturnFocus, el.btnCloseModal.focus().",
+      "acceptance": "Open the diff or merge modal by keyboard: focus moves into the dialog. Tab and Shift+Tab cycle within the modal only. Escape, backdrop click, and `close` each close it and return focus to the exact control that opened it; a second modal never stacks.",
+      "check_cmd": "node --check platform/ui/app.js && node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/app.js\",\"utf8\");const open=s.slice(s.indexOf(\"function openModal\"),s.indexOf(\"function closeModal\"));const close=s.slice(s.indexOf(\"function closeModal\"),s.indexOf(\"async function handleViewDiff\"));const miss=[];if(!open.includes(\"modalReturnFocus\"))miss.push(\"openModal must store state.modalReturnFocus\");if(!open.includes(\"btnCloseModal.focus()\"))miss.push(\"openModal must move focus into the dialog\");if(!close.includes(\"modalReturnFocus\"))miss.push(\"closeModal must return focus to state.modalReturnFocus\");if(!/e\\.key\\s*===\\s*\"Tab\"/.test(s))miss.push(\"keydown handler must trap Tab inside the modal\");if(!/e\\.key\\s*===\\s*\"Escape\"/.test(s))miss.push(\"Escape must still close the topmost modal\");if(miss.length)throw new Error(miss.join(\"; \"));console.log(\"OK: modal focus trap + return wiring present\")'",
+      "deps": [],
+      "notes": "NFR-9 sub-clauses 2-3 and UX-DR-5 [ASSUMPTION — verify in build]. Existing Escape/backdrop/close semantics stay and are verified in E1-verify (FR-8)."
+    },
+    {
+      "id": "e1-impl-reduced-motion",
+      "title": "Honor prefers-reduced-motion across the triage app",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-9",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/styles.css — add @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }, killing the 0.15s transitions (controls, chips, cards, toggle, banners, modal) and any animation; the ticker pulse stays a static tint. Normal mode unchanged. Tour styling (tour.css) is out of scope (E9).",
+      "acceptance": "With prefers-reduced-motion: reduce active, no transition or animation runs anywhere in the triage app; with it unset, motion is unchanged.",
+      "check_cmd": "node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/styles.css\",\"utf8\");const m=s.match(/@media\\s*\\(prefers-reduced-motion:\\s*reduce\\)\\s*\\{([\\s\\S]*?)\\n\\}/);if(!m)throw new Error(\"missing @media (prefers-reduced-motion: reduce) block\");if(!/transition:\\s*none/.test(m[1]))throw new Error(\"reduced-motion must drop transitions\");if(!/animation:\\s*none/.test(m[1]))throw new Error(\"reduced-motion must drop animations\");console.log(\"OK: reduced-motion support present\")'",
+      "deps": [],
+      "notes": "NFR-9 sub-clause 4. styles.css currently has no @keyframes; the animation rule is included for completeness (the spine names the ticker pulse)."
+    },
+    {
+      "id": "e1-impl-phone-touch-targets",
+      "title": "Raise phone-width touch targets to 44px",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-9",
+        "UX-DR-4"
+      ],
+      "scope": "platform/ui/styles.css — a @media (max-width: 720px) block giving min-height: 44px; min-width: 44px to .btn-refresh, .btn-tour-header, .btn-tour-help, .toggle-label, .btn-card-action, .btn-file-diff, .btn-close-modal, .connection-banner-action, .action-banner-close, .merge-file-tab. The auto-refresh toggle targets its wrapping label (.toggle-label) so the 2rem pill is not visually resized. Desktop (>720px) unchanged.",
+      "acceptance": "At ≤720px viewport widths every listed control presents a ≥44×44px touch target; above the breakpoint styling is unchanged; no hover-only action exists (unchanged).",
+      "check_cmd": "node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/styles.css\",\"utf8\");const m=s.match(/@media\\s*\\(max-width:\\s*720px\\)\\s*\\{([\\s\\S]*?)\\n\\}/);if(!m)throw new Error(\"missing @media (max-width: 720px) phone breakpoint\");const b=m[1];if(!/min-height:\\s*44px/.test(b))throw new Error(\"phone breakpoint must set min-height: 44px\");if(!/min-width:\\s*44px/.test(b))throw new Error(\"phone breakpoint must set min-width: 44px\");for(const c of [\"btn-refresh\",\"btn-tour-header\",\"btn-tour-help\",\"toggle-label\",\"btn-card-action\",\"btn-file-diff\",\"btn-close-modal\",\"connection-banner-action\",\"action-banner-close\",\"merge-file-tab\"]){if(!b.includes(\".\"+c))throw new Error(\"missing 44px touch target for .\"+c)}console.log(\"OK: phone touch targets >= 44px\")'",
+      "deps": [],
+      "notes": "NFR-9 sub-clause 5 (EXPERIENCE.md:260, ≤720px one-column family). Breakpoint 720px matches the triage app's phone register in the UX spine."
+    },
+    {
+      "id": "e1-impl-contrast-register-confinement",
+      "title": "Confine below-AA text registers to meta and ambient chrome",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-9"
+      ],
+      "scope": "platform/ui/styles.css — move state/content text off the below-4.5:1 registers: .empty-state, .loading-indicator, .diff-placeholder, .landed-banner get color: var(--text-secondary) (≈6.3:1 on their surfaces); --text-muted/--text-dim stay on meta/ambient selectors only (chip labels, section meta, timestamps, pair regions, diff meta rows, footer, ticker pulse/empty). Do NOT change the token values — raising them is a pending decision; add a comment above the :root text ramp documenting the confinement rule. Grounding: prd.md NFR-9 and DESIGN.md 'Contrast notes' (the two flagged pairs).",
+      "acceptance": "Empty states, loading text, diff placeholders, and the landed banner render in a ≥4.5:1 register; --text-muted/--text-dim are used only by meta/ambient chrome; the four token values are unchanged.",
+      "check_cmd": "node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/styles.css\",\"utf8\");const rules=[...s.matchAll(/([^{}]+)\\{([^}]*)\\}/g)];const find=sel=>rules.filter(r=>r[1].replace(/\\/\\*[\\s\\S]*?\\*\\//g,\"\").split(\",\").some(x=>x.trim()===sel)).map(r=>r[2]).join(\";\");for(const sel of [\".empty-state\",\".loading-indicator\",\".diff-placeholder\",\".landed-banner\"]){const b=find(sel);if(!b)throw new Error(\"missing rule \"+sel);if(/var\\(--text-(muted|dim)\\)/.test(b))throw new Error(sel+\" still uses a below-4.5:1 register; state/content text must use --text-secondary\");if(!/var\\(--text-secondary\\)/.test(b))throw new Error(sel+\" must set color: var(--text-secondary)\")}console.log(\"OK: state and content text moved off low-contrast registers\")'",
+      "deps": [],
+      "notes": "NFR-9 known-gap clause. The pending decision to raise text-muted/text-dim (PRD §6 NFR-9 [NOTE FOR PM]) stays open — this story only stops their use in state/content messaging; token values untouched."
+    },
+    {
+      "id": "e1-impl-grid-overflow-fix",
+      "title": "Stop the proposals grid overflowing below 424px",
+      "kind": "implementation",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "UX-DR-3"
+      ],
+      "scope": "platform/ui/styles.css .proposals-grid — replace grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)) with repeat(auto-fill, minmax(min(360px, 100%), 1fr)) (fluid floor; one column below ~424px with no authored breakpoint), or add a ≤424px single-column media query. EXPERIENCE.md:259 build gap ('360px track floor + 2rem container padding overflows below ~424px viewports'); no other layout changes.",
+      "acceptance": "At 320/375/423px viewport widths the proposals grid renders a single column and the page does not scroll horizontally; at ≥768px the multi-column behavior is unchanged.",
+      "check_cmd": "node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/styles.css\",\"utf8\");const g=s.match(/\\.proposals-grid\\s*\\{([^}]*)\\}/);if(!g)throw new Error(\".proposals-grid rule missing\");const fluid=/grid-template-columns:\\s*repeat\\(\\s*auto-fill,\\s*minmax\\(min\\(360px,\\s*100%\\),\\s*1fr\\)\\s*\\)/.test(g[1]);const mq=/@media[^{]*max-width:\\s*(?:4[0-2][0-9]|3\\d\\d)px[^{]*\\{[\\s\\S]*?\\.proposals-grid[^{]*\\{[^}]*grid-template-columns:\\s*1fr/.test(s);if(!fluid&&!mq)throw new Error(\"proposals grid can overflow below ~424px: pin minmax(min(360px,100%),1fr) or a <=424px single-column rule\");console.log(\"OK: proposals grid cannot overflow narrow viewports\")'",
+      "deps": [],
+      "notes": "UX-DR-3 GAP #7. The as-built triage app has no authored media queries; the fluid min() floor keeps that property. Overlap row choose-canvas-tech-without-license-traps is unrelated."
+    },
+    {
+      "id": "e1-verify-hover-taborder-clickfirst",
+      "title": "Verify click-first, hover parity, and document-order tab order",
+      "kind": "verification",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P2",
+      "fr_refs": [
+        "UX-DR-5",
+        "NFR-9"
+      ],
+      "scope": "Evidence audit over platform/ui/index.html + app.js + styles.css: no positive tabindex; native interactive controls enumerating in document order; exactly one keydown listener (the modal Escape/Tab handler — no custom shortcuts beyond Tab/Enter/Space/Escape); no drag/contextmenu handlers; no window.confirm/alert (inline confirm replaces dialogs); no control hidden behind hover (display:none only for [hidden] and scrollbars). Built behavior — prove, do not rebuild.",
+      "acceptance": "The audit passes and prints the control inventory as evidence; any custom shortcut, browser dialog, positive tabindex, or hover-only action fails it.",
+      "check_cmd": "node -e 'const fs=require(\"fs\");const html=fs.readFileSync(\"platform/ui/index.html\",\"utf8\");const app=fs.readFileSync(\"platform/ui/app.js\",\"utf8\");const css=fs.readFileSync(\"platform/ui/styles.css\",\"utf8\");for(const [f,s] of [[\"index.html\",html],[\"app.js\",app]]){const pos=[...s.matchAll(/tabindex\\s*=\\s*\"(\\d+)\"/g)].map(m=>Number(m[1])).filter(n=>n>0);if(pos.length)throw new Error(f+\": positive tabindex values \"+pos.join(\",\"))}const controls=[...html.matchAll(/<(button|a|input)\\b[^>]*>/g)].map(m=>m[0]);if(controls.length<7)throw new Error(\"expected the static controls in document order; found \"+controls.length);const hidden=[...css.matchAll(/([^{}]+)\\{([^}]*)\\}/g)].filter(p=>/display:\\s*none|visibility:\\s*hidden/.test(p[2])&&!/\\[hidden\\]|scrollbar/.test(p[1]));if(hidden.length)throw new Error(\"controls hidden without hover alternatives: \"+hidden.map(p=>p[1].trim()).join(\" | \"));const kd=(app.match(/addEventListener\\(\"keydown\"/g)||[]).length;if(kd!==1)throw new Error(\"expected exactly one keydown listener (modal Escape/Tab trap); got \"+kd);if(/addEventListener\\(\"contextmenu\"|addEventListener\\(\"dragstart\"|window\\.confirm\\(|window\\.alert\\(/.test(app+html))throw new Error(\"custom shortcuts/dialogs beyond the click-first model found\");console.log(\"OK: document-order controls, no positive tabindex, no hover-only actions\")'",
+      "deps": [],
+      "notes": "FR-8 (click-first, inline confirm, Escape — built) is verified in E1-verify; this story closes UX-DR-5's unique clauses (hover never the only path, document-order tab order). The modal trap/return delta is built by E1-impl-modal-focus-management."
+    },
+    {
+      "id": "e1-verify-degrade-never-fake",
+      "title": "Verify degrade-never-fake: banner, sticky panels, silent ticker, honest landing",
+      "kind": "verification",
+      "epic": "E1",
+      "milestone": "M1",
+      "priority": "P2",
+      "fr_refs": [
+        "NFR-8"
+      ],
+      "scope": "Evidence audit — headless-browser run with the API unreachable (chrome --dump-dom over platform/ui) proves the single connection banner shows while the ticker degrades to the stale pulse and keeps its last rows; a source audit proves /proposals failures call renderConnectionState() without touching panel markup, the ticker path never colors the connection state, the success banner is emitted only after the observed /land response, and card landed-state derives from landing.status/stats.files. Built behavior (FR-6 is verified by E1-verify) — prove, do not rebuild.",
+      "acceptance": "Both audit parts pass; the browser dump shows the connection banner visible, ticker-pulse is-stale, and the ticker's last text intact.",
+      "check_cmd": "node --check platform/ui/app.js && node -e 'const s=require(\"fs\").readFileSync(\"platform/ui/app.js\",\"utf8\");const le=s.slice(s.indexOf(\"async function loadEvents\"),s.indexOf(\"function renderHeader\"));if(!le.includes(\"is-stale\"))throw new Error(\"ticker failure must mark the pulse stale\");if(le.includes(\"renderConnectionState\"))throw new Error(\"ticker failure must not color the connection banner\");const lp=s.slice(s.indexOf(\"async function loadProposals\"),s.indexOf(\"function judgeSignatureOf\"));if(!lp.includes(\"renderConnectionState()\"))throw new Error(\"/proposals failure must surface in the connection banner\");if(lp.includes(\"innerHTML\"))throw new Error(\"panels must keep their last render on failure\");const hl=s.slice(s.indexOf(\"async function handleLandProposal\"),s.indexOf(\"function setupInteractions\"));const si=hl.indexOf(\"\\\"success\\\"\"),fi=hl.indexOf(\"/land\");if(si<0||fi<0)throw new Error(\"handleLandProposal must call /land and show the success outcome\");if(si<fi)throw new Error(\"success banner must be emitted only after the /land response\");if(!/landing\\.status === \"landed\"/.test(s))throw new Error(\"card landed-state must derive from landing.status\");if(!/stats\\.files === 0/.test(s))throw new Error(\"zero-change fold must derive from stats.files\");console.log(\"OK: degrade-never-fake signatures hold\")' && google-chrome --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=4000 --dump-dom file://$PWD/platform/ui/index.html 2>/dev/null | node -e 'const h=require(\"fs\").readFileSync(0,\"utf8\");if(!/id=\"connection-banner\"/.test(h)||/id=\"connection-banner\"[^>]*hidden/.test(h))throw new Error(\"failed fetch must surface in the connection banner\");if(!/class=\"ticker-pulse is-stale\"/.test(h))throw new Error(\"ticker failure must degrade to the stale pulse\");if(!/class=\"ticker-empty\">listening for convergence events\\.\\.\\.</.test(h))throw new Error(\"ticker must keep its last render on failure\");console.log(\"OK: banner + silent ticker degradation observed in the browser\")'",
+      "deps": [],
+      "notes": "NFR-8. FR-6's banner/ticker behaviors are also covered by E1-verify (FR-6); this story closes the NFR-8 clauses unique to it (panels keep their last render, content-derived landing). First-load no-false-count honesty is built by the E1 FR-7 stories (E1-impl-chips-pending-placeholder, E1-impl-panels-first-load-loading)."
+    }
+  ]
+}

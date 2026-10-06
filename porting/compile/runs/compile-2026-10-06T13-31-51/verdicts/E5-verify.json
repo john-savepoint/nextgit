@@ -1,0 +1,32 @@
+{
+  "slice": "E5-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e5-verify-per-caller-judge-rate-cap",
+      "note": "FR-24's counters (60/min + 1000/day) are not the as-built constants: platform/src/judge.ts JUDGE_RATE_LIMIT=30, JUDGE_RATE_WINDOW_MS=60000, no daily window; the story's own probe re-ran verbatim and printed 'rate cap enforced at 30 per 60000 ms'. The delta is explicitly disclosed in scope/acceptance/notes (PRD tags the constants [ASSUMPTION] and defers the pin), and the check_cmd reads the constants dynamically so it stays valid after any pin. Recorded, not a rebuild requirement (FR-24 is status_raw 'built', implementation=false)."
+    },
+    {
+      "severity": "low",
+      "story": "e5-verify-pinned-model-fail-closed",
+      "note": "The browser outage pass aborts **/judge but never asserts the request was attempted, so the 'silent failure' checks (zero chips, no banners) cannot by themselves distinguish 'judge fired and failed' from 'judge never fired'. app.js maybeJudge() is unawaited with an empty catch (platform/ui/app.js:177, 226-228) and the sibling story e5-verify-advisory-chip-rendering stubs a successful /judge and proves chips DO render, so the pair covers the path; standalone the negative pass is partially vacuous."
+    },
+    {
+      "severity": "low",
+      "story": "e5-verify-advisory-chip-rendering",
+      "note": "Scope cites 'DESIGN.md' with no path; the referenced risk-chip / intent-verification-badge / collision-chip sections exist at _bmad-output/planning-artifacts/ux-designs/ux-cloudflare-git-comp-2026-10-05/DESIGN.md:371-386 and :610-612 (soft collision is amber 'never status-red'). Pointer is resolvable but imprecise."
+    },
+    {
+      "severity": "low",
+      "story": "e5-verify-advisory-chip-rendering",
+      "note": "The class-vocabulary assertion samples only '.proposal-badges .badge'; the overclaim read-out renders as a non-badge span in the same slot (platform/ui/app.js:481-484, class 'judge-overclaim'), so 'every chip class in {badge badge-clean, badge badge-amber, badge badge-red, badge badge-neutral}' is slightly broader than the selector proves. Manual check: the span carries no badge class and no new hue, so the acceptance claim holds."
+    },
+    {
+      "severity": "low",
+      "story": "e5-verify-state-assembly-and-masking",
+      "note": "Both live check_cmds (this story and e5-verify-advisory-chip-rendering) are coupled to demo fleet state: this one asserts exactly one {repo:'agent-5',reason:'secret-class'} skip and partitions against /proposals unsliced (route cap MAX_JUDGE_REPOS=16), and the chip story needs judgments[0]'s card non-landed because judgeChipsHtml suppresses chips on landed cards. Current live state satisfies all of it (read-only GET /proposals?base=demo: agent-1..agent-5, agent-5 landing=withheld-secret with config/.env, none landed); after a fleet reset or a landing the assertions depend on the demo-reset/secret-fixture stories to restore that state."
+    }
+  ],
+  "summary": "SHIP - FR-23/24/25 (all status_raw 'built', needs.verification=true) are each covered by verification stories (FR-23: typed-signal-envelope + set-versioning; FR-24: closed-schema + state-assembly/masking + pinned-model-fail-closed + rate-cap; FR-25: advisory-chip-rendering), all prove rather than rebuild, ids are unique lowercase slugs with no store collision, deps are [] (no cycles), and the pack-listed overlap rows all exist [pending] and are referenced in notes. Independent evidence: pinned suite re-ran 73 PASS/0 FAIL exit 0; JUDGE_SET_ID probe printed 'v1' and the rate-cap probe printed '30 per 60000 ms' verbatim; all 7 check_cmds pass bash -n and both Python heredocs ast-parse; jaq 2.3.0 (this box's jq) validated the story filters incl. --slurpfile and all(gen;cond) on a positive fixture; source cross-check confirms route semantics (unknown-set/closed-schema/503/429), judge.ts constants, suite case labels, CONTRACT.md L108-153, app.js chip/selectors, DESIGN.md 371-386; read-only live GETs confirm the fleet assumptions (agent-1..agent-5, agent-5 withheld-secret, none landed). Findings are all low severity (rate-cap constant delta disclosed+deferred; partial vacuity of the judge-abort pass; two imprecise pointers; live-fleet coupling), so the slice ships."
+}

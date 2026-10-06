@@ -1,0 +1,49 @@
+{
+  "slice": "E13-impl",
+  "epic": "E13",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e13-impl-cap10-contract-pin",
+      "title": "Pin the CAP-10 contract: intent/matcher, fork signals, upstream route",
+      "kind": "implementation",
+      "epic": "E13",
+      "milestone": "M4",
+      "priority": "P3",
+      "fr_refs": ["FR-46"],
+      "scope": "platform/CONTRACT.md additive bump (v2 to v3; AD-8 'contract-first for new routes' — the judge-contract-pin / land-hardening pattern applied to CAP-10). Pin three new shapes before any route ships: (1) intent declaration + matcher response — POST /intents {intent, base?} responding {ok, verdict: merge-it|use-as-context|ignore, candidates:[{repo, rationale, signals}]}, with the three verdict definitions copied verbatim from _bmad-output/specs/spec-next-git-platform/fork-community.md (merge it = their work does the job; use as context = partial fit, build with their implementation in hand; ignore = different goal); (2) GET /forks fork-card payload carrying the six-cluster signals object (fit/overlap, people/trust, liveness, proof, distance, cost-to-adopt vs regenerate) defined in fork-community.md, plus lineage fields (upstream repo + fork point); (3) POST /upstream {repo, base?, reviewed} whose 200 carries the same evidence object shape as POST /land (repos, commit, ancestor, heads, foldHash — CONTRACT.md:92-101) and whose status ordering mirrors /land (400 shape, 429 rate, 403 repo-not-allowed, 409 stale/withheld-secret/conflict/no-changes/base-moved). Link fork-community.md as the CAP-10 companion. Deliverable includes the contract suite porting/tests/contract-cap10.test.mjs (parses CONTRACT.md; asserts the three new sections, the exact verdict vocabulary, and that every v2 route section survives).",
+      "acceptance": "CONTRACT.md declares version v3 and additively pins the three CAP-10 shapes above (POST /intents declaration + matcher response, the GET /forks signals + lineage payload, POST /upstream with /land-shaped evidence); the matcher verdict vocabulary is exactly merge-it | use-as-context | ignore; all seven v2 route sections (health, changes, proposals, merge, land, judge, events) remain with their v2 body shapes unchanged (additions only, per the contract's additive rule); bun porting/tests/contract-cap10.test.mjs exits 0.",
+      "check_cmd": "bun porting/tests/contract-cap10.test.mjs",
+      "deps": [],
+      "notes": "FR-46 consequence map for this slice: consequences 1 (matcher returns one verdict per declared intent) and 3 (join-don't-restart as the default path from a declaration) are already represented by existing store rows (intent-router-declare-intent-first-match-before-building, declare-intent-router-pings-before-work-starts, run-background-matcher-against-the-fork-ecosystem, return-matcher-verdicts-merge-context-or-ignore, rank-candidate-forks-against-a-declared-intent, implement-join-don-t-restart-with-merge-refactor, swarm-r3-declare-before-touch-receipt-when-finished, swarm-r4-join-don-t-restart-as-a-platform-reflex) — not rebuilt here. This story is the delta: new routes must be pinned in CONTRACT.md before any of them ships (AD-8), and no listed row covers the contract surface. First work order of the wave per the arch's 'contract bump first' pattern."
+    },
+    {
+      "id": "e13-impl-six-cluster-fork-signals",
+      "title": "Compute six-cluster fork signals and feed matcher verdicts",
+      "kind": "implementation",
+      "epic": "E13",
+      "milestone": "M4",
+      "priority": "P3",
+      "fr_refs": ["FR-46"],
+      "scope": "New platform/src/fork-signals.ts wired through platform/src/index.ts: compute server-side the six fork-card clusters defined in _bmad-output/specs/spec-next-git-platform/fork-community.md — (1) fit/overlap: semantic alignment between the declared intent and the fork's change-set (intent carriers per CONTRACT.md:163-171); (2) people/trust: signed identity evidence on the fork's history; (3) liveness: commit velocity + recency; (4) proof: tests/receipts/session trail present in the fork; (5) distance: drift from base + conflict surface (reuse forkPoint() and the classifyPair() conflict kinds in index.ts); (6) cost-to-adopt vs regenerate: LLM-merge estimate. Expose the typed signals object on the contract-pinned fork payload (and per candidate in the matcher response); the matcher verdict computation consumes this exact object — one computation, no parallel path. Signals trigger investigation; they never auto-select a fork. Deliverable includes porting/tests/fork-signals.test.mjs following the judge.test.mjs pattern (import the worker, in-memory Artifacts fake, no module mocking).",
+      "acceptance": "Every candidate fork payload carries signals with exactly the six clusters as typed values computed from repo state server-side; on a fixed fixture pair (fork A near-total fit, fork B aligned-none) the matcher outcome is merge-it for A and ignore for B, and changing only A's fit/distance inputs flips the outcome — proving the verdict is driven by the signals object; no signal value alone auto-selects a fork.",
+      "check_cmd": "bun porting/tests/fork-signals.test.mjs",
+      "deps": ["e13-impl-cap10-contract-pin", "return-matcher-verdicts-merge-context-or-ignore"],
+      "notes": "FR-46 consequence 2 ('Fork cards carry the six-cluster signals that drive matcher verdicts'). Overlap/dedupe: listed rank-candidate-forks-against-a-declared-intent owns the ranking layer that consumes these signals; listed return-matcher-verdicts-merge-context-or-ignore owns the verdict vocabulary (dep — this story supplies its inputs and does not re-implement verdict logic); listed run-background-matcher-against-the-fork-ecosystem owns scheduling. Unlisted store rows fork-card-six-cluster-signals-fit-trust-liveness-proof-dista, render-fork-cards-with-six-signal-clusters, score-fork-people-trust-signals and estimate-cost-to-adopt-vs-regenerate-for-forks own card display and per-cluster depth — the delta here is the server-side extraction contract, the typed payload, and matcher consumption, which no row owns."
+    },
+    {
+      "id": "e13-impl-merge-back-upstream",
+      "title": "Route a fork's work back to its upstream with lineage and evidence",
+      "kind": "implementation",
+      "epic": "E13",
+      "milestone": "M4",
+      "priority": "P3",
+      "fr_refs": ["FR-46"],
+      "scope": "Fork lineage + merge-back routing: (a) record lineage (parent repo + the fork-point sha as of fork time) when a fork is created — extend the provisioning seam (platform/scripts/fanout.mjs today; the Worker provisioning path when it lands) and expose upstream {repo, forkPoint} on the contract-pinned fork payload; (b) implement the contract-pinned POST /upstream {repo, base?, reviewed} route: resolve the fork's recorded parent, fold the fork's change-set onto the parent using the fork point as the 3-way ancestor, and push one commit — delegating to the same internal fold+push machinery as handleLand (foldHash, evidence, reviewed-heads precondition, precondition ordering) so the single gated write path holds and no second writer is introduced (AD-1/NFR-4); typed refusals: no recorded lineage -> 400, parent head moved since review -> 409 stale, nothing to fold -> 409 no-changes, conflict -> 409 conflict, non-demo repo before the auth seam -> 403 repo-not-allowed. Deliverable includes porting/tests/fork-upstream.test.mjs.",
+      "acceptance": "Given repo B forked from A, POST /upstream {repo:'B'} advances A's head by exactly the fold of B's change-set (ancestor = the recorded fork point) and returns /land-shaped evidence {repos, commit, ancestor, heads, foldHash}; B with no changes returns 409 no-changes; a repo with no recorded lineage is refused with a typed error; every refusal leaves A's head unchanged.",
+      "check_cmd": "bun porting/tests/fork-upstream.test.mjs",
+      "deps": ["e13-impl-cap10-contract-pin"],
+      "notes": "FR-46 consequence 4 ('Merge-back-to-upstream paths are defined: a fork's work can be routed back to the repository it forked from'). Overlap/dedupe: concept row facilitate-merge-back-to-upstream (P2, pending, empty check_cmd, no route shape) states the intent — this story is the buildable delta (lineage record, route shape, evidence, refusal paths, check suite); do not duplicate the concept row. Distinct from listed implement-join-don-t-restart-with-merge-refactor (join = adopt their work into ours; merge-back = contribute our fork's work up to the repo it forked from) and from swarm-r4-join-don-t-restart-as-a-platform-reflex (reflex framing). Related but separate store rows show-unique-fork-vs-fork-diffs and support-fork-off-fork-collaboration stay unmoved."
+    }
+  ]
+}

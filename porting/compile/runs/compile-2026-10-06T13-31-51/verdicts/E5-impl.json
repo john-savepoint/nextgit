@@ -1,0 +1,17 @@
+{
+  "slice": "E5-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e5-impl-judge-labeled-set-v1",
+      "note": "Acceptance sentence is garbled: 'exits non-zero when count < 50 or any row lacks an invalid/missing label' — 'lacks' should read 'has an'. Intended semantics (reject rows with invalid/missing labels) are unambiguous from scope + check_cmd and are enforced by validate-labels.mjs, so non-blocking; fix wording on re-compile."
+    },
+    {
+      "severity": "low",
+      "story": "e5-impl-judge-labeled-set-v1",
+      "note": "'never synthetic-only' provenance bar is not enforced by any check: validate-labels.mjs/check_cmd cover count, label presence, vocab, unique ids, fixture existence only. Consider having capture.mjs record a per-proposal provenance field (live demo / reset / real agent run / seeded scenario) so the real-run constraint is auditable."
+    }
+  ],
+  "summary": "SHIP (0 critical, 0 high): FR-27 covered by 4 M1 implementation stories, FR-26 by 2 unsequenced implementation stories (interlock + verdict render, plus refs from the M1 calibration chain), UX-DR-2 by the owner story; no built requirement in this slice, no rebuilds. All 6 ids lowercase/unique/in-store-clean; deps valid (auto-land-gate-live exists in store) and acyclic; all check_cmds real — jq -ec expressions verified to run under this box's jaq 2.3.0, node --check platform/ui/app.js passes today, no placeholders. Acceptance statements observable/testable; 14 pack-listed overlap rows handled in notes. 2 low wording/advisory findings only."
+}

@@ -1,0 +1,12 @@
+{
+  "slice": "E3-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e3-verify-card-confirm-in-flight",
+      "note": "The four UI stories (card-confirm-in-flight, success-banner-refresh, failure-banners, landed-card-render) prove DOM outcome behavior via source-string greps plus deployed /app.js fetches rather than executing the DOM; the limitation is disclosed in-story and a manual browser pass is recorded (docs/STATE.md:23). E4-verify adds a deployed-asset byte-parity gate. Acceptable evidence as authored; no action required."
+    }
+  ],
+  "summary": "All 6 verification stories check out: static check_cmd chains re-run green 2026-10-07; live read-only segments re-verified (deployed /app.js carries the asserted strings; /proposals landing-status jq assertion returns true). FR-14/FR-15/FR-19 built surfaces covered; unbuilt deltas (outcomes 6/8/9, card states, landed.files receipt) correctly owned by E3-impl; ids unique, shape-valid and store-collision-free; deps []; all 6 listed overlap rows referenced with correct statuses. SHIP: 0 critical, 0 high."
+}

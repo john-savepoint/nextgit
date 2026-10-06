@@ -1,0 +1,27 @@
+{
+  "slice": "E2-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e2-verify-changes-capture",
+      "note": "Agent-5 acceptance clause 'additions 2' is not asserted by check_cmd (the secret row is checked for path/secret/keys/patch-null/intent-null only); live probe observed additions=2, deletions=0, so the acceptance is true today but a regression on that clause would not fail the check. Informational."
+    },
+    {
+      "severity": "low",
+      "story": "e2-verify-changeset-stability",
+      "note": "check_cmd runs porting/tests/fork-point-stability.probe.mjs, which this story authors and which does not exist yet — not machine-runnable until the deliverable lands. Documented in its notes with repo precedent (contract-smoke-verify-gates); informational."
+    },
+    {
+      "severity": "low",
+      "story": "e2-verify-worker-cpu-budget",
+      "note": "The check proves the no-clone/bounded-/proposals claims and the 300 s request cap (live: /proposals answered 200 well inside the cap), but NFR-1's 30 s default CPU budget is not directly measured (CPU time is not externally observable); cpu-budget-hardening-large-change-sets-within-the-30s-worker [pending] is the flagged follow-up. Informational."
+    },
+    {
+      "severity": "low",
+      "story": "e2-impl-commits-list-additive",
+      "note": "Implementation story inside a verification slice for FR-9 whose extract status is 'built' — reviewed and accepted as the documented additive gap repair that resolves the round-1 BLOCK: live probe confirms .changeSet.commits is absent (changeSet keys = base,files,head,stats,texts), the impl check_cmd uses node -e (no bun-e lint hazard), its ground-truth clone /tmp/real-agents/agent-1 is in sync (tree 6b313662d9838c894bfc670625735007181de64e = live head.treeHash), and e2-verify-changes-commit-list deps on it. Notes do not mention entity-api-proposal-detail-mergeable-commits-comments-review [pending], the nearest listed commit-surface row; surfaces differ (entity API vs /changes embed) so no work is duplicated. Informational."
+    }
+  ],
+  "summary": "Round-2 (repair replay): all 7 assigned requirements (FR-9, FR-10, FR-11, FR-12, FR-13, NFR-1, NFR-2) covered by verification stories; 12 stories, ids lowercase/e2-{verify,impl}-slug, unique within slice and compile, zero store collisions (SELECT id LIKE 'e2-%' -> []); single dep edge e2-verify-changes-commit-list -> e2-impl-commits-list-additive, valid and acyclic. Round-1 BLOCK resolved: the commits[] gap is live-confirmed absent and now scheduled by the additive impl story with the verify story dep-chained after it; all 12 check_cmds inspected (source greps, UI strings, node --check app.js green, land probe asserts ancestor=fork point/409/no-changes/base-moved). 9 read-only live spot-runs green this round: /changes agent-1 (identity+stats-sum+src/auth.ts +6/-0 patch), pinning/diff-viewer patch contents, /changes agent-5 secret row (keys exactly, no patch/intent), /proposals (summary counts agree, text-conflict region, enum), /merge conflict agent-1,agent-2 (markers+both sides), clean agent-3, empty demo, withheld agent-5, parity config jq+merge sanity. 4 low informational findings only; 0 critical / 0 high -> SHIP."
+}

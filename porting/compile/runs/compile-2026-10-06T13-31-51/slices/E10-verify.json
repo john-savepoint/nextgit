@@ -1,0 +1,141 @@
+{
+  "slice": "E10-verify",
+  "epic": "E10",
+  "kind": "verification",
+  "stories": [
+    {
+      "id": "e10-verify-demo-scripts-committed",
+      "title": "Prove the four demo scripts are committed and parse from the repo root",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "scope": "platform/scripts/seed.mjs (baseline writer; idempotent — no-op when the baseline already matches), agents.mjs (scripted writer), real-agents.mjs (REAL CLI agents), land.mjs (lands or refuses; exit codes 0 landed / 1 refused / 2 unreachable, documented in its header). Proof that the four named scripts exist committed at these paths and are the reproduction path an operator follows (SM-1 run instructions). PRD FR-39 consequence 1.",
+      "acceptance": "From the repo root: `git ls-files --error-unmatch` resolves all four paths (committed, not untracked) and each script passes `node --check` as a parseable ES module. Evidence: command output; additionally `node platform/scripts/land.mjs` with no arguments prints `usage: node platform/scripts/land.mjs <repo[,repo2,...]>` and exits 2 (its documented contract).",
+      "check_cmd": "git ls-files --error-unmatch platform/scripts/seed.mjs platform/scripts/agents.mjs platform/scripts/real-agents.mjs platform/scripts/land.mjs >/dev/null && node --check platform/scripts/seed.mjs && node --check platform/scripts/agents.mjs && node --check platform/scripts/real-agents.mjs && node --check platform/scripts/land.mjs",
+      "deps": [],
+      "notes": "Delta only — no rebuild. Overlapping store rows (verified [pending] in porting/tasks.db): `submission-package`, `submission-repo-location-single-entry-registered-by-oct-14`, `ensure-hermetic-reproducible-builds-with-pinned-images` cover FR-39's unbuilt submission/packaging segment (implementation-side, E10-impl slice) and the pinned-runtime work; this story adds only the committed-script verification."
+    },
+    {
+      "id": "e10-verify-demo-reset-reproduces-set",
+      "title": "Verify a clean reset from committed scripts reproduces the full demo set live",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "scope": "Repo-root chain against live infra (worker https://nextgit-platform.john-b7d.workers.dev, Artifacts namespace `nextgit`): `node platform/scripts/seed.mjs` (baseline skeleton) → `node platform/scripts/agents.mjs` (drops + re-forks agent-1..agent-4 fresh, deterministic transforms, pushes main + notes refspecs) → `node platform/scripts/secret-fixture.mjs` (agent-5 config/.env schema-only beat) → `node platform/scripts/demo-verify.mjs` (live acceptance: 25 checks). Prereq: operator token (CLOUDFLARE_API_TOKEN or wrangler login), as in the rehearsal runs.",
+      "acceptance": "The chain exits 0 and demo-verify prints `DEMO VERIFY: PASS` with every check green: ≥5 proposals, exactly agent-1..agent-5 discovered, ≥1 conflicting pair including the deliberate agent-1 × agent-2 `src/auth.ts` collision surfaced pre-land, ≥4 intents, no landed proposal; agent-5 renders schema-only (keys exactly DATABASE_URL + REDIS_URL, no patch, no intent) and `POST /judge` skips it with reason `secret-class`; no fixture value (FAKE-SECRET-DO-NOT-USE, postgres://demo, db.internal, cache.internal) appears in any fetched body. Evidence: full command output attached.",
+      "check_cmd": "node platform/scripts/seed.mjs && node platform/scripts/agents.mjs && node platform/scripts/secret-fixture.mjs && node platform/scripts/demo-verify.mjs",
+      "deps": [],
+      "notes": "Delta only — no rebuild. Overlapping rows (verified [pending] in porting/tasks.db): `deliberate-collision-demo-scenario-overlapping-agent-tasks` (check `node platform/scripts/agents.mjs`) and `demo-video-5-10-min-single-take-covering-all-three-axes` are the deterministic-writer and recording work items; this story is the reset → served-state verification. Scoped proof: demo-verify was run green against the live set 2026-10-06 (PASS 25/25)."
+    },
+    {
+      "id": "e10-verify-real-agents-concurrent-run",
+      "title": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "scope": "`node platform/scripts/real-agents.mjs` — probes candidate CLIs with a scratch-dir write test, dispatches the four tasks concurrently (agent-1 and agent-2 both rewrite src/auth.ts), retries starved agents serially (SERIAL_RETRY), writes /tmp/real-agents/report.md, /tmp/real-agents/runs.json, /tmp/nextgit-agents.json; then `node platform/scripts/secret-fixture.mjs` + `node platform/scripts/demo-verify.mjs` read the served set. Check body seeds the baseline first so the pre-land precondition holds.",
+      "acceptance": "Exit 0; /tmp/real-agents/report.md records all four agent-1..agent-4 rows with status ok and each agent's own patch (real CLI output, not the scripted transforms); demo-verify then passes with ≥4 real proposals, the deliberate agent-1 × agent-2 collision on src/auth.ts among the conflicting pairs, all proposals pending (pre-land), and the masking/judge checks green. Evidence: report.md + both command outputs.",
+      "check_cmd": "node platform/scripts/seed.mjs && node platform/scripts/real-agents.mjs && node platform/scripts/secret-fixture.mjs && node platform/scripts/demo-verify.mjs",
+      "deps": [],
+      "notes": "Overlaps existing row `demo-agent-harness-deterministic-writers-real-ai-clis` (check `node platform/scripts/real-agents.mjs`, [pending]) — same command; this story adds the served-state claims the demo gate needs (N≥4, collision pre-land). SERIAL_RETRY: a starved agent is retried one at a time by design; the N≥4 claim is four independent CLI sessions, one task per agent."
+    },
+    {
+      "id": "e10-verify-land-beat-receipt",
+      "title": "Verify the one-click landing beat lands server-side with a receipt",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "scope": "Precondition: all-pending demo set (restored by E10-verify-demo-reset-reproduces-set). `node platform/scripts/land.mjs agent-3` POSTs /land; the worker folds (diff3) and pushes exactly one commit server-side, then the script prints `landed <commit>` + `file <path>` rows (exit 0 landed / 1 refused). Post-state: GET /proposals?base=demo shows agent-3 landing.status `landed`. UI success copy: EXPERIENCE.md §Land flow step 3.",
+      "acceptance": "land.mjs exits 0 and prints the landed commit plus the folded file list (the receipt) — the script itself never clones or pushes (it only POSTs /land); the served set then reports agent-3 landing.status \"landed\" and demo's head advanced to that commit. Evidence: command output including the commit SHA.",
+      "check_cmd": "node platform/scripts/land.mjs agent-3 && curl -s --max-time 120 \"https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo\" | jq -ec '.ok == true and any(.proposals[]; .repo == \"agent-3\" and (.landing.status // \"\") == \"landed\")'",
+      "deps": [
+        "e10-verify-demo-reset-reproduces-set"
+      ],
+      "notes": "Overlaps existing row `landing-path-land-folds-proposals-onto-the-baseline-server-s` (check `node platform/scripts/land.mjs agent-3`, [pending]) — adds the receipt + post-land served-state assertion; FR-14/FR-18 own the landing mechanics and evidence record themselves."
+    },
+    {
+      "id": "e10-verify-live-workers-artifacts-no-mocks",
+      "title": "Prove the demo path is the live Cloudflare Worker + Artifacts namespace — no mocks",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "scope": "Deployed worker https://nextgit-platform.john-b7d.workers.dev (platform/wrangler.jsonc: name nextgit-platform, ARTIFACTS binding namespace `nextgit`, compat 2026-09-01, no nodejs_compat) and the git fabric remotes the demo scripts clone/push to: `bb7d292ca65ba01cbdfbdabcace0c3d0.artifacts.cloudflare.net/git/nextgit/<repo>.git` (agents.mjs / real-agents.mjs). No miniflare / wrangler dev / local mock anywhere in the demo path. PRD FR-39 consequence 3.",
+      "acceptance": "GET /health is served by the Cloudflare edge (response headers carry `cf-ray` and `server: cloudflare`) and returns `{\"ok\":true,\"service\":\"nextgit-platform\",\"namespace\":\"nextgit\"}` — the deployed Worker with the Artifacts binding, not a local emulator; rehearsal outputs show clone/push traffic against the artifacts.cloudflare.net remotes. Evidence: command output + a rehearsal log excerpt.",
+      "check_cmd": "curl -s -D /tmp/e10-health.headers -o /tmp/e10-health.json --max-time 30 https://nextgit-platform.john-b7d.workers.dev/health && jq -ec '.ok == true and .namespace == \"nextgit\"' /tmp/e10-health.json && node -e 'const h=require(\"node:fs\").readFileSync(\"/tmp/e10-health.headers\",\"utf8\"); if (!/^cf-ray:/mi.test(h) || !/^server: cloudflare/mi.test(h)) throw new Error(\"not served by the Cloudflare edge\"); console.log(\"LIVE — cloudflare edge + nextgit namespace\")'",
+      "deps": [],
+      "notes": "Overlaps existing row `live-only-e2e-verification-gate-before-submission-no-mocks` ([pending], process gate) — this story is the executable edge/namespace proof; the Artifacts side is carried by the rehearsal logs from the reset/real-agent runs. Scoped proof: this exact pipeline was run green 2026-10-06."
+    },
+    {
+      "id": "e10-verify-colliding-land-refusal",
+      "title": "Verify the colliding-land refusal: 409 conflict, files named, preview-merge guidance",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-40"
+      ],
+      "scope": "POST /land {\"base\":\"demo\",\"repos\":[\"agent-1\",\"agent-2\"]} — the deliberate collision pair on src/auth.ts. Server branch platform/src/index.ts:872-878 → 409 {ok:false,error:\"conflict\",conflicted:[…],detail}. UI branch platform/ui/app.js:924-933 → badge `conflict`, copy `Conflicted files: <files>. (preview merge first)`. The refusal pushes nothing (a refused landing is a correct outcome, SM-C1) — read-only in effect. Precondition: all-pending set.",
+      "acceptance": "POST /land for agent-1+agent-2 returns HTTP 409 with error `conflict` and a non-empty conflicted[] naming the colliding file(s) (at least src/auth.ts); the demo head and proposal states are unchanged; the deployed UI bundle carries `Conflicted files:` and `(preview merge first)`. Live rehearsal evidence attached.",
+      "check_cmd": "test \"$(curl -s -o /tmp/e10-conflict.json -w '%{http_code}' --max-time 120 -X POST https://nextgit-platform.john-b7d.workers.dev/land -H 'content-type: application/json' -d '{\"base\":\"demo\",\"repos\":[\"agent-1\",\"agent-2\"]}')\" = 409 && jq -ec '.error == \"conflict\" and (.conflicted | length > 0)' /tmp/e10-conflict.json && curl -s --max-time 30 https://nextgit-platform.john-b7d.workers.dev/app.js | node -e 'let d=\"\";process.stdin.on(\"data\",c=>d+=c).on(\"end\",()=>{if(!d.includes(\"(preview merge first)\")||!d.includes(\"Conflicted files:\"))throw new Error(\"conflict banner copy missing\");console.log(\"conflict refusal + preview-merge copy ok\")})'",
+      "deps": [
+        "e10-verify-demo-reset-reproduces-set"
+      ],
+      "notes": "FR-15 owns the (unrendered) persistent conflict card state — this story verifies the refusal + banner copy, not the card variant. Scoped proof: this exact command was run against the live set 2026-10-06 and returned 409 with conflicted [\"src/auth.ts\"]."
+    },
+    {
+      "id": "e10-verify-secret-land-refusal",
+      "title": "Verify the secret-touching land refusal: 409 withheld-secret, files named, values held back",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-40"
+      ],
+      "scope": "POST /land {\"base\":\"demo\",\"repos\":[\"agent-5\"]} — agent-5's config/.env is secret-class. Server branch platform/src/index.ts:867-871 → 409 {ok:false,error:\"withheld-secret\",files:[…]}. UI branch platform/ui/app.js:916-923 → badge `blocked`, copy `Withheld-secret file — landing blocked (<files>).` Masking law: values never leave the worker and are never pushed. Precondition: all-pending set with agent-5 fresh (secret-fixture).",
+      "acceptance": "POST /land for agent-5 returns HTTP 409 with error `withheld-secret` and files naming config/.env; nothing is pushed (demo head unchanged) and no fixture value appears in the response body; the deployed UI bundle carries `Withheld-secret file — landing blocked`. Live rehearsal evidence attached.",
+      "check_cmd": "test \"$(curl -s -o /tmp/e10-withheld.json -w '%{http_code}' --max-time 120 -X POST https://nextgit-platform.john-b7d.workers.dev/land -H 'content-type: application/json' -d '{\"base\":\"demo\",\"repos\":[\"agent-5\"]}')\" = 409 && jq -ec '.error == \"withheld-secret\" and (.files | index(\"config/.env\") != null)' /tmp/e10-withheld.json && curl -s --max-time 30 https://nextgit-platform.john-b7d.workers.dev/app.js | node -e 'let d=\"\";process.stdin.on(\"data\",c=>d+=c).on(\"end\",()=>{if(!d.includes(\"Withheld-secret file — landing blocked\"))throw new Error(\"withheld banner copy missing\");console.log(\"withheld-secret refusal + blocked copy ok\")})'",
+      "deps": [
+        "e10-verify-demo-reset-reproduces-set"
+      ],
+      "notes": "FR-29 owns the mask/withhold fold semantics — this story verifies FR-40's withheld demo beat + copy. Scoped proof: this exact command was run against the live set 2026-10-06 and returned 409 with files [\"config/.env\"]."
+    },
+    {
+      "id": "e10-verify-failure-card-banner-states",
+      "title": "Verify failure UI states: exact banner copy, card back to default, dismiss-only persistence",
+      "kind": "verification",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-40"
+      ],
+      "scope": "platform/ui/app.js failure branches (916-941) and showActionBanner/hideActionBanner (237, 257; hideActionBanner wired only to the dismiss click at 1029 — no auto-hide timer anywhere); EXPERIENCE.md §Land flow exact copy (127-133), §Action banner (never auto-hides; a new action replaces the previous banner), transition rule (`any failure returns the card to default; only a user dismiss clears the banner`). Deployed bundle served at /app.js on the live worker.",
+      "acceptance": "The deployed bundle carries every failure string — `Conflicted files:`, `(preview merge first)`, `Withheld-secret file — landing blocked`, `Failed to land`, `Unexpected landing failure`; a browser rehearsal of a refused land shows the card returned to default (`preview merge` + `Land into demo` re-armed) with the error banner still present until `dismiss` is clicked; the generic branch renders `Failed to land <repo>: <msg>` with badge `failed` (fallback `Unexpected landing failure`). Evidence: command output + rehearsal screenshot/recording.",
+      "check_cmd": "curl -s --max-time 30 https://nextgit-platform.john-b7d.workers.dev/app.js | node -e 'let d=\"\";process.stdin.on(\"data\",c=>d+=c).on(\"end\",()=>{const need=[\"Conflicted files:\",\"(preview merge first)\",\"Withheld-secret file — landing blocked\",\"Failed to land\",\"Unexpected landing failure\"];const miss=need.filter(s=>!d.includes(s));if(miss.length)throw new Error(\"missing failure copy: \"+miss.join(\" | \"));console.log(\"exact failure copy present in the deployed bundle\")})'",
+      "deps": [],
+      "notes": "The persistent withheld-secret / conflict card states are a known FR-15 build gap (EXPERIENCE.md §Proposal card) — this story verifies the banner copy, return-to-default and dismiss-only persistence, not the unrendered card variants. Scoped proof: this copy check was run against the live bundle 2026-10-06 (all strings present)."
+    }
+  ]
+}

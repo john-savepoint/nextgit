@@ -1,0 +1,12 @@
+{
+  "slice": "E8-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e8-impl-token-storage-hygiene",
+      "note": "Stale line pointer in scope: `real-agents.mjs:507` is cited as a /tmp/nextgit-agents.json writer, but the OUT_FILE writeFileSync is at real-agents.mjs:520 (507 is the serial-retry block). File identification is correct; only the pointer drifted (possibly from concurrent edits)."
+    }
+  ],
+  "summary": "All 5 assigned requirements covered by 10 implementation stories of the right kind (FR-45 x4, FR-36 x3, FR-31+UX-DR-1 x2, NFR-6 x1; all unbuilt/sequenced-M2, so zero rebuild risk). ids are lowercase slugs <=32 chars, unique in-slice, zero store collisions; deps are valid in-slice ids (chokepoint root, acyclic); all check_cmds real (node --check platform/ui/app.js spot-run passed; probe model land-hardening.probe.mjs exists); acceptance observable Given/When/Then with exact FR copy; all 11 listed existing rows referenced in dedupe notes. 0 critical, 0 high."
+}

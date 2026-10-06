@@ -1,0 +1,17 @@
+{
+  "slice": "E6-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e6-impl-nfr5-secret-egress-gate",
+      "note": "Residual overlap, author-documented: the fix-in-place (scrubFreeText applied to repo-derived intent at platform/src/index.ts:435) also satisfies part of listed row `secret-class-widening-scrub` [pending P1], whose acceptance is 'intent carrying a secret value is redacted in /changes'. The author scopes it as the minimum application the gate needs to pass, with widening + the full scrub mechanic left to the row — no recreation; if this lands first, the row's remaining delta shrinks and both touch intake line :435, so sequence to avoid a double-edit."
+    },
+    {
+      "severity": "low",
+      "story": "e6-impl-content-detection-arrival",
+      "note": "Unlisted nearby rows (absent from the pack's overlap list): `commit-time-scrub-of-secrets-leaked-into-non-secret-paths` [pending P2] and `scrub-secret-leaks-at-commit-time-prevention-beat` [pending P1] both target secrets committed into non-secret paths and would share the content-scan primitive with this story's detector. This story delivers FR-30 consequence 3 (read-path/judge arrival), not commit-time prevention/scrub — seams differ, no recreation in current scope; flagged for orchestrator dedupe awareness only."
+    }
+  ],
+  "summary": "Coverage: FR-30's sequenced content-detection half is implemented here (e6-impl-content-detection-contract-decision, e6-impl-content-detection-arrival) and its built path-driven half is verified by sibling E6-verify (e6-verify-path-driven-masking-posture) — not rebuilt; NFR-5 owner story e6-impl-nfr5-secret-egress-gate. IDs are stable lowercase slugs, unique in-slice and collision-free (store has zero e6-% rows; all cited store rows exist at cited statuses/priorities); deps valid and acyclic; check_cmds real and runnable — bun porting/tests/judge.test.mjs spot-ran ALL PASS/exit 0, the contract-decision grep correctly fails pre-implementation; acceptance observable and testable. 0 critical + 0 high; 2 low dedupe notes."
+}

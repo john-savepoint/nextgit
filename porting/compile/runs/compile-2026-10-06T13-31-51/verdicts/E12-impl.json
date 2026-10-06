@@ -1,0 +1,12 @@
+{
+  "slice": "E12-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e12-impl-land-mask-invariance",
+      "note": "Notes label `land-hardening` as [pending]; store status is `done` (evidence: concurrency-safe /land probe GREEN on deployed 69b59673). The dedupe claim still holds and is strengthened (mechanics built, not rebuilt), but the bracketed status is stale — correct the note on re-compile. The other cited row, `cpu-budget-hardening-large-change-sets-within-the-30s-worker`, is correctly [pending]."
+    }
+  ],
+  "summary": "FR-47 (sequenced M3, implementation=true/verification=false) is covered by 4 implementation stories, one per consequence: integrity fail-closed chokepoint (S1), lifecycle-safe deletes + bucket rules + orphan sweep (S2), read-surface invariance (S3), write-surface landing/mask invariance probe (S4); the storage/format half is explicitly deferred to pending row `r2-asset-tier-manifest-format` (dep of all four, exists, acyclic) per the pack's dedupe mandate — no missing coverage, no rebuild. IDs are stable lowercase slugs (len 29-42), unique in-slice, zero collisions in the 513-row store; check_cmds are real (bun/node runners verified; targets are story-authored deliverables per compile-wide convention); acceptance observable with exact CONTRACT.md pins (52/54, 78, 89-90, 104, 175-179) verified; deps valid/acyclic; M3+P2 consistent. 0 critical + 0 high; one low finding (stale [pending] label in S4 notes)."
+}

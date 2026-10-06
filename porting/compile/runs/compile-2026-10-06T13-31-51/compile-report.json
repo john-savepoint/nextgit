@@ -1,0 +1,22 @@
+{
+  "compileId": "compile-2026-10-06T13-31-51",
+  "generatedAt": "2026-10-06T16:29:50.992Z",
+  "epics": 13,
+  "slices": 21,
+  "stories": 148,
+  "byKind": {
+    "implementation": 63,
+    "verification": 85
+  },
+  "lint": {
+    "ok": true,
+    "gaps": 0
+  },
+  "staged": 148,
+  "activation": "bun porting/tasks.mjs activate compile:compile-2026-10-06T13-31-51",
+  "backfill": {
+    "high": 2,
+    "medium": 76,
+    "existingPending": 449
+  }
+}

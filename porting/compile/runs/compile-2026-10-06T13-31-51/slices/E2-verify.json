@@ -1,0 +1,201 @@
+{
+  "slice": "E2-verify",
+  "epic": "E2",
+  "kind": "verification",
+  "stories": [
+    {
+      "id": "e2-verify-changes-capture",
+      "title": "Prove GET /changes returns identities, stats, per-file rows and the secret patch policy",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-9"
+      ],
+      "scope": "platform/src/index.ts computeChangeSet (406-508) and the GET /changes route (1112-1120); live worker https://nextgit-platform.john-b7d.workers.dev; agent-1 (patch row) and agent-5 (secret-class row); platform/CONTRACT.md GET /changes + Secret classes; no-clone guard over platform/src/index.ts and platform/src/land.ts.",
+      "acceptance": "GET /changes?repo=agent-1&base=demo&ref=main&baseRef=main returns ok:true with the base identity (repo demo, ref main, 40-hex treeHash) and head identity (repo agent-1), stats {files,added,modified,removed,additions,deletions} whose added+modified+removed sum equals files, and per-file rows: src/auth.ts modified +6/-0 carrying a patch. For agent-5 the single row config/.env is secret:true with keys exactly [DATABASE_URL,REDIS_URL], additions 2, no patch and no intent. No read route shells out to git or clones: no node:child_process in platform/src/index.ts, and git.clone/git.push occur only in platform/src/land.ts (the /land path).",
+      "check_cmd": "curl -sf 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-1&base=demo&ref=main&baseRef=main' | jq -ec '(.ok==true) and (.changeSet.base.repo==\"demo\") and (.changeSet.base.sha|test(\"^[0-9a-f]{40}$\")) and (.changeSet.base.treeHash|test(\"^[0-9a-f]{40}$\")) and (.changeSet.head.repo==\"agent-1\") and (.changeSet.stats.files>=1) and (.changeSet.stats.added + .changeSet.stats.modified + .changeSet.stats.removed == .changeSet.stats.files) and ([.changeSet.files[]|select(.path==\"src/auth.ts\" and .status==\"modified\" and .additions==6 and .deletions==0 and (.patch|type==\"string\"))]|length==1)' && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-5&base=demo&ref=main&baseRef=main' | jq -ec '(.changeSet.files|length==1) and (.changeSet.files[0].path==\"config/.env\") and (.changeSet.files[0].secret==true) and (.changeSet.files[0].keys==[\"DATABASE_URL\",\"REDIS_URL\"]) and (.changeSet.files[0].patch==null) and (.changeSet.files[0].intent==null)' && ! grep -q 'node:child_process' platform/src/index.ts && grep -q 'git\\.clone' platform/src/land.ts && ! grep -q 'git\\.clone\\|git\\.push' platform/src/index.ts",
+      "deps": [],
+      "notes": "Overlaps built rows change-set-capture-server-side-changes-with-no-clones-demo-c [done] (bare curl /changes) and compute-platform-native-diffs-for-change-sets [done]; the delta here is the consequence-level proof (secret row policy + no-clone guard + summed stats). Adjacent pending rows: do-binding-side-diffing-no-clones-in-review-paths, cpu-budget-hardening-large-change-sets-within-the-30s-worker."
+    },
+    {
+      "id": "e2-verify-changes-commit-list",
+      "title": "Prove the change-set carries the per-fork commit list (hash, author, timestamp, message)",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-9"
+      ],
+      "scope": "PRD FR-9 consequence 2; platform/src/index.ts computeChangeSet return object (499-507); platform/CONTRACT.md GET /changes response shape (bump the contract before the additive field).",
+      "acceptance": "GET /changes?repo=agent-1&base=demo&ref=main&baseRef=main returns changeSet.commits with at least one entry for the fork's commits, each carrying hash (40-hex), author, timestamp and message. Copy of the PRD consequence: \"The change-set carries a per-fork commit list - hash, author, timestamp, message - alongside the per-file rows.\"",
+      "check_cmd": "curl -sf 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-1&base=demo&ref=main&baseRef=main' | jq -ec '(.changeSet.commits|length>=1) and ([.changeSet.commits[]|((.hash|test(\"^[0-9a-f]{40}$\")) and (.author!=null) and (.timestamp!=null) and ((.message|type)==\"string\"))]|all)'",
+      "deps": [
+        "e2-impl-commits-list-additive"
+      ],
+      "notes": "GAP observed 2026-10-06 by live probe: computeChangeSet returns only base/head/stats/files/texts, and the CONTRACT v2 /changes shape has no commits field, so this verification is expected to fail until the additive commits[] lands (worker + contract bump). Depends on e2-impl-commits-list-additive, which is exactly that fix and must land first; after it, this story proves consequence 2 without rebuilding the rest. FR-9 otherwise built. Adjacent pending row: expose-content-read-apis-log-commit-tree-blob-file-raw."
+    },
+    {
+      "id": "e2-verify-fork-point-pinning",
+      "title": "Prove change-sets are diffed against the fork point with the bounded first-parent walk",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-10"
+      ],
+      "scope": "platform/src/index.ts forkPoint (104-143) and computeChangeSet (406-421); FORK_LOG_LIMIT=200 first-parent walk; live /changes for agent-1; platform/CONTRACT.md 'Change-set semantics - fork point'.",
+      "acceptance": "Change-sets are diffed against the fork point: forkPoint intersects both first-parent logs (limit 200) and returns the newest shared commit, falling back to the base head when none is found; live /changes for agent-1 returns base.sha (the fork point actually diffed, per CONTRACT) as a 40-hex sha, the set is exactly the proposal's one modified file src/auth.ts, and no removed rows appear for baseline-only files (no reverse-deletion noise).",
+      "check_cmd": "grep -q 'FORK_LOG_LIMIT = 200' platform/src/index.ts && grep -q 'proposalLog.find' platform/src/index.ts && grep -q 'Fall through to the base head' platform/src/index.ts && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-1&base=demo&ref=main&baseRef=main' | jq -ec '(.changeSet.base.sha|test(\"^[0-9a-f]{40}$\")) and ((.changeSet.files|length)==1) and ([.changeSet.files[]|select(.path==\"src/auth.ts\" and .status==\"modified\")]|length==1) and ([.changeSet.files[]|select(.status==\"removed\")]|length==0)'",
+      "deps": [],
+      "notes": "Done row fork-point-change-set-semantics-no-changes-409-gate records grep evidence for the same code; delta here is the live pinning assertion. Adjacent pending rows: design-review-for-acceptance-not-raw-detection, do-binding-side-diffing-no-clones-in-review-paths."
+    },
+    {
+      "id": "e2-verify-fork-point-ancestor",
+      "title": "Prove /land folds with the fork point as the 3-way ancestor",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-10"
+      ],
+      "scope": "porting/tests/land-hardening.probe.mjs (scratch chain demo-lh-base -> agent-lh-1, never demo or agent-1..5); platform/src/index.ts computeMerge (304-305: ancestor = cs.base.sha fork-point texts) shared by /merge and /land; AD-3 reviewed heads.",
+      "acceptance": "/land evidence.ancestor[repo] equals the proposal's fork point while evidence.heads.base equals the fork point, the landed commit is a new sha the base remote resolves to, and a re-land of the same proposal after the base advanced folds to nothing (409 no-changes) - the fold is anchored at the fork point, not the moved base head. /merge runs the same computeMerge fold.",
+      "check_cmd": "node porting/tests/land-hardening.probe.mjs",
+      "deps": [],
+      "notes": "The probe is the repo's own suite and never touches demo; green run 2026-10-06 after wrangler whoami refreshed the OAuth token (it needs CLOUDFLARE_API_TOKEN or a fresh wrangler OAuth - a 401 authentication error means re-auth; transient TypeError: fetch failed runs were seen before the refresh). Asserts (a) ancestor = fork point, (b) base-advanced re-land -> 409 no-changes, (c) stale heads refused, (d) one winner + one 409 base-moved under double-land, (e) scratch cleanup. Adjacent pending rows: landing-policy-engine-branch-protection-and-merge-policy, batch-merge-bot-temp-branch-full-ci-push-only-if-green."
+    },
+    {
+      "id": "e2-verify-changeset-stability",
+      "title": "Prove a change-set stays byte-identical after the baseline advances",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-10"
+      ],
+      "scope": "New probe porting/tests/fork-point-stability.probe.mjs modeled on porting/tests/land-hardening.probe.mjs: scratch chain demo-e2s-base -> agent-e2s-1 (never demo or agent-1..5), push one commit, capture GET /changes, land the proposal into the scratch base (POST /land), capture GET /changes again, cmp the two response bodies byte-for-byte, delete both scratch repos on exit.",
+      "acceptance": "After the baseline advances (the proposal lands onto the scratch base, moving its head), the unchanged proposal's /changes body is byte-identical to the pre-land capture: same base.sha (the fork point), same stats, same per-file rows. Manually observed 2026-10-06 on scratch chain demo-e2s-base / agent-e2s-1: the two captures compared byte-identical (base.sha 6a5dac9707f4d28f92761cb23010afb45da1b327) while the base advanced to landing commit 219c90212124c68e0e9183877689aa66befd9d56.",
+      "check_cmd": "node porting/tests/fork-point-stability.probe.mjs",
+      "deps": [],
+      "notes": "The probe is this story deliverable; precedent for a check_cmd naming the script a story creates: row contract-smoke-verify-gates references the not-yet-existing porting/tests/contract-smoke.mjs. It needs CLOUDFLARE_API_TOKEN or a refreshed wrangler OAuth, same as land-hardening.probe.mjs. No existing store row covers the GET-side stability property. Adjacent pending rows: compute-cross-change-conflict-graph-across-concurrent-change, detect-cross-worktree-conflicts-before-writes-land."
+    },
+    {
+      "id": "e2-verify-proposals-conflict-map",
+      "title": "Prove /proposals classifies every pair, carries regions, and agrees with the summary counts",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-11"
+      ],
+      "scope": "platform/src/index.ts computeProposals (568-670) and classifyPair (539-566); live /proposals?base=demo; platform/ui/app.js renderConflicts + summary counters (307-340); platform/CONTRACT.md kind enum.",
+      "acceptance": "/proposals classifies every pair with kind in text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed; the deliberate agent-1 x agent-2 collision on src/auth.ts is one text-conflict pair carrying region {baseLines,aLines,bLines}; summary.conflictingPairs equals the count of pairs with conflict===true and summary.cleanPairs the count with conflict===false, agreeing with the conflict cards the UI renders from the same payload.",
+      "check_cmd": "curl -sf 'https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo' | jq -ec '(.ok==true) and (.summary.proposals>=1) and (.summary.conflictingPairs == ([.conflicts[].pairs[]|select(.conflict==true)]|length)) and (.summary.cleanPairs == ([.conflicts[].pairs[]|select(.conflict==false)]|length)) and ([.conflicts[]|select(.file==\"src/auth.ts\")]|length==1) and ([.conflicts[]|select(.file==\"src/auth.ts\")|.pairs[]|select(.kind==\"text-conflict\" and .conflict==true and (.region.baseLines>=0) and (.region.aLines>=0) and (.region.bLines>=0))]|length==1) and ([.conflicts[].kind]|all(.==\"text-conflict\" or .==\"modify/delete\" or .==\"add/add\" or .==\"undetermined\" or .==\"mergeable\" or .==\"identical-add\" or .==\"both-removed\"))' && grep -q 'renderConflicts' platform/ui/app.js",
+      "deps": [],
+      "notes": "Done row cross-proposal-conflict-map-pairwise-kinds-regions-demo-must overlaps (bare curl); delta here is the summary-count agreement, the region assertion, and the enum completeness assertion with live evidence. Adjacent pending rows: diff-topography-merge-ripples-and-conflict-intersections, compute-cross-change-conflict-graph-across-concurrent-change, design-review-for-acceptance-not-raw-detection."
+    },
+    {
+      "id": "e2-verify-diff-viewer-states",
+      "title": "Prove the diff viewer renders patch rows and the no-patch, secret, error and not-found states",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-12"
+      ],
+      "scope": "platform/ui/app.js renderPatchLines (112-133) and handleViewDiff (698-756); platform/ui/styles.css .diff-line/.line-add/.line-del/.line-hunk/.line-meta (905-922); live /changes rows for agent-1 (patch) and agent-5 (secret).",
+      "acceptance": "Patch rows render additions/deletions/hunk headers with the diff color staff (line-add/line-del/line-hunk classes plus their CSS rules); a file with no patch renders the placeholder \"No patch available for this file (omitted, withheld, or binary).\"; secret files render \"Secret content withheld\" and \"Per platform contract, secret file contents and diffs are never exposed.\" with key chips; error and not-found render distinct badges (\"error\" / \"not found\").",
+      "check_cmd": "node --check platform/ui/app.js && grep -q 'line-add' platform/ui/styles.css && grep -q 'line-del' platform/ui/styles.css && grep -q 'line-hunk' platform/ui/styles.css && grep -q 'No patch available for this file (omitted, withheld, or binary).' platform/ui/app.js && grep -q 'Secret content withheld' platform/ui/app.js && grep -q 'Per platform contract, secret file contents and diffs are never exposed.' platform/ui/app.js && grep -q '\"not found\"' platform/ui/app.js && grep -q '\"error\"' platform/ui/app.js && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-1&base=demo&ref=main&baseRef=main' | jq -ec '([.changeSet.files[]|select(.path==\"src/auth.ts\")|select((.patch|contains(\"@@\")) and (.patch|contains(\"+export function refreshSession\")))]|length==1)'",
+      "deps": [],
+      "notes": "No browser test harness exists in the repo, so the executable proof is the render path (handlers + exact strings + color staff classes) plus the live data each state consumes; visual confirmation stays manual. Adjacent pending rows: review-ui-diffs-visually-from-before-after-screenshots, complete-unified-proposal-card-intent-diff-risk-provenance."
+    },
+    {
+      "id": "e2-verify-merge-fold-api",
+      "title": "Prove GET /merge folds proposals in order with clean, conflict and withheld-secret outcomes",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-13"
+      ],
+      "scope": "platform/src/index.ts computeMerge (277-404) and the GET /merge route (1132-1141); live cases agent-1,agent-2 (conflict), agent-3 (clean), agent-5 (withheld-secret), demo (empty); platform/CONTRACT.md GET /merge.",
+      "acceptance": "GET /merge folds the given proposals in order onto the baseline (diff3) and returns status clean|conflict with per-file action (write|delete) and result (merged|conflict|withheld-secret); the agent-1+agent-2 fold returns conflict with a src/auth.ts conflict carrying <<<<<<< ours / ======= / >>>>>>> theirs markers and both sides' text; agent-3 folds clean with merged text; agent-5 returns withheld-secret with no merged or conflict text; a no-change fold returns zero files.",
+      "check_cmd": "curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=agent-1,agent-2' | jq -ec '(.merge.status==\"conflict\") and ([.merge.files[]|select(.action==\"write\" and .result==\"conflict\" and (.conflictText|contains(\"<<<<<<< ours\")) and (.conflictText|contains(\">>>>>>> theirs\")) and (.conflictText|contains(\"refreshSession\")) and (.conflictText|contains(\"isExpired\")))]|length>=1) and ((.merge.conflicted|length)>=1)' && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=agent-3' | jq -ec '(.merge.status==\"clean\") and ([.merge.files[]|select(.action==\"write\" and .result==\"merged\" and (.merged|type==\"string\") and (.merged|length>0))]|length>=1) and ((.merge.conflicted|length)==0)' && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=agent-5' | jq -ec '([.merge.files[]|select(.action==\"write\" and .result==\"withheld-secret\" and (.merged==null) and (.conflictText==null))]|length==1)' && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=demo' | jq -ec '(.merge.status==\"clean\") and ((.merge.files|length)==0)'",
+      "deps": [],
+      "notes": "Done row provide-merge-api-to-fold-proposals-and-one-click-land overlaps at the API level; delta here is the per-case live proof (markers, both sides' text, withheld, empty) with the exact assertions. Adjacent pending rows: landing-policy-engine-branch-protection-and-merge-policy, batch-merge-bot-temp-branch-full-ci-push-only-if-green."
+    },
+    {
+      "id": "e2-verify-merge-modal-states",
+      "title": "Prove the merge modal renders merged text, conflict text, withheld notice and the empty/error states",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-13"
+      ],
+      "scope": "platform/ui/app.js handlePreviewMerge (761-869) and renderMergeContent; live /merge cases that feed those states (agent-5 secret, demo empty).",
+      "acceptance": "The merge modal renders merged text for clean results, conflict text with <<<<<<< / ======= / >>>>>>> markers for conflicts, and a withheld notice for secret-class files; a no-files fold renders \"No files changed in merge\" and a request error renders \"Failed to compute merge\".",
+      "check_cmd": "node --check platform/ui/app.js && grep -q 'No files changed in merge' platform/ui/app.js && grep -q 'Failed to compute merge' platform/ui/app.js && grep -q 'withheld-secret' platform/ui/app.js && grep -q 'handlePreviewMerge' platform/ui/app.js && grep -q 'merge-files-tabs' platform/ui/app.js && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=demo' | jq -ec '((.merge.files|length)==0)' && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=agent-5' | jq -ec '([.merge.files[]|select(.result==\"withheld-secret\")]|length==1)'",
+      "deps": [],
+      "notes": "Same harness limitation as e2-verify-diff-viewer-states: no browser suite, so the proof is the render path plus the live payloads that trigger each state. Adjacent pending rows: complete-unified-proposal-card-intent-diff-risk-provenance, build-multiplayer-triage-canvas-with-proposal-artifacts."
+    },
+    {
+      "id": "e2-verify-worker-cpu-budget",
+      "title": "Prove in-Worker change-set work stays within the request budget and clones only on /land",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-1"
+      ],
+      "scope": "platform/src/index.ts (FORK_LOG_LIMIT=200; no child_process; no clone/push on read routes), platform/src/land.ts (git.clone/git.push, one commit per land); live /proposals under the 300 s request cap.",
+      "acceptance": "All change-set, conflict and merge-preview work happens in-Worker: no node:child_process in platform/src/index.ts, git.clone/git.push only inside platform/src/land.ts (the only in-memory clone is the /land path), the fork walk is bounded at 200 first-parent commits, and a full /proposals recompute over the live proposal set answers 200 within the 300 s request cap.",
+      "check_cmd": "grep -q 'FORK_LOG_LIMIT = 200' platform/src/index.ts && ! grep -q 'node:child_process' platform/src/index.ts && grep -q 'git\\.clone' platform/src/land.ts && ! grep -q 'git\\.clone\\|git\\.push' platform/src/index.ts && curl -sf --max-time 300 -o /dev/null -w '%{http_code}' 'https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo' | grep -qx 200",
+      "deps": [],
+      "notes": "Adjacent pending row cpu-budget-hardening-large-change-sets-within-the-30s-worker is the hardening work; this story verifies the guarantee NFR-1 states. Wall-clock bound observed: /proposals answered in ~13-23 s per call during authoring (300 s cap asserted by the check)."
+    },
+    {
+      "id": "e2-verify-artifacts-platform-parity",
+      "title": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime",
+      "kind": "verification",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-2"
+      ],
+      "scope": "platform/package.json (isomorphic-git ^1.43.0), platform/wrangler.jsonc (compat 2026-09-01, no nodejs_compat), platform/src/index.ts (diff3Merge, createTwoFilesPatch, classifyPair), platform/src/land.ts (one push per land); live /merge sanity.",
+      "acceptance": "The platform builds merge, diff and conflict detection itself (diff3Merge + createTwoFilesPatch + classifyPair live in platform/src/index.ts, nothing delegated to Artifacts' absent server-side merge/diff), on the pinned runtime (isomorphic-git ^1.43.0 on the v1 wire, compat date 2026-09-01, no nodejs_compat), with pushes small and incremental (one commit per /land).",
+      "check_cmd": "jq -ec '.dependencies[\"isomorphic-git\"] == \"^1.43.0\"' platform/package.json && jq -ec '.compatibility_date == \"2026-09-01\"' platform/wrangler.jsonc && ! grep -q 'nodejs_compat' platform/wrangler.jsonc && grep -q 'diff3Merge' platform/src/index.ts && grep -q 'createTwoFilesPatch' platform/src/index.ts && grep -q 'classifyPair' platform/src/index.ts && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/merge?base=demo&repos=agent-3' | jq -ec '(.ok==true) and (.merge.status==\"clean\")'",
+      "deps": [],
+      "notes": "Branch protection is explicitly out of this verification (the platform does not claim it yet; landing-policy-engine-branch-protection-and-merge-policy [pending] is its home). Adjacent pending rows: keep-pushes-on-the-v1-protocol-for-artifacts-interop, keep-pushes-small-and-incremental-under-the-64-mib-cap, watch-artifacts-64-mib-push-cap-v1-protocol-before-oct-14, budget-for-artifacts-billing-start-2026-10-14."
+    },
+    {
+      "id": "e2-impl-commits-list-additive",
+      "title": "Add per-fork commit list to /changes (worker + contract bump)",
+      "kind": "implementation",
+      "epic": "E2",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-9"
+      ],
+      "scope": "platform/src/index.ts computeChangeSet (406-508): add a commits[] array to the returned change-set - the fork's first-parent log from the head back to the fork point, newest first, so commits[0].hash === head.headSha - read through the repo capability's log() (ArtifactsCommitMetadata carries hash, author{name,email}, authoredAt/committedAt, message; worker-configuration.d.ts:11072-11100), no clones and no child_process, bounded by FORK_LOG_LIMIT=200. platform/CONTRACT.md GET /changes (13-34): document changeSet.commits[] additively and bump the version line before shipping; base/head/stats/files/texts unchanged.",
+      "acceptance": "GET /changes?repo=agent-1 returns changeSet.commits[] with >=1 entry whose hash equals the fork's head commit.",
+      "check_cmd": "FORK_HEAD=$(git -C /tmp/real-agents/agent-1 rev-parse main) && FORK_TREE=$(git -C /tmp/real-agents/agent-1 rev-parse 'main^{tree}') && curl -sf 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-1&base=demo&ref=main&baseRef=main' | node -e 'let b=\"\";process.stdin.on(\"data\",d=>b+=d).on(\"end\",()=>{const die=m=>{console.error(\"FAIL: \"+m);process.exit(1)};let j;try{j=JSON.parse(b)}catch(e){return die(\"response not JSON: \"+b.slice(0,120))};const cs=j.changeSet||{};const head=process.argv[1],tree=process.argv[2];if(!Array.isArray(cs.commits)||cs.commits.length<1)return die(\"changeSet.commits[] missing or empty\");const c=cs.commits[0];if(!/^[0-9a-f]{40}$/.test(c.hash||\"\"))return die(\"commits[0].hash not 40-hex: \"+c.hash);if(c.hash!==head)return die(\"commits[0].hash \"+c.hash+\" != fork log head \"+head);if(typeof c.author!==\"string\"||!c.author)return die(\"commits[0].author missing\");if(c.timestamp==null||c.timestamp===\"\")return die(\"commits[0].timestamp missing\");if(typeof c.message!==\"string\")return die(\"commits[0].message missing\");if(cs.head&&cs.head.treeHash&&cs.head.treeHash!==tree)return die(\"clone stale: head.treeHash \"+cs.head.treeHash+\" != local \"+tree);for(const x of cs.commits){if(!/^[0-9a-f]{40}$/.test(x.hash||\"\")||typeof x.author!==\"string\"||!x.author||x.timestamp==null||typeof x.message!==\"string\")return die(\"commit entry incomplete: \"+JSON.stringify(x))}console.log(\"OK commits[0]=\"+c.hash+\" entries=\"+cs.commits.length)})' \"$FORK_HEAD\" \"$FORK_TREE\"",
+      "deps": [],
+      "notes": "Repair-round addition: FR-9 consequence 2 had no scheduling story - verify story e2-verify-changes-commit-list now deps on this one and must run after it. The log head ground truth is read from the seeding clone /tmp/real-agents/agent-1 (kept by real-agents.mjs; verified in sync with the live head.treeHash 6b313662d9838c894bfc670625735007181de64e on 2026-10-07). check_cmd observed RED pre-impl on 2026-10-07 (FAIL: changeSet.commits[] missing or empty, exit 1) and dry-run GREEN with an injected commits[] carrying the clone head (OK commits[0]=f401b2194fff1c778149859f9eeadaee8d1df1a7). Overlap: expose-content-read-apis-log-commit-tree-blob-file-raw [pending] is the standalone read-API surface - this story only embeds the commit list in the existing /changes payload. Adjacent pending rows: do-binding-side-diffing-no-clones-in-review-paths, cpu-budget-hardening-large-change-sets-within-the-30s-worker."
+    }
+  ]
+}

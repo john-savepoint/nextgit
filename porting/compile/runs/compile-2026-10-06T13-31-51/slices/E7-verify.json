@@ -1,0 +1,103 @@
+{
+  "slice": "E7-verify",
+  "epic": "E7",
+  "kind": "verification",
+  "stories": [
+    {
+      "id": "e7-verify-fanout-one-command-scoped-tokens",
+      "title": "Prove one command provisions N workspaces with scoped tokens",
+      "kind": "verification",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "scope": "platform/scripts/fanout.mjs:39-75 — one command ensures/forks agent-1..N from baseline `demo`, mints a repo-scoped write token per fork, then writes the fleet manifest; Artifacts API `POST /repos/:baseline/fork` + `POST /tokens` (namespace `nextgit`, CONTRACT.md:4-5); manifest /tmp/nextgit-agents.json. FR-34 consequence 1 (first clause).",
+      "acceptance": "PRD: \"One command creates N forks with scoped tokens.\" Observable: `node platform/scripts/fanout.mjs 4 demo 604800` exits 0, prints `4 agent workspaces`, and leaves a manifest where each of agent-1..4 carries its own scoped write token — `scope=write`, non-empty `token`, `remote=https://<account>.artifacts.cloudflare.net/git/nextgit/agent-<N>.git`, future `expires_at`. Re-running is idempotent: existing forks report `exists` and fresh tokens are minted, exit 0.",
+      "check_cmd": "NODE_OPTIONS=\"--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=5000\" node platform/scripts/fanout.mjs 4 demo 604800 && jq -ec 'length == 4 and all(.[]; (.name|test(\"^agent-[1-4]$\")) and .scope == \"write\" and (.token|type==\"string\" and length>0) and (.remote|test(\"^https://[0-9a-f]+[.]artifacts[.]cloudflare[.]net/git/nextgit/agent-[1-4][.]git$\")) and (.expires_at != null))' /tmp/nextgit-agents.json",
+      "deps": [],
+      "notes": "Verification-only re-proof of a built behavior; the live N=4 record lives in built row `workspace-fan-out-one-command-creates-n-forks-with-scoped-to` [done] (2026-10-03). Overlap `provision-isolated-workspaces-with-full-lifecycle` [pending] is the full create→expire→revoke lifecycle implementation — not recreated here. Needs CF API auth (wrangler OAuth in ~/.config/.wrangler/config/default.toml; if `Authentication error (10000)`, refresh via `cd platform && NODE_OPTIONS=--dns-result-order=ipv4first npx --no-install wrangler whoami`). This box's degraded route to api.cloudflare.com needs the check's `--network-family-autoselection-attempt-timeout=5000` (validated 2026-10-06: check green at 13:51Z and 14:15Z; transient `UND_ERR_CONNECT_TIMEOUT`/`ETIMEDOUT` → retry once)."
+    },
+    {
+      "id": "e7-verify-fork-push-events",
+      "title": "Prove every workspace push emits a platform event",
+      "kind": "verification",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "scope": "GET /events (CONTRACT.md:155-157 — newest first, ≤50, from KV); queue consumer platform/src/index.ts:1161-1188 → recordEvent :685; queue `nextgit-events` consumer in platform/wrangler.jsonc. FR-34 consequence 1 (third clause).",
+      "acceptance": "PRD: \"each push emits an event.\" Observable: ≥4 distinct `agent-<n>` workspaces have ≥1 pushed event in GET /events (push events recorded by the queue consumer as `cf.artifacts.repo.pushed`), and every pushed event row carries string `{type, repo, ref, after, at}`. Measured live 2026-10-06: pushed events present for agent-1..agent-5 (plus base-repo `repo.pushed` from /land).",
+      "check_cmd": "curl -sS --max-time 60 https://nextgit-platform.john-b7d.workers.dev/events | jq -ec '(.ok == true) and (([.events[] | select((.type|test(\"pushed\")) and (.repo|test(\"^agent-[0-9]+$\"))) | .repo] | unique | length) >= 4) and (all(.events[] | select(.type|test(\"pushed\")); (.repo|type==\"string\") and (.ref|type==\"string\") and (.after|type==\"string\") and (.at|type==\"string\")))'",
+      "deps": [],
+      "notes": "Verification-only; built row `independent-push-events-every-fork-push-emits-a-platform-eve` [done] is the implementation record. Overlap `fan-out-artifacts-repo-events-through-queues` [pending] is the broader CI/agent subscription fan-out implementation — not recreated. The feed keeps only the ≤50 newest events: if the fleet's pushes have rotated out, re-push the fleet (see E7-verify-real-agent-routes-omp-codex) and re-run."
+    },
+    {
+      "id": "e7-verify-workspace-auto-discovery",
+      "title": "Prove agent-* workspaces self-discover before token handoff",
+      "kind": "verification",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "scope": "GET /proposals auto-discovery — CONTRACT.md:35 (`repos optional → auto-discover agent-*`) + platform/src/index.ts:571-572 (filter by `agent-` name prefix and `status === \"ready\"`); fork-before-token ordering in platform/scripts/fanout.mjs:63-70; naming convention `agent-*`. FR-34 consequence 2.",
+      "acceptance": "PRD: \"Provisioning guarantees discoverability before tokens are handed off (conventions naming, status ready); auto-discovery semantics are documented in the contract.\" Observable: `GET /proposals?base=demo` with no `repos` param returns exactly agent-1..agent-5 — the convention-named, ready workspaces are discoverable without the operator naming them; CONTRACT.md documents the auto-discover semantics; fanout.mjs ensures the fork exists before minting its token.",
+      "check_cmd": "curl -sS --max-time 90 'https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo' | jq -ec '.ok and (([.proposals[].repo] | sort) == [\"agent-1\",\"agent-2\",\"agent-3\",\"agent-4\",\"agent-5\"])' && node -e \"const c=require('fs').readFileSync('platform/CONTRACT.md','utf8'); if(!/repos optional . auto-discover/.test(c)) throw new Error('CONTRACT must document agent-* auto-discovery'); console.log('discoverability documented')\"",
+      "deps": [],
+      "notes": "Verification-only delta; overlaps `provision-isolated-workspaces-with-full-lifecycle` [pending] (lifecycle impl) and `weave-workspaces-through-the-whole-experience` [pending] (UI weaving) — neither is this semantics check. Exact-set assertion matches the demo contract (demo-verify.mjs:25,62-67); if agent-5 is absent, run platform/scripts/secret-fixture.mjs (see the pending reset row `demo-scenario-reset-fresh-real-agent-fleet`)."
+    },
+    {
+      "id": "e7-verify-fleet-floor-n4-live",
+      "title": "Prove the N≥4 concurrent real-agent demo floor live",
+      "kind": "verification",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "scope": "platform/scripts/demo-verify.mjs — 25 read-only live checks against https://nextgit-platform.john-b7d.workers.dev; fleet = 4 real CLI-agent workspaces (agent-1..agent-4) + agent-5 secret fixture. FR-34 consequence 3 (demo floor).",
+      "acceptance": "PRD: \"Demo floor: N≥4 real agents proven concurrently.\" Observable: `node platform/scripts/demo-verify.mjs` exits 0 with `DEMO VERIFY: PASS — 25/25 checks`, including: ≥5 proposals; exactly agent-1..agent-5 discovered (6 repos incl. demo); ≥1 conflicting pair incl. the deliberate agent-1 × agent-2 `src/auth.ts` text-conflict; ≥4 proposals with a non-empty intent; all proposals pending (none landed). Each workspace's head is served independently, per-repo, by /proposals.",
+      "check_cmd": "node platform/scripts/demo-verify.mjs",
+      "deps": [],
+      "notes": "P0: the concurrency evidence the submission recording rests on. Status 2026-10-06: green 25/25 (re-run twice). If the fleet has drifted (a proposal landed, agent-5 missing), reset first: `node platform/scripts/seed.mjs` → `node platform/scripts/real-agents.mjs` → `node platform/scripts/secret-fixture.mjs` (pending reset row `demo-scenario-reset-fresh-real-agent-fleet` is that flow — not recreated). Overlaps `give-every-concurrent-agent-an-isolated-workspace` [done] (built record)."
+    },
+    {
+      "id": "e7-verify-real-agent-routes-omp-codex",
+      "title": "Prove omp/codex routes push real proposals to the baseline",
+      "kind": "verification",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-35"
+      ],
+      "scope": "platform/scripts/real-agents.mjs — CLI candidates (codex :124-133, omp :134-141), empirical scratch-dir probe :199-238 (judged by artifact on disk, never CLI self-report), task→CLI assignment :244-277 (agent-1 codex, agent-2 omp, agent-3 omp, agent-4 codex) with fallback :453-468, dispatch :435-534, report :548-614; live /proposals + /changes patches; BUILD-LOG.md:4 (2026-10-04 wave1: 4/4 real omp+codex proposals). FR-35 consequence 1.",
+      "acceptance": "PRD: \"omp and codex routes produce real proposals against the baseline (verified; claude/gemini/opencode are standing auth items, not blockers).\" Observable on a fresh run of the runner against the live baseline: exit 0 with ≥2/4 agent tasks ok (`N/4 real agents pushed a proposal`), and ≥2 rebuilt proposals visible at `GET /proposals?base=demo&repos=agent-1,agent-2,agent-3,agent-4` carrying files + intent; the report (`$REAL_AGENTS_ROOT/report.md`) carries the CLI probe table with truthful usable/unusable per candidate and the per-agent `GET /changes` patches the agents actually wrote. Verified 2026-10-04: 4/4 real omp+codex proposals; re-measured 2026-10-06: omp 4/4 while codex was usage-limited — fallback to a proven CLI is the designed degrade (the run is not halved or skipped).",
+      "check_cmd": "NODE_OPTIONS=\"--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=5000\" REAL_AGENTS_ROOT=/tmp/e7-verify-real-agents AGENTS_OUT=/tmp/e7-verify-agents.json node platform/scripts/real-agents.mjs demo 604800 && sleep 45 && curl -sS --max-time 90 'https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo&repos=agent-1,agent-2,agent-3,agent-4' | jq -ec '.ok and (([.proposals[] | select((.files|length) > 0)] | length) >= 2) and (([.proposals[] | select(.intent != null)] | length) >= 2)'",
+      "deps": [],
+      "notes": "Verification-only re-proof; built rows `heterogeneous-real-agent-fleet-runner-omp-codex-verified` [done] + `demo-agent-harness-deterministic-writers-real-ai-clis` [done]. Budget 10-20 min; consumes real CLI quota; needs CF API auth (same wrangler-refresh note as the fanout story) and this box's node-network flag (baked into the check). The isolated REAL_AGENTS_ROOT/AGENTS_OUT keep the demo work area and fleet manifest untouched; the runner still re-forks agent-1..4 on the live namespace (the sanctioned reset path). `sleep 45` covers the measured push→/proposals propagation lag. Known barrier: stale kept clones at HEAD==origin/main poison the resume path (see reset run §3.2) — the isolated root avoids it. Overlaps `provider-agnostic-agent-launch-unify-8-harness-formats` and `route-work-to-the-best-fit-harness-per-task` [pending] — wider harness routing implementation, not recreated."
+    },
+    {
+      "id": "e7-verify-byo-harness-push-protocol",
+      "title": "Prove the BYO harness clone/commit/three-refspec push interface",
+      "kind": "verification",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-35"
+      ],
+      "scope": "platform/scripts/real-agents.mjs:309-420 — each agent edits its own clone of its fork :349-358; runner commits leftover work :392-405; single push :408-411 with refspecs `main`, `refs/notes/commits`, `refs/notes/commits:refs/heads/nextgit-notes`; agent prompt :280-287 (`Do not run git push — the runner pushes for you`); CONTRACT.md:163-171 (Notes-mirror recipe + intent source); live `GET /changes` intent + patch. FR-35 consequence 2.",
+      "acceptance": "PRD: \"BYO harness is supported through the standard interface: agents edit their own clones; the runner/orchestrator commits and performs the single three-refspec push; agents never push refs.\" Observable: the runner holds exactly one push invocation per agent carrying the three documented refspecs, matching the CONTRACT recipe; the agent prompt forbids `git push`; the runner-delivered payloads are live — `GET /changes?repo=agent-2&base=demo` serves the agent-authored patch (main) and a non-empty intent via the notes mirror; when an agent leaves uncommitted work the runner commits it (report `committed by=runner` — measured 2026-10-06 on agent-2).",
+      "check_cmd": "node -e \"const fs=require('fs');const s=fs.readFileSync('platform/scripts/real-agents.mjs','utf8');const p=[...s.matchAll(/one\\(.push., .origin., ([^)]*)\\)/g)];if(p.length!==1)throw new Error('expected exactly one runner push call, got '+p.length);const refs=p[0][1].split(',').map(t=>t.trim()).filter(Boolean);if(refs.length!==3)throw new Error('expected 3 refspecs, got '+(refs.join(' ')||'none'));if(!/Do not run .git push./.test(s))throw new Error('agent prompt must forbid git push');const c=fs.readFileSync('platform/CONTRACT.md','utf8');if(!c.includes('git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-notes'))throw new Error('CONTRACT must document the three-refspec agent push recipe');console.log('push protocol OK: '+refs.join(' '))\" && curl -sS --max-time 60 'https://nextgit-platform.john-b7d.workers.dev/changes?repo=agent-2&base=demo' | jq -ec '.ok and ((.changeSet.files | map(select(.intent != null)) | length) >= 1)'",
+      "deps": [],
+      "notes": "FR-35 consequence 3 (machine-readable tool manifest + structure map into every workspace) is NOT built — pending rows `law-3-self-describing-platform-tool-manifest-structure-map-i` + `ship-tool-manifest-and-structure-map-into-workspaces`; its implementation is covered by the sibling slice E7-impl, and no verification story is authored for it here (it would fail until built). Overlaps `provider-agnostic-agent-launch-unify-8-harness-formats` and `support-byo-models-and-harnesses-via-launch-abstraction` [pending] — launch-abstraction implementation, not this protocol proof. Verified green 2026-10-06; the live half requires the fleet to exist (FR-34 runs) — allow push→/changes propagation before re-running. Uses `node -e` (not bun) so a mismatch exits 1."
+    }
+  ]
+}

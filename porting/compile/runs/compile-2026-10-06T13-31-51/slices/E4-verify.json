@@ -1,0 +1,137 @@
+{
+  "slice": "E4-verify",
+  "epic": "E4",
+  "kind": "verification",
+  "stories": [
+    {
+      "id": "e4-verify-ticker-newest-8-render",
+      "title": "Prove the events ticker renders the newest 8 events with type, repo and time",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-20"
+      ],
+      "scope": "Ticker surface, executed not read: platform/ui/app.js loadEvents + renderEventsTicker (state.events cap via slice(0,8); row markup .event-type/.event-repo/.event-time). The bun harness (run from repo root) evaluates app.js under a stub DOM, feeds 12 events through loadEvents() and asserts the retained cap, the rendered rows and the fresh pulse. Feed source is the live GET /events (platform/CONTRACT.md:155-157), verified separately.",
+      "acceptance": "Given 12 events returned by /events, the ticker retains exactly the newest 8 and renders type, repo and time for each; a successful poll leaves the pulse unstale. Evidence: `PASS ticker newest-8 render with type/repo/time`.",
+      "check_cmd": "bun -e 'try{const fs=require(\"fs\"),rs=setTimeout;const mk=id=>({classList:(()=>{const s=new Set();return{add:x=>s.add(x),remove:x=>s.delete(x),contains:x=>s.has(x)}})(),handlers:{},addEventListener(t,f){(this.handlers[t]=this.handlers[t]||[]).push(f)},innerHTML:\"\",textContent:\"\",hidden:false,checked:false});const els=new Map;globalThis.document={readyState:\"complete\",getElementById:id=>els.get(id)??(els.set(id,mk(id)),els.get(id)),addEventListener(){}};globalThis.window={addEventListener(){}};let body=[],fcs=[];const ivs=[],tms=[];globalThis.setInterval=(f,ms)=>(ivs.push({f,ms}),ivs.length);globalThis.clearInterval=()=>{};globalThis.setTimeout=(f,ms)=>(tms.push({f,ms}),tms.length);globalThis.clearTimeout=()=>{};globalThis.fetch=async(u,o={})=>{u=String(u);fcs.push({u,m:o.method||\"GET\"});if(u.includes(\"/events\"))return{ok:true,status:200,json:async()=>({ok:true,events:body})};if(u.includes(\"/land\"))return{ok:true,status:200,json:async()=>({ok:true,landed:{commit:\"0\".repeat(40)}})};return{ok:true,status:200,json:async()=>({ok:true,base:{repo:\"demo\",ref:\"main\"},ref:\"main\",proposals:[],conflicts:[],summary:{}})}};const api=new Function(fs.readFileSync(\"platform/ui/app.js\",\"utf8\")+\"\\n;return {loadEvents,loadProposals,setupTimers,state,el};\")();const fail=m=>{console.error(\"FAIL \"+m);process.exit(1)};(async()=>{await new Promise(r=>rs(r,20));body=Array.from({length:12},(_,i)=>({type:\"type-\"+i,repo:\"demo\",ref:\"refs/heads/main\",after:\"a\".repeat(40),at:new Date(Date.UTC(2026,9,6,0,0,i)).toISOString()}));await api.loadEvents();const h=api.el.tickerEvents.innerHTML;if(api.state.events.length!==8)fail(\"ticker kept \"+api.state.events.length+\" events, want 8\");if(h.includes(\"type-8\"))fail(\"ticker rendered older than the newest 8\");if(!h.includes(\"event-type\")||!h.includes(\"event-repo\")||!h.includes(\"event-time\"))fail(\"ticker row misses type/repo/time\");if(api.el.tickerPulse.classList.contains(\"is-stale\"))fail(\"pulse stale after a successful poll\");console.log(\"PASS ticker newest-8 render with type/repo/time\")})().catch(e=>{console.error(\"FAIL exception: \"+e);process.exit(1)})}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "FR-20 is built (needs.verification only) — no rebuild. Build rows done in store: `publish-a-live-change-set-event-feed-from-pushes`, `landed-state-banner-commit-sha-live-event-feed-tick`, `independent-push-events-every-fork-push-emits-a-platform-eve`. Pack overlap rows (`fan-out-artifacts-repo-events-through-queues`, `events-normalized-platform-event-bus-across-all-families`, `fan-out-event-subscriptions-to-ci-and-agents-deduped`, `live-pipeline-heatmap-for-parallel-test-execution`) are implementation/observability rows — the delta here is executed evidence. As-built the ticker is fed by the 2s poll; the real-time transport is E4-impl-do-hub-sse-transport + E4-impl-ui-consume-event-stream. check_cmd fails closed: the harness wraps every run in try/catch and exits 1 with a FAIL line on any exception (bun -e can silently swallow sync throws after a sync fs read, so no bare throws are used)."
+    },
+    {
+      "id": "e4-verify-event-debounced-refresh",
+      "title": "Prove a new top event debounces a /proposals refresh at 500ms",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-20"
+      ],
+      "scope": "FR-20's push-to-refresh seam (consequence 2: a push can trigger the debounced proposals refresh). platform/ui/app.js loadEvents: lastEventSeenAt comparison, clearTimeout(debounceRefreshTimer) + setTimeout(500) calling loadProposals. The harness drives two poll cycles whose top event key changes, runs the armed timer, and asserts exactly one /proposals fetch plus ticker adoption of the new top event.",
+      "acceptance": "Given two successive polls where the top event key changed, the UI arms a 500ms debounce, fires a /proposals refresh when it elapses, and the ticker shows the new top event. Evidence: `PASS new event debounced 500ms -> /proposals refresh`.",
+      "check_cmd": "bun -e 'try{const fs=require(\"fs\"),rs=setTimeout;const mk=id=>({classList:(()=>{const s=new Set();return{add:x=>s.add(x),remove:x=>s.delete(x),contains:x=>s.has(x)}})(),handlers:{},addEventListener(t,f){(this.handlers[t]=this.handlers[t]||[]).push(f)},innerHTML:\"\",textContent:\"\",hidden:false,checked:false});const els=new Map;globalThis.document={readyState:\"complete\",getElementById:id=>els.get(id)??(els.set(id,mk(id)),els.get(id)),addEventListener(){}};globalThis.window={addEventListener(){}};let body=[],fcs=[];const ivs=[],tms=[];globalThis.setInterval=(f,ms)=>(ivs.push({f,ms}),ivs.length);globalThis.clearInterval=()=>{};globalThis.setTimeout=(f,ms)=>(tms.push({f,ms}),tms.length);globalThis.clearTimeout=()=>{};globalThis.fetch=async(u,o={})=>{u=String(u);fcs.push({u,m:o.method||\"GET\"});if(u.includes(\"/events\"))return{ok:true,status:200,json:async()=>({ok:true,events:body})};if(u.includes(\"/land\"))return{ok:true,status:200,json:async()=>({ok:true,landed:{commit:\"0\".repeat(40)}})};return{ok:true,status:200,json:async()=>({ok:true,base:{repo:\"demo\",ref:\"main\"},ref:\"main\",proposals:[],conflicts:[],summary:{}})}};const api=new Function(fs.readFileSync(\"platform/ui/app.js\",\"utf8\")+\"\\n;return {loadEvents,loadProposals,setupTimers,state,el};\")();const fail=m=>{console.error(\"FAIL \"+m);process.exit(1)};(async()=>{const evn=(t,at)=>({type:t,repo:\"demo\",ref:\"refs/heads/main\",after:\"a\".repeat(40),at});await new Promise(r=>rs(r,20));body=[evn(\"seed\",\"2026-10-06T00:00:00.000Z\")];await api.loadEvents();tms.length=0;body=[evn(\"repo.pushed\",\"2026-10-06T00:00:05.000Z\"),evn(\"seed\",\"2026-10-06T00:00:00.000Z\")];await api.loadEvents();const t=tms.find(x=>x.ms===500);if(!t)fail(\"new top event did not arm a 500ms debounce\");const n0=fcs.filter(x=>x.u.includes(\"/proposals\")).length;t.f();await new Promise(r=>rs(r,40));if(fcs.filter(x=>x.u.includes(\"/proposals\")).length<=n0)fail(\"debounced refresh never hit /proposals\");if(api.state.events[0].type!==\"repo.pushed\")fail(\"ticker did not adopt the new top event\");console.log(\"PASS new event debounced 500ms -> /proposals refresh\")})().catch(e=>{console.error(\"FAIL exception: \"+e);process.exit(1)})}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "The first-ever observation of a top event never debounces (lastEventSeenAt null-guard); the harness proves that by seeding an earlier event before the change. FR-5 is the consumer of this refresh and belongs to another epic — referenced, not claimed in fr_refs."
+    },
+    {
+      "id": "e4-verify-events-failure-isolation",
+      "title": "Prove /events failure goes stale without breaking the proposals surface",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-20",
+        "FR-22"
+      ],
+      "scope": "Degraded-path behavior, executed: platform/ui/app.js loadEvents catch path (tickerPulse is-stale, state.events retained, no rethrow, no connectionError/proposalsData mutation) kept separate from loadProposals' own connection state. The harness polls successfully first, then flips the fetch to fail, asserts isolation, and re-loads /proposals to prove the surface still works.",
+      "acceptance": "Given a failing /events fetch after a successful poll: loadEvents resolves without throwing, tickerPulse gains is-stale, the last events stay, state.connectionError stays false and proposalsData is untouched, and a subsequent /proposals load still succeeds. Evidence: `PASS /events failure: stale pulse, retained events, proposals untouched`.",
+      "check_cmd": "bun -e 'try{const fs=require(\"fs\"),rs=setTimeout;const mk=id=>({classList:(()=>{const s=new Set();return{add:x=>s.add(x),remove:x=>s.delete(x),contains:x=>s.has(x)}})(),handlers:{},addEventListener(t,f){(this.handlers[t]=this.handlers[t]||[]).push(f)},innerHTML:\"\",textContent:\"\",hidden:false,checked:false});const els=new Map;globalThis.document={readyState:\"complete\",getElementById:id=>els.get(id)??(els.set(id,mk(id)),els.get(id)),addEventListener(){}};globalThis.window={addEventListener(){}};let body=[],fcs=[];const ivs=[],tms=[];globalThis.setInterval=(f,ms)=>(ivs.push({f,ms}),ivs.length);globalThis.clearInterval=()=>{};globalThis.setTimeout=(f,ms)=>(tms.push({f,ms}),tms.length);globalThis.clearTimeout=()=>{};globalThis.fetch=async(u,o={})=>{u=String(u);fcs.push({u,m:o.method||\"GET\"});if(u.includes(\"/events\"))return{ok:true,status:200,json:async()=>({ok:true,events:body})};if(u.includes(\"/land\"))return{ok:true,status:200,json:async()=>({ok:true,landed:{commit:\"0\".repeat(40)}})};return{ok:true,status:200,json:async()=>({ok:true,base:{repo:\"demo\",ref:\"main\"},ref:\"main\",proposals:[],conflicts:[],summary:{}})}};const api=new Function(fs.readFileSync(\"platform/ui/app.js\",\"utf8\")+\"\\n;return {loadEvents,loadProposals,setupTimers,state,el};\")();const fail=m=>{console.error(\"FAIL \"+m);process.exit(1)};(async()=>{const evn=(t,at)=>({type:t,repo:\"demo\",ref:\"refs/heads/main\",after:\"a\".repeat(40),at});await new Promise(r=>rs(r,20));body=[evn(\"seed\",\"2026-10-06T00:00:00.000Z\")];await api.loadEvents();const retained=api.state.events.length,props=api.state.proposalsData,conn=api.state.connectionError;globalThis.fetch=async(u,o={})=>{u=String(u);fcs.push({u,m:o.method||\"GET\"});if(u.includes(\"/events\"))throw Error(\"events down\");return{ok:true,status:200,json:async()=>({ok:true,base:{repo:\"demo\",ref:\"main\"},ref:\"main\",proposals:[],conflicts:[],summary:{}})}};let threw=false;try{await api.loadEvents()}catch(e){threw=true}if(threw)fail(\"loadEvents threw on /events failure\");if(!api.el.tickerPulse.classList.contains(\"is-stale\"))fail(\"pulse did not go stale\");if(api.state.events.length!==retained)fail(\"last events were not retained\");if(api.state.connectionError!==conn||api.state.proposalsData!==props)fail(\"events failure disturbed proposals state\");await api.loadProposals();if(api.state.connectionError!==false)fail(\"proposals surface broken after events failure\");console.log(\"PASS /events failure: stale pulse, retained events, proposals untouched\")})().catch(e=>{console.error(\"FAIL exception: \"+e);process.exit(1)})}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "One executed proof for FR-20 consequence 3 and FR-22's '/events failure must never break the proposals UI' clause. Overlaps E4-impl's E4-verify-polling-cadence-set-view (UX-DR-6 framing) intentionally: this story owns the runtime isolation proof, that one owns cadence + set view."
+    },
+    {
+      "id": "e4-verify-events-endpoint-contract",
+      "title": "Prove GET /events serves the newest 50 or fewer events, newest-first",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-21"
+      ],
+      "scope": "Live worker GET /events (platform/CONTRACT.md:155-157) over KV LIVE key `recent`; writer cap in platform/src/index.ts (MAX_EVENTS=50 at :41; recordEvent prepends + slices at :685-688). The check asserts, from repo root against the live demo: ok=true, array, <=50 entries, non-increasing `at`, every entry carrying type and at. Verifies the BUILT core only.",
+      "acceptance": "Against the live demo, GET /events returns ok=true with an events array of at most 50 entries ordered newest-first, each carrying type and at (50 observed 2026-10-06). Evidence: `PASS GET /events ok=true len=<count> newest=<iso-ts>`.",
+      "check_cmd": "curl -sf --max-time 30 https://nextgit-platform.john-b7d.workers.dev/events | bun -e 'try{const j=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));const e=j.events;if(j.ok!==true||!Array.isArray(e)){console.error(\"FAIL envelope\");process.exit(1)}if(e.length>50){console.error(\"FAIL feed cap \"+e.length);process.exit(1)}for(let i=1;i<e.length;i++){if(e[i-1].at<e[i].at){console.error(\"FAIL newest-first at index \"+i);process.exit(1)}}if(!e.every(x=>typeof x.type===\"string\"&&typeof x.at===\"string\")){console.error(\"FAIL event entry fields\");process.exit(1)}console.log(\"PASS GET /events ok=true len=\"+e.length+\" newest=\"+e[0]?.at)}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "FR-21's milestone hint is M2 because payload validation + dedupe hardening are sequenced — this story verifies the built core and deliberately does NOT assert dedupe. The live feed currently contains 3 duplicate (type,repo,ref,after) tuples (e.g. cf.artifacts.repo.pushed|agent-5|refs/heads/main|8ff346693b547af45ac61b0b505a5a263cdfcd5d twice), which is precisely the M2 gap owned by E4-impl-event-consumer-hardening and store row `event-consumer-validation-dedupe`; dedupe proof follows that build via E4-impl's deps-gated E4-verify-single-writer-consumer-hint."
+    },
+    {
+      "id": "e4-verify-single-consumer-kv-writer",
+      "title": "Prove exactly one queue consumer and one KV LIVE writer, feed non-authoritative",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-21"
+      ],
+      "scope": "platform/wrangler.jsonc: exactly one queue consumer on nextgit-events, KV binding LIVE. platform/src/index.ts: exactly one env.LIVE.put site (recordEvent :685-688) and one env.LIVE.get site (readEvents :680-683); readEvents call sites limited to its definition, recordEvent and the GET /events route (:1151), so no write/identity path consults the feed. Live leg: the feed carries queue-origin cf.artifacts.* events, proving the consumer actually records.",
+      "acceptance": "wrangler.jsonc declares exactly one consumer on nextgit-events and one KV namespace; the worker has one KV LIVE put site (recordEvent) and one get site (readEvents), with readEvents consumed only by recordEvent and the GET /events route; the live feed contains cf.artifacts.* queue-consumer events. Evidence: `PASS one consumer, one KV writer, queue events recording live`.",
+      "check_cmd": "bun -e 'try{const fs=require(\"fs\");const w=JSON.parse(fs.readFileSync(\"platform/wrangler.jsonc\",\"utf8\"));const s=fs.readFileSync(\"platform/src/index.ts\",\"utf8\");const fail=m=>{console.error(\"FAIL \"+m);process.exit(1)};const c=(w.queues&&w.queues.consumers)||[];if(c.length!==1||c[0].queue!==\"nextgit-events\")fail(\"queue consumers=\"+JSON.stringify(c));const puts=(s.match(/env\\.LIVE\\.put\\(/g)||[]).length;const gets=(s.match(/env\\.LIVE\\.get\\(/g)||[]).length;const ros=(s.match(/readEvents\\(/g)||[]).length;if(puts!==1)fail(\"KV LIVE put sites=\"+puts);if(gets!==1)fail(\"KV LIVE get sites=\"+gets);if(ros!==3)fail(\"readEvents call sites=\"+ros);(async()=>{const r=await fetch(\"https://nextgit-platform.john-b7d.workers.dev/events\");const j=await r.json();if(j.ok!==true||!Array.isArray(j.events))fail(\"live /events envelope\");if(!j.events.some(x=>/^cf\\.artifacts\\./.test(String(x.type))))fail(\"no queue-consumer event in live feed\");console.log(\"PASS one consumer, one KV writer, queue events recording live\")})().catch(e=>{console.error(\"FAIL exception: \"+e);process.exit(1)})}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "Built-core framing of FR-21 consequence 1/3; build row `consume-artifacts-events-over-queues-into-a-live-feed` [done]. The check counts LIVE put/get and readEvents sites — dedupe is out of scope (M2, E4-impl-event-consumer-hardening). Partial overlap with E4-impl's NFR-7 story E4-verify-single-writer-consumer-hint, which is deps-gated on the hardening and owns the NFR-7 framing; this story keeps the FR-21 built-core framing and runs green today."
+    },
+    {
+      "id": "e4-verify-polling-cadence-toggle",
+      "title": "Prove the fallback cadence: /events 2s, /proposals 8s behind a default-on toggle",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-22"
+      ],
+      "scope": "platform/ui/app.js: state.autoRefresh default true (:10), setupTimers (:1038-1055), toggle change handler (:1020-1025); platform/ui/index.html toggle renders `checked` (:38). The harness (stub timers) asserts the armed interval set at boot, after toggle-off, and after toggle-on.",
+      "acceptance": "Boot arms a 2s /events poll unconditionally and an 8s /proposals poll while auto-refresh (default on) is engaged; toggling off re-arms only the 2s poll; toggling back on re-arms the 8s poll. Evidence: `PASS polls: /events 2s always, /proposals 8s gated by default-on toggle`.",
+      "check_cmd": "bun -e 'try{const fs=require(\"fs\"),rs=setTimeout;const mk=id=>({classList:(()=>{const s=new Set();return{add:x=>s.add(x),remove:x=>s.delete(x),contains:x=>s.has(x)}})(),handlers:{},addEventListener(t,f){(this.handlers[t]=this.handlers[t]||[]).push(f)},innerHTML:\"\",textContent:\"\",hidden:false,checked:false});const els=new Map;globalThis.document={readyState:\"complete\",getElementById:id=>els.get(id)??(els.set(id,mk(id)),els.get(id)),addEventListener(){}};globalThis.window={addEventListener(){}};let body=[],fcs=[];const ivs=[],tms=[];globalThis.setInterval=(f,ms)=>(ivs.push({f,ms}),ivs.length);globalThis.clearInterval=()=>{};globalThis.setTimeout=(f,ms)=>(tms.push({f,ms}),tms.length);globalThis.clearTimeout=()=>{};globalThis.fetch=async(u,o={})=>{u=String(u);fcs.push({u,m:o.method||\"GET\"});if(u.includes(\"/events\"))return{ok:true,status:200,json:async()=>({ok:true,events:body})};if(u.includes(\"/land\"))return{ok:true,status:200,json:async()=>({ok:true,landed:{commit:\"0\".repeat(40)}})};return{ok:true,status:200,json:async()=>({ok:true,base:{repo:\"demo\",ref:\"main\"},ref:\"main\",proposals:[],conflicts:[],summary:{}})}};const api=new Function(fs.readFileSync(\"platform/ui/app.js\",\"utf8\")+\"\\n;return {loadEvents,loadProposals,setupTimers,state,el};\")();const fail=m=>{console.error(\"FAIL \"+m);process.exit(1)};(async()=>{await new Promise(r=>rs(r,20));const iv=ms=>ivs.filter(x=>x.ms===ms).length;if(api.state.autoRefresh!==true)fail(\"autoRefresh not on by default\");if(iv(2000)<1)fail(\"no 2s /events poll armed\");if(iv(8000)<1)fail(\"no 8s /proposals poll armed with autoRefresh on\");const tog=els.get(\"auto-refresh-toggle\");if(!tog||!tog.handlers.change)fail(\"no auto-refresh toggle handler\");const t0=iv(8000),e0=iv(2000);tog.handlers.change[0]({target:{checked:false}});if(iv(8000)!==t0)fail(\"8s /proposals poll re-armed while autoRefresh off\");if(iv(2000)<=e0)fail(\"2s /events poll not re-armed with autoRefresh off\");tog.handlers.change[0]({target:{checked:true}});if(iv(8000)!==t0+1)fail(\"8s /proposals poll not re-armed when autoRefresh back on\");console.log(\"PASS polls: /events 2s always, /proposals 8s gated by default-on toggle\")})().catch(e=>{console.error(\"FAIL exception: \"+e);process.exit(1)})}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "Executes UX-DR-6's cadence constants from the FR-22 side. UX-DR-6 itself is assigned to E4-impl, whose E4-verify-polling-cadence-set-view keeps the UX-DR-6 framing (grep-based) plus set-view/no-paging — intentional framing split, no shared id. Real-time transport is unbuilt: E4-impl-do-hub-sse-transport + E4-impl-ui-consume-event-stream; the SM-2 demo-beat comparison is store row `demo-beat-visibly-outrun-the-90s-poll-baseline` [pending]."
+    },
+    {
+      "id": "e4-verify-land-reloads-endpoints",
+      "title": "Prove a land and a manual refresh reload /proposals and /events immediately",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-22"
+      ],
+      "scope": "platform/ui/app.js handleLandProposal success path (await loadProposals(); await loadEvents(); :909-911) and the manual-refresh / retry handlers (:1004-1017). The harness drives the confirm-land click handler through the proposals-grid delegation and then the manual refresh button, asserting the fetch sequence.",
+      "acceptance": "Given a successful POST /land, the UI immediately issues GET /proposals then GET /events without waiting for a poll tick; the manual refresh button reloads both endpoints. Evidence: `PASS land + manual refresh reload /proposals and /events immediately`.",
+      "check_cmd": "bun -e 'try{const fs=require(\"fs\"),rs=setTimeout;const mk=id=>({classList:(()=>{const s=new Set();return{add:x=>s.add(x),remove:x=>s.delete(x),contains:x=>s.has(x)}})(),handlers:{},addEventListener(t,f){(this.handlers[t]=this.handlers[t]||[]).push(f)},innerHTML:\"\",textContent:\"\",hidden:false,checked:false});const els=new Map;globalThis.document={readyState:\"complete\",getElementById:id=>els.get(id)??(els.set(id,mk(id)),els.get(id)),addEventListener(){}};globalThis.window={addEventListener(){}};let body=[],fcs=[];const ivs=[],tms=[];globalThis.setInterval=(f,ms)=>(ivs.push({f,ms}),ivs.length);globalThis.clearInterval=()=>{};globalThis.setTimeout=(f,ms)=>(tms.push({f,ms}),tms.length);globalThis.clearTimeout=()=>{};globalThis.fetch=async(u,o={})=>{u=String(u);fcs.push({u,m:o.method||\"GET\"});if(u.includes(\"/events\"))return{ok:true,status:200,json:async()=>({ok:true,events:body})};if(u.includes(\"/land\"))return{ok:true,status:200,json:async()=>({ok:true,landed:{commit:\"0\".repeat(40)}})};return{ok:true,status:200,json:async()=>({ok:true,base:{repo:\"demo\",ref:\"main\"},ref:\"main\",proposals:[],conflicts:[],summary:{}})}};const api=new Function(fs.readFileSync(\"platform/ui/app.js\",\"utf8\")+\"\\n;return {loadEvents,loadProposals,setupTimers,state,el};\")();const fail=m=>{console.error(\"FAIL \"+m);process.exit(1)};(async()=>{await new Promise(r=>rs(r,20));const grid=els.get(\"proposals-grid\");if(!grid||!grid.handlers.click)fail(\"no proposals-grid click handler\");const n0=fcs.length;grid.handlers.click[0]({target:{closest:s=>s===\"[data-action]\"?{getAttribute:a=>a===\"data-action\"?\"confirm-land\":a===\"data-repo\"?\"agent-1\":null}:null}});await new Promise(r=>rs(r,60));const post=fcs.slice(n0).map(x=>x.u);if(!post.some(u=>u.includes(\"/land\")))fail(\"confirm-land did not POST /land\");if(!post.some(u=>u.includes(\"/proposals\")))fail(\"land did not reload /proposals\");if(!post.some(u=>u.includes(\"/events\")))fail(\"land did not reload /events\");const refresh=els.get(\"btn-manual-refresh\");if(!refresh||!refresh.handlers.click)fail(\"no manual refresh handler\");const n1=fcs.length;refresh.handlers.click[0]();await new Promise(r=>rs(r,40));const post2=fcs.slice(n1).map(x=>x.u);if(!post2.some(u=>u.includes(\"/proposals\"))||!post2.some(u=>u.includes(\"/events\")))fail(\"manual refresh did not reload both endpoints\");console.log(\"PASS land + manual refresh reload /proposals and /events immediately\")})().catch(e=>{console.error(\"FAIL exception: \"+e);process.exit(1)})}catch(e){console.error(\"FAIL exception: \"+e);process.exit(1)}'",
+      "deps": [],
+      "notes": "FR-22 fallback consequence 'a land reloads both endpoints immediately'. The banner/commit-sha half of the land UX is store row `landed-state-banner-commit-sha-live-event-feed-tick` [done]; this story proves the reload sequencing only."
+    },
+    {
+      "id": "e4-verify-deployed-ui-parity",
+      "title": "Prove the live demo serves the verified UI source byte-for-byte",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-20",
+        "FR-22"
+      ],
+      "scope": "Deploy-parity gate for the surface the demo actually runs: GET / and GET /app.js from nextgit-platform.john-b7d.workers.dev compared byte-wise (cmp -s) against platform/ui/index.html and platform/ui/app.js. A stale deploy silently invalidates the ticker and polling proofs above.",
+      "acceptance": "The live worker's / and /app.js responses are byte-identical to platform/ui/index.html and platform/ui/app.js (verified 2026-10-06). Evidence: `PASS deployed UI assets byte-match platform/ui`.",
+      "check_cmd": "curl -sf --max-time 30 https://nextgit-platform.john-b7d.workers.dev/app.js | cmp -s - platform/ui/app.js || { echo 'FAIL deployed app.js differs from platform/ui/app.js'; exit 1; }\ncurl -sf --max-time 30 https://nextgit-platform.john-b7d.workers.dev/ | cmp -s - platform/ui/index.html || { echo 'FAIL deployed index differs from platform/ui/index.html'; exit 1; }\necho 'PASS deployed UI assets byte-match platform/ui'",
+      "deps": [],
+      "notes": "Deploy hygiene per SPINE:135 (lockfile-pinned wrangler only); single live-demo environment (SPINE:177). The index is served at / (not /index.html)."
+    }
+  ]
+}

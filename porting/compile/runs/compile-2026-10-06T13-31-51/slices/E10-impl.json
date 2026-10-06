@@ -1,0 +1,121 @@
+{
+  "slice": "E10-impl",
+  "epic": "E10",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e10-impl-demo-reproducible-runbook",
+      "title": "Make the end-to-end demo reproducible from the committed scripts (operator runbook)",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "scope": "platform/scripts/README.md — the operator runbook; the one remaining deliverable of this story (absent at HEAD, verified). All seven demo scripts are already tracked at HEAD (verified via git ls-files: seed.mjs, agents.mjs, real-agents.mjs, land.mjs, fanout.mjs, demo-verify.mjs, secret-fixture.mjs) — no tracking work remains. Runbook contents: prerequisite env (CLOUDFLARE_ACCOUNT_ID; NEXTGIT_PLATFORM to point the scripts at another worker; CLOUDFLARE_API_TOKEN or wrangler login; optional ARTIFACTS_NAMESPACE / NEXTGIT_BASELINE overrides) and wrangler auth; the exact corrected order — (1) seed.mjs (baseline), (2) real-agents.mjs (REAL CLI agents; agents.mjs is the scripted alternative), (3) secret-fixture.mjs (agent-5 secret-class fixture, idempotent), (4) demo-verify.mjs — the terminal pre-recording gate: read-only against the platform, expects every proposal still pending (all-pending; 25/25) — then (5) the recording beats AFTER the gate: the tour/UI beats and the optional landing demo. The runbook must state explicitly that after a landing beat the all-pending gate is NOT re-run — a landed proposal fails demo-verify by design (its 'no landed proposal' assertion); the landing beat proves itself via the UI/land response (receipt, landed badge, push event). Per-step expected observable; scratch outputs (/tmp/real-agents/report.md, /tmp/nextgit-agents.json); retry playbook (real-agents.mjs --only <repo>; SERIAL_RETRY=1 serial retry); no-mocks rule (live Workers + Artifacts end to end).",
+      "acceptance": "The committed runbook orders seed.mjs -> real-agents.mjs -> secret-fixture.mjs -> demo-verify.mjs, names demo-verify.mjs as the terminal pre-recording gate (all-pending), puts the recording/landing beats after it, and states the all-pending gate is not re-run after a landing beat. Following the runbook to the gate on the demo state, `node platform/scripts/demo-verify.mjs` prints PASS for every check and exits 0 — no proposal landed, N>=4 real proposals with non-empty intents, >=1 genuine collision surfaced pre-land (agent-1 x agent-2 src/auth.ts), secret-class surface masked.",
+      "check_cmd": "bun -e 'import { readFileSync } from \"node:fs\";const rd=p=>{try{return readFileSync(p,\"utf8\")}catch(e){console.error(\"missing file: \"+p);process.exit(2)}};const r=rd(\"platform/scripts/README.md\");const d=rd(\"platform/scripts/demo-verify.mjs\");const need=[\"seed.mjs\",\"real-agents.mjs\",\"secret-fixture.mjs\",\"demo-verify.mjs\"];let pos=-1;for(const s of need){pos=r.indexOf(s,pos+1);if(pos<0){console.error(\"runbook missing or out of order: \"+s);process.exit(1)}}if(!/all[- ]pending/i.test(r)){console.error(\"runbook must state the all-pending gate\");process.exit(1)}if(!/not (re-?run|rerun)/i.test(r)){console.error(\"runbook must state the gate is not re-run after a landing beat\");process.exit(1)}if(!d.includes(\"no landed proposal\")){console.error(\"demo-verify all-pending assertion missing\");process.exit(1)}console.log(\"OK: runbook order seed -> real-agents -> secret-fixture -> demo-verify; all-pending gate stated\")'",
+      "deps": [],
+      "notes": "Repair round: the runbook carries the corrected gate order — demo-verify.mjs asserts 'no landed proposal — all pending (recording requirement)' (demo-verify.mjs:108), so the hero landing beat comes after the gate and the gate is not re-run post-landing (the landing beat proves itself via the UI/land response). Stale premises fixed: all seven demo scripts are tracked at HEAD (verified via git ls-files); the remaining deliverable is platform/scripts/README.md (absent, verified); the `demo-scenario-reset-fresh-real-agent-fleet` row is [done] (verified in tasks.db). Dedupe: `two-command-reproducible-demo-seed-real-agents` [done] covers the two-command run; `demo-one-repo-3-5-agents-seeded-collision-land-one-scrub-lea` [pending] covers the single-run demo shape; `live-only-e2e-verification-gate-before-submission-no-mocks` [pending] carries the no-mocks gate. This story adds the committed operator runbook only; it does not rewrite script logic."
+    },
+    {
+      "id": "e10-impl-submission-readme-run-instructions",
+      "title": "Cross-link the operator runbook from the root README",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-41"
+      ],
+      "scope": "README.md at repo root — the run instructions are committed (8169aa2/20b027b: what-the-product-is, live URL https://nextgit-platform.john-b7d.workers.dev/, fresh-checkout install/auth/deploy with the lockfile-pinned local wrangler, the run sequence seed.mjs -> real-agents.mjs -> secret-fixture.mjs -> demo-verify.mjs, the repo map, the MIT license statement). Genuine remaining delta: README has no reference to platform/scripts/README.md (verified absent) — add the operator-runbook link in the 'Run it yourself' section next to the demo sequence, so env prerequisites, per-step expected observables and the retry playbook live in one place. Do not rewrite the rest of README; its run sequence already matches the corrected all-pending gate order.",
+      "acceptance": "README.md links platform/scripts/README.md from the run-instructions section and the link target exists; a reader following README reaches the operator runbook for the full step-by-step sequence; README's run sequence still ends at demo-verify.mjs as the state gate before any landing.",
+      "check_cmd": "grep -q 'scripts/README.md' README.md && test -s platform/scripts/README.md && grep -q 'demo-verify.mjs' README.md",
+      "deps": [
+        "e10-impl-demo-reproducible-runbook"
+      ],
+      "notes": "Repair round: the submission-compliance row `submission-compliance-osi-license-license-file-run-instructi` is DONE — commits 8169aa2 + 20b027b shipped the root README + LICENSE (MIT) + run instructions (verified in tasks.db); the genuine remaining delta is the runbook cross-link only. Dedupe: `submission-package` [pending] carries curation + eligibility; `submission-repo-location-single-entry-registered-by-oct-14` [pending] carries the repo-location decision (OQ-9) and the single-entry registration act — not recreated here."
+    },
+    {
+      "id": "e10-impl-submission-license",
+      "title": "Complete the submission license surface: package.json license field, tracked-file credential-scan evidence, single-entry filing note",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-41"
+      ],
+      "scope": "LICENSE (MIT, committed 8169aa2) is shipped — do not redo it. Remaining deltas: (1) add the license field \"MIT\" to platform/package.json — verified absent at HEAD — matching the root LICENSE; (2) tracked-file credential-scan evidence: scan the tracked tree for credential material (no tracked .env / dev.vars / private-key / wrangler-config files; no literal API-token or account-key assignments in tracked files) and record the scan command + result in the submission notes at submission/NOTES.md (new file; submission/ also holds nextgit-demo.mp4); (3) the single-entry filing note: record eligibility (US-resident teammate files) and the single-entry constraint with the 2026-10-14 deadline in submission/NOTES.md, for the registration step. The registration act itself is `submission-repo-location-single-entry-registered-by-oct-14` [pending].",
+      "acceptance": "platform/package.json declares license \"MIT\" matching the root LICENSE; the tracked-file credential scan finds no credential material and its command + result are recorded in submission/NOTES.md; submission/NOTES.md records eligibility and the single-entry constraint (with the Oct 14 date) for the registration step.",
+      "check_cmd": "jq -e '.license == \"MIT\"' platform/package.json && test -s submission/NOTES.md && grep -qi 'credential' submission/NOTES.md && grep -qiE 'single[- ]entry' submission/NOTES.md",
+      "deps": [],
+      "notes": "Repair round: LICENSE (MIT) and the submission-compliance row are DONE (verified; commits 8169aa2/20b027b). Remaining deltas: the platform/package.json license field (verified absent), the tracked-file credential-scan evidence, and the single-entry filing note (still open). Dedupe: `submission-package` [pending] carries curation/eligibility resolution; `submission-repo-location-single-entry-registered-by-oct-14` [pending] carries the registration act. This story adds the manifest field + recorded evidence/notes only."
+    },
+    {
+      "id": "e10-impl-submission-video-single-take",
+      "title": "Record and gate the 5-10 minute single-take submission video",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-41"
+      ],
+      "scope": "Record the submission take following _bmad-output/planning-artifacts/demo/video-script.md (7:30 nominal, 5-10 minute window). Reset the world first (seed.mjs then real-agents.mjs then secret-fixture.mjs), then record one uninterrupted take: cold open with the live URL visible, the fleet (>=4 real proposals + intents + event ticker), the collision (src/auth.ts text-conflict pair), the judge chips, the click (preview merge then land then receipt commit + landed badge + push event), the close. Real infrastructure only, no mocks, no cuts, no devtools. Store the recording at submission/nextgit-demo.mp4.",
+      "acceptance": "A single uninterrupted take exists at submission/nextgit-demo.mp4; ffprobe reports a duration within 300-600 seconds; the take shows every beat of video-script.md in order on the live platform — a fleet of >=4 real agent proposals, >=1 genuine collision surfaced, judge chips rendered, one-click landing with receipt; it is the single submitted entry.",
+      "check_cmd": "test -f submission/nextgit-demo.mp4 && ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 submission/nextgit-demo.mp4 | awk '{exit !($1 >= 300 && $1 <= 600)}'",
+      "deps": [],
+      "notes": "Dedupe: `demo-video-5-10-min-single-take-covering-all-three-axes` [pending] and `record-edit-the-submission-video` [pending] name the recording act; `video-script-storyboard` [done] is the narrative; `qa-demo-video-frames-for-readability-and-key-moments` [pending] carries frame QA. This story is the executable single-take gate (duration window + beat coverage + canonical file path) only."
+    },
+    {
+      "id": "e10-impl-runtime-pin-guard",
+      "title": "Add the mechanical runtime-pin guard and reconcile pinned surfaces",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-3"
+      ],
+      "scope": "porting/tests/runtime-pin.test.mjs, written in the repo's direct-run bun convention: '#!/usr/bin/env bun' plus a header comment 'Run: bun porting/tests/runtime-pin.test.mjs (exit 0 = pass)' — the tasks/batch/judge/normalize precedent — NOT bun:test imports (a bun:test file run directly on bun 1.3.14 exits 1). Asserts: platform/wrangler.jsonc name is nextgit-platform, compatibility_date is 2026-09-01, compatibility_flags contains no nodejs_compat; platform/package.json asserts the EXISTING engines pin ({\"node\": \">=20\"} — present at HEAD; do not add it) and that scripts never reference wrangler@latest; operational docs (docs/HANDOFF.md, .omp/agents.md) carry no wrangler@latest deploy instruction — docs/HANDOFF.md currently says 'npx wrangler@latest deploy' and must be reconciled to the lockfile-pinned local wrangler run from platform/ (.omp/agents.md is already compliant); no console log call in platform/src/**/*.ts references Authorization headers or request bodies.",
+      "acceptance": "bun porting/tests/runtime-pin.test.mjs exits 0 on the reconciled tree; it exits non-zero when the compatibility date changes, nodejs_compat is added, a script or operational doc re-introduces wrangler@latest, the engines pin is removed, or a platform/src log call references Authorization or request bodies.",
+      "check_cmd": "bun porting/tests/runtime-pin.test.mjs",
+      "deps": [],
+      "notes": "Repair round: platform/package.json already pins engines node >=20 at HEAD (verified) — the guard asserts the existing pin, it does not add it; wrangler.jsonc already satisfies the pin (compat 2026-09-01, no compatibility_flags); the stale surface is docs/HANDOFF.md's 'npx wrangler@latest deploy' line. Dedupe: `deploy-pinning-policy-lockfile-wrangler-artifacts-cli-flag-4` [done] is the policy statement; `ensure-hermetic-reproducible-builds-with-pinned-images` [pending] covers hermetic CI images; `pin-isomorphic-git-1-42-x-never-disk-checkout-untrusted-tree` [pending] pins the git dep. The mechanical guard and the HANDOFF reconciliation are the delta."
+    },
+    {
+      "id": "e10-impl-scope-floor-guard",
+      "title": "Add the concerns-floor guard (dark-only, desktop-web, English-only, no PWA/native)",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-10"
+      ],
+      "scope": "porting/tests/scope-floor.test.mjs, written in the repo's direct-run bun convention ('#!/usr/bin/env bun' + 'Run: bun porting/tests/scope-floor.test.mjs (exit 0 = pass)'; tasks/batch/judge/normalize precedent — not bun:test imports), asserting the M1 concerns floor: platform/ui has no PWA/offline surface (no manifest.webmanifest file or link rel=manifest, no serviceWorker/navigator.serviceWorker reference, no service-worker.js or sw.js), no light-mode path (no prefers-color-scheme block in platform/ui/*.css; dark :root tokens present in styles.css), no i18n surface (no i18n dependency in platform/package.json, no data-i18n attributes; html lang=en), and no native-wrapper config (capacitor.config, electron configs, tauri.conf absent under platform/).",
+      "acceptance": "bun porting/tests/scope-floor.test.mjs exits 0 on the current tree; it exits non-zero when any floor violation is introduced — a manifest link, a service-worker registration, a light-scheme media query, an i18n bundle, or a native wrapper config.",
+      "check_cmd": "bun porting/tests/scope-floor.test.mjs",
+      "deps": [],
+      "notes": "NFR-10 is ratified-for-M1 (revisit at the section 7.5 gate; John may overrule anytime) — the guard encodes the M1 floor, not a permanent product decision; revisit with the NFR. No overlapping store row enforces the floor mechanically (verified absent: no manifest/serviceWorker/i18n/prefers-color-scheme in platform/ui today)."
+    },
+    {
+      "id": "e10-impl-law-carrier-map-check",
+      "title": "Machine-check the twelve-law carrier map (carried vs roadmap)",
+      "kind": "implementation",
+      "epic": "E10",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-12"
+      ],
+      "scope": "porting/laws-carrier-map.json — one entry per law L1 through L12 from _bmad-output/specs/spec-next-git-platform/engineering-laws.md, seeded from reconcile-spec.md section 3, each with carriers (FR ids and/or compile story ids) and/or roadmap (store row ids). porting/tests/laws-coverage.test.mjs, written in the repo's direct-run bun convention ('#!/usr/bin/env bun' + 'Run: bun porting/tests/laws-coverage.test.mjs (exit 0 = pass)'; tasks/batch/judge/normalize precedent — not bun:test imports): exactly 12 laws; every law has at least one carrier or roadmap entry; carrier FR ids exist in porting/compile/requirements.json; roadmap ids exist in porting/tasks.db; L2/L9/L11 ride explicitly on law-2-two-tier-intelligence-system-1-sees-every-file-first plus classify-every-file-with-system-1-models-at-ingest, law-9-work-item-to-change-set-linkage-on-one-review-surface, and law-11-always-on-system-1-decision-layer-primed-for-agents-a plus run-always-on-system-1-decision-agents.",
+      "acceptance": "bun porting/tests/laws-coverage.test.mjs exits 0 with all twelve laws mapped; deleting a law's carrier and roadmap entries, or pointing a roadmap id at a nonexistent task row, exits non-zero; the map states per law whether it is carried (FR/story refs) or rides as roadmap (queue row ids).",
+      "check_cmd": "bun porting/tests/laws-coverage.test.mjs",
+      "deps": [],
+      "notes": "Dedupe: `law-2-two-tier-intelligence-system-1-sees-every-file-first` [pending], `classify-every-file-with-system-1-models-at-ingest` [pending], `law-9-work-item-to-change-set-linkage-on-one-review-surface` [pending], `law-11-always-on-system-1-decision-layer-primed-for-agents-a` [pending] and `run-always-on-system-1-decision-agents` [pending] ARE the roadmap carriers for the three unrepresented laws; reconcile-spec.md section 3 is the prose map. This story adds only the machine-checked map that keeps carriers/roadmap explicit and cannot silently drop a law — it does not implement the laws themselves."
+    }
+  ]
+}

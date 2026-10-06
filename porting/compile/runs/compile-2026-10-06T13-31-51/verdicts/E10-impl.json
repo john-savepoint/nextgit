@@ -1,0 +1,27 @@
+{
+  "slice": "E10-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "medium",
+      "story": "e10-impl-submission-video-single-take",
+      "note": "Dedupe delta overstated: the scope re-states the full recording act ('Record the submission take ... Store the recording at submission/nextgit-demo.mp4'), duplicating the two pending rows it cites — `demo-video-5-10-min-single-take-covering-all-three-axes` ('Record the 5-10 minute demo as one uninterrupted story') and `record-edit-the-submission-video` ('capture the live platform end-to-end (reset first); acceptance: 5–10 min video ready to submit') — while notes claim the story is 'the executable single-take gate (duration window + beat coverage + canonical file path) only'. Trim at activation to the gate deltas (canonical path + ffprobe 300–600s + beat checklist) and reference/supersede the two pending rows, or re-shape it as the closing-evidence story for them."
+    },
+    {
+      "severity": "medium",
+      "story": "e10-impl-submission-license",
+      "note": "check_cmd under-proves the acceptance on the security-relevant clause: 'the tracked-file credential scan finds no credential material' and its recorded result are tested only by `grep -qi 'credential' submission/NOTES.md` — a stub NOTES line ('credential scan: TODO') passes, and the eligibility recording clause is unchecked. Strengthen: run the scan in the check (tracked-tree grep for .env/dev.vars/private-key/token assignments) and/or assert the recorded result text ('no credential material' / '0 findings') plus eligibility."
+    },
+    {
+      "severity": "low",
+      "story": "e10-impl-runtime-pin-guard",
+      "note": "Negative-case wording ('a script or operational doc re-introduces wrangler@latest') is broader than the scope's 'no wrangler@latest deploy instruction'. The reconciled tree will still legitimately mention wrangler@latest for Artifacts CLI work (docs/HANDOFF.md:29 'wrangler@latest for Artifacts commands (global 4.106 lacks them)'; docs/HANDOFF-PLATFORM.md:31 prescribes the lockfile-pinned deploy and @latest only for Artifacts CLI). Scope the guard's doc assertion to deploy instructions so the legitimate Artifacts guidance is not fail-gated."
+    },
+    {
+      "severity": "low",
+      "story": "e10-impl-submission-readme-run-instructions",
+      "note": "check_cmd `grep -q 'scripts/README.md' README.md` proves only that some 'scripts/README.md' string is linked, not the acceptance's exact `platform/scripts/README.md` target; use the exact path in the grep so a wrong relative link cannot pass."
+    }
+  ],
+  "summary": "7 implementation stories cover all 5 assigned requirements: FR-39 impl delta = committed operator runbook (built-scripts proof lives in sibling E10-verify, which carries 5 FR-39 verification stories; compile lint ok, gaps []); FR-41 x3; NFR-3/NFR-10/NFR-12 owner guards. Round-1 high (runbook gate order) resolved and verified against demo-verify.mjs:108; round-1 mediums/lows resolved (done-row status drift corrected; engines-pin and direct-run-bun conventions fixed). All 7 ids lowercase/unique, no store collision (0 e10-* rows), deps valid and acyclic, milestones/priorities sane, check_cmds real (story-1 spot-run fails cleanly pre-impl exit 2; ffprobe/jq/awk present). No critical/high — SHIP (2 medium dedupe/check-strength notes + 2 low precision notes for activation)."
+}

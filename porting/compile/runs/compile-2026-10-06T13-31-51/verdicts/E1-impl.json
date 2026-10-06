@@ -1,0 +1,32 @@
+{
+  "slice": "E1-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e1-verify-hover-taborder-clickfirst",
+      "note": "Acceptance promises the audit 'prints the control inventory as evidence', but the check_cmd emits only 'OK: document-order controls, no positive tabindex, no hover-only actions' — the inventory itself is never printed. The audit runs and passes on the current tree (spot-run: EXIT 0); print the enumerated control list on pass so the promised evidence exists."
+    },
+    {
+      "severity": "low",
+      "story": "e1-verify-hover-taborder-clickfirst, e1-verify-degrade-never-fake",
+      "note": "Both verification stories are milestone M1 but priority P2; SCHEMA maps P2→M3 (P1 = 'other M1 + M2'). Formal scheduling-hint mismatch only — both prove built M1 behavior and their check_cmds pass end-to-end (e1-verify-degrade-never-fake full run incl. headless-Chrome: 'OK: degrade-never-fake signatures hold' + 'OK: banner + silent ticker degradation observed in the browser')."
+    },
+    {
+      "severity": "low",
+      "story": "e1-impl-contrast-register-confinement",
+      "note": "check_cmd proves the four content selectors (.empty-state/.loading-indicator/.diff-placeholder/.landed-banner) moved off --text-muted/--text-dim, but not the two remaining acceptance clauses: muted/dim confined to meta/ambient selectors, and the four token values unchanged. A one-line assertion that --text-muted/--text-dim keep their as-built hex would close the second clause."
+    },
+    {
+      "severity": "low",
+      "story": "e1-impl-grid-overflow-fix",
+      "note": "check_cmd proves the CSS construct (fluid minmax(min(360px,100%),1fr) or a ≤424px single-column rule), not the acceptance's rendered behavior at 320/375/423px (single column, no horizontal scroll). A headless-Chrome width probe using the same --dump-dom method the E1 verify checks already run successfully would prove the observable."
+    },
+    {
+      "severity": "low",
+      "story": "e1-impl-focus-visible-styles",
+      "note": "The indicator assertion `/outline|border-color/` over the joined :focus-visible rule bodies can be satisfied by `outline: none`; the scope pins '2px outline in --border-focus at 2px offset', so assert the concrete indicator (e.g. /outline:\\s*2px/) to prevent a false pass."
+    }
+  ],
+  "summary": "Coverage complete per kind: FR-7 build-gap → 3 implementation stories; NFR-8 → impl×2 + verify; NFR-9 → impl×5 + verify; UX-DR-3/4/5 owners present (UX-DR-4 remainder grounded in E3-impl's FR-15/FR-19). All 11 ids are unique lowercase slugs ≤60 chars, zero collisions against the 513-row store; single in-slice dep (empty-state → panels-first-load) valid and acyclic; all check_cmds real and non-placeholder — both verification check_cmds pass end-to-end on the current tree while every implementation check_cmd fails pre-build for exactly the intended missing behavior (no rebuilds). 0 critical + 0 high; five low notes (evidence-format, priority mapping, three check-strictness tightenings)."
+}

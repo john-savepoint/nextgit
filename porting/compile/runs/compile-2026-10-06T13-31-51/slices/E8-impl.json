@@ -1,0 +1,179 @@
+{
+  "slice": "E8-impl",
+  "epic": "E8",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e8-impl-authorize-chokepoint",
+      "title": "Build the authorize() chokepoint with AUTH_MODE default-deny",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-45"
+      ],
+      "scope": "New `platform/src/auth.ts` exporting `authorize(request, env, action, {repo|base})` plus AUTH_MODE resolution: env absent ⇒ `deny`; the demo opts in explicitly (`demo`). Action vocabulary (`read|write|judge|reveal`) pinned in `platform/CONTRACT.md` as an additive bump, with the uniform deny shape `401 {ok:false,error:\"unauthorized\"}`. Refactor the fetch dispatcher in `platform/src/index.ts:1104-1158` onto a route table (path, method, action, handler) exported for testability so every API route — `/health`, `/changes`, `/proposals`, `/merge`, `/land`, `/judge`, `/events` — passes through the one chokepoint before any handler work; delete any route-local auth logic. Identity carrier at this seam: opaque token in a request header. `platform/wrangler.jsonc` gains `vars.AUTH_MODE = \"demo\"` for the live demo deploy (code default stays deny; no `vars` section exists today). Assumption §7.5 auth decision gate precedes the wave (FR-45 sequencing). Overlap: existing store row `auth-seam-v1` [pending] is the umbrella; this story is its chokepoint delta.",
+      "acceptance": "Given AUTH_MODE absent (or `deny`), every API route returns `401 {ok:false,error:\"unauthorized\"}` before any repo read; given `AUTH_MODE=\"demo\"`, current demo behavior is preserved on all routes. Exactly one authorize call site exists (the dispatcher), and the route-table test asserts every route entry authorizes. Exact copy (FR-45): \"A single `authorize(request, env, action, {repo|base})` chokepoint is called by every route; `AUTH_MODE` defaults to deny; the demo opts in explicitly (`demo`).\"",
+      "check_cmd": "bun porting/tests/auth-seam.test.mjs",
+      "deps": [],
+      "notes": "Existing row `auth-seam-v1` [pending] is not recreated — this is the chokepoint/wiring slice of it. Test file is created by this story: default-deny over the route table, demo allow, single-chokepoint spy, uniform 401 shape, CONTRACT pin."
+    },
+    {
+      "id": "e8-impl-allowlist-all-routes",
+      "title": "Enforce the demo repo allowlist on every base/repos param",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-45"
+      ],
+      "scope": "Extend the AD-9 demo allowlist (`DEMO_REPO_RE = /^(demo|agent)(-[A-Za-z0-9._-]+)?$/`, `platform/src/index.ts:703-710` — currently enforced only inside `handleLand` at :829-836) to every route accepting `base`/`repos`/`repo`: `/changes`, `/proposals`, `/merge`, `/judge`, `/land`, via the authorize() chokepoint in demo mode. Reject before any Artifacts binding read with the uniform `403 {ok:false,error:\"repo-not-allowed\",detail:\"repo \\\"X\\\" is outside the demo allowlist\"}`. As-built gaps to replace: `/proposals?repos=notdemo-xyz` today returns 200 with a per-repo error inside `proposals[]` (live-verified), and `/merge`/`/changes` do a repo lookup then 404 \"Repository not found\" (live-verified). Scratch chains (`demo-lh-*`, `agent-lh-*`) must stay allowed (they match the regex; land-hardening.probe.mjs depends on them). Overlap: `auth-seam-v1` [pending].",
+      "acceptance": "With AUTH_MODE=demo: `GET /proposals?repos=notdemo-xyz` → 403 `repo-not-allowed` with no `proposals[]` entry and no repo read; the same uniform 403 for `/changes`, `/merge`, `/judge` and `/land`; allowlisted `demo`/`agent-*`/`demo-lh-*`/`agent-lh-*` params still succeed. Exact copy (FR-45): \"While demo, a repo allowlist (`demo`, `agent-*`) is enforced on every `base`/`repos` param\". The live probe asserts status + error code per route and that an allowlisted read still returns 200.",
+      "check_cmd": "node porting/tests/allowlist.probe.mjs",
+      "deps": [
+        "e8-impl-authorize-chokepoint"
+      ],
+      "notes": "Live probe (read-only reads + one non-mutating POST per route) modeled on porting/tests/land-hardening.probe.mjs; created by this story. Delta over `auth-seam-v1` [pending]: pre-I/O enforcement and uniform denial across routes (that row names the rule; this one closes the route coverage)."
+    },
+    {
+      "id": "e8-impl-route-rate-limits",
+      "title": "Rate-limit /land, /merge, /proposals and /judge",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-45"
+      ],
+      "scope": "Generalize the two in-isolate fixed-window limiters — `landRateAllow` 20/min (`platform/src/index.ts:709-728`) and `judgeRateAllow` 30/min (`platform/src/judge.ts:26-28,462-477`) — into one shared per-caller limiter module (e.g. `platform/src/rate.ts`) bound per route, and apply it to `/land`, `/merge`, `/proposals`, `/judge` in demo mode with the uniform `429 {ok:false,error:\"rate-limited\"}`. Caller key stays `CF-Connecting-IP`. Pin per-route caps/windows in `platform/CONTRACT.md` (additive bump) and keep the documented note that AD-9 says \"edge\" limits while the as-built substitute is an in-isolate fixed window. `/merge` and `/proposals` have no limiter today (grep-verified only land/judge). Overlap: `auth-seam-v1` [pending].",
+      "acceptance": "After exceeding a route's cap within its window the route returns 429 with the uniform body; below the cap behavior is unchanged. All four routes consult the shared limiter (route-table binding asserted). Live: a burst of 21 `POST /land` requests with a non-allowlisted repo yields at least one 429 and no landing attempt (403s then 429 only) — the 429 is reachable end to end, and `/merge`/`/proposals` remain 200 under cap. Exact copy (FR-45): \"edge rate limits cover `/land`, `/merge`, `/proposals`, `/judge`\".",
+      "check_cmd": "bun porting/tests/rate-limit.test.mjs",
+      "deps": [
+        "e8-impl-authorize-chokepoint"
+      ],
+      "notes": "Test (bun, offline limiter semantics + live burst against the deployed worker) created by this story; the live burst only hits non-allowlisted /land POSTs so nothing can land. Delta over `auth-seam-v1` [pending]: /merge and /proposals coverage plus one shared limiter."
+    },
+    {
+      "id": "e8-impl-csrf-precondition-gate",
+      "title": "Fail closed on cookie identities and gate non-demo data on the seam",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-45"
+      ],
+      "scope": "In `platform/src/auth.ts`: (1) CSRF fail-closed for the future cookie-based SSO path — when a request carries a cookie-carried identity, mutating routes (`/land`, `/judge`) require a matching CSRF token header; absent/mismatched ⇒ `403 {ok:false,error:\"csrf-required\"}` (no cookie identity path exists today; the gate ships before it can). Header-token identity is unaffected while no cookie path exists. (2) `assertSeamEnabled(env)` precondition helper that refuses (fail closed) unless AUTH_MODE is explicitly set for the target environment; non-demo provisioning/control-plane paths must call it, so the first non-demo data cannot enter the namespace before the seam is deployed. Document both in `platform/CONTRACT.md` and `.omp/agents.md` (\"no non-demo data before the seam\"). Overlap: `auth-seam-v1` [pending] (umbrella) and `implement-repo-lifecycle-over-binding-rest-and-git` [pending] (provisioning surfaces — this story adds only the gate they must call).",
+      "acceptance": "Cookie-carried identity on `POST /land` / `POST /judge` without a valid CSRF token → 403 `csrf-required`, no repo read or write; the gate is inert while no cookie path exists (header identity unaffected). `assertSeamEnabled` refuses when AUTH_MODE is unset/deny, proving a provisioning path cannot create the first non-demo data before the seam is enforced. Exact copy (FR-45): \"The seam is enforced before the first non-demo data exists in the namespace; CSRF protection is required for the future cookie-based SSO path.\"",
+      "check_cmd": "bun porting/tests/seam-precondition.test.mjs",
+      "deps": [
+        "e8-impl-authorize-chokepoint"
+      ],
+      "notes": "Test (unit: cookie/CSRF matrix + assertSeamEnabled refusal) created by this story. Delta over `auth-seam-v1` [pending]: the precondition + CSRF consequences are executable, not prose."
+    },
+    {
+      "id": "e8-impl-repo-token-ttl-policy",
+      "title": "Enforce repo git token TTLs: 24 h default, 7 d max",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-36"
+      ],
+      "scope": "New shared mint helper `platform/scripts/lib/tokens.mjs` and route every script mint site through it: `fanout.mjs:41,69`, `agents.mjs:20,211`, `real-agents.mjs:32,299,305`, `secret-fixture.mjs:34,100` (each currently defaults to or hardcodes 604800 s = the 7 d max), `seed.mjs:19,252` (explicit 3600 s control-plane push — stays legal as an explicit shorter TTL). Rule: omitted ttl → 86400 s (24 h default); ttl > 604800 s → reject before the API call with a clear error (fail closed, no silent clamp); explicit shorter TTLs allowed. Worker-side mint (`platform/src/land.ts:22` TOKEN_TTL_SECONDS=300, single-use, revoked in `finally` — as-built, unchanged) remains the ≤300 s class. Record the policy in the helper header + `.omp/agents.md`; note it must travel to future Workflows-side minting (AD-7/AD-10). Overlap: `token-lifecycle` [pending] (control-plane token + 0600 + audit) and `downscope-agent-tokens-to-least-privilege-per-repo` [pending] (least privilege) — this story adds only the TTL rule.",
+      "acceptance": "Exact copy (FR-36): \"Worker-minted access tokens: single-use, TTL ≤300 s, revoked in a `finally` (as-built today). Repo git tokens: 24 h default, 7 d max.\" All five script mint sites call the helper; a mint with no TTL requests 86400 s; a request above 604800 s is refused before any network call; explicit shorter TTLs (e.g. seed's 3600 s) still mint. [ASSUMPTION: repo git token TTLs proposed.]",
+      "check_cmd": "bun porting/tests/token-ttl.test.mjs",
+      "deps": [],
+      "notes": "Test (unit: default/max/reject/allow-shorter + all mint sites use the helper) created by this story. Not overlapped: `inject-secrets-via-oidc-with-short-lived-credentials` [pending] is OIDC federation, a different credential class."
+    },
+    {
+      "id": "e8-impl-token-storage-hygiene",
+      "title": "Write token manifests 0600 and keep tokens out of logs and argv",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-36"
+      ],
+      "scope": "All `/tmp/nextgit-agents.json` writers — `fanout.mjs:74`, `agents.mjs:287`, `real-agents.mjs:507`, `secret-fixture.mjs:160` — must write mode 0600 (and chmod an existing file to 0600 before rewrite); on this box the file is mode 644 with plaintext tokens today (verified). Remove the truncated-token log at `agents.mjs:301-302` (`m.token.slice(0, 24)`). Make the env/header-only token path uniform (pattern already stated at `secret-fixture.mjs:102`; `platform/src/githttp.ts:82-88` is the worker-side equivalent) so no git call ever carries a token in argv. Fold the writer + manifest-printer into the shared helper so future scripts cannot regress. Overlap: `token-lifecycle` [pending] (0600 + never logs/argv is named there) — this story delivers the executable hygiene law; `downscope-agent-tokens-to-least-privilege-per-repo` [pending] is scope, not filesystem mode.",
+      "acceptance": "Exact copy (FR-36): \"Token values live mode 0600 outside repos/transcripts, never in logs or argv.\" A manifest written through the helper is mode 600 (existing 644 file is re-moded on write); no script prints any token substring; token bytes reach git via env/header only.",
+      "check_cmd": "bun porting/tests/token-hygiene.test.mjs",
+      "deps": [],
+      "notes": "Test (unit: helper writes 0600, chmod-existing, printer emits no token material) created by this story. Delta over `token-lifecycle` [pending]: that row also replaces the wrangler OAuth scrape; only the 0600/log/argv law is in scope here."
+    },
+    {
+      "id": "e8-impl-token-audit-two-surfaces",
+      "title": "Audit token mint/use/revoke in Worker logs and Artifacts token events",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-36"
+      ],
+      "scope": "Two audit surfaces. Worker logs: `handleLand` (`platform/src/index.ts:899,972-978`) logs two content-free audit lines through a small `auditToken()` helper — `token-mint {repo,ttl}` and `token-revoke {repo,phase}` — repo + TTL + outcome only, never token material, never request bodies (NFR-3 hygiene); shape pinned in CONTRACT.md. Artifacts events: widen the `nextgit-repo-events` queue subscription (queue `nextgit-events`, consumer `index.ts:1161-1188`; subscription listed in `_bmad-output/specs/spec-next-git-platform/stack.md:39`) to include `token.created`/`token.revoked` so they record into the KV feed and surface via `GET /events` like repo events (dedupe stays the consumer's `(type,repo,ref,after)` rule, NFR-7). Live today: `/events` types are only `cf.artifacts.repo.pushed`/`repo.pushed` (verified); token events are unsubscribed. Overlap: `fan-out-artifacts-repo-events-through-queues` [pending] (pipeline fan-out — this story adds the token event types only) and `token-lifecycle` [pending] (audit named there).",
+      "acceptance": "Exact copy (FR-36): \"mint/use/revoke are audited at two surfaces: Worker logs (observability) and Artifacts token events (`token.created` / `token.revoked`).\" After the subscription widening, minting then revoking a scratch repo token surfaces both `token.created` and `token.revoked` in `GET /events` (≤50 newest); a `/land` into a scratch chain emits both content-free log lines, captured with the pinned local `wrangler tail`, and no captured line or feed entry contains any token value.",
+      "check_cmd": "node porting/tests/token-audit.probe.mjs",
+      "deps": [],
+      "notes": "Live probe created by this story (scratch-chain pattern from porting/tests/land-hardening.probe.mjs; control-plane auth via CLOUDFLARE_API_TOKEN or the wrangler OAuth file, mode 600 on this box). Delta over `fan-out-artifacts-repo-events-through-queues` [pending]: token event types + log audit only; not overlapped by `watch-artifacts-64-mib-push-cap-v1-protocol-before-oct-14` [pending] (push-cap/protocol watch, different surface)."
+    },
+    {
+      "id": "e8-impl-reveal-behind-seam",
+      "title": "Reveal secret values only through an authorized, audited seam rule",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-31",
+        "UX-DR-1"
+      ],
+      "scope": "New seam-gated reveal path: `POST /reveal {repo, ref, path, key}` behind `authorize(request, env, \"reveal\", {repo})` with an explicit authorization rule (identity allowlist + repo scope config, e.g. `REVEAL_ALLOW`; default = no one), additive CONTRACT.md bump for request/response/error shapes. Denied ⇒ `403 {ok:false,error:\"reveal-not-authorized\"}` with no value; every grant AND denial writes a content-free audit record (identity, repo, path, key, decision, at — never the value, never in logs). The value is read from the Artifacts blob for the secret-class path only when authorized. No other route or view gains a value surface: schema-only rows + the withheld notice remain the complete default surface, and the masking law (CONTRACT \"Secret classes\") is untouched. Depends on the seam and the §7.5 auth decision gate (FR-31 sequencing: no value-reveal surface ships before the seam is enforced). Overlap: `elevated-reveal-for-authorized-viewers-demo-beat` [pending P2] is the umbrella demo-beat row — this story is the seam-backed authorization-rule + audit delta.",
+      "acceptance": "Exact copy (FR-31): \"Elevated reveal requires the auth seam plus an explicit authorization rule; until then it does not exist anywhere in the product.\" and \"No route or view exposes secret-class values today; the schema-only view and the withheld notice are the complete surface.\" With AUTH_MODE=deny or an unauthorized identity, every reveal attempt is 401/403 with no value in the body or logs; with an authorized identity (test stub), the requested key's value is returned and an audit record is written for the grant; a denial also writes an audit record; every other route's responses still contain no secret-class value.",
+      "check_cmd": "bun porting/tests/reveal.test.mjs",
+      "deps": [
+        "e8-impl-authorize-chokepoint"
+      ],
+      "notes": "Test (unit: authorize+reveal handler with stub env — default deny, authorized grant + audit, denial + audit, no value in logs; masking assertion on other route shapes) created by this story. Delta over `elevated-reveal-for-authorized-viewers-demo-beat` [pending]: that row names the design; this one builds the seam-gated rule + audit behind the §7.5 gate."
+    },
+    {
+      "id": "e8-impl-reveal-beat-ui",
+      "title": "Render the CAP-8 elevated-reveal beat with the withheld fallback",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-31",
+        "UX-DR-1"
+      ],
+      "scope": "`platform/ui/app.js` + `platform/ui/styles.css`: keep the secret-file surface schema-only by default — `secret-typed` badge + key chips + the exact copy \"Secret content withheld\" / \"Per platform contract, secret file contents and diffs are never exposed.\" (app.js:722-735) and the merge variant (app.js:808-809) — and add the authorized beat: the seam reports the viewer's reveal capability via a new additive `GET /whoami` (`{authorized, reveal}` — default `reveal:false`; pin in CONTRACT.md); when `reveal:true`, the diff modal for a secret-class file renders a `reveal` control that calls `POST /reveal` (R1) and renders the value only from the audited response; denied → withheld notice + denial copy (no value). No value may ever be rendered from `/changes`, `/merge`, or card data. Update the tour's secret beat copy (`platform/ui/tour.html/js` step 6 secret beat) to match. Framework: the existing render-decision helper must be extractable/testable (no DOM needed for the decision matrix). Overlap: `elevated-reveal-for-authorized-viewers-demo-beat` [pending] and `schema-only-decoupled-views-for-secret-files-demo-beat` [pending] — those two name the beat and the schema-only surface; this story is the UI beat delta.",
+      "acceptance": "UX-DR-1 gap closed: the CAP-8 elevated-reveal beat renders. With `reveal:false` (default/live today) the secret file renders the withheld notice + key chips and NO value and NO reveal affordance; with `reveal:true` the reveal control renders; a denied click renders the `reveal-not-authorized` state with no value; the live default surface remains covered by `node platform/scripts/demo-verify.mjs` (masking-law check 6 — no fixture value in any fetched body).",
+      "check_cmd": "bun porting/tests/reveal-ui.test.mjs && node --check platform/ui/app.js",
+      "deps": [
+        "e8-impl-reveal-behind-seam"
+      ],
+      "notes": "Test created by this story: renders the extracted view-decision function for the reveal:false/reveal:true/denied matrix and asserts the default branch emits withheld copy, no value, no control; `node --check` keeps the browser script parseable (passes today). As-built UI has no test harness — this story introduces the smallest one (no DOM)."
+    },
+    {
+      "id": "e8-impl-credential-egress-guard",
+      "title": "Guard every response path against token and credential egress",
+      "kind": "implementation",
+      "epic": "E8",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-6"
+      ],
+      "scope": "Executable AD-9 guard: `porting/tests/egress-guard.probe.mjs` scans every route's response body — success AND induced failure (400 bad body, 401/403 seam denials once the chokepoint lands, 409 conflict/withheld-secret/no-changes, 500 push-failed, 404 unknown route) — plus the UI shell, for credential material (`Bearer `, `Authorization`, `oauth_token`, `plaintext`, token-shaped base64url runs ≥20 chars) and for shell snippets carrying repo content/paths (`git clone`/`git push`/`git config` with a path). Self-test: the scanner must flag a seeded token sample (guard proves it can catch). Fold-artifact-only failures: `/land` 500 keeps the typed fields (`error, detail, repos, branch, files` — `platform/src/index.ts:957-971`) and must not add credentials or shell snippets. Wire the guard into the platform VERIFY gate (note in `.omp/agents.md`/CONTRACT stills) so new routes are scanned. Extend the route set when the seam/reveal routes land (same wave, coordinate, no hard dep). Overlap: `harden-ci-supply-chain-pinning-egress-control-scoped-creds` [pending, CI focus] — response-surface egress is the delta; `speculative-validation-of-the-fold-result-before-landing-dem` [pending] is landing evidence, a different surface (no overlap).",
+      "acceptance": "Exact copy (NFR-6): \"No response ever contains tokens or credentials — no exception; failure paths return fold artifacts only; no response carries shell snippets containing repo content or paths (AD-9).\" The guard passes against the live worker across all listed success/failure paths; the scanner self-test fails on an injected token (so a green run is meaningful); the guard is referenced by the platform VERIFY gate; `node platform/scripts/demo-verify.mjs` still passes.",
+      "check_cmd": "node porting/tests/egress-guard.probe.mjs",
+      "deps": [],
+      "notes": "Live, read-only probe (created by this story) modeled on porting/tests/land-hardening.probe.mjs; failures are induced with non-mutating requests (unknown repo, malformed body, missing params) and never land. Delta over `harden-ci-supply-chain-pinning-egress-control-scoped-creds` [pending]: response surface, not CI runtime."
+    }
+  ]
+}

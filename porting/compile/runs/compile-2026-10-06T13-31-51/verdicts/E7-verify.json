@@ -1,0 +1,27 @@
+{
+  "slice": "E7-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e7-verify-workspace-auto-discovery",
+      "note": "Notes call `demo-scenario-reset-fresh-real-agent-fleet` a \"pending reset row\"; store row is status=done (title \"Demo scenario reset + fresh real-agent fleet\"). Notes-only drift; no coverage or check impact."
+    },
+    {
+      "severity": "low",
+      "story": "e7-verify-fleet-floor-n4-live",
+      "note": "Same row referenced as \"(pending reset row `demo-scenario-reset-fresh-real-agent-fleet`)\"; store status is done. Notes-only drift."
+    },
+    {
+      "severity": "low",
+      "story": "e7-verify-byo-harness-push-protocol",
+      "note": "Scope line refs into platform/scripts/real-agents.mjs are stale: the single push is at :424 (not :408-411), the runner commit block is :405-411 (not :392-405), clone prep is :362-371 (not :349-358). check_cmd does not depend on these; wayfinding only."
+    },
+    {
+      "severity": "low",
+      "story": "e7-verify-real-agent-routes-omp-codex",
+      "note": "Scope line refs drift: main is :448-547 (not :435-534; dispatch loop :484-502), writeReport is :561-627 (not :548-614). The acceptance's report.md evidence surface is written unconditionally by the runner but not asserted by check_cmd — minor."
+    }
+  ],
+  "summary": "SHIP: FR-34×4 + FR-35×2 verification coverage complete (FR-35 consequence-3 implementation deferred to sibling E7-impl — 3 FR-35 impl stories confirmed there); no rebuilds, ids unique in slice/compile/store (no e7-* rows), deps [], E7=M1 milestone/priority sane.\nSpot-ran read-only and all green: /events (story2), /proposals exact-set + CONTRACT regex (story3), demo-verify GET subset incl. agent-5 masking (story4; its POST /judge leg skipped), BYO push static + live /changes (story6). Story1 (fanout) and story5 (real-agents) checks not executed (mutate live state / consume CLI quota) but parse clean; their arg/env/field shapes verified against source and a real on-disk manifest.\n4 low findings only (notes status drift ×2, stale scope line refs ×2)."
+}

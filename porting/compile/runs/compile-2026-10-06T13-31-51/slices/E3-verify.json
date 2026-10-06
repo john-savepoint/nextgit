@@ -1,0 +1,104 @@
+{
+  "slice": "E3-verify",
+  "epic": "E3",
+  "kind": "verification",
+  "stories": [
+    {
+      "id": "e3-verify-server-side-land-one-commit",
+      "title": "Prove /land folds and pushes one commit server-side, no caller git",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-14"
+      ],
+      "scope": "Live check `node porting/tests/land-hardening.probe.mjs` (scratch chain only: REST-fork demo → demo-lh-base → agent-lh-1; never lands into `demo`, never touches agent-1..4; deletes both scratch repos on exit). Seams: platform/src/index.ts `handleLand` (POST /land — reviewed stale gate → single computeMerge fold → pushLand), platform/src/land.ts `pushLand` (one git.commit at :84-90 with message ``land(${input.repos.join(\",\")}): fold proposal(s)``, one git.push at :100-105 over the v1 wire, token minted in-worker). Contract: platform/CONTRACT.md §POST /land (folds in order, pushes ONE commit, no caller clones). Precondition: CLOUDFLARE_API_TOKEN or a live wrangler OAuth token (`wrangler whoami` refreshes; precedent porting/runs/land-hardening/verify.md).",
+      "acceptance": "`node porting/tests/land-hardening.probe.mjs` exits 0 with every assertion PASS. (a) /land returns HTTP 200 {ok:true, landed:{repos,commit,files,at}} and `evidence.commit === landed.commit`; the base repo's remote refs/heads/main equals evidence.commit — the fold+push happened server-side, with no clone and no CLI on the caller's side; the pushed commit is the single commit pushLand creates with message `land(<repos>): fold proposal(s)` (one git.commit → one git.push). Supporting assertions in the same run: (b) re-land with refreshed reviewed heads → 409 no-changes; (c) stale reviewed heads → 409 stale (proposal-head and base-head variants) with the base unmoved by refusals; (d) concurrent double-land → exactly one 200 + one 409 base-moved; (e) both scratch repos deleted at exit.",
+      "check_cmd": "node --check porting/tests/land-hardening.probe.mjs && grep -Fq 'fold proposal(s)' platform/src/land.ts && (node porting/tests/land-hardening.probe.mjs || (sleep 10 && node porting/tests/land-hardening.probe.mjs) || (sleep 30 && node porting/tests/land-hardening.probe.mjs))",
+      "deps": [],
+      "notes": "Not a rebuild — verification of the shipped (deployed) landing path; no product code changes. Overlapping store rows, not recreated: land-hardening [done], landing-path-land-folds-proposals-onto-the-baseline-server-s [done], let-humans-land-the-chosen-proposal-from-the-canvas [done]. FR-16/FR-17 server preconditions (stale/base-moved) are E3-impl implementation scope; the probe asserts them inside the same green run rather than a separate story. The pending rows landing-evidence-receipt-tested-sha-equals-merged-sha-record (tested↔merged receipt persistence), attach-signed-validation-evidence-to-every-change (SLSA-style signed attestations), speculative-validation-of-the-fold-result-before-landing-dem and validate-every-proposal-with-speculative-execution (speculative execution) are future/out-of-scope work — none recreated here; this story proves the evidence object the shipped /land returns. The probe is network-bound: transient `TypeError: fetch failed` / SSL EOF flakes were observed 2026-10-06 under concurrent-agent load; the two retries encode the order's own re-run precedent (porting/runs/land-hardening/verify.md attempts 1→4). Scratch-only and safe to re-run; a green transcript is at porting/runs/land-hardening/verify.md (06:43Z run)."
+    },
+    {
+      "id": "e3-verify-land-no-caller-credentials",
+      "title": "Prove /land needs no caller credentials and leaks no token",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-14"
+      ],
+      "scope": "Token lifecycle seams: platform/src/land.ts `mintWriteToken` (repo-scoped write token, TTL 300 s) and platform/src/index.ts `handleLand` finally (`baseRepo.revokeToken(token)` — revoked whether the push landed or failed). Live read-only refusal: POST /land with an impossible reviewed head (agent-1 → 40×0) returns 409 stale before any fold — nothing pushed, base unmoved (precedent: land-hardening probe assertion (c) `base unmoved by refusals`).",
+      "acceptance": "A live POST /land with an impossible reviewed head (agent-1 → 40×0) returns 409 {ok:false, error:\"stale\", detail:…} whose exact top-level key set is {detail, error, ok} — no token or credential field anywhere in the envelope (jq assertion, run green by the author on 2026-10-06). The push token is worker-minted and never handed to the caller: `mintWriteToken` (platform/src/land.ts) + `revokeToken` in the handler's finally (platform/src/index.ts) are the only token seams; the /land success body {ok, landed, evidence} carries no credential and the caller sends none (probe transcript of E3-verify-server-side-land-one-commit).",
+      "check_cmd": "curl -sS --retry 2 --retry-all-errors --max-time 60 -X POST https://nextgit-platform.john-b7d.workers.dev/land -H 'content-type: application/json' -d '{\"base\":\"demo\",\"repos\":[\"agent-1\"],\"reviewed\":{\"heads\":{\"agent-1\":\"0000000000000000000000000000000000000000\"}}}' | jq -ec '(.ok == false) and (.error == \"stale\") and ((keys | sort) == [\"detail\",\"error\",\"ok\"])' && grep -Fq 'mintWriteToken' platform/src/land.ts && grep -Fq 'revokeToken' platform/src/index.ts",
+      "deps": [],
+      "notes": "Read-only: the reviewed-state gate refuses before fold/push, so the curl retry (--retry-all-errors covers transport flake; safe to re-send a refused request) cannot double-land anything. Success-path token absence is evidenced by the sibling story's probe transcript (same executable); this story adds the mechanical envelope assertion and the mint/revoke seams. Not a rebuild."
+    },
+    {
+      "id": "e3-verify-card-confirm-in-flight",
+      "title": "Prove card confirm → landing… two-step and the in-flight banner copy",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-14",
+        "FR-15"
+      ],
+      "scope": "platform/ui/app.js action-state machine: `data-action=\"start-land\"` sets state.confirmingRepo → inline `confirm land?` + `cancel`; `data-action=\"confirm-land\"` → handleLandProposal (the only branch that POSTs /land); `data-action=\"cancel-land\"` reverts; state.landingRepo renders a single disabled `landing...` button (:572-591). Click dispatch: setupInteractions (:951-987). Warn banner copy in handleLandProposal (:879-883). Deployed asset: https://nextgit-platform.john-b7d.workers.dev/app.js (single environment).",
+      "acceptance": "FR-15 outcomes 1–2, exact copy: `Land into demo` → the card flips to inline `confirm land?` + `cancel` (no dialog — start-land only sets state and re-renders; confirm-land is the sole branch that calls handleLandProposal). `confirm land?` → the card shows a single disabled `landing...` button and the action banner (warn) reads \"Landing proposal {repo} into {base}...\". Asserted on the repo asset (node --check + fixed-string greps incl. the three data-action hooks) and on the deployed /app.js the browser loads. Browser-level DOM rendering is not machine-checkable here (no browser harness in the repo; manual browser confirmation recorded in docs/STATE.md) — asset + dispatch-hook + deployed-asset evidence is the available proof.",
+      "check_cmd": "node --check platform/ui/app.js && grep -Fq 'confirm land?' platform/ui/app.js && grep -Fq '>cancel<' platform/ui/app.js && grep -Fq 'disabled>landing...' platform/ui/app.js && grep -Fq 'Landing proposal' platform/ui/app.js && grep -Fq 'data-action=\"start-land\"' platform/ui/app.js && grep -Fq 'data-action=\"confirm-land\"' platform/ui/app.js && grep -Fq 'data-action=\"cancel-land\"' platform/ui/app.js && curl -sS --retry 2 --retry-all-errors --max-time 60 https://nextgit-platform.john-b7d.workers.dev/app.js | grep -F 'confirm land?' >/dev/null",
+      "deps": [],
+      "notes": "Overlaps done store row land-ux-semantics-two-state-confirm-per-card-hide-collapse (same seam; this compile story re-proves it against the deployed asset). Server leg of the one click is E3-verify-server-side-land-one-commit. Verified green by the author 2026-10-06 (full command; live segment retry-hardened for the day's transient network flake)."
+    },
+    {
+      "id": "e3-verify-success-banner-refresh",
+      "title": "Prove success banner sha8 + tooltip and immediate proposals/events refresh",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-15"
+      ],
+      "scope": "platform/ui/app.js handleLandProposal success branch (:899-911): commitSha = res.landed?.commit || res.commit; shortSha = commitSha.slice(0, 8); banner (success) \"Successfully landed proposal {repo} into {base}. Commit <code class=commit-sha title=<full sha>>sha8</code>\"; then `// Auto-refresh proposals immediately` → await loadProposals(); await loadEvents();. Response shape (landed.commit, evidence.commit) proven by the probe in E3-verify-server-side-land-one-commit. Deployed asset + repo asset.",
+      "acceptance": "FR-15 outcome 3, exact copy: success → banner (success) \"Successfully landed proposal {repo} into {base}. Commit `<sha8>`\" — first 8 chars (`commitSha.slice(0, 8)`), full SHA in the tooltip (`<code class=\"commit-sha\" title=\"<full sha>\">`), asserted on repo asset + deployed /app.js; proposals + events refresh immediately on success (`await loadProposals();` and `await loadEvents();` within 3 lines of the success-branch refresh comment). The `repo.pushed` → ticker re-entry leg is the live-events epic's proof (E4) and is not rebuilt here.",
+      "check_cmd": "node --check platform/ui/app.js && grep -Fq 'Successfully landed proposal' platform/ui/app.js && grep -Fq 'commitSha.slice(0, 8)' platform/ui/app.js && grep -Fq 'class=\"commit-sha\" title=' platform/ui/app.js && grep -A3 -F 'Auto-refresh proposals immediately' platform/ui/app.js | grep -Fq 'await loadProposals();' && grep -A3 -F 'Auto-refresh proposals immediately' platform/ui/app.js | grep -Fq 'await loadEvents();' && curl -sS --retry 2 --retry-all-errors --max-time 60 https://nextgit-platform.john-b7d.workers.dev/app.js | grep -F 'Successfully landed proposal' >/dev/null",
+      "deps": [],
+      "notes": "Overlaps done store row landed-state-banner-commit-sha-live-event-feed-tick (sha banner + feed tick); this compile story re-proves the banner/sha/refresh contract on the deployed asset. Verified green by the author 2026-10-06 (full command; live segment retry-hardened)."
+    },
+    {
+      "id": "e3-verify-failure-banners",
+      "title": "Prove withheld-secret, conflict, and generic failure banners",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-15"
+      ],
+      "scope": "platform/ui/app.js handleLandProposal catch branches (:912-945): 409 withheld-secret → \"Withheld-secret file — landing blocked ({files}).\"; 409 conflict → \"Conflicted files: {files}. (preview merge first)\"; any other failure → \"Failed to land {repo}: {msg}\"; finally → state.landingRepo = null (card returns to default). Dismissal wiring: el.actionBannerClose → hideActionBanner (:1027-1029; no auto-hide). Deployed asset + repo asset.",
+      "acceptance": "FR-15 outcomes 4, 5, 7, exact copy: 409 withheld-secret → error banner \"Withheld-secret file — landing blocked ({files}).\"; 409 conflict → error banner \"Conflicted files: {files}. (preview merge first)\"; any other failure → error banner \"Failed to land {repo}: {msg}\". Every failure returns the card to default (state.landingRepo cleared in the finally → re-render); the banner persists until dismissed (dismiss button wired to hideActionBanner; no auto-hide timer). Asserted on repo asset + deployed /app.js. Deliberately NOT asserted: outcome 6's dedicated no-changes copy and the withheld-secret/conflict card states — E3-impl build gaps.",
+      "check_cmd": "node --check platform/ui/app.js && grep -Fq 'Withheld-secret file — landing blocked (' platform/ui/app.js && grep -Fq 'Conflicted files:' platform/ui/app.js && grep -Fq '(preview merge first)' platform/ui/app.js && grep -Fq 'Failed to land' platform/ui/app.js && grep -Fq 'state.landingRepo = null' platform/ui/app.js && grep -Fq 'hideActionBanner' platform/ui/app.js && curl -sS --retry 2 --retry-all-errors --max-time 60 https://nextgit-platform.john-b7d.workers.dev/app.js | grep -F 'Withheld-secret file' >/dev/null",
+      "deps": [],
+      "notes": "Server leg (the 409 codes the branches key on) is proven in E3-verify-server-side-land-one-commit's probe run. The unbuilt delta — dedicated `no-changes` banner copy, withheld-secret/conflict card states, stale/base-moved banner copies — is E3-impl implementation scope and is not covered here. Static segments verified green by the author 2026-10-06; live segment retry-hardened for the day's transient network flake."
+    },
+    {
+      "id": "e3-verify-landed-card-render",
+      "title": "Prove landed card dims 0.55/dashed and renders nothing-pending copy",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-19"
+      ],
+      "scope": "platform/ui/app.js renderProposals isLanded (:523-524 landing.status === \"landed\" with fallback stats.files === 0; :573-576 `landed` badge; :593 is-landed class; :611-616 landed banner copy). platform/ui/styles.css .proposal-card.is-landed (opacity 0.55, border-style dashed). Server side: platform/src/index.ts computeProposals (:594-610) folds each proposal alone onto the current base head → landing {status: ready|conflict|landed|withheld-secret, files}; zero-change fold → landed; /land zero changes → 409 no-changes (probe (b)).",
+      "acceptance": "FR-19 as built: a proposal with landing.status === \"landed\" (or stats.files === 0) renders the card dimmed — .proposal-card.is-landed opacity 0.55 + dashed border — with the `landed` badge and the line \"landed — nothing pending\" (\"All changes from this branch have been merged into baseline.\"), asserted on repo asset + deployed /app.js. landing.status is content-derived server-side: live GET /proposals carries a landing object per proposal whose status ∈ {ready, conflict, landed, withheld-secret} (jq assertion, run green by the author 2026-10-06); a zero-change fold is `landed` and /land with zero changes is 409 no-changes — never a fake success (no-changes leg proven in E3-verify-server-side-land-one-commit).",
+      "check_cmd": "node --check platform/ui/app.js && grep -Fq 'landing.status === \"landed\"' platform/ui/app.js && grep -Fq 'stats.files === 0' platform/ui/app.js && grep -Fq 'landed — nothing pending' platform/ui/app.js && grep -Fq 'All changes from this branch have been merged into baseline.' platform/ui/app.js && grep -Fq 'badge-neutral\">landed<' platform/ui/app.js && grep -Fq 'is-landed' platform/ui/app.js && grep -Fq '.proposal-card.is-landed' platform/ui/styles.css && grep -q 'opacity: 0.55' platform/ui/styles.css && grep -Fq 'border-style: dashed' platform/ui/styles.css && curl -sS --retry 2 --retry-all-errors --max-time 60 https://nextgit-platform.john-b7d.workers.dev/app.js | grep -F 'landed — nothing pending' >/dev/null && curl -sS --retry 1 --retry-all-errors --max-time 120 https://nextgit-platform.john-b7d.workers.dev/proposals | jq -ec '.ok == true and (.proposals | length >= 1) and ([.proposals[].landing.status] | all(. == \"ready\" or . == \"conflict\" or . == \"landed\" or . == \"withheld-secret\"))'",
+      "deps": [],
+      "notes": "The live demo fixture stays all-pending (demo-verify.mjs check 5), so a landed instance is transient — proof is asset-level rendering + the server-computed landing enum + the no-changes refusal. The build-gap `landed.files` count unrendered is E3-impl implementation scope and is not covered here. Overlaps pending rows proposal-card-signal-set-risk-provenance-fields-on-every-car and complete-unified-proposal-card-intent-diff-risk-provenance (risk/provenance facets) — not recreated; those rows target unbuilt fields. Live /proposals latency observed 13-40 s; the check allows --max-time 120 with one curl retry for transient flake."
+    }
+  ]
+}

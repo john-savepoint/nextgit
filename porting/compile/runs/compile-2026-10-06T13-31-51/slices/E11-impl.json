@@ -1,0 +1,63 @@
+{
+  "slice": "E11-impl",
+  "epic": "E11",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e11-impl-pin-client-protocol",
+      "title": "Pin the 11-entity client protocol and push-event vocabulary in CONTRACT.md",
+      "kind": "implementation",
+      "epic": "E11",
+      "milestone": "M4",
+      "priority": "P3",
+      "fr_refs": ["FR-44"],
+      "scope": "platform/CONTRACT.md - add the client-protocol section (AD-8/AD-14) authored from the authoritative list in _bmad-output/specs/spec-next-git-platform/interface-contract.md. Enumerate all 11 entities in the AD-14 order (Floor/Project, Worker, Task/Queue, Issue, Pull/Proposal, Pull/Proposal detail, Presence/Peer, Whiteboard, Services, Settings, Chat/Notifications) with their client-readable fields, named as in interface-contract.md (slash form), and mark per entity whether the platform serves it or it stays client-local - never invent server-side shapes for client-local state. Pin the push-event vocabulary covering every event family in interface-contract.md section Events (worker, term, floor, peer, chat, toast, screen, queue). Bump the contract version line in the same change: contract-first, no second client consumes an unpinned surface.",
+      "acceptance": "CONTRACT.md carries a client-protocol section (an h2 heading containing 'client protocol') enumerating exactly the 11 entities in the AD-14/interface-contract.md order with their client-readable fields, plus the push-event vocabulary covering every event family in interface-contract.md section Events; the contract version line is bumped past v2 in the same change (AD-8 bump-before-change).",
+      "check_cmd": "bun -e \"const fs=require('fs');const c=fs.readFileSync('platform/CONTRACT.md','utf8');const ic=fs.readFileSync('_bmad-output/specs/spec-next-git-platform/interface-contract.md','utf8');const rows=Array.from(ic.matchAll(/^\\|\\s*([^|]+?)\\s*\\|/gm)).map(function(m){return m[1].trim()}).filter(function(n){return n!=='Entity'&&n!=='---'});const idx=c.search(/^## .*[Cc]lient protocol/m);const sec=idx<0?'':c.slice(idx).split(/\\n## /)[0];const norm=function(s){return s.toLowerCase().replace(/\\s*\\/\\s*/g,'/').replace(/\\s+/g,' ')};const miss=rows.filter(function(n){return !norm(sec).includes(norm(n))});const fams=['worker.','term.','floor.','peer.','chat','toast','screen','queue'];const mf=fams.filter(function(f){return !sec.toLowerCase().includes(f)});const v=Number((c.match(/Version:\\s*v(\\d+)/)||[])[1]||0);const bad=[];if(!sec)bad.push('no client-protocol section');if(miss.length)bad.push('entities missing: '+miss.join(', '));if(mf.length)bad.push('event families missing: '+mf.join(', '));if(v<3)bad.push('version not bumped past v2 (v'+v+')');if(bad.length){console.error('FAIL: '+bad.join('; '));process.exit(1)}console.log('OK: client protocol pinned ('+rows.length+' entities, contract v'+v+')')\"",
+      "deps": [],
+      "notes": "Covers FR-44 consequence 1 (the protocol plus contract-pinned push-event surface is the client contract). Overlap is topical only: store rows match-11-entity-contract-offer-github-drop-in-adapter and client-adapter-parity-platform-api-replaces-github-as-the-cl own the client-side adapter mapping; this story is the platform-side contract pin AD-8 requires before a second client consumes the protocol. Per-entity field detail is already captured by the pending entity-api-* store rows - this story pins them as the client contract rather than recreating them."
+    },
+    {
+      "id": "e11-impl-entity-surface-boundary",
+      "title": "Serve the platform-backed client protocol entities with platform-native fields",
+      "kind": "implementation",
+      "epic": "E11",
+      "milestone": "M4",
+      "priority": "P3",
+      "fr_refs": ["FR-44"],
+      "scope": "platform/src - serve the platform-backed entities of the pinned protocol through documented routes: Floor/Project (namespace repos with branch, readiness and proposal counts) and Pull/Proposal plus Pull/Proposal detail (from the fork-point change-sets /proposals and /changes already compute). Route paths and field names are exactly what e11-impl-pin-client-protocol pins in CONTRACT.md, and the routes land with their shapes in CONTRACT.md in the same change (AD-8: no undocumented shape). Client-local entities (Worker, Task/Queue, Issue, Presence/Peer, Whiteboard, Services, Settings, Chat/Notifications) are not fabricated server-side. GitHub-only semantics (reviewDecision, mergeStateStatus, mergeable) stay adapter-synthesized and appear as no platform response field (AD-14: never in the core).",
+      "acceptance": "A client can render live platform state from the API alone: for every platform-served entity each pinned client-readable field resolves from documented route responses, proved by a conformance test that reads each entity from a worker instance and asserts the pinned fields are present; no platform response carries a field named reviewDecision, mergeStateStatus or mergeable; the contract records the served-versus-client-local split.",
+      "check_cmd": "bun porting/tests/client-protocol.test.mjs",
+      "deps": ["e11-impl-pin-client-protocol"],
+      "notes": "Covers FR-44 consequences 1, 2 and 3 (the second client itself is an M4 adoption signal, explicitly not a v1 build target). Delta versus the store rows: client-adapter-parity-platform-api-replaces-github-as-the-cl and match-11-entity-contract-offer-github-drop-in-adapter are the client-side adapter mapping, synthesize-reviewdecision-mergestate-for-clients is the synthesis itself - this story is the server-side protocol surface plus the core-side boundary AD-14 places on the platform."
+    },
+    {
+      "id": "e11-impl-api-route-discipline",
+      "title": "Enforce route methods and JSON 404s at the API boundary",
+      "kind": "implementation",
+      "epic": "E11",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": ["NFR-11"],
+      "scope": "platform/src/index.ts fetch dispatch - today every unmatched request falls through to env.ASSETS.fetch(request) (line ~1154), so a method mismatch or an unknown path answers as an asset instead of a contract error. Introduce one dispatch table (path to method to handler) as the single registration point (AD-8: a route cannot ship unregistered) and enforce: known route plus wrong method returns 405 {ok:false,error:\"method-not-allowed\"}; unknown path returns 404 {ok:false,error:\"not-found\"} JSON even when the assets binding would answer 200 for it; / and the UI asset paths still serve platform/ui. The table is also the drift guard: registry to CONTRACT.md route sections to the route paths platform/ui/*.js consumes.",
+      "acceptance": "(a) A wrong-method request to a documented route returns 405 JSON and never an asset or a silent success; (b) an unknown path returns 404 JSON {ok:false,error:\"not-found\"} even when the assets binding would answer 200 for it; (c) / and the UI assets still serve the triage UI; (d) a machine check proves route-set parity between the registry, CONTRACT.md and the paths consumed by platform/ui/*.js.",
+      "check_cmd": "bun porting/tests/route-discipline.test.mjs",
+      "deps": [],
+      "notes": "Covers NFR-11 (additive-only shapes, consumers read only documented surfaces; AD-8 method enforcement plus JSON 404 with no asset fallthrough). Verified missing today: the dispatch falls through to ASSETS at platform/src/index.ts:1154. Distinct from the store row contract-smoke-verify-gates, which wires the six-route shape smoke into VERIFY gates - this is the API-boundary behaviour itself. Milestone M1: the invariants bind the live platform API and gate every route the M1 wave adds."
+    },
+    {
+      "id": "e11-impl-defaults-parity",
+      "title": "Resolve base/ref/baseRef defaults in one place and pin them in CONTRACT.md",
+      "kind": "implementation",
+      "epic": "E11",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": ["NFR-11"],
+      "scope": "platform/src/index.ts - default resolution for base/ref/baseRef is inlined per route today (/changes, /proposals and /merge at lines ~1115-1135; /land body at ~770; /judge target.base at ~1026). Extract one resolution helper used by every route (AD-8: no private defaults) and add a defaults section to CONTRACT.md pinning base=demo, ref=main, baseRef=main with the single documented exception (/changes requires repo). Depends on e11-impl-api-route-discipline: the helper plugs into the route table and both touch the same dispatch.",
+      "acceptance": "Requests without base/ref/baseRef resolve identically on every route: /proposals with no params reports base.repo demo and ref main; /merge with no repos still fails on repos only, after the same defaults resolve; /land and /judge use the same base default; the parity test fails if any route resolves a different default; CONTRACT.md pins the defaults in one place with the equivalence rule.",
+      "check_cmd": "bun porting/tests/defaults-parity.test.mjs",
+      "deps": ["e11-impl-api-route-discipline"],
+      "notes": "Covers NFR-11 'defaults pinned in CONTRACT.md' (AD-8: default resolution identical on every route, no private defaults). Milestone M1 with the API-boundary work; depends on the route-discipline story because both restructure the same dispatch."
+    }
+  ]
+}

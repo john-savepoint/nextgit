@@ -1,0 +1,57 @@
+{
+  "slice": "E7-impl",
+  "epic": "E7",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e7-impl-harness-route-registry",
+      "title": "Load harness routes from a declarative registry",
+      "kind": "implementation",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-35"
+      ],
+      "scope": "platform/scripts/real-agents.mjs: CANDIDATES (:124-152) becomes registry-driven; add `--list-harnesses` (prints one JSON array only — no probing, no network; exit before main()). New platform/scripts/harness-registry.mjs: load + validate + merge the shipped registry with NEXTGIT_HARNESSES (path to a BYO file, additive; same-id override, documented); entry shape {id, bin, args[] ({prompt}/{cwd} placeholders, or stdinPrompt:true), env?, probeBudgetMs?, notes?}; the module does no probing so it stays offline-testable. New platform/scripts/harnesses.json: shipped routes codex/omp/pi carrying today's exact bin/args (omp keeps {cwd}; pi keeps probeBudgetMs 60_000). New platform/scripts/harnesses.example.json: a valid BYO declaration template (id 'example') operators copy and edit. Probe contract (scratch-dir auth+write test), fallback order over proven routes, and the runner's single three-refspec push (real-agents.mjs:411) stay unchanged. Covers FR-35's pending half ('more harnesses via routing'); the built omp/codex routes are not rebuilt.",
+      "acceptance": "Onboarding a harness is a declaration, not a code edit. `node platform/scripts/real-agents.mjs --list-harnesses` prints exactly one JSON array (nothing else) whose entries carry id, bin and args[]; the shipped registry declares codex, omp and pi with the same bin/args they carry today (no silent behavior change); `NEXTGIT_HARNESSES=platform/scripts/harnesses.example.json node platform/scripts/real-agents.mjs --list-harnesses` additionally lists the example route with zero JS edits; a run still probes each declared route (auth + real file write in a scratch dir), dispatches only proven routes, and keeps the existing fallback order.",
+      "check_cmd": "node platform/scripts/real-agents.mjs --list-harnesses | jq -ec 'length>=3 and any(.[]; .id==\"omp\") and any(.[]; .id==\"codex\") and all(.[]; has(\"bin\") and (.args|type==\"array\"))' && NEXTGIT_HARNESSES=platform/scripts/harnesses.example.json node platform/scripts/real-agents.mjs --list-harnesses | jq -ec 'any(.[]; .id==\"example\") and any(.[]; .id==\"omp\")'",
+      "deps": [],
+      "notes": "Dedupe: existing store rows `provider-agnostic-agent-launch-unify-8-harness-formats` [pending P2], `support-byo-models-and-harnesses-via-launch-abstraction` [pending P2] and `route-work-to-the-best-fit-harness-per-task` [pending P1] are adjacent; the delta here is the runner-side declarative registry plus offline listing for FR-35's pending half — those rows keep the client launch abstraction and best-fit task routing. FR-35's built half (omp + codex routes verified live) is verification-covered by sibling slice E7-verify and is not rebuilt. check_cmd uses this box's jq with -ec (jaq is not installed on this host; jq -ec gives the same print-boolean-plus-exit-status contract)."
+    },
+    {
+      "id": "e7-impl-byo-harness-onboarding-standard",
+      "title": "Publish the BYO harness onboarding standard and validate declarations",
+      "kind": "implementation",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-35"
+      ],
+      "scope": "platform/CONTRACT.md: new 'Harness onboarding (BYO)' section (AD-8 — additive, lands in the same slice as its validator) pinning: declaration schema (harness-registry fields), probe contract (a route is dispatched only after a scratch-dir edit test proves auth + filesystem write), dispatch lifecycle (isolated clone per agent; the agent edits its clone; the runner commits leftovers, adds the intent note, and performs the single three-refspec push `git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-notes`; agents never push refs), credential rule (the agent subprocess env carries no push credential; only the runner's git wrapper holds the minted token — as-built real-agents.mjs:338-345). Rewrite the agent-facing raw push recipe at CONTRACT.md:163-171 as runner-executed (AD-5, SPINE:87). real-agents.mjs: add `--check-harness <registry-file>` backed by harness-registry.mjs validation — prints {ok, harnesses[], errors[{id,field,detail}]} as JSON; exit 0 iff ok; flags missing/blank id or bin, non-array args, an entry with neither {prompt} nor stdinPrompt:true, and an unresolvable bin.",
+      "acceptance": "BYO harness is supported through the standard interface: agents edit their own clones; the runner/orchestrator commits and performs the single three-refspec push; agents never push refs. `node platform/scripts/real-agents.mjs --check-harness platform/scripts/harnesses.example.json` prints {ok:true, harnesses:[...], errors:[]} and exits 0; `--check-harness /dev/null` (or any invalid registry) exits non-zero and names the offending entry/field in errors[]; CONTRACT.md documents the declaration schema, probe contract, dispatch lifecycle and credential rule, and no longer addresses a push recipe to agents.",
+      "check_cmd": "node platform/scripts/real-agents.mjs --check-harness platform/scripts/harnesses.example.json | jq -ec '.ok==true and (.harnesses|length)>=1' && node -e \"const{spawnSync}=require('child_process');const r=spawnSync('node',['platform/scripts/real-agents.mjs','--check-harness','/dev/null'],{encoding:'utf8'});if(r.status===0){console.error('empty registry accepted');process.exit(1)}\"",
+      "deps": [
+        "e7-impl-harness-route-registry"
+      ],
+      "notes": "Dedupe: adjacent to `support-byo-models-and-harnesses-via-launch-abstraction` [pending P2] and `prototype-rung-2-echoes-agent-memory-routing` [pending]; the delta is the FR-35 standard interface pinned in CONTRACT plus a machine-checkable declaration validator — the store rows keep the client launch abstraction. AD-5's rewrite ('the CONTRACT recipe is rewritten as runner-executed') is architecture-mandated, not optional polish."
+    },
+    {
+      "id": "e7-impl-workspace-manifest-structure-map",
+      "title": "Ship workspace manifest and structure map into every workspace",
+      "kind": "implementation",
+      "epic": "E7",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-35"
+      ],
+      "scope": "New platform/scripts/workspace-manifest.mjs: buildManifest({repo, branch, files, tools, push, contract}) -> {schema:'nextgit.workspace-manifest/v1', generated_at, workspace, tools[] (runtime pins + platform surface/CONTRACT pointers), structure:{files[{path,bytes,role}], dirs, entry_points}, push:{policy:'runner-executed', recipe:'git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-notes'}, contract:{path:'platform/CONTRACT.md'}}; a standalone structure map {schema:'nextgit.structure-map/v1', ...structure}; ensureWorkspaceFiles(cloneDir) writes .nextgit/manifest.json + .nextgit/structure-map.json and adds .nextgit/ to .git/info/exclude so platform metadata never enters a proposal change-set; CLI `--repo <dir> --print` (offline tree walk; excludes .git/node_modules) and `--ensure <dir>`. platform/scripts/real-agents.mjs fresh-clone path (after clone/config, before the harness is spawned): ensure -> assert both files exist -> fail the task with a clear detail if not; append one prompt line pointing the harness at .nextgit/manifest.json ('never dispatch a context-blind agent').",
+      "acceptance": "The platform ships a machine-readable tool manifest + structure map into every workspace. `node platform/scripts/workspace-manifest.mjs --repo platform --print` emits one JSON document with schema nextgit.workspace-manifest/v1, non-empty tools[], structure.files[] carrying path/bytes/role for every non-excluded file, and push.recipe carrying the three refspecs; `--ensure <dir>` on a fresh local git repo materializes both files, makes them ignored, and leaves `git status --porcelain` empty (so .nextgit/* can never appear in a change-set or proposal); the runner calls ensure before every harness spawn and refuses to spawn when the manifest is still absent; the harness prompt names the manifest path.",
+      "check_cmd": "node platform/scripts/workspace-manifest.mjs --repo platform --print | jq -ec '.schema==\"nextgit.workspace-manifest/v1\" and (.tools|length)>0 and (.structure.files|length)>0 and (.push.recipe|contains(\"refs/notes/commits\"))' && d=$(mktemp -d) && git -C \"$d\" init -q && node platform/scripts/workspace-manifest.mjs --ensure \"$d\" >/dev/null && test -s \"$d/.nextgit/manifest.json\" && test -s \"$d/.nextgit/structure-map.json\" && git -C \"$d\" check-ignore -q .nextgit/manifest.json && test -z \"$(git -C \"$d\" status --porcelain)\" && rm -rf \"$d\"",
+      "deps": [],
+      "notes": "Dedupe: existing store rows `ship-tool-manifest-and-structure-map-into-workspaces` [pending P1] and `law-3-self-describing-platform-tool-manifest-structure-map` [pending P1] (harvested from docs/NEXT-ACTIONS.md:151,203) carry the same intent; the delta is the FR-35-scoped executable artifact — pinned file format, dispatch-time seam, offline proof of the no-pollution invariant. If either store row activates first, rebase this story onto its output rather than duplicating. `law-12-merge-workspace-transparency-woven-through-the-experi`, `weave-workspaces-through-the-whole-experience`, `fan-out-artifacts-repo-events-through-queues` and `support-multi-repo-workspaces-for-agent-reasoning` are adjacent but distinct. Touches real-agents.mjs in the clone path only (S1 touches the CANDIDATES region) — rebase if landed concurrently."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "slice": "E9-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e9-verify-fetch-fallback",
+      "note": "Acceptance says 'exactly one console warning', but check_cmd asserts only presence (warns.some(...)). Mitigated in practice — platform/ui/tour.js has exactly one console.warn call (verified), so the narrower assertion cannot be fooled by tour code; optional hardening: assert warns.filter(w=>w.includes(\"Could not fetch live proposals\")).length===1."
+    },
+    {
+      "severity": "low",
+      "story": "e9-verify-step7-quiz",
+      "note": "Live-path content tension: step 7's agent-3 feedback ('Already Shipped: agent-3 has landed') contradicts step 6's live grid, which annotates agent-3 'Clean & ready to ship' (live lifecycle is all-pending by design: verified live payload has agent-1..agent-4 landing.status='ready'; platform/scripts/demo-verify.mjs check 5 requires no landed proposal). The landed narrative only holds in the offline fallback snapshot. e9-verify-step6-live-proposals documents the landed-branch-is-snapshot-only caveat but not this quiz wording; both check_cmds pass, so this is a viewer-facing wording observation, not a verification failure."
+    }
+  ],
+  "summary": "Coverage: FR-37 and FR-38 are both built (requirements.json status_raw) and both carry 8 verification-kind e9-verify-* stories with zero rebuilds — FR-37 consequences split across stepper-nav / steps-0-2 / steps-3-5 / step6-live / step7-quiz / steps-8-9, FR-38 across fetch-fallback / mobile-stacking. ids are stable lowercase slugs, unique in-slice, with zero collisions against the 513-row store (tasks.mjs query) and no duplicate ids across the run's 21 slice files; deps all [] (acyclic); acceptance observable/testable; kind=verification, M1, P1 match the E9 epic (M1) and compile conventions. check_cmds are real and non-placeholder: all 8 were spot-run green against the deployed tour (7 with /proposals aborted exercising the fallback path; step6 live run also PASS), and deployed /tour + /tour.js are byte-identical (md5) to platform/ui. Dedupe: pack-listed support-host-git-or-native-proposal-model [pending] is unrelated to the tour and is correctly noted; no existing tour row (tour-deployed-… done, tour-v2 pending) is duplicated. 0 critical, 0 high."
+}

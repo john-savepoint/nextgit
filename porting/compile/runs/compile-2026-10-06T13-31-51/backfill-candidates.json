@@ -1,0 +1,556 @@
+{
+  "high": [
+    {
+      "story": "e4-impl-event-consumer-hardening",
+      "storyTitle": "Harden the event consumer: validate payloads and dedupe the feed (AD-6)",
+      "row": "event-consumer-validation-dedupe",
+      "rowTitle": "Event consumer: sole recorder + dedupe + payload validation (AD-6)",
+      "score": 4
+    },
+    {
+      "story": "e8-impl-authorize-chokepoint",
+      "storyTitle": "Build the authorize() chokepoint with AUTH_MODE default-deny",
+      "row": "auth-seam-v1",
+      "rowTitle": "Auth seam v1: AUTH_MODE default-deny + authorize() chokepoint + repo allowlist (AD-9)",
+      "score": 5
+    }
+  ],
+  "medium": [
+    {
+      "story": "e1-verify-one-set-one-response",
+      "storyTitle": "Prove every concurrent proposal is one set in a single response",
+      "row": "proposal-card-signal-set-risk-provenance-fields-on-every-car",
+      "rowTitle": "Proposal card signal set: risk + provenance fields on every card",
+      "score": 2
+    },
+    {
+      "story": "e1-verify-one-set-one-response",
+      "storyTitle": "Prove every concurrent proposal is one set in a single response",
+      "row": "validate-every-proposal-with-speculative-execution",
+      "rowTitle": "Validate every proposal with speculative execution",
+      "score": 2
+    },
+    {
+      "story": "e1-verify-card-anatomy",
+      "storyTitle": "Prove the proposal card anatomy and the secret-row treatment",
+      "row": "complete-unified-proposal-card-intent-diff-risk-provenance",
+      "rowTitle": "Complete unified proposal card (intent, diff, risk, provenance)",
+      "score": 2
+    },
+    {
+      "story": "e1-verify-card-anatomy",
+      "storyTitle": "Prove the proposal card anatomy and the secret-row treatment",
+      "row": "proposal-card-signal-set-risk-provenance-fields-on-every-car",
+      "rowTitle": "Proposal card signal set: risk + provenance fields on every card",
+      "score": 2
+    },
+    {
+      "story": "e1-verify-conflict-map-render",
+      "storyTitle": "Prove the collision map renders every conflict with its evidence",
+      "row": "attach-signed-validation-evidence-to-every-change",
+      "rowTitle": "Attach signed validation evidence to every change",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-changes-capture",
+      "storyTitle": "Prove GET /changes returns identities, stats, per-file rows and the secret patch policy",
+      "row": "enforce-typed-secret-files-ciphertext-policy-schema-only-vie",
+      "rowTitle": "Enforce typed secret files: ciphertext + policy + schema-only view",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-fork-point-pinning",
+      "storyTitle": "Prove change-sets are diffed against the fork point with the bounded first-parent walk",
+      "row": "run-background-matcher-against-the-fork-ecosystem",
+      "rowTitle": "Run background matcher against the fork ecosystem",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-merge-fold-api",
+      "storyTitle": "Prove GET /merge folds proposals in order with clean, conflict and withheld-secret outcomes",
+      "row": "diff-topography-merge-ripples-and-conflict-intersections",
+      "rowTitle": "Diff topography: merge ripples and conflict intersections",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-merge-fold-api",
+      "storyTitle": "Prove GET /merge folds proposals in order with clean, conflict and withheld-secret outcomes",
+      "row": "visual-merge-blending-with-conflict-glow-at-intersections",
+      "rowTitle": "Visual merge blending with conflict glow at intersections",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-merge-modal-states",
+      "storyTitle": "Prove the merge modal renders merged text, conflict text, withheld notice and the empty/error states",
+      "row": "diff-topography-merge-ripples-and-conflict-intersections",
+      "rowTitle": "Diff topography: merge ripples and conflict intersections",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-merge-modal-states",
+      "storyTitle": "Prove the merge modal renders merged text, conflict text, withheld notice and the empty/error states",
+      "row": "treat-binaries-as-never-merge-keep-3-way-text-merge",
+      "rowTitle": "Treat binaries as never-merge; keep 3-way text merge",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-merge-modal-states",
+      "storyTitle": "Prove the merge modal renders merged text, conflict text, withheld notice and the empty/error states",
+      "row": "visual-merge-blending-with-conflict-glow-at-intersections",
+      "rowTitle": "Visual merge blending with conflict glow at intersections",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-artifacts-platform-parity",
+      "storyTitle": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime",
+      "row": "diff-topography-merge-ripples-and-conflict-intersections",
+      "rowTitle": "Diff topography: merge ripples and conflict intersections",
+      "score": 3
+    },
+    {
+      "story": "e2-verify-artifacts-platform-parity",
+      "storyTitle": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime",
+      "row": "structural-conflict-detection-entity-ast-level-not-just-text",
+      "rowTitle": "Structural conflict detection: entity/AST-level, not just textual",
+      "score": 2
+    },
+    {
+      "story": "e2-verify-artifacts-platform-parity",
+      "storyTitle": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime",
+      "row": "visual-merge-blending-with-conflict-glow-at-intersections",
+      "rowTitle": "Visual merge blending with conflict glow at intersections",
+      "score": 2
+    },
+    {
+      "story": "e2-impl-commits-list-additive",
+      "storyTitle": "Add per-fork commit list to /changes (worker + contract bump)",
+      "row": "secret-class-widening-scrub",
+      "rowTitle": "Secret-class widening + free-text scrub (AD-4, contract bump)",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-reviewed-heads-exposed",
+      "storyTitle": "Expose base and proposal head SHAs on the read surfaces (contract bump first)",
+      "row": "expose-content-read-apis-log-commit-tree-blob-file-raw",
+      "rowTitle": "Expose content read APIs (log/commit/tree/blob/file/raw)",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-reviewed-heads-exposed",
+      "storyTitle": "Expose base and proposal head SHAs on the read surfaces (contract bump first)",
+      "row": "secret-class-widening-scrub",
+      "rowTitle": "Secret-class widening + free-text scrub (AD-4, contract bump)",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-land-record-evidence",
+      "storyTitle": "Extend the landing record: checks, results, merged/tested hashes, artifact ref",
+      "row": "landing-evidence-receipt-tested-sha-equals-merged-sha-record",
+      "rowTitle": "Landing evidence receipt: tested SHA equals merged SHA, recorded",
+      "score": 3
+    },
+    {
+      "story": "e3-impl-land-record-evidence",
+      "storyTitle": "Extend the landing record: checks, results, merged/tested hashes, artifact ref",
+      "row": "build-predictive-validation-so-merged-sha-equals-tested-sha",
+      "rowTitle": "Build predictive validation so merged SHA equals tested SHA",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-landed-receipt-render",
+      "storyTitle": "Render the landing counts: landed.files/landed.at receipt and landing.files",
+      "row": "landing-evidence-receipt-tested-sha-equals-merged-sha-record",
+      "rowTitle": "Landing evidence receipt: tested SHA equals merged SHA, recorded",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-landing-decision-note",
+      "storyTitle": "Persist the landing decision as a git note (readable via the notes mirror)",
+      "row": "store-arbitration-decision-record-as-git-notes-on-landed-cha",
+      "rowTitle": "Store arbitration decision record as git notes on landed change",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-do-land-lease",
+      "storyTitle": "Serialize lands with a Durable Object lease (unsequenced)",
+      "row": "account-mesh-millions-of-durable-object-coordinate-nodes",
+      "rowTitle": "Account mesh: millions of Durable Object coordinate nodes",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-do-land-lease",
+      "storyTitle": "Serialize lands with a Durable Object lease (unsequenced)",
+      "row": "do-lease-serializes-lands",
+      "rowTitle": "DO lease serializes lands (AD-10; demo component)",
+      "score": 2
+    },
+    {
+      "story": "e3-impl-do-land-lease",
+      "storyTitle": "Serialize lands with a Durable Object lease (unsequenced)",
+      "row": "one-durable-object-per-repo-as-realtime-hub",
+      "rowTitle": "One Durable Object per repo as realtime hub",
+      "score": 2
+    },
+    {
+      "story": "e3-verify-nfr4-single-write-path",
+      "storyTitle": "Prove the single gated write path (no base writes outside /land)",
+      "row": "detect-cross-worktree-conflicts-before-writes-land",
+      "rowTitle": "Detect cross-worktree conflicts before writes land",
+      "score": 2
+    },
+    {
+      "story": "e4-impl-do-hub-sse-transport",
+      "storyTitle": "Stream platform events over an SSE Durable Object hub",
+      "row": "account-mesh-millions-of-durable-object-coordinate-nodes",
+      "rowTitle": "Account mesh: millions of Durable Object coordinate nodes",
+      "score": 2
+    },
+    {
+      "story": "e4-impl-do-hub-sse-transport",
+      "storyTitle": "Stream platform events over an SSE Durable Object hub",
+      "row": "events-normalized-platform-event-bus-across-all-families",
+      "rowTitle": "Events: normalized platform event bus across all families",
+      "score": 2
+    },
+    {
+      "story": "e4-impl-do-hub-sse-transport",
+      "storyTitle": "Stream platform events over an SSE Durable Object hub",
+      "row": "one-durable-object-per-repo-as-realtime-hub",
+      "rowTitle": "One Durable Object per repo as realtime hub",
+      "score": 2
+    },
+    {
+      "story": "e4-verify-ticker-newest-8-render",
+      "storyTitle": "Prove the events ticker renders the newest 8 events with type, repo and time",
+      "row": "fan-out-artifacts-repo-events-through-queues",
+      "rowTitle": "Fan out Artifacts repo events through Queues",
+      "score": 2
+    },
+    {
+      "story": "e4-verify-events-failure-isolation",
+      "storyTitle": "Prove /events failure goes stale without breaking the proposals surface",
+      "row": "detect-stale-proposals-against-moved-bases",
+      "rowTitle": "Detect stale proposals against moved bases",
+      "score": 2
+    },
+    {
+      "story": "e5-impl-judge-labeled-set-v1",
+      "storyTitle": "Build the judge-v1 labeled proposal set (≥50 risk + intent-verification labels)",
+      "row": "build-multiplayer-triage-canvas-with-proposal-artifacts",
+      "rowTitle": "Build multiplayer triage canvas with proposal artifacts",
+      "score": 2
+    },
+    {
+      "story": "e5-impl-judge-labeled-set-v1",
+      "storyTitle": "Build the judge-v1 labeled proposal set (≥50 risk + intent-verification labels)",
+      "row": "complete-unified-proposal-card-intent-diff-risk-provenance",
+      "rowTitle": "Complete unified proposal card (intent, diff, risk, provenance)",
+      "score": 2
+    },
+    {
+      "story": "e5-impl-judge-labeled-set-v1",
+      "storyTitle": "Build the judge-v1 labeled proposal set (≥50 risk + intent-verification labels)",
+      "row": "proposal-card-signal-set-risk-provenance-fields-on-every-car",
+      "rowTitle": "Proposal card signal set: risk + provenance fields on every card",
+      "score": 2
+    },
+    {
+      "story": "e5-impl-calibration-record-v1",
+      "storyTitle": "Tune judge-v1 thresholds and commit the calibration record",
+      "row": "tune-judge-thresholds-on-our-own-labeled-proposals",
+      "rowTitle": "Tune judge thresholds on our own labeled proposals",
+      "score": 2
+    },
+    {
+      "story": "e5-verify-typed-signal-envelope",
+      "storyTitle": "Prove /judge v1 emits typed risk, intent, and collision signals",
+      "row": "complete-unified-proposal-card-intent-diff-risk-provenance",
+      "rowTitle": "Complete unified proposal card (intent, diff, risk, provenance)",
+      "score": 2
+    },
+    {
+      "story": "e5-verify-set-versioning-unknown-set",
+      "storyTitle": "Prove judge set versioning rejects unknown sets (400 unknown-set)",
+      "row": "scale-cloudflare-s-coordinator-specialists-arbitration-judge",
+      "rowTitle": "Scale Cloudflare's coordinator->specialists->arbitration judge to sets",
+      "score": 2
+    },
+    {
+      "story": "e5-verify-set-versioning-unknown-set",
+      "storyTitle": "Prove judge set versioning rejects unknown sets (400 unknown-set)",
+      "row": "version-judge-question-sets-in-code-with-the-platform",
+      "rowTitle": "Version judge question sets in code with the platform",
+      "score": 2
+    },
+    {
+      "story": "e5-verify-advisory-chip-rendering",
+      "storyTitle": "Prove advisory judge chips render, stay amber, and block nothing",
+      "row": "tour-v2-fold-judge-chips-auto-land-language-in",
+      "rowTitle": "Tour v2: fold judge chips + auto-land language in",
+      "score": 2
+    },
+    {
+      "story": "e6-verify-judge-state-and-log-masking",
+      "storyTitle": "Prove secret-class values never enter judge state, logs, or free-text scrub output",
+      "row": "secret-class-widening-scrub",
+      "rowTitle": "Secret-class widening + free-text scrub (AD-4, contract bump)",
+      "score": 3
+    },
+    {
+      "story": "e6-verify-judge-state-and-log-masking",
+      "storyTitle": "Prove secret-class values never enter judge state, logs, or free-text scrub output",
+      "row": "use-crdts-for-review-state-only-never-code-text",
+      "rowTitle": "Use CRDTs for review state only, never code text",
+      "score": 2
+    },
+    {
+      "story": "e6-verify-merge-preview-withheld",
+      "storyTitle": "Prove merge previews render withheld-secret rows with no text",
+      "row": "treat-binaries-as-never-merge-keep-3-way-text-merge",
+      "rowTitle": "Treat binaries as never-merge; keep 3-way text merge",
+      "score": 2
+    },
+    {
+      "story": "e6-verify-intent-push-recipe-durability",
+      "storyTitle": "Prove the single three-refspec intent push and durability across branch movement",
+      "row": "batch-merge-bot-temp-branch-full-ci-push-only-if-green",
+      "rowTitle": "Batch merge bot: temp branch, full CI, push only if green",
+      "score": 2
+    },
+    {
+      "story": "e7-impl-workspace-manifest-structure-map",
+      "storyTitle": "Ship workspace manifest and structure map into every workspace",
+      "row": "ship-tool-manifest-and-structure-map-into-workspaces",
+      "rowTitle": "Ship tool manifest and structure map into workspaces",
+      "score": 3
+    },
+    {
+      "story": "e7-impl-workspace-manifest-structure-map",
+      "storyTitle": "Ship workspace manifest and structure map into every workspace",
+      "row": "law-3-self-describing-platform-tool-manifest-structure-map-i",
+      "rowTitle": "Law 3: self-describing platform - tool manifest + structure map in workspaces",
+      "score": 2
+    },
+    {
+      "story": "e7-verify-fork-push-events",
+      "storyTitle": "Prove every workspace push emits a platform event",
+      "row": "events-normalized-platform-event-bus-across-all-families",
+      "rowTitle": "Events: normalized platform event bus across all families",
+      "score": 2
+    },
+    {
+      "story": "e7-verify-fork-push-events",
+      "storyTitle": "Prove every workspace push emits a platform event",
+      "row": "worktree-as-a-service-platform-provisioning-api-create-list-",
+      "rowTitle": "Worktree-as-a-service: platform provisioning API (create/list/push/PR/cleanup)",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-allowlist-all-routes",
+      "storyTitle": "Enforce the demo repo allowlist on every base/repos param",
+      "row": "auth-seam-v1",
+      "rowTitle": "Auth seam v1: AUTH_MODE default-deny + authorize() chokepoint + repo allowlist (AD-9)",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-allowlist-all-routes",
+      "storyTitle": "Enforce the demo repo allowlist on every base/repos param",
+      "row": "demo-one-repo-3-5-agents-seeded-collision-land-one-scrub-lea",
+      "rowTitle": "Demo: one repo, 3-5 agents, seeded collision, land one, scrub leak",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-route-rate-limits",
+      "storyTitle": "Rate-limit /land, /merge, /proposals and /judge",
+      "row": "build-specialist-judge-scoring-proposals-for-arbitration",
+      "rowTitle": "Build specialist judge scoring proposals for arbitration",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-route-rate-limits",
+      "storyTitle": "Rate-limit /land, /merge, /proposals and /judge",
+      "row": "tune-judge-thresholds-on-our-own-labeled-proposals",
+      "rowTitle": "Tune judge thresholds on our own labeled proposals",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-token-storage-hygiene",
+      "storyTitle": "Write token manifests 0600 and keep tokens out of logs and argv",
+      "row": "token-lifecycle",
+      "rowTitle": "Token lifecycle: account-scoped control-plane token + 0600 storage + audit (AD-7)",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-token-storage-hygiene",
+      "storyTitle": "Write token manifests 0600 and keep tokens out of logs and argv",
+      "row": "write-chunk-manifests-and-merkle-integrity-into-repo",
+      "rowTitle": "Write chunk manifests and Merkle integrity into repo",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-token-audit-two-surfaces",
+      "storyTitle": "Audit token mint/use/revoke in Worker logs and Artifacts token events",
+      "row": "events-worker-lifecycle-worktree-spawn-update-remove-worktre",
+      "rowTitle": "Events: worker lifecycle + worktree (spawn/update/remove, worktree)",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-token-audit-two-surfaces",
+      "storyTitle": "Audit token mint/use/revoke in Worker logs and Artifacts token events",
+      "row": "fan-out-artifacts-repo-events-through-queues",
+      "rowTitle": "Fan out Artifacts repo events through Queues",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-token-audit-two-surfaces",
+      "storyTitle": "Audit token mint/use/revoke in Worker logs and Artifacts token events",
+      "row": "normalize-worker-events-across-provider-hook-formats",
+      "rowTitle": "Normalize worker events across provider hook formats",
+      "score": 2
+    },
+    {
+      "story": "e8-impl-reveal-behind-seam",
+      "storyTitle": "Reveal secret values only through an authorized, audited seam rule",
+      "row": "contextual-mfa-elevation-to-reveal-or-inject-secret-values",
+      "rowTitle": "Contextual MFA elevation to reveal or inject secret values",
+      "score": 3
+    },
+    {
+      "story": "e8-impl-reveal-behind-seam",
+      "storyTitle": "Reveal secret values only through an authorized, audited seam rule",
+      "row": "elevated-reveal-for-authorized-viewers-demo-beat",
+      "rowTitle": "Elevated reveal for authorized viewers (demo beat)",
+      "score": 2
+    },
+    {
+      "story": "e10-impl-submission-license",
+      "storyTitle": "Complete the submission license surface: package.json license field, tracked-file credential-scan evidence, single-entry filing note",
+      "row": "submission-package",
+      "rowTitle": "Submission package",
+      "score": 2
+    },
+    {
+      "story": "e10-impl-submission-video-single-take",
+      "storyTitle": "Record and gate the 5-10 minute single-take submission video",
+      "row": "record-edit-the-submission-video",
+      "rowTitle": "Record + edit the submission video",
+      "score": 3
+    },
+    {
+      "story": "e10-impl-submission-video-single-take",
+      "storyTitle": "Record and gate the 5-10 minute single-take submission video",
+      "row": "demo-video-5-10-min-single-take-covering-all-three-axes",
+      "rowTitle": "Demo video: 5-10 min single take covering all three axes",
+      "score": 2
+    },
+    {
+      "story": "e10-impl-submission-video-single-take",
+      "storyTitle": "Record and gate the 5-10 minute single-take submission video",
+      "row": "live-only-e2e-verification-gate-before-submission-no-mocks",
+      "rowTitle": "Live-only E2E verification gate before submission (no mocks)",
+      "score": 2
+    },
+    {
+      "story": "e10-verify-demo-scripts-committed",
+      "storyTitle": "Prove the four demo scripts are committed and parse from the repo root",
+      "row": "demo-one-repo-3-5-agents-seeded-collision-land-one-scrub-lea",
+      "rowTitle": "Demo: one repo, 3-5 agents, seeded collision, land one, scrub leak",
+      "score": 2
+    },
+    {
+      "story": "e10-verify-real-agents-concurrent-run",
+      "storyTitle": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision",
+      "row": "demo-one-repo-3-5-agents-seeded-collision-land-one-scrub-lea",
+      "rowTitle": "Demo: one repo, 3-5 agents, seeded collision, land one, scrub leak",
+      "score": 2
+    },
+    {
+      "story": "e10-verify-real-agents-concurrent-run",
+      "storyTitle": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision",
+      "row": "ship-set-level-triage-of-n-concurrent-agent-change-sets-as-h",
+      "rowTitle": "Ship set-level triage of N concurrent agent change-sets as hero flow",
+      "score": 2
+    },
+    {
+      "story": "e10-verify-land-beat-receipt",
+      "storyTitle": "Verify the one-click landing beat lands server-side with a receipt",
+      "row": "landing-evidence-receipt-tested-sha-equals-merged-sha-record",
+      "rowTitle": "Landing evidence receipt: tested SHA equals merged SHA, recorded",
+      "score": 2
+    },
+    {
+      "story": "e10-verify-live-workers-artifacts-no-mocks",
+      "storyTitle": "Prove the demo path is the live Cloudflare Worker + Artifacts namespace — no mocks",
+      "row": "prove-workers-artifacts-compliance-for-judges",
+      "rowTitle": "Prove Workers + Artifacts compliance for judges",
+      "score": 2
+    },
+    {
+      "story": "e11-impl-pin-client-protocol",
+      "storyTitle": "Pin the 11-entity client protocol and push-event vocabulary in CONTRACT.md",
+      "row": "match-11-entity-contract-offer-github-drop-in-adapter",
+      "rowTitle": "Match 11-entity contract; offer GitHub drop-in adapter",
+      "score": 2
+    },
+    {
+      "story": "e11-verify-contract-single-source",
+      "storyTitle": "Verify CONTRACT.md documents every implemented route (single source, versioned)",
+      "row": "contract-smoke-verify-gates",
+      "rowTitle": "Contract smoke in platform verify gates (AD-12)",
+      "score": 2
+    },
+    {
+      "story": "e11-verify-contract-single-source",
+      "storyTitle": "Verify CONTRACT.md documents every implemented route (single source, versioned)",
+      "row": "registry-harvest-wave-itemize-every-source-into-harvest-json",
+      "rowTitle": "Registry harvest wave: itemize every source into harvest JSONs",
+      "score": 2
+    },
+    {
+      "story": "e13-impl-cap10-contract-pin",
+      "storyTitle": "Pin the CAP-10 contract: intent/matcher, fork signals, upstream route",
+      "row": "run-background-matcher-against-the-fork-ecosystem",
+      "rowTitle": "Run background matcher against the fork ecosystem",
+      "score": 2
+    },
+    {
+      "story": "e13-impl-cap10-contract-pin",
+      "storyTitle": "Pin the CAP-10 contract: intent/matcher, fork signals, upstream route",
+      "row": "score-fork-people-trust-signals",
+      "rowTitle": "Score fork people/trust signals",
+      "score": 2
+    },
+    {
+      "story": "e13-impl-six-cluster-fork-signals",
+      "storyTitle": "Compute six-cluster fork signals and feed matcher verdicts",
+      "row": "fork-card-six-cluster-signals-fit-trust-liveness-proof-dista",
+      "rowTitle": "Fork-card six-cluster signals (fit, trust, liveness, proof, distance, cost)",
+      "score": 2
+    },
+    {
+      "story": "e13-impl-six-cluster-fork-signals",
+      "storyTitle": "Compute six-cluster fork signals and feed matcher verdicts",
+      "row": "return-matcher-verdicts-merge-context-or-ignore",
+      "rowTitle": "Return matcher verdicts: merge, context, or ignore",
+      "score": 2
+    },
+    {
+      "story": "e13-impl-six-cluster-fork-signals",
+      "storyTitle": "Compute six-cluster fork signals and feed matcher verdicts",
+      "row": "run-background-matcher-against-the-fork-ecosystem",
+      "rowTitle": "Run background matcher against the fork ecosystem",
+      "score": 2
+    },
+    {
+      "story": "e13-impl-merge-back-upstream",
+      "storyTitle": "Route a fork's work back to its upstream with lineage and evidence",
+      "row": "route-work-to-the-best-fit-harness-per-task",
+      "rowTitle": "Route work to the best-fit harness per task",
+      "score": 2
+    }
+  ],
+  "totals": {
+    "compiled": 148,
+    "existing": 449
+  }
+}

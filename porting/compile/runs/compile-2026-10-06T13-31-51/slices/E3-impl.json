@@ -1,0 +1,193 @@
+{
+  "slice": "E3-impl",
+  "epic": "E3",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e3-impl-land-outcome-banners",
+      "title": "Render dedicated banners for no-changes, stale, and base-moved landing outcomes",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-15"
+      ],
+      "scope": "platform/ui/app.js handleLandProposal catch branch (~lines 912-941): it dispatches 409 withheld-secret and 409 conflict and sends every other failure to the generic 'Failed to land {repo}: {msg}'. Add three dedicated variants keyed on err.status === 409 && errorCode: no-changes -> \"Nothing to land — fold produced zero changes.\"; stale -> \"This proposal is stale — rebase and re-push to land.\"; base-moved -> \"Nothing to land — the baseline moved since this proposal was made.\" Copy per PRD FR-15 consequences 6/8/9 and EXPERIENCE.md:132-133. Keep the generic fallback; every failure returns the card to default via the existing finally; the banner persists until dismissed. The server codes already ship (CONTRACT.md:104 precondition order; store row `land-hardening` [done]).",
+      "acceptance": "Given a 409 {error:\"no-changes\"} /land response the action banner reads \"Nothing to land — fold produced zero changes.\" (never the generic \"Failed to land\"); 409 stale reads \"This proposal is stale — rebase and re-push to land.\"; 409 base-moved reads \"Nothing to land — the baseline moved since this proposal was made.\"; any other failure still reads \"Failed to land {repo}: {msg}\"; every failure returns the card to its default state.",
+      "check_cmd": "node --check platform/ui/app.js && grep -q 'errorCode === \"no-changes\"' platform/ui/app.js && grep -q \"Nothing to land — fold produced zero changes.\" platform/ui/app.js && grep -q \"This proposal is stale — rebase and re-push to land.\" platform/ui/app.js && grep -q \"Nothing to land — the baseline moved since this proposal was made.\" platform/ui/app.js",
+      "deps": [],
+      "notes": "Outcomes 1-5 and 7 are built and live (store row `landed-state-banner-commit-sha-live-event-feed-tick` [done]; land-hardening probe green 2026-10-06) — their verification is owned by the E3-verify slice; this story closes outcomes 6, 8, 9 only. The server-side no-changes gate is `fork-point-change-set-semantics-no-changes-409-gate` [done]."
+    },
+    {
+      "id": "e3-impl-card-contract-states",
+      "title": "Render withheld-secret and conflict card states with Land disabled",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-15"
+      ],
+      "scope": "platform/ui/app.js renderProposals — the card branches only on `landing.status === \"landed\"` / `stats.files === 0` today; /proposals already carries `landing.status` in ready|conflict|landed|withheld-secret (CONTRACT.md:41). Render the two contract states per the UX spine (EXPERIENCE.md:120-121; DESIGN.md proposal-card state machine): withheld-secret -> amber blocked state, secret rows stay schema-only (badge + key chips), Land action disabled with reason \"withheld-secret file — landing blocked\"; conflict -> status-red state, Land disabled, hint \"(preview merge first)\". Card and server must agree (these mirror the /land 409s). ready / landed / default states unchanged.",
+      "acceptance": "Given `landing.status === \"withheld-secret\"` the card renders the amber blocked state and its Land action is disabled with the reason \"withheld-secret file — landing blocked\"; given `landing.status === \"conflict\"` the card renders the red state with Land disabled and the \"(preview merge first)\" hint; ready and landed cards render exactly as today; renderProposals branches on all four contract statuses.",
+      "check_cmd": "node --check platform/ui/app.js && grep -Eq 'landing\\??\\.status === \"withheld-secret\"' platform/ui/app.js && grep -Eq 'landing\\??\\.status === \"conflict\"' platform/ui/app.js && grep -q 'withheld-secret file' platform/ui/app.js",
+      "deps": [],
+      "notes": "Build gap per EXPERIENCE.md:120-122,266-268 and FR-15's last consequence. Store rows `proposal-card-signal-set-risk-provenance-fields-on-every-car` [pending] and `complete-unified-proposal-card-intent-diff-risk-provenance` [pending] also touch renderProposals (risk/judge/provenance fields) — coordinate edits; keep their scope out of this story."
+    },
+    {
+      "id": "e3-impl-reviewed-heads-exposed",
+      "title": "Expose base and proposal head SHAs on the read surfaces (contract bump first)",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-16"
+      ],
+      "scope": "CONTRACT.md additive bump first (FR-42 discipline — every shape change bumps the file): GET /proposals carries the base repo's current head SHA and each proposal row's current head SHA at ref (pinned shape: `base.head` and `proposals[].head`, 40-hex strings). Then platform/src/index.ts computeProposals emits them from the same heads the folds use (repoHead / change-set head) so the client can assert exactly what it reviewed. No fold or land behavior change. The server-side reviewed-heads request fields already ship (store row `land-hardening` [done]; CONTRACT.md:83-90) — this story makes the reviewed heads knowable to the client, the missing half of FR-16's public-route guarantee.",
+      "acceptance": "GET /proposals returns ok:true with the base repo's current head SHA and every proposal's current head SHA at ref (base.head, proposals[].head), documented additively in CONTRACT.md before the code ships; the values equal the repos' actual heads at the same ref and are the heads /land compares against; all existing fields unchanged.",
+      "check_cmd": "curl -s -A nextgit-compile-check/1.0 \"https://nextgit-platform.john-b7d.workers.dev/proposals?base=demo\" | jq -ec '.ok == true and (.base.head | test(\"^[0-9a-f]{40}$\")) and ([.proposals[].head] | all(test(\"^[0-9a-f]{40}$\")))'",
+      "deps": [],
+      "notes": "FR-16's server precondition is built and probe-green (`land-hardening` [done]; porting/tests/land-hardening.probe.mjs). Verified live 2026-10-06 that /proposals returns base {repo,ref} only and no per-proposal head — this story is the delta. check_cmd needs the deploy to pass."
+    },
+    {
+      "id": "e3-impl-ui-reviewed-precondition",
+      "title": "Send the reviewed heads from the canvas on land and surface stale",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-16"
+      ],
+      "scope": "platform/ui/app.js handleLandProposal: add `reviewed: { baseHead, heads: { [repo]: head } }` to the POST /land payload, captured from the state the reviewer saw on the canvas (the rendered proposal row's head + base.head from E3-impl-reviewed-heads-exposed). The 409 stale banner copy ships with E3-impl-land-outcome-banners; on stale the card returns to default and the set refreshes so the reviewer re-reviews before re-pushing. Only with this wiring does 'landing content a reviewer never saw is impossible through the public route' (FR-16) hold.",
+      "acceptance": "Clicking confirm land sends POST /land with reviewed.baseHead equal to the rendered base head and reviewed.heads[repo] equal to the rendered proposal head (observable in the browser network panel); if either head moved since the render the server answers 409 stale, nothing lands, the stale banner shows, the card returns to default; a land that passes keeps today's success path.",
+      "check_cmd": "node --check platform/ui/app.js && grep -Eq 'reviewed[[:space:]]*:' platform/ui/app.js && grep -q 'baseHead' platform/ui/app.js",
+      "deps": [
+        "e3-impl-reviewed-heads-exposed"
+      ],
+      "notes": "Dep is real ordering: the client cannot assert heads no read surface exposes. Overlaps no listed store row; `land-hardening` [done] is the server side of FR-16. Browser-observable acceptance; the grep check is the repo's UI convention (cf. `land-ux-semantics-two-state-confirm-per-card-hide-collapse` [done])."
+    },
+    {
+      "id": "e3-impl-concurrency-race-regression",
+      "title": "Extend the land regression probe to 4 concurrent lands",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-17"
+      ],
+      "scope": "porting/tests/land-hardening.probe.mjs — section (d) races 2 concurrent lands today; extend it (or add a section) to 4 concurrent POST /land calls with identical reviewed heads. Assert: exactly one 200; every loser 409 with error in {base-moved, stale}; the base remote ref advances exactly once to the winner's evidence.commit and never regresses; no silent overwrite. Keep the scratch-chain guard (demo-lh-*, agent-lh-*) and the final cleanup; the whole probe stays green.",
+      "acceptance": "The probe issues 4 concurrent lands with identical reviewed heads: exactly one 200; every other response is 409 base-moved or stale with no success payload; after the race the base remote ref equals the winner's evidence.commit (advanced exactly once); a rerun stays green.",
+      "check_cmd": "node porting/tests/land-hardening.probe.mjs",
+      "deps": [],
+      "notes": "FR-17's precondition is built and probe-green (`land-hardening` [done]); this is the required-M1 widening to 4 concurrent lands. The probe file is also edited by E3-impl-land-record-evidence, -landings-read-route, -landing-decision-note — the deps chain serializes those edits."
+    },
+    {
+      "id": "e3-impl-land-record-evidence",
+      "title": "Extend the landing record: checks, results, merged/tested hashes, artifact ref",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-18"
+      ],
+      "scope": "Contract bump first (CONTRACT.md POST /land; FR-42 discipline): pin the extended evidence shape `{ checks[], results[], mergedSha, testedSha, artifactRef, at }` (PRD FR-18 / OQ-4) plus where checks/results come from (the proposal's recorded validation evidence; an additive request field is acceptable). platform/src/index.ts handleLand: keep the built record (repos/commit/ancestor/heads/foldHash) and add the pinned fields; enforce merged-SHA-equals-tested-SHA against the recorded fold hash so no landing claims validation it did not run (a mismatch surfaces in results, never silently); persist the record keyed by the returned commit in KV LIVE (single writer, NFR-7). Update porting/tests/land-hardening.probe.mjs section (a): the exactKeys assertion moves to the extended shape.",
+      "acceptance": "A 200 /land carries evidence with the pinned extended keys in addition to {repos, commit, ancestor, heads, foldHash}; mergedSha equals testedSha on a validated landing and their relation is checked against the recorded fold hash — a fold that changed after validation cannot claim validation; the record is persisted keyed by the returned commit; the probe asserts the extended shape and stays green.",
+      "check_cmd": "node porting/tests/land-hardening.probe.mjs",
+      "deps": [
+        "e3-impl-concurrency-race-regression"
+      ],
+      "notes": "Dep on the race story only serializes edits to the shared probe file. Overlaps store row `landing-evidence-receipt-tested-sha-equals-merged-sha-record` [pending P1] — that row is the receipt/queryability piece; execute it here, do not duplicate. Also overlaps `attach-signed-validation-evidence-to-every-change` [pending] (signing out of scope) and the speculative-validation rows (`speculative-validation-of-the-fold-result-before-landing-dem`, `validate-every-proposal-with-speculative-execution`, both pending), which produce tested hashes before landing."
+    },
+    {
+      "id": "e3-impl-landings-read-route",
+      "title": "Serve the landing record at GET /landings/{commit}",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-18"
+      ],
+      "scope": "Contract bump: pin the FR-18 read route in CONTRACT.md. platform/src/index.ts: add GET /landings/{commit} serving the persisted landing record for that commit; unknown commit -> 404 {ok:false, error:\"not-found\"}; credential-free (NFR-6); no secret-class content (NFR-5). Extend porting/tests/land-hardening.probe.mjs: after the (a) 200, GET /landings/<evidence.commit> returns the record landed in that call.",
+      "acceptance": "GET /landings/<commit> for a commit recorded by POST /land returns ok:true and the record (evidence object + landed fields) exactly as landed; an unknown commit returns 404 {ok:false,error:\"not-found\"}; the route never returns tokens, credentials, or secret-class values.",
+      "check_cmd": "curl -s -A nextgit-compile-check/1.0 \"https://nextgit-platform.john-b7d.workers.dev/landings/0000000000000000000000000000000000000000\" | jq -ec '.ok == false and .error == \"not-found\"' && node porting/tests/land-hardening.probe.mjs",
+      "deps": [
+        "e3-impl-land-record-evidence"
+      ],
+      "notes": "Dep is real: nothing to serve before the record persists. Overlaps store row `landing-evidence-receipt-tested-sha-equals-merged-sha-record` [pending P1] ('queryable artifact') — execute once; this story pins the route shape. Verified live: /landings/<sha> answers an empty 404 today."
+    },
+    {
+      "id": "e3-impl-landed-receipt-render",
+      "title": "Render the landing counts: landed.files/landed.at receipt and landing.files",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-18",
+        "FR-19"
+      ],
+      "scope": "platform/ui/app.js handleLandProposal + renderProposals — the success banner renders only the short-SHA chip today; /proposals `landing.files` and /land `landed.files` + `landed.at` are contract fields listed as unrendered (EXPERIENCE.md:269; FR-18/FR-19 statuses). Render the /land receipt fields alongside the commit chip, e.g. 'Successfully landed proposal {repo} into {base}. Commit <sha8> · {N} files · {at}' (keep res.landed.files / res.landed.at references visible), and surface the landing file count from the /proposals payload on the card per DESIGN.md. Landed card treatment ('landed — nothing pending', 0.55 opacity, dashed border) unchanged; a zero-change land stays 409 no-changes (never a fake success).",
+      "acceptance": "After a successful land the success banner shows the commit chip plus the landed file count and landing timestamp from the /land response (landed.files length and landed.at); the card surfaces the proposal's landing.files count from /proposals; a refused (non-200) land shows no receipt; the landed card state is unchanged.",
+      "check_cmd": "node --check platform/ui/app.js && grep -Eq 'landed\\??\\.files' platform/ui/app.js && grep -Eq 'landed\\??\\.at' platform/ui/app.js && grep -Eq 'landing\\??\\.files' platform/ui/app.js",
+      "deps": [],
+      "notes": "Overlap: store row `landed-state-banner-commit-sha-live-event-feed-tick` [done] built the short-SHA receipt — this closes the unrendered-fields build gap only. FR-19's built landed-state card and content-derived status stay as built (verification owned by the E3-verify slice)."
+    },
+    {
+      "id": "e3-impl-landing-decision-note",
+      "title": "Persist the landing decision as a git note (readable via the notes mirror)",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-18",
+        "UX-DR-7"
+      ],
+      "scope": "Contract bump first: pin the landing-decision note's carrier and writer per AD-1/NFR-4 (the FR-32 notes-mirror convention / CONTRACT.md 'Notes mirror' is the carrier; a control-plane push to the proposal repo is inside NFR-4's allowance; a second writer of base branches is not — if the note rides the /land push it must stay inside that single push). After a successful land, record the decision (repos, landed commit, foldHash/evidence reference, at) as a git note readable through the notes read path; extend porting/tests/land-hardening.probe.mjs to assert the note is readable after the (a) land.",
+      "acceptance": "After a land the decision (repos, landed commit, fold hash / evidence reference, timestamp) persists as a git note readable through the pinned carrier on a fresh read (not just in the /land response); the write path violates neither AD-1 nor NFR-4 (no base branch written outside /land; no landing replay).",
+      "check_cmd": "node porting/tests/land-hardening.probe.mjs",
+      "deps": [
+        "e3-impl-landings-read-route"
+      ],
+      "notes": "UX-DR-7 is the UX restatement of FR-18's note consequence (EXPERIENCE.md:214; PRD:501). Overlaps `store-arbitration-decision-record-as-git-notes-on-landed-cha` [pending P1] and `per-worker-traces-git-notes-records-h4-provenance-gap` [pending] — same git-notes provenance convention; one carrier, do not build two note schemes."
+    },
+    {
+      "id": "e3-impl-do-land-lease",
+      "title": "Serialize lands with a Durable Object lease (unsequenced)",
+      "kind": "implementation",
+      "epic": "E3",
+      "milestone": "unsequenced",
+      "priority": "P3",
+      "fr_refs": [
+        "FR-17"
+      ],
+      "scope": "FR-17's roadmap clause: a Durable Object lease serializes lands when it arrives; until then the AD-3 base-moved precondition is the guarantee (PRD:849). Store row `do-lease-serializes-lands` [pending P1] is the authoritative work item (AD-10; demo-component incorporation per SPINE:241): lease acquire/release around the land critical section, surgical and expiring, fallback precondition kept when the DO is unavailable; losers deterministically 409 base-moved. Reuse the extended concurrency probe as the acceptance harness.",
+      "acceptance": "With >=4 concurrent /land calls the DO lease serializes them: exactly one winner, every loser deterministically 409; lease expiry is observable; when the DO is unavailable the base-moved precondition still refuses the loser (no silent overwrite).",
+      "check_cmd": "node porting/tests/land-hardening.probe.mjs",
+      "deps": [],
+      "notes": "Roadmap -> milestone 'unsequenced'. Store row `do-lease-serializes-lands` [pending P1] verified present in tasks.db — this story is the compile-side coverage for FR-17's lease clause; do not build twice."
+    },
+    {
+      "id": "e3-verify-nfr4-single-write-path",
+      "title": "Prove the single gated write path (no base writes outside /land)",
+      "kind": "verification",
+      "epic": "E3",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-4"
+      ],
+      "scope": "NFR-4/AD-1 audit and live proof: platform/src/ has exactly one caller of the git write helper (pushLand defined in platform/src/land.ts; called only from handleLand in platform/src/index.ts), base refs are written only by /land, and refused lands push nothing. Run the live probe's refusal sections (stale / no-changes refusals leave the base remote ref unmoved; a re-land cannot replay) and attach outputs as evidence. Related done rows: `land-hardening` [done], `enforce-scoped-single-use-write-tokens-for-landing` [done].",
+      "acceptance": "The audit shows pushLand( is called exactly once outside its own definition and only from handleLand; the probe proves a refused land (stale / no-changes) leaves the base remote ref unchanged and a re-land cannot replay; command outputs attached as evidence.",
+      "check_cmd": "grep -rn \"pushLand(\" platform/src/ && node porting/tests/land-hardening.probe.mjs",
+      "deps": [],
+      "notes": "NFR-4 exists as enforced structure (no status in requirements.json) -> verification of the existing guarantee, not a rebuild. Complements the E3-verify slice (FR-14/15/19); no requirement overlap."
+    }
+  ]
+}

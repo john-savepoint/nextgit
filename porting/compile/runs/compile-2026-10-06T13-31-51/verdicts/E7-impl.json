@@ -1,0 +1,27 @@
+{
+  "slice": "E7-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e7-impl-workspace-manifest-structure-map",
+      "note": "Notes cite store row `law-3-self-describing-platform-tool-manifest-structure-map`, but the actual store row id is `law-3-self-describing-platform-tool-manifest-structure-map-i` (slug truncated at 60 chars). The row exists (pending P1), intent identical, and the second cited row `ship-tool-manifest-and-structure-map-into-workspaces` [pending P1] is exact. Notes-only pointer; no functional impact. All other cited statuses (pending P2/P2/P1/P3) verified against the store."
+    },
+    {
+      "severity": "low",
+      "story": "e7-impl-harness-route-registry",
+      "note": "Scope citation `real-agents.mjs:411` for the runner's three-refspec push was exact at authoring time but is stale vs HEAD: post-compile commit 6e55692 (2026-10-06 23:46) inserted 13 lines above it — the push is now at :424; the CANDIDATES :124-152 citation is still exact. Behavior unchanged; repoint the pointer on rebase."
+    },
+    {
+      "severity": "low",
+      "story": "e7-impl-byo-harness-onboarding-standard",
+      "note": "Scope citation `real-agents.mjs:338-345` for the credential rule is stale vs HEAD for the same post-compile commit: the git-wrapper token env now sits at :351-358. The described as-built contract holds — the agent subprocess env carries no minted token (token only in the runner's `git` wrapper) and the prompt says 'Do not run `git push`' (:284). CONTRACT.md:163-171 and the quoted label-size limits verified exact."
+    },
+    {
+      "severity": "low",
+      "story": "e7-impl-harness-route-registry",
+      "note": "check_cmd proves the array contents but not the headline 'exactly one JSON array' shape — a mapping of harness entries would still satisfy length/any/all — and the sibling S2 check does not assert `errors:[]`. All three check_cmds are otherwise real, non-placeholder, and their exact jq fragments were spot-run synthetically with correct pass/fail exit codes under `jq -ec` (jq-1.8.1 in a clean shell and the harness's jaq-based jq builtin). Optional tightening only."
+    }
+  ],
+  "summary": "Coverage: FR-35's implementation half (pending 'more harnesses via routing' + BYO standard + manifest/structure map) is covered by the slice's 3 implementation stories; the built half is verification-covered by sibling E7-verify (e7-verify-real-agent-routes-omp-codex, e7-verify-byo-harness-push-protocol) and is not rebuilt here. IDs are stable lowercase slugs, unique in-slice, zero collisions against the 513-row store; deps valid and acyclic; all check_cmds executable-looking and spot-validated. 0 critical + 0 high; four low notes (one note pointer, two post-compile line drifts, one check-strictness nit)."
+}

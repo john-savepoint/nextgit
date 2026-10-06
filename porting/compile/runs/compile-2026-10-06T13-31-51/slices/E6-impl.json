@@ -1,0 +1,58 @@
+{
+  "slice": "E6-impl",
+  "epic": "E6",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e6-impl-content-detection-contract-decision",
+      "title": "Adjudicate content-detected secret arrival in CONTRACT.md before the unit ships",
+      "kind": "implementation",
+      "epic": "E6",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-30"
+      ],
+      "scope": "platform/CONTRACT.md only. Under `## Secret classes (masking law)` (CONTRACT.md:173-179) add `### Content-detected secrets`: adjudicate FR-30 consequence 3 + AD-4 (SPINE:77-81) before any detection code ships — exactly one route, recorded once, never implicit. Route (a) additive status value: name the new value/field, keep it additive, and bump the version line (CONTRACT.md:3, 'Additive changes only') in the same edit. Route (b) judge gate: add the signal/skip reason to the §POST /judge vocabulary (CONTRACT.md:141-153), fail-closed, carrying no value; judge-layer idea 11 (docs/judge-layer-ideas.md:54) is the natural detector. Keep the path-driven v1 limitation paragraph (CONTRACT.md:179) true, and state that the detection unit ships only after this record. No code, no fixtures, no UI in this story.",
+      "acceptance": "CONTRACT.md carries the decision before any content-detection code ships: a `### Content-detected secrets` subsection opens with `**Decided (once):**` and names exactly one arrival route — the additive status value or the judge gate — states the detection unit ships only after this record and never implicitly, and the v1 path-driven limitation paragraph (a value in a non-secret-class path is not redacted; CONTRACT.md:179) stays unchanged; if the status-value route is chosen, the file version line (CONTRACT.md:3) is bumped in the same edit per the additive-only law. A reader can tell from CONTRACT.md alone how a content-detected secret will surface.",
+      "check_cmd": "sed -n '/### Content-detected secrets/,/^## /p' platform/CONTRACT.md | grep -Eq '\\*\\*Decided \\(once\\):\\*\\*' && sed -n '/### Content-detected secrets/,/^## /p' platform/CONTRACT.md | grep -Eq 'status value|judge gate'",
+      "deps": [],
+      "notes": "Dedupe: FR-30's built path-driven half (incl. the documented non-secret-path limitation) is verification-covered by sibling slice E6-verify (FR-30 is in its pack) — not rebuilt here. Class-list widening stays with store row `secret-class-widening-scrub` [pending P1, whose acceptance already carries the widening contract bump]; the flagging demo beat stays with `trust-beat-content-based-secret-detection` [pending P1]. Delta owned here: the once-and-for-all arrival decision that PRD FR-30 consequence 3 and SPINE:81 require in CONTRACT before the content-detection unit ships."
+    },
+    {
+      "id": "e6-impl-content-detection-arrival",
+      "title": "Ship content-detected secret arrival per the recorded CONTRACT decision",
+      "kind": "implementation",
+      "epic": "E6",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-30"
+      ],
+      "scope": "Implement the route CONTRACT.md decided, end-to-end. Detector: over diff + notes regardless of file path (judge-layer idea 11, docs/judge-layer-ideas.md:54), built beside `isSecretPath`/`secretKeys` (platform/src/index.ts:226-245); path classes are NOT widened here. Arrival: (a) status-value route — additive surface on /changes file rows and /proposals payloads (platform/src/index.ts:424-497, :575-620) plus rendering in platform/ui/app.js; or (b) judge-gate route — plan/validation additions in platform/src/judge.ts (`buildJudgeRequest` :232, response validation :321+) and `handleJudge` (platform/src/index.ts:1050-1102), with the landing consequence recorded in CONTRACT applied on /land (platform/src/index.ts:860-980) per AD-11 (code decides). Either route must keep the typed gate signal free of the value and worker logs content-free. Fixture: a proposal whose head writes a canary value (TOKEN = \"CANARY-NG-1\") into a non-secret path (src/config.js). Assertions land in the committed offline suites: porting/tests/judge.test.mjs (judge-route signal) and porting/tests/secret-egress.test.mjs (status/withholding scan, extended by this story).",
+      "acceptance": "A proposal that hides a secret value in a non-secret-class path surfaces exactly as CONTRACT.md decided: on the status-value route the value is treated as secret-class — the additive status appears on its /changes row and /proposals card and the value occurs in zero raw response bytes, zero captured log lines and zero AI-binding states; on the judge-gate route POST /judge returns the recorded gate signal and the recorded landing consequence holds on /land, with the signal and logs carrying no value. The path-driven classes (.env*, *.pem, *.key, *.p12, credentials.json, secrets.json, .dev.vars, secrets/) behave exactly as before, and the arrival case is asserted in the committed offline suites, which exit 0.",
+      "check_cmd": "bun porting/tests/judge.test.mjs && bun porting/tests/secret-egress.test.mjs",
+      "deps": [
+        "e6-impl-content-detection-contract-decision",
+        "e6-impl-nfr5-secret-egress-gate"
+      ],
+      "notes": "Dedupe: `trust-beat-content-based-secret-detection` [pending P1] carries the demo beat (flagging demoable on a proposal that hides a secret in a non-secret path) — this story ships the mechanism the decision pins plus its withholding/landing consequence; do not rebuild the beat. `enforce-typed-secret-files-ciphertext-policy-schema-only-vie` [pending P1] and `schema-only-decoupled-views-for-secret-files-demo-beat` [pending P1] own the secret-typed file primitive / schema-only views; untouched. FR-30's built half is verified by sibling slice E6-verify. Deps: the decision record chooses the mechanism; the NFR-5 gate owns the cross-channel withholding proof this acceptance cites."
+    },
+    {
+      "id": "e6-impl-nfr5-secret-egress-gate",
+      "title": "Prove the secret-egress law across every channel with an offline canary gate",
+      "kind": "implementation",
+      "epic": "E6",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-5"
+      ],
+      "scope": "New porting/tests/secret-egress.test.mjs (bun, offline, runnable from repo root): reuse the worker-level harness of porting/tests/judge.test.mjs (real platform/src/index.ts through worker.fetch; in-memory Artifacts fake :26-136, scripted AI binding :188-210, envFor :208-210). Fixture: a head commit carrying (i) config/.env with a canary value and (ii) an intent/note carrying a canary KEY=VALUE line (the currently unscrubbed intake at platform/src/index.ts:435). Exercise /changes, /proposals, /merge and /judge; capture raw bodies, console output and the AI binding's received state; assert canary count 0 in every channel, keys[] present with no patch and no intent on the secret row, and a negative control proving the scan flags a planted canary. Fix in place any channel the scan exposes: apply the existing scrubFreeText (platform/src/judge.ts:72) to repo-derived free-text at body assembly in platform/src/index.ts (intent :435, error string :1156-1157) and keep logs content-free (:932, :1087-1094, :1168-1178). /land's 409 withheld-secret carries file paths only, no values (FR-29 verification is owned by sibling slice E6-verify); include /land if the harness can drive it offline.",
+      "acceptance": "bun porting/tests/secret-egress.test.mjs exits 0 offline with the canary fixture seeded: the canary string occurs zero times in every raw response body (/changes, /proposals, /merge, /judge), in captured worker log output and in every AI-binding input state; the secret-class row still renders keys[] with no patch and no intent; repo-derived free-text enters bodies only scrubbed (KEY=[redacted]); the gate carries a negative control that fails the suite when a canary is planted into a scanned channel (the gate can actually detect a leak); bun porting/tests/judge.test.mjs stays green.",
+      "check_cmd": "bun porting/tests/secret-egress.test.mjs && bun porting/tests/judge.test.mjs",
+      "deps": [],
+      "notes": "Dedupe: `secret-class-widening-scrub` [pending P1] owns class-list widening and the free-text scrub mechanic — if it lands first this gate only proves it; the fix-in-place in this story is the minimum application needed for the gate to pass (no widening). `scan-intent-and-notes-text-for-secrets-and-pii-leaks` [pending P2] owns the judge-side semantic leak noul (idea 15) — not built here. Delta owned here: one committed cross-channel executable proof of NFR-5 (all read routes + logs + model state + negative control); today's leak scans live only inside platform/scripts/demo-verify.mjs check 6 (demo-shaped: /proposals + /changes) and the judge-specific checks 11/15 in porting/tests/judge.test.mjs."
+    }
+  ]
+}

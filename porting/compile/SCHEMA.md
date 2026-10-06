@@ -32,7 +32,7 @@ compile-report.{md,json} ← wf-epics.ddw.js compileIn
 
 | Field | Rule |
 |---|---|
-| `id` | Stable slug, ≤60 chars: `<epic>-<impl\|verify>-<short-slug>`. Unique within the compile; must not collide with an existing store row of a different source (verifier checks). Same title → same id on re-compile (idempotent upsert). |
+| `id` | Stable slug, ≤60 chars, **LOWERCASE ONLY**: `<epic-lowercased>-<impl\|verify>-<short-slug>` (e.g. `e13-impl-declare-intent`). Unique within the compile; must not collide with an existing store row of a different source (verifier checks). Same title → same id on re-compile (idempotent upsert). The compiler runs a deterministic normalize pass (lowercases ids + deps) after authoring, before verify. |
 | `title` | Imperative, specific ("Render withheld-secret card state"), not a topic. |
 | `kind` | `implementation` (build it) or `verification` (prove a built behavior + attach evidence). **A built requirement NEVER gets a rebuild story.** |
 | `epic` | The epic id from `epics.proposed.json`. |

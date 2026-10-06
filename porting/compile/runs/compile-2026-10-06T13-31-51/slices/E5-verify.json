@@ -1,0 +1,119 @@
+{
+  "slice": "E5-verify",
+  "epic": "E5",
+  "kind": "verification",
+  "stories": [
+    {
+      "id": "e5-verify-typed-signal-envelope",
+      "title": "Prove /judge v1 emits typed risk, intent, and collision signals",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-23"
+      ],
+      "scope": "Built FR-23 contract on the deployed judge: platform/src/judge.ts (buildJudgeRequest / validateJudgeResponse / riskLabel), route platform/src/index.ts (POST /judge ~L983-1105), platform/CONTRACT.md §POST /judge + §Card-signal vocabulary (L108-153), suite porting/tests/judge.test.mjs cases 1/2/13. Evidence: command output (PASS + assertion true) and the raw payload saved at /tmp/e5-typed.json.",
+      "acceptance": "Live POST /judge setId v1 (repos agent-1..agent-5) returns 200 with .ok==true, .setId=='v1', .model=='@cf/cloudflare/clef', and one entry per judged proposal where every judgment has exactly keys {repo,risk,intent,collision}; every risk exactly {label,score} with label ∈ {routine,focused,senior-security} and score ∈ [0,2]; every intent exactly {verdict,overclaim} with verdict ∈ {supports,contradicts,insufficient} and overclaim ∈ [0,1] or null; collision boolean; every skipped[] entry exactly {repo,reason} with reason ∈ {secret-class,empty-change-set}. The wire carries typed answers, never prose (exact-key assertions at every level); thresholds, weights, and labels live in code. Pinned suite passes 73/73 incl. insufficient→overclaim null and the collision 0.5 boundary.",
+      "check_cmd": "bun porting/tests/judge.test.mjs > /dev/null && U=https://nextgit-platform.john-b7d.workers.dev && for i in 1 2 3; do curl -s -m 240 -o /tmp/e5-typed.json -X POST $U/judge -H 'Content-Type: application/json' -d '{\"setId\":\"v1\",\"target\":{\"base\":\"demo\",\"repos\":[\"agent-1\",\"agent-2\",\"agent-3\",\"agent-4\",\"agent-5\"],\"refs\":[\"main\"]}}' && jq -e '.ok == true' /tmp/e5-typed.json > /dev/null && break || sleep 25; done && jq -ec '(.ok == true) and (.setId == \"v1\") and (.model == \"@cf/cloudflare/clef\") and ([.judgments[] | (((. | keys | sort) == [\"collision\",\"intent\",\"repo\",\"risk\"]) and ((.risk | keys | sort) == [\"label\",\"score\"]) and ((.intent | keys | sort) == [\"overclaim\",\"verdict\"]) and (.risk.label == \"routine\" or .risk.label == \"focused\" or .risk.label == \"senior-security\") and (.risk.score >= 0 and .risk.score <= 2) and (.intent.verdict == \"supports\" or .intent.verdict == \"contradicts\" or .intent.verdict == \"insufficient\") and ((.intent.overclaim == null) or (.intent.overclaim >= 0 and .intent.overclaim <= 1)) and ((.collision | type) == \"boolean\"))] | all) and (all(.skipped[]; (((. | keys | sort) == [\"reason\",\"repo\"]) and (.reason == \"secret-class\" or .reason == \"empty-change-set\"))))' /tmp/e5-typed.json",
+      "deps": [],
+      "notes": "Overlaps complete-unified-proposal-card-intent-diff-risk-provenance [pending] and proposal-card-signal-set-risk-provenance-fields-on-every-car [pending] on card signal-set presentation; those rows own card-facet build work — this story verifies only the POST /judge wire contract, no rebuild. score-landing-subset-risk-for-proposal-combinations [pending] is a future set-level scoring setId, out of scope. Re-issues the evidence recorded in porting/runs/wire-the-clef-judge-layer/verify.md (suite 73/73 + live typed assertions) as the standing check."
+    },
+    {
+      "id": "e5-verify-set-versioning-unknown-set",
+      "title": "Prove judge set versioning rejects unknown sets (400 unknown-set)",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-23"
+      ],
+      "scope": "Set versioning: platform/src/judge.ts JUDGE_SET_ID ('v1'), whitelist branch in platform/src/index.ts (setId !== JUDGE_SET_ID → judgeError('unknown-set',400)), platform/CONTRACT.md L119. Evidence: live 400 body + the v1 echo + the runtime constant read.",
+      "acceptance": "POST /judge with setId 'v9' → HTTP 400 and body exactly {ok:false,error:\"unknown-set\"} (no other keys); setId 'v1' → 200 echoing .setId=='v1'; the accepted id is the single code constant JUDGE_SET_ID in platform/src/judge.ts (runtime import reads 'v1'), so sets are versioned in code and new ids are additive — existing ids never change meaning.",
+      "check_cmd": "U=https://nextgit-platform.john-b7d.workers.dev && test \"$(curl -s -m 90 -o /tmp/e5-setid.json -w '%{http_code}' -X POST $U/judge -H 'Content-Type: application/json' -d '{\"setId\":\"v9\",\"target\":{\"base\":\"demo\",\"repos\":[\"agent-1\"]}}')\" = \"400\" && jq -ec '((. | keys | sort) == [\"error\",\"ok\"]) and .ok == false and .error == \"unknown-set\"' /tmp/e5-setid.json && for i in 1 2 3; do curl -s -m 240 -o /tmp/e5-v1.json -X POST $U/judge -H 'Content-Type: application/json' -d '{\"setId\":\"v1\",\"target\":{\"base\":\"demo\",\"repos\":[\"agent-1\"]}}' && jq -e '.ok == true' /tmp/e5-v1.json > /dev/null && break || sleep 25; done && jq -ec '(.ok == true) and (.setId == \"v1\")' /tmp/e5-v1.json && bun -e 'const m = await import(\"./platform/src/judge.ts\"); if (m.JUDGE_SET_ID !== \"v1\") { console.error(\"setId drift\", m.JUDGE_SET_ID); process.exit(1); } console.log(\"JUDGE_SET_ID\", m.JUDGE_SET_ID);'",
+      "deps": [],
+      "notes": "Overlaps version-judge-question-sets-in-code-with-the-platform [pending] — that row remains the home for question-set evolution/implementation; this story is the verification of the built v1 behavior (unknown-set 400, setId echo, code-owned constant) and authors no rebuild."
+    },
+    {
+      "id": "e5-verify-closed-judge-request-schema",
+      "title": "Prove callers cannot inject judge state, questions, or model",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "scope": "Closed request schema: platform/src/index.ts judge body validation (only setId|target keys; unknown field → 400 bad-request), platform/CONTRACT.md L123, suite porting/tests/judge.test.mjs case 5 (bad-request matrix incl. precedence). Evidence: four live 400 bodies + suite output.",
+      "acceptance": "Callers cannot supply state, questions, or model: adding model, state, or questions to the body each yields HTTP 400 with body exactly {ok:false,error:\"bad-request\"}; a malformed (non-JSON) body yields 400 bad-request; the pinned suite's closed-schema matrix passes (unknown field rejected before any other validation).",
+      "check_cmd": "bun porting/tests/judge.test.mjs > /dev/null && U=https://nextgit-platform.john-b7d.workers.dev && test \"$(curl -s -m 90 -o /tmp/e5-cs-model.json -w '%{http_code}' -X POST $U/judge -H 'Content-Type: application/json' -d '{\"setId\":\"v1\",\"model\":\"@cf/evil\",\"target\":{\"base\":\"demo\",\"repos\":[\"agent-1\"]}}')\" = \"400\" && jq -ec '((. | keys | sort) == [\"error\",\"ok\"]) and .ok == false and .error == \"bad-request\"' /tmp/e5-cs-model.json && test \"$(curl -s -m 90 -o /tmp/e5-cs-state.json -w '%{http_code}' -X POST $U/judge -H 'Content-Type: application/json' -d '{\"setId\":\"v1\",\"state\":{},\"target\":{\"base\":\"demo\",\"repos\":[\"agent-1\"]}}')\" = \"400\" && jq -ec '((. | keys | sort) == [\"error\",\"ok\"]) and .ok == false and .error == \"bad-request\"' /tmp/e5-cs-state.json && test \"$(curl -s -m 90 -o /tmp/e5-cs-questions.json -w '%{http_code}' -X POST $U/judge -H 'Content-Type: application/json' -d '{\"setId\":\"v1\",\"questions\":{},\"target\":{\"base\":\"demo\",\"repos\":[\"agent-1\"]}}')\" = \"400\" && jq -ec '((. | keys | sort) == [\"error\",\"ok\"]) and .ok == false and .error == \"bad-request\"' /tmp/e5-cs-questions.json && test \"$(curl -s -m 90 -o /tmp/e5-cs-malformed.json -w '%{http_code}' -X POST $U/judge -H 'Content-Type: application/json' -d 'not json')\" = \"400\" && jq -ec '.ok == false and .error == \"bad-request\"' /tmp/e5-cs-malformed.json",
+      "deps": [],
+      "notes": "No overlapping store row covers the closed-schema negative matrix; suite case 5 is the contract evidence (matrix + unknown-field precedence), the live negatives extend it to the deployed worker."
+    },
+    {
+      "id": "e5-verify-state-assembly-and-masking",
+      "title": "Prove judge state assembly, secret masking, and skip reasons",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "scope": "Server-side state assembly and masking: platform/src/judge.ts (buildJudgeRequest, maskJudgeFile, stripInstructionLike, scrubFreeText, delimitUntrusted), route skip path in platform/src/index.ts, platform/CONTRACT.md L123/L141, suite porting/tests/judge.test.mjs cases 3/11. Live proof derives the target set from the same GET /proposals the set view reads, then posts it to /judge. Evidence: /tmp/e5-props.json, /tmp/e5-judge.json, suite output.",
+      "acceptance": "For the demo fleet, judgments[].repo ∪ skipped[].repo equals exactly the /proposals repo set (state assembled server-side from the same fork-point change-sets the set view uses); agent-5 is never judged and appears only as {repo:'agent-5',reason:'secret-class'} (name only — skipped entries have exactly keys {repo,reason}); no secret-class value or fixture marker (FAKE-SECRET-DO-NOT-USE, postgres://demo, db.internal, cache.internal) appears anywhere in the raw /judge response; the suite proves outbound state is delimited [UNTRUSTED-REPO-DATA]/[END-UNTRUSTED-REPO-DATA], instruction-like lines become [stripped], and KEY=value free text renders [redacted] (case 11) — a skip is not a verdict.",
+      "check_cmd": "bun porting/tests/judge.test.mjs > /dev/null && U=https://nextgit-platform.john-b7d.workers.dev && for i in 1 2 3; do curl -s -m 240 \"$U/proposals?base=demo\" -o /tmp/e5-props.json && jq -e '.ok == true' /tmp/e5-props.json > /dev/null && break || sleep 25; done && jq -ec '{setId:\"v1\",target:{base:\"demo\",repos:[.proposals[].repo],refs:[\"main\"]}}' /tmp/e5-props.json > /tmp/e5-req.json && for i in 1 2 3; do curl -s -m 240 -o /tmp/e5-judge.json -X POST $U/judge -H 'Content-Type: application/json' -d @/tmp/e5-req.json && jq -e '.ok == true' /tmp/e5-judge.json > /dev/null && break || sleep 25; done && jq -ec --slurpfile p /tmp/e5-props.json '(([.judgments[].repo] + [.skipped[].repo]) | sort) == ([$p[0].proposals[].repo] | sort) and ([.judgments[].repo] | index(\"agent-5\") == null) and (.skipped | map(select(.repo == \"agent-5\" and .reason == \"secret-class\")) | length == 1) and (all(.skipped[]; ((. | keys | sort) == [\"reason\",\"repo\"])))' /tmp/e5-judge.json && ! grep -qE 'FAKE-SECRET-DO-NOT-USE|postgres://demo|db[.]internal|cache[.]internal' /tmp/e5-judge.json",
+      "deps": [],
+      "notes": "Pack-listed overlaps are different seams: use-crdts-for-review-state-only-never-code-text [pending] (review-state CRDTs), contextual-clustering-trace-affected-code-from-an-issue-card [pending] (issue tracing), tour-v2-fold-judge-chips-auto-land-language-in [pending] (tour copy). Masking evidence also recorded in porting/runs/wire-the-clef-judge-layer/verify.md (suite cases 3/11, live agent-5 skip)."
+    },
+    {
+      "id": "e5-verify-pinned-model-fail-closed",
+      "title": "Prove pinned-model fail-closed 503s and silent UI degradation",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "scope": "Fail-closed validation: platform/src/judge.ts MODEL_ECHOES / validateJudgeResponse; 503 mapping in platform/src/index.ts; silent client catch in platform/ui/app.js maybeJudge() (unawaited, failure swallowed); platform/CONTRACT.md L139-142; suite porting/tests/judge.test.mjs cases 7/8/9. Browser outage pass fulfils GET /proposals with the real payload and aborts /judge to observe the failure path at the UI. Evidence: suite output + browser PASS lines.",
+      "acceptance": "Model echo mismatch or absence, schema-invalid answers, or a missing/non-functional AI binding each yield HTTP 503 with body exactly {ok:false,error:\"judge-unavailable\"} and no judgments on the wire (suite cases 7/8/9); at the UI an unavailable judge is silent — cards still render, zero judge chips, no connection banner, no error banner, and every land action remains present and enabled, so judge failure never blocks landing.",
+      "check_cmd": "bun porting/tests/judge.test.mjs > /dev/null && python3.10 - <<'PY'\nfrom playwright.sync_api import sync_playwright\nimport json, subprocess, sys, time\nU = 'https://nextgit-platform.john-b7d.workers.dev'\nfails = []\ndef check(name, ok):\n    print(('PASS ' if ok else 'FAIL ') + name, flush=True)\n    if not ok:\n        fails.append(name)\ndef fetch(args, key):\n    out = None\n    for i in range(4):\n        try:\n            out = json.loads(subprocess.run(['curl', '-s', '-m', '240'] + args, capture_output=True, text=True, check=True).stdout)\n        except Exception as exc:\n            print('fetch error', type(exc).__name__, flush=True)\n            out = None\n        if isinstance(out, dict) and out.get('ok') is True and key in out:\n            return out\n        print('fetch retry', i + 1, 'wanted', key, 'got', str(out)[:120], flush=True)\n        time.sleep(25)\n    raise SystemExit('could not fetch ' + key)\nprops = fetch([U + '/proposals?base=demo'], 'proposals')\nwith sync_playwright() as p:\n    b = p.chromium.launch()\n    pg = b.new_page()\n    pg.route('**/proposals*', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(props)))\n    pg.route('**/judge', lambda r: r.abort())\n    pg.goto(U + '/', wait_until='domcontentloaded', timeout=60000)\n    pg.wait_for_selector('.proposal-card', timeout=60000)\n    pg.wait_for_timeout(3000)\n    cards = pg.locator('.proposal-card').count()\n    check('cards still render with the judge unavailable', cards > 0)\n    check('no judge chips when the judge is unavailable', pg.locator('.proposal-badges .badge').count() == 0)\n    check('judge failure adds no connection error', pg.locator('#connection-banner').is_hidden())\n    check('judge failure adds no error banner', pg.locator('.action-banner.banner-error').is_hidden())\n    check('land actions remain available', pg.locator('.proposal-card .btn-land').count() == cards)\n    b.close()\nsys.exit(1 if fails else 0)\nPY",
+      "deps": [],
+      "notes": "Overlap support-host-git-or-native-proposal-model [pending] is a different seam (host git vs native proposal model). The browser pass stubs only the judge transport (abort) while the proposals payload is the real live one; the server-side fail-closed paths are proven by the pinned suite (cases 7/8/9)."
+    },
+    {
+      "id": "e5-verify-per-caller-judge-rate-cap",
+      "title": "Prove the per-caller judge rate cap maps to 429",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "scope": "Per-caller cap: platform/src/judge.ts judgeRateAllow / JUDGE_RATE_LIMIT / JUDGE_RATE_WINDOW_MS; 429 mapping in platform/src/index.ts; suite porting/tests/judge.test.mjs case 10. As-built constant is 30/min with no daily window; the PRD's 60/min + 1000/day are tagged [ASSUMPTION] (to pin at the land-hardening slice). Evidence: suite output + the runtime probe output.",
+      "acceptance": "Per-caller caps enforced and mapped: reading JUDGE_RATE_LIMIT from code, the first LIMIT calls for one caller are allowed and call LIMIT+1 is denied, while a different caller is still allowed (per-caller isolation); the route maps a denial to HTTP 429 {ok:false,error:\"rate-limited\"} (suite case 10: first 30 allowed, 31st 429). The as-built constants (30/min) are recorded in evidence; the proposed 60/min + 1000/day constants are a land-hardening pin per the PRD [ASSUMPTION] and are not rebuilt here.",
+      "check_cmd": "bun porting/tests/judge.test.mjs > /dev/null && bun -e 'const m = await import(\"./platform/src/judge.ts\"); const k = \"e5-\" + Math.random(); for (let i = 0; i < m.JUDGE_RATE_LIMIT; i++) { if (!m.judgeRateAllow(k)) { console.error(\"denied early at\", i); process.exit(1); } } if (m.judgeRateAllow(k)) { console.error(\"cap not enforced\"); process.exit(1); } if (!m.judgeRateAllow(k + \"-other\")) { console.error(\"cap not per-caller\"); process.exit(1); } console.log(\"rate cap enforced at\", m.JUDGE_RATE_LIMIT, \"per\", m.JUDGE_RATE_WINDOW_MS, \"ms (as-built; PRD 60/min + 1000/day pin is land-hardening)\");'",
+      "deps": [],
+      "notes": "Overlap tune-judge-thresholds-on-our-own-labeled-proposals [pending] is calibration (FR-27), a different concern. live 429 probing is deliberately not run against the live worker (it would spend the live caller budget and model calls); suite case 10 + the in-process limiter probe prove the mechanism. land-hardening store row [done] did not pin the judge constants — recorded, not rebuilt."
+    },
+    {
+      "id": "e5-verify-advisory-chip-rendering",
+      "title": "Prove advisory judge chips render, stay amber, and block nothing",
+      "kind": "verification",
+      "epic": "E5",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-25"
+      ],
+      "scope": "Chip rendering contract: platform/ui/app.js judgeChipsHtml() + .proposal-badges card slot (~L455-500, L599), platform/ui/styles.css .proposal-badges / badge triads, DESIGN.md risk-chip / intent-verification-badge / collision-chip (collision stays amber/neutral; hard conflicts stay on conflict-card red). Browser pass fulfils the page's /proposals and /judge routes with the real live payloads (the page's own 8s fetch abort in app.js cuts the live calls at current latencies, so transport is stubbed while the data stays real). Evidence: PASS lines + badge class/text capture.",
+      "acceptance": "Chips render on proposal cards in the existing badge/chip language: every judged repo's card shows ≥1 chip; every skipped repo (agent-5) shows zero chips; every chip class ∈ {badge badge-clean, badge badge-amber, badge badge-red, badge badge-neutral} (no new hues); with a collision=true judgment the card renders a 'soft collision' chip with class exactly 'badge badge-amber' (collision emphasis introduces no new hue and is never dressed as a hard conflict); and 'the judge advises; code decides; humans still own irreversible acts' holds in behavior — no chip blocks or forces an action (every card keeps its enabled 'Land into demo' button).",
+      "check_cmd": "python3.10 - <<'PY'\nfrom playwright.sync_api import sync_playwright\nimport json, subprocess, sys, time\nU = 'https://nextgit-platform.john-b7d.workers.dev'\nfails = []\ndef check(name, ok):\n    print(('PASS ' if ok else 'FAIL ') + name, flush=True)\n    if not ok:\n        fails.append(name)\ndef fetch(args, key):\n    out = None\n    for i in range(4):\n        try:\n            out = json.loads(subprocess.run(['curl', '-s', '-m', '240'] + args, capture_output=True, text=True, check=True).stdout)\n        except Exception as exc:\n            print('fetch error', type(exc).__name__, flush=True)\n            out = None\n        if isinstance(out, dict) and out.get('ok') is True and key in out:\n            return out\n        print('fetch retry', i + 1, 'wanted', key, 'got', str(out)[:120], flush=True)\n        time.sleep(25)\n    raise SystemExit('could not fetch ' + key)\nprops = fetch([U + '/proposals?base=demo'], 'proposals')\nrepos = [p['repo'] for p in props['proposals']]\njudge = fetch(['-X', 'POST', U + '/judge', '-H', 'Content-Type: application/json', '-d', json.dumps({'setId': 'v1', 'target': {'base': 'demo', 'repos': repos, 'refs': ['main']}})], 'judgments')\njudged = [j['repo'] for j in judge['judgments']]\nskipped = [s['repo'] for s in judge.get('skipped', [])]\ncoll = json.loads(json.dumps(judge))\nif coll['judgments']:\n    coll['judgments'][0]['collision'] = True\nallowed = {'badge badge-clean', 'badge badge-amber', 'badge badge-red', 'badge badge-neutral'}\nwith sync_playwright() as p:\n    b = p.chromium.launch()\n    pg = b.new_page()\n    pg.route('**/proposals*', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(props)))\n    pg.route('**/judge', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(judge)))\n    pg.goto(U + '/', wait_until='domcontentloaded', timeout=60000)\n    pg.wait_for_selector('.proposal-badges .badge', timeout=60000)\n    for repo in judged:\n        check(repo + ' renders judge chips', pg.locator('#card-' + repo + ' .proposal-badges .badge').count() >= 1)\n    for repo in skipped:\n        check(repo + ' (skipped) renders no chips', pg.locator('#card-' + repo + ' .proposal-badges .badge').count() == 0)\n    classes = {pg.locator('.proposal-badges .badge').nth(i).get_attribute('class') for i in range(pg.locator('.proposal-badges .badge').count())}\n    check('chip vocabulary stays inside the existing badge triads', classes <= allowed)\n    check('no chip disables the land action', pg.locator('.proposal-card .btn-land').count() == pg.locator('.proposal-card').count() and pg.locator('.proposal-card .btn-land[disabled]').count() == 0)\n    pg2 = b.new_page()\n    pg2.route('**/proposals*', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(props)))\n    pg2.route('**/judge', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(coll)))\n    pg2.goto(U + '/', wait_until='domcontentloaded', timeout=60000)\n    sel = '#card-' + coll['judgments'][0]['repo'] + ' .proposal-badges .badge'\n    pg2.wait_for_selector(sel, timeout=60000)\n    texts = [pg2.locator(sel).nth(i).inner_text() for i in range(pg2.locator(sel).count())]\n    cls = [pg2.locator(sel).nth(i).get_attribute('class') for i in range(pg2.locator(sel).count())]\n    check('collision=true renders the soft-collision chip', any('soft collision' in t for t in texts))\n    check('soft-collision chip is amber (no new hue)', 'badge badge-amber' in cls)\n    b.close()\nsys.exit(1 if fails else 0)\nPY",
+      "deps": [],
+      "notes": "Overlaps complete-unified-proposal-card-intent-diff-risk-provenance [pending] and proposal-card-signal-set-risk-provenance-fields-on-every-car [pending] (card facet build) and tour-v2-fold-judge-chips-auto-land-language-in [pending] (tour copy) — this story only verifies the built chip rendering, no rebuild. The collision=true pass mutates one real judgment to exercise the collision branch (live fleet currently has collision=false); all other data is the real live payload. The 8s fetch abort vs live /proposals (measured 13.6-17.2s) and /judge (5.3-10.8s) is a separate latency/robustness item, not FR-25, and is not rebuilt here."
+    }
+  ]
+}

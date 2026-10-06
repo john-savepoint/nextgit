@@ -1,0 +1,27 @@
+{
+  "slice": "E10-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e10-verify-demo-reset-reproduces-set",
+      "note": "Dedupe note cites `deliberate-collision-demo-scenario-overlapping-agent-tasks` as \"[pending] in porting/tasks.db\", but the store row is done (updated_at 2026-10-06 02:50:58). Notes-only inaccuracy; the delta/dedupe handling itself remains correct."
+    },
+    {
+      "severity": "low",
+      "story": "e10-verify-real-agents-concurrent-run",
+      "note": "Dedupe note cites `demo-agent-harness-deterministic-writers-real-ai-clis` as [pending], but the store row is done (updated_at 2026-10-06 02:50:59). Notes-only inaccuracy."
+    },
+    {
+      "severity": "low",
+      "story": "e10-verify-land-beat-receipt",
+      "note": "Dedupe note cites `landing-path-land-folds-proposals-onto-the-baseline-server-s` as [pending], but the store row is done. Notes-only inaccuracy."
+    },
+    {
+      "severity": "low",
+      "story": "e10-verify-demo-scripts-committed",
+      "note": "check_cmd proves committed (git ls-files --error-unmatch) + parseability (node --check) for the four scripts, but omits the acceptance's additional clause (no-arg land.mjs prints its usage line and exits 2). Spot-run of that clause passes: `usage: node platform/scripts/land.mjs <repo[,repo2,...]>`, exit 2. Optional to fold it into check_cmd."
+    }
+  ],
+  "summary": "All 8 verification-kind stories cover the slice's assignments: FR-39 (committed+parseable scripts, scripts-reset reproduction, REAL CLI agents N>=4 + pre-land collision, landing receipt, live edge/no-mocks) and FR-40 (409 conflict refusal, 409 withheld-secret refusal, failure banner/card states); no rebuilds; FR-39's unbuilt submission-packaging side stays with E10-impl. ids are lowercase unique `e10-verify-*` slugs with zero collisions against the 513-row store; deps are valid in-slice ids (all -> e10-verify-demo-reset-reproduces-set, acyclic); check_cmds are real, non-placeholder; spot-ran stories 1/5/8 green against repo + live worker, and 2/3/4/6/7 were verified plausible from source but not run (mutating/live). 0 critical / 0 high / 0 medium; 4 low (3 stale [pending] note citations, 1 optional check_cmd clause)."
+}

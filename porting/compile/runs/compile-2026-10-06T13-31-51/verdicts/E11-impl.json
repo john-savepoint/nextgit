@@ -1,0 +1,22 @@
+{
+  "slice": "E11-impl",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "medium",
+      "story": "e11-impl-entity-surface-boundary",
+      "note": "Overlap with pending store rows beyond the pack list: entity-api-floor-project-repo-branch-cloning-counts, entity-api-pull-proposal-client-entity-state-draft-checks-cl and entity-api-proposal-detail-mergeable-commits-comments-review serve the same Floor/Proposal/detail surfaces, and those rows list reviewDecision / mergeable / mergeStateStatus as served fields while this story's acceptance ('no platform response carries a field named reviewDecision, mergeStateStatus or mergeable', AD-14) forbids exactly that. The author's notes cite entity-api-* only on e11-impl-pin-client-protocol, not on this story. Reconcile at backfill (supersede/adjust the entity-api-* rows) so the same routes are not built twice and the field sets do not self-contradict."
+    },
+    {
+      "severity": "low",
+      "story": "e11-impl-pin-client-protocol",
+      "note": "check_cmd derives entity names from interface-contract.md and requires normalized 'pr/proposal detail', while the slice scope's AD-14 parenthetical says 'Pull/Proposal detail'. Simulated a conformant section in /tmp: with 'PR / Proposal detail' the check printed 'OK: client protocol pinned (11 entities, contract v3)' exit 0; with 'Pull / Proposal detail' it printed 'FAIL: entities missing: PR / Proposal detail' exit 1. Implementers must use the interface-contract.md spelling (or include both forms); the heading regex likewise accepts only 'Client protocol'/'client protocol' (lowercase 'protocol')."
+    },
+    {
+      "severity": "low",
+      "story": "e11-impl-pin-client-protocol",
+      "note": "Event-family gate is substring-based over the whole section: 'chat', 'queue' and 'peer' are already satisfied by the required entity rows (Chat / Notifications, Task / Queue, Presence / Peer), and 'floor.'/'term.' can be satisfied by prose, so a pass does not strictly prove all 8 event families carry push-event vocabulary. Machine check is necessary but not sufficient for that acceptance clause; keep human review on it."
+    }
+  ],
+  "summary": "Coverage clean: FR-44 -> e11-impl-pin-client-protocol + e11-impl-entity-surface-boundary (M4/P3), NFR-11 -> e11-impl-api-route-discipline + e11-impl-defaults-parity (M1/P1); all ids lowercase slugs, unique in-slice, zero collisions (store has no e11% rows), deps valid + acyclic, all acceptances observable/testable, no rebuilds.\ncheck_cmds real: the pin check spot-run exits 1 today with exact missing-item reasons (correctly gating unbuilt work) and passes on a simulated conformant CONTRACT (11 entities, contract v3); it uses bun -e with explicit process.exit(1), mitigating the known false-pass hazard; the three 'bun porting/tests/*.test.mjs' commands match the repo/schema convention (test files authored with their stories, as for every implementation story). Reference point also checked: index.ts:1155 asset fallthrough, per-route defaults at ~770/1026/1115-1135 — scope claims exact.\n0 critical + 0 high -> SHIP, with 1 medium (entity-api-* overlap/field conflict) + 2 low (check strictness notes)."
+}

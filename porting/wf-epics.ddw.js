@@ -236,7 +236,7 @@ export function plan({ root = process.cwd(), compileId, force = false } = {}) {
       ``,
       `## Law (frozen — read ${root}/porting/compile/SCHEMA.md IN FULL)`,
       `- built requirements → verification stories (prove + evidence; NEVER rebuild); unbuilt (build-gap/required-M1/planned/pending/sequenced/roadmap) → implementation stories (roadmap → milestone "unsequenced").`,
-      `- Every story: id (stable slug \`${s.epic}-${s.kind === "verification" ? "verify" : "impl"}-<short-slug>\`), title, kind, epic="${s.epic}", milestone, priority (P0 critical path / P1 / P2 / P3), fr_refs, scope, acceptance (observable), check_cmd (REAL + runnable from repo root; jaq → use -ec), deps ([] unless verified), notes optional.`,
+      `- Every story: id (stable slug, LOWERCASE ONLY \`${s.epic.toLowerCase()}-${s.kind === "verification" ? "verify" : "impl"}-<short-slug>\`), title, kind, epic="${s.epic}", milestone, priority (P0 critical path / P1 / P2 / P3), fr_refs, scope, acceptance (observable), check_cmd (REAL + runnable from repo root; jaq → use -ec), deps ([] unless verified), notes optional.`,
       `- Cover EVERY requirement below. Slice kind = ${s.kind}: ${s.kind === "verification" ? "author verification stories for the built requirements here." : "author implementation stories for the unbuilt requirements here (plus any NFR/UX-DR items that need building)."}`,
       ``,
       `## Your requirements (${s.reqIds.join(", ")})`,
@@ -350,7 +350,39 @@ export async function verifyStart({ root = process.cwd(), compileId, poolName = 
   return { phase: "verify-start", compileId: state.compileId, pool: poolName, pushed: items.length, kept };
 }
 
-// ------------------------------------------------------------ phase: lint ------
+// -------------------------------------------------------------- phase: normalize --
+// Deterministic post-authoring pass: lowercase story ids (and deps referencing compiled ids)
+// so the frozen id law holds regardless of template drift. Runs after the author pool drains,
+// before verify — one writer per file is respected (authors are complete by then).
+export function normalize({ root = process.cwd(), compileId } = {}) {
+  const state = openRun({ root, compileId });
+  const planData = readJSON(`${state.runDir}/slices.json`);
+  const files = [];
+  for (const s of planData.slices) {
+    const j = readJSON(s.output, true);
+    if (j) files.push({ s, j });
+  }
+  const lower = new Map();
+  for (const { j } of files) for (const st of j.stories ?? []) lower.set(st.id, String(st.id).toLowerCase());
+  let changed = 0;
+  for (const { s, j } of files) {
+    let dirty = false;
+    for (const st of j.stories ?? []) {
+      const nid = lower.get(st.id);
+      if (nid && nid !== st.id) { st.id = nid; dirty = true; }
+      if (Array.isArray(st.deps)) for (let i = 0; i < st.deps.length; i++) {
+        const nd = lower.get(st.deps[i]);
+        if (nd && nd !== st.deps[i]) { st.deps[i] = nd; dirty = true; }
+      }
+    }
+    if (dirty) { writeJSON(s.output, j); changed++; }
+  }
+  touchRun(state, "normalized", { normalized: changed });
+  log(`normalize: ${changed} of ${files.length} slice files adjusted to lowercase ids`);
+  return { phase: "normalize", compileId: state.compileId, changed, files: files.length };
+}
+
+// -------------------------------------------------------------- phase: lint ------
 export function lint({ root = process.cwd(), compileId } = {}) {
   const state = openRun({ root, compileId });
   const runDir = state.runDir;
@@ -372,7 +404,8 @@ export function lint({ root = process.cwd(), compileId } = {}) {
     if (!["implementation", "verification"].includes(st.kind)) gaps.push({ type: "bad-kind", id: st.id, detail: st.kind });
     if (!/^P[0-3]$/.test(st.priority ?? "")) gaps.push({ type: "bad-priority", id: st.id, detail: st.priority });
     if (st.milestone && !/^(M[1-4]|unsequenced)$/.test(st.milestone)) gaps.push({ type: "bad-milestone", id: st.id, detail: st.milestone });
-    if (!st.check_cmd || /(TBD|N\/A|PLACEHOLDER|\.\.\.)/i.test(st.check_cmd)) gaps.push({ type: "bad-check", id: st.id, detail: st.check_cmd ?? "(empty)" });
+    const placeholderish = !st.check_cmd || /^\s*(tbd|placeholder|todo|fixme|n\/?a|\?+)\s*$/i.test(st.check_cmd) || /<(tbd|placeholder|fill[-_ ]?me|insert[-_ ]?here|your[-_ ]command)>/i.test(st.check_cmd);
+    if (placeholderish) gaps.push({ type: "bad-check", id: st.id, detail: st.check_cmd ?? "(empty)" });
     for (const r of st.fr_refs ?? []) {
       const known = req.frs.some((f) => f.id === r) || req.nfrs.some((n) => n.id === r) || req.ux_drs.some((u) => u.id === r);
       if (!known) gaps.push({ type: "unknown-ref", id: st.id, detail: r });
@@ -395,7 +428,14 @@ export function lint({ root = process.cwd(), compileId } = {}) {
     const foreignIds = new Set(foreign.map((r) => r.id));
     for (const st of allStories) if (foreignIds.has(st.id)) gaps.push({ type: "id-collision", id: st.id, detail: "existing store row with a different source" });
   } catch { }
-  const out = { generatedAt: new Date().toISOString(), stories: allStories.length, gaps, ok: gaps.length === 0 };
+  // warnings (non-blocking): known check_cmd hazards
+  const warnings = [];
+  for (const st of allStories) {
+    if (/\bbun\s+-e\b/.test(st.check_cmd ?? "")) {
+      warnings.push({ type: "bun-e-false-pass", id: st.id, note: "bun -e can exit 0 after a swallowed sync throw following a sync fs read; prefer node -e or explicit process.exit(1) — see .omp/agents.md flag 8" });
+    }
+  }
+  const out = { generatedAt: new Date().toISOString(), stories: allStories.length, gaps, warnings, ok: gaps.length === 0 };
   writeJSON(`${runDir}/lint.json`, out);
   touchRun(state, "linted", { lintGaps: gaps.length });
   log(`lint: ${allStories.length} stories, ${gaps.length} gaps${gaps.length ? " (fix before compile-in)" : " — clean"}`);
@@ -515,6 +555,9 @@ const PHASES = {
   extract,
   design,
   plan,
+  normalize,
+  lint,
+  "repair-start": repairStart,
   "author-start": authorStart,
   "author-collect": authorCollect,
   "verify-start": verifyStart,

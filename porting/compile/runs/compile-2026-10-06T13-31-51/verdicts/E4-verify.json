@@ -1,0 +1,12 @@
+{
+  "slice": "E4-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e4-verify-events-endpoint-contract",
+      "note": "check_cmd can pass vacuously on an empty feed (every() over [] is true; the ordering loop is skipped), so it would not catch '/events serves zero events'. Live run returns len=50 newest-first, and e4-verify-single-consumer-kv-writer's live queue-event leg plus the ticker render proof backstop the gap. No ship impact."
+    }
+  ],
+  "summary": "All 8 verification stories executed green from repo root (2026-10-07): newest-8 ticker render, 500ms debounced /proposals refresh, /events failure isolation, 2s/8s polling cadence with default-on toggle, land+manual reload sequencing, one queue consumer / one KV LIVE writer / hint-only feed, live GET /events (len=50, newest-first), and deployed UI byte-parity. Coverage per kind: FR-20 built verified by 4 stories, FR-21 built core by 2 (M2 hardening implementation lives in E4-impl), FR-22 built polling fallback by 4 (real-time transport implementation lives in E4-impl); no rebuilds. Ids are unique lowercase e4-verify- slugs with zero store or cross-slice collisions; deps [] (no cycles); all four listed overlap rows are addressed in notes and the cited 3-duplicate live feed matches the observed M2 dedupe gap."
+}

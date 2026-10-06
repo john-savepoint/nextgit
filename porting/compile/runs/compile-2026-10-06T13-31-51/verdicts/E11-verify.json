@@ -1,0 +1,22 @@
+{
+  "slice": "E11-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "medium",
+      "story": "e11-verify-method-guards / e11-verify-json-404-unknown-paths",
+      "note": "FR-42 consequence 3 is known-red at HEAD, so two verification stories are acceptance checks for behavior that is not built yet. Source: platform/src/index.ts:1108-1110 (/health clause has no method guard -> POST /health answers 200) and :1154-1155 (terminal env.ASSETS.fetch -> wrong-method and unknown-path requests get the asset layer, not a JSON error). Re-confirmed 2026-10-07 on the live demo worker: GET /no-such-route -> 404, content-type null, empty body; GET / -> 200 text/html. Both checks are structurally correct (exit 2 = probe unreachable, 1 = drift) and the author already documented the reclassify path in notes; the repair is authored in the sibling slice as e11-impl-api-route-discipline (fr_refs NFR-11, M1). Recommend the orchestrator reclassify FR-42 (partial build-gap: method-guard + JSON-404 half) at compile-in, or treat these two stories as gating the NFR-11 repair. No edit to this slice is required or helpful."
+    },
+    {
+      "severity": "low",
+      "story": "e11-verify-enums-timestamps-msg-pin",
+      "note": "check_cmd can pass vacuously: it never asserts 2xx on GET /changes or GET /proposals and iterates (body ? body.x : []), so a 500 or an empty demo would yield zero observed values, zero events, and still exit 0. Add a non-vacuity guard (status 200 + at least one proposal/file/event on the pinned demo state). Risk is bounded because e11-verify-seven-route-surface and e11-verify-default-resolution-pinned do assert 200 on the same routes."
+    },
+    {
+      "severity": "low",
+      "story": "e11-verify-method-guards; e11-verify-json-404-unknown-paths",
+      "note": "deps is [] (schema-valid), but if these stories are meant to gate the repaired dispatch rather than red-document today's gap, add deps:[\"e11-impl-api-route-discipline\"] (same-compile id, verified present) so activation schedules them after the dispatch-table repair."
+    }
+  ],
+  "summary": "E11-verify covers FR-42 (4 verification stories) and FR-43 (3 verification stories), all verification-kind per their `built` status; no rebuilds. IDs are unique lowercase slugs, no collision with existing store rows or the E11-impl slice; every referenced row exists with the claimed status; check_cmds are real — the contract single-source check and the judge suite run green verbatim (ALL PASS, EXIT=0) and the live probes match source shapes and the reachable demo worker. One medium: FR-42's method-guard/JSON-404 consequence is confirmed unbuilt at HEAD and live, so those two checks are known-red acceptance with the repair authored under NFR-11 in E11-impl — reclassify or gate, no slice edit needed."
+}

@@ -1,0 +1,96 @@
+{
+  "slice": "E4-impl",
+  "epic": "E4",
+  "kind": "implementation",
+  "stories": [
+    {
+      "id": "e4-impl-event-consumer-hardening",
+      "title": "Harden the event consumer: validate payloads and dedupe the feed (AD-6)",
+      "kind": "implementation",
+      "epic": "E4",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "FR-21",
+        "NFR-7"
+      ],
+      "scope": "platform/src/index.ts — queue() consumer + recordEvent/readEvents (~L668-688): validate BEFORE recording (type whitelist covering the Artifacts repo event families observed live: cf.artifacts.repo.* and the normalized repo.* counterparts; repo charset ^[A-Za-z0-9._-]+$; ref charset ^[\\w./-]+$; `after` hex sha; fields absent by event kind are allowed), drop + log envelopes without repo identity (never partially recorded), and dedupe on `(type, repo, ref, after)` against the retained feed so an at-least-once replay writes nothing new. KV stays single-writer; `GET /events` shape unchanged (newest-first, <=50). Add porting/tests/events-consumer.test.mjs (bun; judge.test.mjs pattern — real worker module imported, fake LIVE KV + fake message batch, worker.queue() called directly): replay of one key records exactly one entry; unknown type / bad repo charset / non-hex after writes nothing; a poisoned feed leaves /proposals + /land paths untouched.",
+      "acceptance": "Artifacts events arrive through exactly one queue consumer (the worker) — the sole recorder; dedupe key (type, repo, ref, after): replaying one key within the retained feed leaves exactly one LIVE entry and GET /events still serves the <=50 newest, newest-first. Events without repo identity are logged and dropped, never partially recorded; payloads are validated (type whitelist, repo/ref charsets, hex shas) before recording — unknown type, bad repo charset, or non-hex `after` writes nothing to KV. The feed is a hint, never authority: no write or identity path consults it (poisoned feed leaves /proposals, /changes, /land behavior identical).",
+      "check_cmd": "bun porting/tests/events-consumer.test.mjs",
+      "deps": [],
+      "notes": "FR-21 unbuilt half (sequenced M2 = payload validation + dedupe); the built core (single queue consumer, GET /events <=50, KV single writer, hint-only) is verified by the sibling E4-verify slice, not rebuilt here. Overlaps store rows `event-consumer-validation-dedupe` [pending] (this story is that delta), `fan-out-artifacts-repo-events-through-queues` [pending — pipeline core is already live: wrangler consumer + worker queue() + KV + /events], `events-normalized-platform-event-bus-across-all-families` [pending]. Stream observability (`add-observability-for-repo-and-agent-event-streams` [pending]) and queue-state rows are out of this story's scope."
+    },
+    {
+      "id": "e4-impl-do-hub-sse-transport",
+      "title": "Stream platform events over an SSE Durable Object hub",
+      "kind": "implementation",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-22"
+      ],
+      "scope": "New platform/src/events-hub.ts — EventsHub Durable Object: recent ring buffer, initial snapshot frame on connect, broadcast to open streams, heartbeats <=30 s; one instance keyed to the namespace feed (idFromName of the namespace); per-repo/per-base subscription is deferred (see notes). platform/src/index.ts — route GET /events/stream returns text/event-stream (stream proxied from the hub); queue() forwards each validated event to the hub (producer side, EVENTS_HUB binding) after the recorder write. platform/wrangler.jsonc — durable_objects binding + migrations (new_sqlite_classes) and consumer max_batch_timeout 5 -> 1 so push -> stream can hold <=2 s. platform/CONTRACT.md — pin in the SAME slice (AD-5 contract-first): route shape, SSE frame vocabulary (event: name + data: {type,repo,ref,after,at}), heartbeat/reconnect guidance, and the fallback relationship to GET /events. Add porting/tests/realtime-transport.probe.mjs (live; land-hardening.probe.mjs pattern, scratch repos only, cleanup in finally): assert initial frame within 5 s, then push to a scratch fork and assert the matching event frame within <=2 s end-to-end with no client poll.",
+      "acceptance": "Real-time transport (SSE over a Durable Object hub) carries platform events to the UI: a client connected to GET /events/stream receives text/event-stream plus an initial frame (snapshot or `: connected`) within 5 s and heartbeats <=30 s; an Artifacts push or POST /land yields the matching event frame on the stream within <=2 s end-to-end with no client poll (queue batch timeout tuned so this holds). The queue remains the single consumer; GET /events is unchanged. CONTRACT.md pins the route plus the SSE frame vocabulary ({type,repo,ref,after,at}), heartbeat/reconnect semantics, and the fallback relationship to GET /events, landed in this same slice (contract-first gate).",
+      "check_cmd": "bun porting/tests/events-consumer.test.mjs && node porting/tests/realtime-transport.probe.mjs && grep -q 'events/stream' platform/CONTRACT.md",
+      "deps": [
+        "e4-impl-event-consumer-hardening"
+      ],
+      "notes": "FR-22 unbuilt half (required-M1 real-time transport). Overlaps store rows `deliver-events-to-canvas-via-true-push-sse-websocket` [pending P0] and `server-push-channel-to-browsers-sse-websocket-replacing-the-` [pending] — this story is the server-side M1 slice; UI consumption is the sibling story E4-impl-ui-consume-event-stream. Related row `one-durable-object-per-repo-as-realtime-hub` [pending] is NOT adopted in v1: the queue payload carries no base association, so a v1 namespace-feed hub is the only straight forward fan-in; per-repo hubs stay a later additive step. FR-22's built polling fallback is verified by the sibling E4-verify slice (and UX-DR-6 verification here)."
+    },
+    {
+      "id": "e4-impl-ui-consume-event-stream",
+      "title": "Consume the event stream in the UI; keep polling as the degraded fallback",
+      "kind": "implementation",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P0",
+      "fr_refs": [
+        "FR-22",
+        "UX-DR-6"
+      ],
+      "scope": "platform/ui/app.js — open EventSource('/events/stream'); on a frame update the ticker immediately and debounce exactly one /proposals refresh (500 ms, existing key logic); while the stream is open and healthy the 2 s /events poll does not run; on stream error/close fall back to the as-built timers (lazy start of the 2 s /events + 8 s /proposals pollers, auto-refresh toggle honored) and reconnect with backoff; the land path keeps reloading both endpoints immediately; the /events failure isolation stays (guarded catch, stale pulse, last events retained; proposals UI never breaks). platform/ui/index.html + styles.css — ticker pulse reflects push-connected vs fallback-stale. Demo evidence: capture the <=2 s on-screen freshness beating the 90 s poll baseline (SM-2 form).",
+      "acceptance": "With the stream open and healthy, a push/fork/landing event updates the ticker within <=2 s and triggers exactly one debounced /proposals refresh (500 ms), with no /events poll request while the stream is healthy; a landing updates the set without waiting for an 8 s refresh cycle. With the transport unavailable (stream closed/erroring), the degraded fallback holds: /events every 2 s, /proposals every 8 s with the auto-refresh toggle default on; a land reloads both endpoints immediately; an /events failure never breaks the proposals UI. The <=2 s freshness is captured as demo evidence (SM-2 form), visibly beating the 90 s poll baseline.",
+      "check_cmd": "node --check platform/ui/app.js && grep -q 'EventSource' platform/ui/app.js && grep -q 'events/stream' platform/ui/app.js && grep -q 'setInterval(loadEvents, 2000)' platform/ui/app.js && grep -q 'setInterval(loadProposals, 8000)' platform/ui/app.js",
+      "deps": [
+        "e4-impl-do-hub-sse-transport"
+      ],
+      "notes": "FR-22 UI half + UX-DR-6 push-immediacy delta; overlaps store row `deliver-events-to-canvas-via-true-push-sse-websocket` [pending] (client side). The demo recording itself is owned by store row `demo-beat-visibly-outrun-the-90s-poll-baseline` [pending] and E10's FR-39 slice — this story keeps the <=2 s proof assertion and the capture requirement, not the video edit. Static check proves wiring + intact fallback; on-screen timing is proven by the transport probe plus the capture."
+    },
+    {
+      "id": "e4-verify-single-writer-consumer-hint",
+      "title": "Prove the feed's single-writer, single-consumer, hint-only posture (AD-6)",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M2",
+      "priority": "P1",
+      "fr_refs": [
+        "NFR-7",
+        "FR-21"
+      ],
+      "scope": "Evidence, no rebuild: (1) config — platform/wrangler.jsonc declares exactly one KV namespace (binding LIVE) and exactly one queue consumer (nextgit-events -> the worker); (2) code — no UI/script component touches KV LIVE (grep over platform/ui + platform/scripts); (3) behavior — bun porting/tests/events-consumer.test.mjs (from E4-impl-event-consumer-hardening) shows replay dedupe on (type, repo, ref, after) and a poisoned feed changing no write/identity path; (4) live — curl GET /events returns {ok:true, events:[...]} newest-first with <=50 entries. Attach the four command outputs as the story's evidence.",
+      "acceptance": "KV LIVE has exactly one writer (the worker): the namespace is bound once in the worker config and no UI or script component touches it. The queue nextgit-events has exactly one consumer (the platform worker). Artifacts events are deduped on (type, repo, ref, after) — a replayed key leaves one recorded entry (suite evidence attached). The feed is a hint, never authority for writes or identity: only GET /events reads it and no write/identity route consults it.",
+      "check_cmd": "test \"$(jq '.kv_namespaces | length' platform/wrangler.jsonc)\" -eq 1 && jq -e '.queues.consumers | length == 1 and .[0].queue == \"nextgit-events\"' platform/wrangler.jsonc >/dev/null && ! grep -rq 'LIVE' platform/ui platform/scripts && curl -sf --max-time 30 https://nextgit-platform.john-b7d.workers.dev/events | jq -e '.ok == true and (.events | length <= 50)' >/dev/null && bun porting/tests/events-consumer.test.mjs",
+      "deps": [
+        "e4-impl-event-consumer-hardening"
+      ],
+      "notes": "NFR-7 verification (structural posture) — NFR-7 is not in the sibling E4-verify pack, so its proof lives here; dedupe evidence re-runs the consumer suite rather than rebuilding. Overlaps store row `events-queue-state` [pending] (queue-depth/observability metrics are out of scope). The built-core FR-21 verification is the sibling E4-verify slice's assignment; this story keeps the NFR-7 framing."
+    },
+    {
+      "id": "e4-verify-polling-cadence-set-view",
+      "title": "Prove the polling cadence fallback contract and the set view (no paging)",
+      "kind": "verification",
+      "epic": "E4",
+      "milestone": "M1",
+      "priority": "P1",
+      "fr_refs": [
+        "UX-DR-6"
+      ],
+      "scope": "Evidence, no rebuild: platform/ui/app.js cadence sites — setInterval(loadEvents, 2000); setInterval(loadProposals, 8000) gated on state.autoRefresh; the 500 ms debounced refresh on a new top event key; the land path awaiting loadProposals() + loadEvents(); the guarded loadEvents catch (pulse goes stale, events retained). platform/ui/index.html — auto-refresh-toggle checked by default; single #proposals-grid canvas, no paginator anywhere under platform/ui. Live: ticker + set render against the deployed UI. Attach the assertion run and a live capture (GET /events <=50 newest-first; UI screenshot/DOM note) to the story's evidence.",
+      "acceptance": "Polling cadence is behavior, not implementation detail: /events every 2 s; /proposals every 8 s with the auto-refresh toggle on by default; a new top event key triggers exactly one debounced refresh (500 ms); a land reloads both endpoints immediately; an /events failure never breaks the proposals UI (guarded catch, stale pulse, last events stay). Set view, no paging: every proposal renders in the single #proposals-grid canvas — no paginator, no per-item navigation, no collapse.",
+      "check_cmd": "node --check platform/ui/app.js && awk '/async function loadEvents/,/^}/' platform/ui/app.js | grep -q catch && grep -q 'setInterval(loadEvents, 2000)' platform/ui/app.js && grep -q 'setInterval(loadProposals, 8000)' platform/ui/app.js && grep -q '}, 500)' platform/ui/app.js && grep -q 'auto-refresh-toggle\" class=\"toggle-input\" checked' platform/ui/index.html && grep -q 'await loadProposals();' platform/ui/app.js && grep -q 'await loadEvents();' platform/ui/app.js && ! grep -riq 'paginat' platform/ui/app.js platform/ui/index.html",
+      "deps": [],
+      "notes": "UX-DR-6 is as-built (polling cadences + set view) so it gets verification, not a rebuild; the only build delta is push-style immediacy, covered by E4-impl-do-hub-sse-transport + E4-impl-ui-consume-event-stream. Overlaps the sibling E4-verify slice's FR-22 fallback verification — intentional: this story owns the UX-DR-6 framing (cadence contract + set view). False positive to ignore: per-file tabs inside the merge-preview modal are not set navigation. Canvas evolution is store row `build-multiplayer-triage-canvas-with-proposal-artifacts` [pending]."
+    }
+  ]
+}

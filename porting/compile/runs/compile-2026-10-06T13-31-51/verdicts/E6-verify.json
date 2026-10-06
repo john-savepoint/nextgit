@@ -1,0 +1,17 @@
+{
+  "slice": "E6-verify",
+  "verdict": "SHIP",
+  "findings": [
+    {
+      "severity": "low",
+      "story": "e6-verify-intent-push-recipe-durability",
+      "note": "Scope pointer accuracy: real-agents.mjs:408-411 is cited as the runner push site, but that range is the commit block — the notes-add + three-refspec push are at :423-424 (agents.mjs:266-272 is correct). The notes also say 'the only push site carrying the notes refspec is the runner scripts'; platform/scripts/secret-fixture.mjs:145 pushes the same refspecs for the agent-5 fixture (one-pusher-per-repo still holds). No acceptance impact — the probe reproduces the CONTRACT.md:163-171 recipe itself."
+    },
+    {
+      "severity": "low",
+      "story": "e6-verify-path-driven-masking-posture",
+      "note": "Sequencing guard: case (b) proves the v1 limitation with a non-class KEY=VALUE patch served unredacted; sibling slice E6-impl ships content detection in M2, and on the status-value route a detected payload of exactly that shape becomes secret-class ('zero raw response bytes'), which would falsify case (b) if the arrival unit lands first. The author bounded detection out in notes; run this proof before/independently of the arrival unit, or re-anchor case (b) to the CONTRACT-recorded route."
+    }
+  ],
+  "summary": "All 5 assigned built requirements (FR-28, FR-29, FR-30, FR-32, FR-33) covered by 9 verification stories; no rebuilds, ids clean (0 store hits), deps [], real check_cmds (judge.test.mjs ALL PASS; live /proposals + /changes + /merge spot-runs green; agent-5 schema-only row and leak-marker sweep verified read-only). Dedupe notes match all 7 listed [pending] store rows. 0 critical / 0 high → SHIP; two low accuracy/sequencing notes."
+}
