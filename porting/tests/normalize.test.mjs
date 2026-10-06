@@ -4,7 +4,7 @@
 // Guards the fail-closed contract the bootstrap-health-sweep gates demanded:
 // a lens reporting SHIP while listing ship-blockers/highs must never yield a green light.
 
-import { normalizeVerdict } from "../wf-template.ddw.js";
+import { normalizeVerdict, DEFAULT_AGENTS } from "../wf-template.ddw.js";
 
 const cases = [
   ["obj clean SHIP", { verdict: "SHIP", shipBlockers: [], highs: [], mediums: [], notes: [] }, "SHIP"],
@@ -36,5 +36,19 @@ for (const [name, input, want] of cases) {
   if (!ok) fails++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name} → ${got.verdict} (blocked=${blocked})`);
 }
-console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES`);
+
+// Pin the default roster map — drift in routing must fail loudly (2026-10-06).
+const LENS_MAP = { quality: "senior-reviewer", "spec-fit": "reviewer", security: "security-reviewer", compliance: "compliance-reviewer", resilience: "senior-reviewer", "resilience-2": "reviewer", parity: "parity-auditor", ux: "designer" };
+const PHASE_MAP = { plan: "plan-agent", implement: "wf-implementer", verify: "wf-verifier", healResearch: "heal-researcher", healApply: "wf-implementer", mergedGate: "senior-reviewer" };
+for (const [lens, agentName] of Object.entries(LENS_MAP)) {
+  const ok = DEFAULT_AGENTS.lens[lens] === agentName;
+  if (!ok) fails++;
+  console.log(`${ok ? "PASS" : "FAIL"}  lens-map ${lens} → ${DEFAULT_AGENTS.lens[lens]} (want ${agentName})`);
+}
+for (const [phase, agentName] of Object.entries(PHASE_MAP)) {
+  const ok = DEFAULT_AGENTS[phase] === agentName;
+  if (!ok) fails++;
+  console.log(`${ok ? "PASS" : "FAIL"}  phase-map ${phase} → ${DEFAULT_AGENTS[phase]} (want ${agentName})`);
+}
+console.log(fails === 0 ? `ALL PASS (cases=${cases.length})` : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);

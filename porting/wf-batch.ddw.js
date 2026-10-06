@@ -57,7 +57,7 @@ export function readQueueRows(root = process.cwd()) {
 }
 
 export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent, agents } = {}) {
-  const { runWorkOrder } = await import(`${root}/porting/wf-template.ddw.js`);
+  const { runWorkOrder, normalizeVerdict } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const batchDir = `${root}/porting/runs/batch-${ts}`;
@@ -114,16 +114,19 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
   for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
 
   // --- merged gate (v1: sequential workspace; this gate sees the union) ------
-  const merged = await agent(
+  // Fail-closed like every per-order gate: a merged return is RAW INPUT, not a verdict —
+  // an incoherent {verdict:"SHIP", shipBlockers:[…]} must not read ALL GREEN (v3.2).
+  const mergedRaw = await agent(
     `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
     `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
     `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
     `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
     { agent: agents?.mergedGate ?? agent ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
   ).wait();
+  const merged = normalizeVerdict("merged", mergedRaw);
   writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
 
-  const next = results.some((r) => r.verdict !== "GREEN") || merged?.verdict !== "SHIP" ? "BLOCKED — see per-order results + gate-merged.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
+  const next = results.some((r) => r.verdict !== "GREEN") || merged.verdict !== "SHIP" ? "BLOCKED — see per-order results + gate-merged.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
   const report = { batch: ts, queueSource, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, next };
   writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
   log(`batch ${ts}: ${next}`);
