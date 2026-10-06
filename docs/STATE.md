@@ -1,8 +1,8 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (REGISTRY POPULATED — 506 rows; brief FINAL ✓ (structure+prose polish applied); eligibility RESOLVED — US-resident teammate files the entry; next: PRD → epics → schedule from the store)
-**Branch:** `main` · **Last commit:** `7ca477b` (architecture follow-ups; this batch: sqlite closure + spine updates)
-**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · `bun porting/tests/tasks.test.mjs` (52/52 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
+**Last updated:** 2026-10-06 (workflow v3: specialist roster wired + self-test GREEN; registry 506 rows; brief FINAL; eligibility RESOLVED — US teammate files the entry; judge-contract-pin in flight; next: judge wave → PRD → epics)
+**Branch:** `main` · **Last commit:** `2cb2864` (brief finalize + eligibility resolution; v3 machinery in `1619073`)
+**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (ALL PASS, exit 0) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `_bmad-output/specs/spec-next-git-platform/SPEC.md` + companions (`demo-scope.md`, `engineering-laws.md`, `stack.md`, `interface-contract.md`, `fork-community.md`) — the frozen contract
 - `platform/CONTRACT.md` — frozen platform API v2
@@ -23,7 +23,7 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` (lands or refuses) — reproducible two-command demo |
 | Real agent fleet | working (2 CLIs) | omp + codex verified producing real proposals; claude/gemini/opencode need logins (standing reds, John) |
 | Judge layer (Clef) | verified callable | live typed answers 2026-10-05 (~1.3 s REST, ~$0.00012/call); catalog in `docs/judge-layer-ideas.md`; NOT yet wired |
-| State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) — **506 rows, registry populated**; runner + claim-safe batches; tests `porting/tests/{normalize,tasks}.test.mjs` |
+| State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) — **506 rows, registry populated**; runner v3 specialist routing (self-test GREEN — `porting/runs/wf-v3-selftest/`); claim-safe batches; tests `porting/tests/{normalize,tasks}.test.mjs` |
 | Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
 | Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief FINAL ✓ (polish applied 2026-10-06); ux-designs landed ✓ (partial — key-screen mock + 4 LIVE conflicts await John); PRD + epics pending (queue) |
 | Submission package | not started | video + README + LICENSE + repo curation (eligibility resolved 2026-10-06) — queue P0/P1 |

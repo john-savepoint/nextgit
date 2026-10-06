@@ -83,16 +83,27 @@ const strs = (x) => asArr(x).flat(Infinity).map((s) => (s == null ? "" : String(
 export function normalizeVerdict(lens, v, err) {
   if (err) return { lens, verdict: "BLOCK", shipBlockers: [`lens errored: ${err?.message ?? err}`], highs: [], mediums: [], notes: [] };
   if (v && typeof v === "object" && !Array.isArray(v)) {
-    // Adapter: the fork's reviewer defs pin {verdict: PASS|WARN|FAIL, findings:[{severity}]}.
-    // FAIL or any CRITICAL/HIGH finding blocks; WARN + non-high findings ships with records.
-    if (["PASS", "WARN", "FAIL"].includes(String(v.verdict ?? "").toUpperCase()) && Array.isArray(v.findings)) {
-      const sev = (f) => String(f?.severity ?? f?.level ?? "").toUpperCase();
-      const tag = (f) => String(f?.title ?? f?.summary ?? JSON.stringify(f));
-      const crit = v.findings.filter((f) => /CRITICAL|HIGH/.test(sev(f))).map(tag);
-      const nonHigh = v.findings.filter((f) => !/CRITICAL|HIGH/.test(sev(f))).map(tag);
-      const failed = String(v.verdict).toUpperCase() === "FAIL";
-      const shipBlockers = crit.length > 0 ? crit : failed ? [String(v.summary ?? "lens FAIL")] : [];
-      return { lens, verdict: failed || crit.length > 0 ? "BLOCK" : "SHIP", shipBlockers, highs: [], mediums: nonHigh.slice(0, 12), notes: v.reportPath ? [`reportPath: ${v.reportPath}`] : [] };
+    // Adapter: the fork's reviewer defs pin shapes — {verdict: PASS|WARN|FAIL, findings:[{severity|issue}]}
+    // and reviewer's {overall_correctness: CORRECT|INCORRECT, explanation, confidence}.
+    // FAIL/INCORRECT or any CRITICAL/HIGH finding blocks; WARN + non-high findings ships with records.
+    // Findings may be objects (severity|level|issue) or strings ("HIGH: ...") — both severity-routed.
+    const oc = String(v.overall_correctness ?? "").toUpperCase();
+    const pinVerdict = String(v.verdict ?? "").toUpperCase();
+    if ((["PASS", "WARN", "FAIL"].includes(pinVerdict) && Array.isArray(v.findings)) || oc) {
+      const findings = asArr(v.findings);
+      const sevOf = (f) => typeof f === "string"
+        ? (String(f).match(/^(CRITICAL|HIGH|MEDIUM|LOW)\b/i)?.[1]?.toUpperCase() ?? "")
+        : String(f?.severity ?? f?.level ?? "").toUpperCase();
+      const tagOf = (f) => typeof f === "string" ? f : String(f?.title ?? f?.issue ?? f?.summary ?? JSON.stringify(f));
+      const crit = findings.filter((f) => /CRITICAL|HIGH/.test(sevOf(f))).map(tagOf);
+      const nonHigh = findings.filter((f) => !/CRITICAL|HIGH/.test(sevOf(f))).map(tagOf);
+      const ocWrong = oc !== "" && oc !== "CORRECT";
+      const failed = pinVerdict === "FAIL" || ocWrong;
+      const shipBlockers = crit.length > 0 ? crit : failed ? [String(v.summary ?? v.explanation ?? "lens FAIL")] : [];
+      const notes = [];
+      if (v.reportPath) notes.push(`reportPath: ${v.reportPath}`);
+      if (oc && oc !== "CORRECT" && oc !== "INCORRECT") notes.push(`unrecognized overall_correctness: ${oc}`);
+      return { lens, verdict: failed || crit.length > 0 ? "BLOCK" : "SHIP", shipBlockers, highs: [], mediums: nonHigh.slice(0, 12), notes };
     }
     const shipBlockers = [...strs(v.shipBlockers ?? v.ship_blockers), ...(v.verdict == null ? ["lens returned no verdict field"] : [])];
     const highs = strs(v.highs);
@@ -203,7 +214,10 @@ export async function runWorkOrder(order, opts = {}) {
       `Also state whether the acceptance is observably met: ${order.acceptance}`,
       { agent: ag.verify, label: `verify:${order.id}:${label}`, schema: VERIFY_SCHEMA },
     ).wait();
-    const verdict = typeof v === "object" && v ? (v.clean !== undefined ? (v.clean ? "PASS" : "FAIL") : (v.verdict ?? "UNKNOWN")) : "UNKNOWN";
+    // Prefer the caller-schema verdict over the def's pinned `clean` flag — the pinned flag is
+    // fork-specific (its <=7 testFailures exemption can record a verdict unrelated to this
+    // order's testCmd; gate finding 2026-10-06, wf-v3-selftest quality lens).
+    const verdict = typeof v === "object" && v ? (v.verdict ?? (v.clean !== undefined ? (v.clean ? "PASS" : "FAIL") : "UNKNOWN")) : "UNKNOWN";
     const evidence = typeof v === "string" ? v : (v?.evidence ?? JSON.stringify(v, null, 2));
     appendFileSync(`${runDir}/verify.md`, `\n\n## VERIFY — ${label} @ ${new Date().toISOString()}\nverdict: ${verdict}\n\n${evidence}\n`);
     writeState(`verify:${label}`, { verifyVerdict: verdict });

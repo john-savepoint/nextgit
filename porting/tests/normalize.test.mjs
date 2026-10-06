@@ -20,6 +20,12 @@ const cases = [
   ["pinned-shape WARN + medium only", { verdict: "WARN", summary: "nit", findings: [{ severity: "MEDIUM", title: "naming" }] }, "SHIP"],
   ["pinned-shape PASS clean", { verdict: "PASS", summary: "ok", findings: [] }, "SHIP"],
   ["blocked() check: SHIP+highs blocks", { verdict: "SHIP", highs: ["h"] }, null],
+  ["pinned-shape WARN + HIGH finding", { verdict: "WARN", findings: [{ severity: "HIGH", title: "x" }] }, "BLOCK"],
+  ["pinned-shape PASS + CRITICAL finding", { verdict: "PASS", findings: [{ severity: "CRITICAL", title: "y" }] }, "BLOCK"],
+  ["pinned-shape WARN + string severity finding", { verdict: "WARN", findings: ["HIGH: secret in log"] }, "BLOCK"],
+  ["pinned-shape issue-field tag", { verdict: "FAIL", findings: [{ severity: "HIGH", issue: "table drop" }] }, "BLOCK"],
+  ["reviewer overall_correctness INCORRECT", { overall_correctness: "INCORRECT", explanation: "wrong", confidence: 0.9 }, "BLOCK"],
+  ["reviewer overall_correctness CORRECT", { overall_correctness: "CORRECT", explanation: "fine", confidence: 0.8 }, "SHIP"],
 ];
 
 let fails = 0;

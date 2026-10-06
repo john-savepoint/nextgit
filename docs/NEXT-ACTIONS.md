@@ -979,6 +979,7 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 Ref: .omp/agents.md:22 (project facts); docs/CHECKPOINT.md:41 (wrangler note); session history 2026-10-06T02:18 (deployed on pinned 4.147.0)
 - [done] P2 — Pre-commit freshness enforcement re-armed repo-locally + proven — The bootstrap pre-commit freshness hook had never executed: global core.hooksPath (~/.githooks) shadowed .git/hooks. Re-armed repo-locally (core.hooksPath=.git/hooks) with the global commit-msg stripper copied in — no global edits; enforcement proven by a deliberately blocked stale-index commit.
 Ref: docs/CHECKPOINT.md:24 (CORRECTIONS #7); commit 7ca477b; session history 2026-10-06T02:27-02:29
+- [done] P2 — Workflow v3 self-test (specialist routing) — Machinery-only self-test: five-check battery through runner v3 specialist routing; GREEN 0 heals; found 3 routing defects → v3.1.
 - [done] P3 — Bootstrap health sweep — first loop order: 4/4 checks green across 5+ independent reproductions; gates caught real findings (NUL injection, fictional jaq guard, two fail-opens, heal-budget bug, citation rot); all gate-required caller remedies applied (runner committed `d5f6b5b`, fail-closed, 10-case test); stale gate reports certified superseded (`porting/certifications/bootstrap-health-sweep.md`); evidence: `porting/runs/bootstrap-health-sweep/`
 - [partial] P0 — UX spec for the triage surface (bmad-ux) — canvas review flow, judge chips, land flow, recording needs; acceptance: DESIGN/EXPERIENCE docs exist and the video storyboard cites them
 
