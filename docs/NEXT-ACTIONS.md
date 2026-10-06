@@ -939,6 +939,7 @@ Ref: docs/CHECKPOINT.md:5-9 (entry 2026-10-06; commit d0d8b17, worker 87958c11);
 Ref: porting/tasks.db; porting/tasks.mjs; porting/tests/tasks.test.mjs; docs/CHECKPOINT.md:8; session history 2026-10-06T01:27 user msg
 - [done] P0 — One canvas for the whole concurrent proposal set (demo MUST) — A single canvas presents all concurrent proposals as a comparable set: summary chips, live event ticker, conflict section, inspector and per-card actions, with no tab-hopping.
 Ref: demo-scope.md MUST map (set-level triage canvas); platform/ui/index.html:103; platform/ui/app.js:163-236,404-541
+- [done] P0 — Land security remediation (DONE): credential-free failure path + single-use tokens — Shipped d0d8b17 + deployed 87958c11: /land push-failure returns fold artifacts only (no token, no shell snippets); worker-minted tokens 300s TTL revoked in finally; land.mjs delegates to /land (no replays).
 - [done] P1 — State spine + loop scaffolding — `docs/` spine, `porting/` runner, `.omp/commands/`, `scripts/status-index.mjs` (this bootstrap)
 - [done] P1 — Git-notes provenance: intent durable across rebases (demo SHOULD) — Records persist as git notes (refs/notes/*) so intent survives rebases and baseline movement; the platform reads notes via the nextgit-notes branch mirror because the Artifacts binding cannot resolve refs/notes/* directly.
 Ref: SPEC.md CAP-5 success; demo-scope.md SHOULD map (git-notes provenance); platform/src/index.ts:157-178

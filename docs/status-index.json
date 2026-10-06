@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T02:51:44.485Z",
-  "head": "b88e096",
+  "generatedAt": "2026-10-06T02:59:15.557Z",
+  "head": "a5bf5fd",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -10,10 +10,10 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 506,
+    "total": 507,
     "byStatus": {
       "pending": 455,
-      "done": 49,
+      "done": 50,
       "partial": 2
     },
     "items": [

@@ -5,7 +5,7 @@ purpose: build-substrate
 altitude: feature
 paradigm: 'read-mostly CQRS edge worker — one gated write path, binding-native reads, judgment delegated, convergence at set level'
 scope: 'Production architecture spine for NextGit — the agent-era software platform on Cloudflare (Workers + Artifacts + Queues + KV; Durable Objects, Workflows and R2 in scope). Governs the platform worker, storage tiers, judge layer, loop machinery, client contracts, and the auth seam.'
-status: draft
+status: final
 created: '2026-10-05'
 updated: '2026-10-05'
 binds: ['CAP-1', 'CAP-2', 'CAP-3', 'CAP-4', 'CAP-5', 'CAP-6', 'CAP-7', 'CAP-8', 'CAP-9', 'CAP-10']
