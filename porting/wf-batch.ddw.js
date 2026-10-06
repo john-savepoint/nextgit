@@ -57,7 +57,7 @@ export function readQueueRows(root = process.cwd()) {
 }
 
 export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent, agents } = {}) {
-  const { runWorkOrder, normalizeVerdict } = await import(`${root}/porting/wf-template.ddw.js`);
+  const { runWorkOrder, normalizeVerdict, SKILL_HINTS } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const batchDir = `${root}/porting/runs/batch-${ts}`;
@@ -119,6 +119,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
   const mergedRaw = await agent(
     `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
     `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
+    `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
     `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
     `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
     { agent: agents?.mergedGate ?? agent ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },

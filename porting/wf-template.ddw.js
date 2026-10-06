@@ -65,6 +65,7 @@ export const SKILL_HINTS = {
   implement: "workers-best-practices + typescript-professional (+ cloudflare when a bound product is touched)",
   verify: "verification-before-completion (+ full-output-enforcement: report EVERY failure line)",
   healResearch: "systematic-debugging + receiving-code-review",
+  mergedGate: "typescript-professional + concurrency-pro",
   lens: {
     security: "claude-code-security-review + security-design-review",
     quality: "typescript-professional + concurrency-pro",
