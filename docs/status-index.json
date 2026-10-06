@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T18:37:55.005Z",
-  "head": "dd978b7",
+  "generatedAt": "2026-10-06T20:43:15.617Z",
+  "head": "8415f64",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 595,
-      "done": 65,
+      "pending": 592,
+      "done": 68,
       "partial": 1
     },
     "items": [
@@ -296,21 +296,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Registry harvest wave: itemize every source into harvest JSONs"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove every concurrent proposal is one set in a single response"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the proposal card anatomy and the secret-row treatment"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the collision map renders every conflict with its evidence"
       },
       {
         "status": "pending",

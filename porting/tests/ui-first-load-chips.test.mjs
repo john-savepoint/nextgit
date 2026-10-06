@@ -95,7 +95,7 @@ const domValue = (dom, id) => {
   return m ? m[1].trim() : null;
 };
 const chipsOf = (dom) => CHIPS.map((id) => domValue(dom, id));
-const bannerVisible = (dom) => !/<div id="connection-banner"[^>]*\bhidden\b/.test(dom);
+const bannerVisible = (dom) => !/<div id="connection-banner"[^>]*\shidden(=|\s|>)/.test(dom);
 
 // Loopback worker surface: mode selects what /proposals (and app.js) do.
 let mode = "ok";

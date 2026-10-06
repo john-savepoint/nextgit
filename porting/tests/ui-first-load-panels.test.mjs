@@ -122,7 +122,7 @@ const panelShowsLoader = (dom, id) => {
   const region = panelRegion(dom, id);
   return region !== null && region.includes(LOADER_TEXT);
 };
-const bannerVisible = (dom) => !/<div id="connection-banner"[^>]*\bhidden\b/.test(dom);
+const bannerVisible = (dom) => !/<div id="connection-banner"[^>]*\shidden(=|\s|>)/.test(dom);
 
 // Loopback worker surface: mode selects what /proposals (and app.js) do.
 let mode = "ok";
