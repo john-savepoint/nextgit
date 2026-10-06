@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T05:49:50.135Z",
-  "head": "b32bb3c",
+  "generatedAt": "2026-10-06T06:47:01.779Z",
+  "head": "a3620db",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,16 +12,11 @@
   "queue": {
     "total": 511,
     "byStatus": {
-      "pending": 453,
-      "done": 57,
+      "pending": 452,
+      "done": 58,
       "partial": 1
     },
     "items": [
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Write the PRD"
-      },
       {
         "status": "pending",
         "priority": "P0",
