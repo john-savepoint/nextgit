@@ -83,6 +83,53 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
 
+## POST /judge
+
+Typed judgments for a target set of proposals — advisory only: the route writes nothing and lands nothing.
+
+Body:
+
+```json
+{ "setId": "v1",
+  "target": { "base": "demo", "repos": ["agent-1", "agent-2"], "refs": ["main"] } }
+```
+
+- `setId` — required; the versioned question-set id. Whitelist at this bump: `v1` = the three card signals (risk, intent-vs-diff verification, semantic collision). Unknown id → `400 {ok:false, error:"unknown-set"}`. Sets are versioned in code; new ids are additive, existing ids never change meaning.
+- `target.base` — base repo; default `"demo"` (the platform default, identical on every route).
+- `target.repos` — required; non-empty unique array of proposal-repo names, ≤16 entries (the platform's per-request repo cap). Subject to the platform's repo rules (AD-9 allowlist when the auth seam lands).
+- `target.refs` — the ref the target repos are read at; default `["main"]`; v1 accepts exactly one entry — the base and every proposal repo are read at that ref (the `/changes` `ref`/`baseRef` default equivalence). More than one entry → `400`.
+- The request schema is closed: `state`, `questions`, `model`, or any other unknown field → `400 {ok:false, error:"bad-request"}`. State is assembled **server-side only**: binding-native reads (AD-2) over the same fork-point change-sets the set view uses (AD-3); untrusted repo content (diffs, intents, paths) enters the state delimited and labeled as data; instruction-like text is stripped; every outbound state passes the AD-4 masking filter — secret-class paths enter as key names only, and no secret-class value may enter any model state or log.
+
+```json
+{ "ok": true,
+  "setId": "v1",
+  "model": "@cf/cloudflare/clef",
+  "judgments": [
+    { "repo": "agent-1",
+      "risk": { "label": "focused", "score": 1.57 },
+      "intent": { "verdict": "supports", "overclaim": 0.31 },
+      "collision": false }
+  ],
+  "skipped": [ { "repo": "agent-4", "reason": "secret-class" } ]
+}
+```
+
+- `setId` — echo of the set that was answered. `model` — the id the model response carried; on 200 it is always the pinned `@cf/cloudflare/clef`. A model response whose `model` differs or is absent ⇒ judge-unavailable ⇒ `503`, fail closed (no judgments).
+- `judgments[]` — one typed entry per judged proposal, in `target.repos` order: `repo` plus the three signals below. The model's raw answers are validated against this typed schema (kind whitelist, ranges; unknown answer fields rejected); any violation ⇒ `503 judge-unavailable`.
+- `skipped[]` — proposals not judged: `{repo, reason}` with `reason` ∈ `secret-class` (the change-set touches a secret-class path — its content cannot enter state, AD-4; the repo is listed by **name only** — no paths, no keys, no content) | `empty-change-set` (nothing to judge — the fold produces zero changes). Both arrays are always present.
+- Errors: `400 {ok:false,error:"bad-request"}` malformed body/target; `400 {ok:false,error:"unknown-set"}` setId outside the whitelist; `503 {ok:false,error:"judge-unavailable"}` binding missing, model mismatch, or schema-invalid answers — fail closed; `429 {ok:false,error:"rate-limited"}` per-caller caps (AD-9); `500` unexpected, platform envelope.
+- The caller cannot name or choose a model — the pinned id lives in code. Judgments are advisory: the auto-land gate (when it exists) is evaluated inside `POST /land`, before fold and push (AD-11) — clients render verdicts, never decide them.
+
+### Card-signal vocabulary (setId `v1`)
+
+The three signals the card chips render — the complete judge vocabulary the UI consumes:
+
+- **risk** — `risk.label` ∈ {`routine`, `focused`, `senior-security`} (thresholded in code) + `risk.score` = probability-weighted level index over the ordered 3-level rubric, range [0,2].
+- **intent vs diff** — `intent.verdict` ∈ {`supports`, `contradicts`, `insufficient`} (insufficient = no intent / insufficient evidence) + `intent.overclaim` = noul probability [0,1], `null` when the verdict is insufficient.
+- **semantic collision** — `collision` boolean: same-behavior collision between proposals; distinct lens from the diff3 adjacency map (`/proposals` conflicts) — both are true signals; render both.
+
+Thresholds, weights, and labels live in code (AD-11): the wire carries typed answers, never prose. Cards for `skipped` proposals render no judge chips; a skip is not a verdict. **The judge advises; code decides; humans still own irreversible acts.**
+
 ## GET /events
 
 `{ "ok": true, "events": [{"type","repo","ref","after","at"}] }` — newest first, ≤50, from KV.

@@ -2,6 +2,12 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-06 — judge-contract-pin GREEN (first order on the store queue)
+**Shipped:** `platform/CONTRACT.md` +47/−0 — new `## POST /judge` (:86) + `### Card-signal vocabulary (setId v1)` (:123): request `{setId, target{base,repos,refs}}` (closed schema — caller state/questions prohibited; server-side state assembly; AD-4 masking on all egress; secret-class paths enter as key names only); response `{ok,setId,model,judgments[],skipped[]}` with pinned `@cf/cloudflare/clef` (mismatch/absent ⇒ 503, fail closed); errors 400/503/429/500; skip reasons `secret-class | empty-change-set`; advisory-only ("the judge advises; code decides").
+**Gate:** quality · spec-fit · security — all **SHIP, 0 heals** (first pass). Evidence: `porting/runs/judge-contract-pin/`.
+**Note:** the store's row order listed the judge wave before its prerequisite; executed contract-first per AD-8 (deps column stays null — carried: encode ordering in the store or rely on the checkpoint).
+**Next:** judge wave (`wire-the-clef-judge-layer`) — dispatched.
+
 ## 2026-10-06 — Product brief finalized; eligibility resolved
 **Shipped:** `_bmad-output/planning-artifacts/briefs/brief-cloudflare-git-comp-2026-10-06/` — `brief.md` (status: **final**; 8 sections) + `addendum.md` (corpus index · evidence pack · parked alternatives); memlog 10 entries. Finalize polish applied from two review lenses: **structure** (9 findings — stale addendum map, judge-layer tense, competition-term drift, evidence-anchor gaps) + **prose** (16 findings — "no polling" vs as-built, sweep-count drift, serial commas, grammar). Untracked trees `briefs/` + `ux-designs/` moved to tracked in this commit.
 **Change:** eligibility **RESOLVED** — a US-resident teammate has joined and will file the entry (§3 satisfied); STATE red cleared; store rows `eligibility-resolve-…` + `resolve-competition-eligibility-…` → done; brief row → done.

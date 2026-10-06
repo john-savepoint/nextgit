@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T04:10:10.253Z",
-  "head": "2cb2864",
+  "generatedAt": "2026-10-06T04:12:58.203Z",
+  "head": "13addac",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 508,
     "byStatus": {
-      "pending": 453,
-      "done": 54,
+      "pending": 452,
+      "done": 55,
       "partial": 1
     },
     "items": [
@@ -46,11 +46,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Submission package"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Contract-pin /judge shapes + card signals before the judge wave"
       },
       {
         "status": "pending",

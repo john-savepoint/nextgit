@@ -6,3 +6,4 @@
 - 2026-10-05 | tour + judge + bootstrap | tour live; Clef verified; spine + loop installed; first loop order accepted (runner `d5f6b5b`) | next: P0 judge layer (clear the spawn outage first)
 - 2026-10-06 | spawn fix + closure + sqlite backbone | overrides → deepseek; acceptance certified; task store live (52/52, derived queue); registry harvest wave running | next: merge registry → PRD/epics
 - 2026-10-06 | product brief | brief finalized (structure+prose polish applied; John approved); eligibility resolved — US-resident teammate files the entry (store rows closed) | next: PRD
+- 2026-10-06 | judge-contract-pin | /judge shapes + v1 card-signal vocabulary pinned in CONTRACT.md (+47/−0; 3-lens green, 0 heals) | next: judge wave
