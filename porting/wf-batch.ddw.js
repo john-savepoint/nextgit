@@ -65,8 +65,27 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent 
 
   // --- queue (DB preferred; md fallback on a store fault) --------------------
   const { source: queueSource, rows } = readQueueRows(root);
-  const picked = rows.slice(0, limit);
-  if (!picked.length) return { orders: [], gate: null, next: "NO PENDING ROWS" };
+
+  // --- claim the picks (contended rows are skipped; released after running) --
+  // Two sessions running batches must never pick the same row: claims are the guard.
+  const dbPath = `${root}/porting/tasks.db`;
+  const batchAgent = `batch:${ts}`;
+  const releaseRow = (id) => {
+    try { execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id], { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } }); } catch { /* lease expires on its own */ }
+  };
+  const picked = [];
+  for (const row of rows) {
+    if (picked.length >= limit) break;
+    if (!row.id) { picked.push({ ...row, claimed: false }); continue; } // md-fallback rows carry no ids
+    try {
+      execFileSync("bun", [`${root}/porting/tasks.mjs`, "claim", row.id, "--agent", batchAgent, "--ttl", "7200"],
+        { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } });
+      picked.push({ ...row, claimed: true });
+    } catch {
+      console.error(`wf-batch: ${row.id} contended — skipping`);
+    }
+  }
+  if (!picked.length) return { orders: [], gate: null, next: "NO PENDING ROWS (or all picks contended)" };
 
   // --- base reds (what was already red before this batch) --------------------
   const stateText = readFileSync(`${root}/docs/STATE.md`, "utf8");
@@ -75,6 +94,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent 
 
   // --- run orders (sequential; stop stacking on a red) -----------------------
   const results = [];
+  const ranIds = new Set();
   for (const row of picked) {
     const order = {
       id: row.id ?? slug(row.title),
@@ -86,8 +106,12 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent 
     };
     const r = await runWorkOrder(order, { root, lenses, agent });
     results.push(r);
+    ranIds.add(row.id);
+    if (row.claimed) releaseRow(row.id);
     if (r.verdict !== "GREEN") break;
   }
+  // picks that never ran (batch stopped early) must not hold leases
+  for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
 
   // --- merged gate (v1: sequential workspace; this gate sees the union) ------
   const merged = await agent(

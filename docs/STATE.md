@@ -1,6 +1,6 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (architecture spine through a 4-lens gate — live HIGH fixes `d0d8b17`; task store live — SQLite queue, 52/52 tests, derived `NEXT-ACTIONS.md`; registry harvest wave running; judge layer next)
+**Last updated:** 2026-10-06 (REGISTRY POPULATED — 506 rows in the task store: 455 pending / 49 done / 2 partial; 489 harvested → 471 merged, audit committed; batch claims live; next: PRD → epics → schedule from the store)
 **Branch:** `main` · **Last commit:** `7ca477b` (architecture follow-ups; this batch: sqlite closure + spine updates)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · `bun porting/tests/tasks.test.mjs` (52/52 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
@@ -23,9 +23,9 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` (lands or refuses) — reproducible two-command demo |
 | Real agent fleet | working (2 CLIs) | omp + codex verified producing real proposals; claude/gemini/opencode need logins (standing reds, John) |
 | Judge layer (Clef) | verified callable | live typed answers 2026-10-05 (~1.3 s REST, ~$0.00012/call); catalog in `docs/judge-layer-ideas.md`; NOT yet wired |
-| State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) + runner; two orders GREEN (`bootstrap-health-sweep` 2026-10-05, `sqlite-task-backbone` 2026-10-06); tests `porting/tests/{normalize,tasks}.test.mjs` |
+| State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) — **506 rows, registry populated**; runner + claim-safe batches; tests `porting/tests/{normalize,tasks}.test.mjs` |
 | Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
-| Planning artifacts | in flight | SPEC ✓; architecture spine ✓ (15 ADs); briefs + ux-designs runs in progress (parallel session); PRD pending (queue P0) |
+| Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief draft ✓ (partial — John's pass next); ux-designs landed ✓ (partial — key-screen mock + 4 LIVE conflicts await John); PRD + epics pending (queue) |
 | Submission package | not started | video + README + LICENSE + repo curation + eligibility — queue P0/P1 |
 
 ## Standing red set (pre-existing, owned)

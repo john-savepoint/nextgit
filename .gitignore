@@ -1,6 +1,7 @@
 node_modules/
 .wrangler/
 porting/runs/
-porting/harvest/
+porting/harvest/*
+!porting/harvest/manual-skips.json
 *.tsbuildinfo
 porting/tasks.db*

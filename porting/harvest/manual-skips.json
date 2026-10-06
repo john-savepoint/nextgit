@@ -1,0 +1,13 @@
+[
+  { "source": "session", "titleRe": "^Demo reset to pristine", "reason": "dup of existing:demo-scenario-reset-fresh-real-agent-fleet" },
+  { "source": "session", "titleRe": "^Video script \\+ storyboard", "reason": "dup of existing:video-script-storyboard" },
+  { "source": "session", "titleRe": "^Record \\+ edit the submission video", "reason": "dup of existing:record-edit-the-submission-video" },
+  { "source": "session", "titleRe": "^Submission package", "reason": "dup of existing:submission-package" },
+  { "source": "session", "titleRe": "^Fleet-scale demo", "reason": "dup of existing:fleet-scale-demo" },
+  { "source": "session", "titleRe": "^Unlock marquee agents", "reason": "dup of existing:unlock-marquee-agents" },
+  { "source": "session", "titleRe": "^Corpus copies", "reason": "dup of existing:corpus-copies" },
+  { "source": "judge", "titleRe": "(review-)?risk score|intent-vs-diff|semantic collision|change.?kind", "reason": "chip children of existing:wire-the-clef-judge-layer" },
+  { "source": "judge", "titleRe": "AI binding|judge endpoint|/judge|chips on proposal cards", "reason": "wiring children of existing:wire-the-clef-judge-layer" },
+  { "source": "judge", "titleRe": "auto-land", "reason": "dup of existing:auto-land-gate-live" },
+  { "source": "judge", "titleRe": "content-based secret detection", "reason": "dup of existing:trust-beat-content-based-secret-detection" }
+]
