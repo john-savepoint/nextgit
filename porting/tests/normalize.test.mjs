@@ -16,6 +16,9 @@ const cases = [
   ["no verdict field", { shipBlockers: [] }, "BLOCK"],
   ["undefined shape", undefined, "BLOCK"],
   ["error shape", new Error("boom"), "BLOCK"],
+  ["pinned-shape FAIL + HIGH finding", { verdict: "FAIL", summary: "two issues", findings: [{ severity: "HIGH", title: "secret in log" }] }, "BLOCK"],
+  ["pinned-shape WARN + medium only", { verdict: "WARN", summary: "nit", findings: [{ severity: "MEDIUM", title: "naming" }] }, "SHIP"],
+  ["pinned-shape PASS clean", { verdict: "PASS", summary: "ok", findings: [] }, "SHIP"],
   ["blocked() check: SHIP+highs blocks", { verdict: "SHIP", highs: ["h"] }, null],
 ];
 

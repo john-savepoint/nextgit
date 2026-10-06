@@ -1,6 +1,6 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (REGISTRY POPULATED — 506 rows in the task store: 455 pending / 49 done / 2 partial; 489 harvested → 471 merged, audit committed; batch claims live; next: PRD → epics → schedule from the store)
+**Last updated:** 2026-10-06 (REGISTRY POPULATED — 506 rows; brief FINAL ✓ (structure+prose polish applied); eligibility RESOLVED — US-resident teammate files the entry; next: PRD → epics → schedule from the store)
 **Branch:** `main` · **Last commit:** `7ca477b` (architecture follow-ups; this batch: sqlite closure + spine updates)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · `bun porting/tests/tasks.test.mjs` (52/52 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
@@ -12,7 +12,7 @@
 - `research/2026-10-02-platform-recon-briefs/*.md` — Artifacts / Perforce / big-assets / CI-CD / cloud-dev recon briefs
 - `_bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/.memlog.md` — session record (91 entries)
 - `docs/judge-layer-ideas.md` — the 36-idea judge-layer catalog (Clef/Jev)
-- Competition terms: key constraints captured in `SPEC.md → Constraints` (eligibility OPEN — owner John)
+- Competition terms: key constraints captured in `SPEC.md → Constraints` (eligibility RESOLVED 2026-10-06 — US-resident teammate files the entry)
 
 NextGit is the agent-era software platform: many AI agents work concurrently on one codebase; the platform shows **all their proposals as one set**, finds **real collisions** (diff3 merge simulation, fork-point change-sets), preserves each change's **intent**, and **ships a chosen proposal server-side in one click**. Web-first, built on Cloudflare Workers + Artifacts (no mocks). It is NOT yet a full GitHub replacement (repo browsing, issues, CI are roadmap), and the Agent Office 3D client is a future API consumer — not a build target.
 
@@ -25,8 +25,8 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | Judge layer (Clef) | verified callable | live typed answers 2026-10-05 (~1.3 s REST, ~$0.00012/call); catalog in `docs/judge-layer-ideas.md`; NOT yet wired |
 | State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) — **506 rows, registry populated**; runner + claim-safe batches; tests `porting/tests/{normalize,tasks}.test.mjs` |
 | Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
-| Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief draft ✓ (partial — John's pass next); ux-designs landed ✓ (partial — key-screen mock + 4 LIVE conflicts await John); PRD + epics pending (queue) |
-| Submission package | not started | video + README + LICENSE + repo curation + eligibility — queue P0/P1 |
+| Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief FINAL ✓ (polish applied 2026-10-06); ux-designs landed ✓ (partial — key-screen mock + 4 LIVE conflicts await John); PRD + epics pending (queue) |
+| Submission package | not started | video + README + LICENSE + repo curation (eligibility resolved 2026-10-06) — queue P0/P1 |
 
 ## Standing red set (pre-existing, owned)
 
@@ -35,4 +35,3 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | `claude` CLI auth (401 OAuth expired) | John | one `claude login` (≈30 s); unlocks a marquee demo agent |
 | `gemini` + `opencode` CLI auth | John | optional demo agents; need auth setup |
 | 4 pre-existing tsc errors in `platform/` | unassigned | recorded from build waves; fix with a TypeScript pass (queue P2-4); verify after installing TS |
-| Eligibility — US/Canada residency (competition §3) | John | decision, not code; blocks the submission path if absent |

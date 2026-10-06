@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T03:02:25.134Z",
-  "head": "fec95ab",
+  "generatedAt": "2026-10-06T03:43:01.759Z",
+  "head": "085ceb7",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,9 +12,9 @@
   "queue": {
     "total": 507,
     "byStatus": {
-      "pending": 455,
-      "done": 50,
-      "partial": 2
+      "pending": 453,
+      "done": 53,
+      "partial": 1
     },
     "items": [
       {
@@ -76,11 +76,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Submission compliance: OSI license + LICENSE file + run instructions"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Eligibility: resolve US/Canada residency before entering"
       },
       {
         "status": "pending",
@@ -311,11 +306,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Demo: one repo, 3-5 agents, seeded collision, land one, scrub leak"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Resolve competition eligibility: US/Canada residency"
       },
       {
         "status": "pending",
@@ -2296,11 +2286,6 @@
         "status": "partial",
         "priority": "P0",
         "title": "UX spec for the triage surface"
-      },
-      {
-        "status": "partial",
-        "priority": "P1",
-        "title": "Write the product brief"
       }
     ]
   },

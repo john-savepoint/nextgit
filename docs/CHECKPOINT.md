@@ -2,6 +2,12 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-06 — Product brief finalized; eligibility resolved
+**Shipped:** `_bmad-output/planning-artifacts/briefs/brief-cloudflare-git-comp-2026-10-06/` — `brief.md` (status: **final**; 8 sections) + `addendum.md` (corpus index · evidence pack · parked alternatives); memlog 10 entries. Finalize polish applied from two review lenses: **structure** (9 findings — stale addendum map, judge-layer tense, competition-term drift, evidence-anchor gaps) + **prose** (16 findings — "no polling" vs as-built, sweep-count drift, serial commas, grammar). Untracked trees `briefs/` + `ux-designs/` moved to tracked in this commit.
+**Change:** eligibility **RESOLVED** — a US-resident teammate has joined and will file the entry (§3 satisfied); STATE red cleared; store rows `eligibility-resolve-…` + `resolve-competition-eligibility-…` → done; brief row → done.
+**Carried:** UX draft awaits John on 4 flagged live conflicts (ux-spec row stays partial by design).
+**Next:** PRD (P0) → epics → judge wave.
+
 ## 2026-10-06 — Architecture spine + review gate
 **Shipped:** `ARCHITECTURE-SPINE.md` (15 ADs; paradigm: read-mostly CQRS edge worker) at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`, distilled from two file-cited sweeps (platform reality + decided intent). The 4-lens reviewer gate ran as parallel subagents (rubric · adversarial · security · reality) — full reviews in `reviews/`; every accepted fix amended into existing ADs (no new ADs required); lint 0 findings.
 **What the gates caught (headline):** the security lens FAILed on two LIVE issues — the `/land` push-failure path handed anonymous callers a working write token inside a shell snippet, and that snippet's interpolation allowed command execution on the operator host. Both fixed the same hour and deployed (commit `d0d8b17`, worker version `87958c11`): handout + snippets removed, tokens single-use (300 s + finally-revoke), `land.mjs` replay removed (delegates to `/land`). The adversarial lens found 5 high-tier divergence pairs on the next wave (unpinned judge shape, judge/log egress unmasked, client-side-only gate, two base-ref writers, silent re-fold) — all closed as rule amendments.

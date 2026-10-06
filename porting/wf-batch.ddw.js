@@ -56,7 +56,7 @@ export function readQueueRows(root = process.cwd()) {
   return { source: "md", rows };
 }
 
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent, agents } = {}) {
   const { runWorkOrder } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -104,7 +104,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent 
       corpus: DEFAULT_CORPUS.map((p) => `${root}/${p}`),
       testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
     };
-    const r = await runWorkOrder(order, { root, lenses, agent });
+    const r = await runWorkOrder(order, { root, lenses, agent, agents });
     results.push(r);
     ranIds.add(row.id);
     if (row.claimed) releaseRow(row.id);
@@ -118,9 +118,10 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent 
     `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
     `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
     `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
-    `Write the verdict to ${batchDir}/gate-merged.md (same verdict-file shape). Return a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
-    { agent: agent ?? "task", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
+    `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
+    { agent: agents?.mergedGate ?? agent ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
   ).wait();
+  writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
 
   const next = results.some((r) => r.verdict !== "GREEN") || merged?.verdict !== "SHIP" ? "BLOCKED — see per-order results + gate-merged.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
   const report = { batch: ts, queueSource, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, next };

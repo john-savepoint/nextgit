@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — Key Screen Mock: Triage Canvas</title>
+  <style>
+/*
+ * NextGit UX Key Screen — Triage Canvas (Canonical Entry Surface & Extension)
+ * Governing spine sections:
+ *   - DESIGN.md: Colors (ramp, status triads, accent, diff staff), Typography (mono-only, 13px base),
+ *     Shapes (square DEFAULT=0, toggle/pulse 50%/full), Elevation (tonal depth, 0 2px 8px conflict shadow),
+ *     Components: summary-chip, ticker, conflict-card (red/neutral), proposal-card (default/landed),
+ *     file-row, intent-block, badges, toggle-input, button-land, button-refresh, button-tour-header,
+ *     planned extension components: risk-chip, intent-verification-badge, collision-chip.
+ *   - EXPERIENCE.md: IA (Triage app §34-49), Voice and Tone (§69-90), Component Patterns (§95-110),
+ *     Proposal card state machine (§114-123), Key Flows (Flow 1: Demo story §208-216, Flow 2: First contact §219-226).
+ * Tokens applied hex-for-hex:
+ *   --bg-app: #0a0e14; --bg-surface: #0f141c; --bg-surface-elevated: #141b24;
+ *   --bg-card: #111822; --bg-subtle: #182230; --bg-inset: #070a0e;
+ *   --border-subtle: #1c2634; --border-default: #253346; --border-focus: #3e5473;
+ *   --text-primary: #e6edf3; --text-secondary: #8b9bb0; --text-muted: #57657a; --text-dim: #3d4959;
+ *   --status-green: #2ea043; --status-green-bg: rgba(46, 160, 67, 0.12); --status-green-border: rgba(46, 160, 67, 0.35);
+ *   --status-red: #f85149; --status-red-bg: rgba(248, 81, 73, 0.12); --status-red-border: rgba(248, 81, 73, 0.35);
+ *   --status-amber: #d29922; --status-amber-bg: rgba(210, 153, 34, 0.12); --status-amber-border: rgba(210, 153, 34, 0.35);
+ *   --status-neutral: #7d8590; --status-neutral-bg: rgba(125, 133, 144, 0.12); --status-neutral-border: rgba(125, 133, 144, 0.3);
+ *   --accent-blue: #58a6ff; --accent-blue-bg: rgba(88, 166, 255, 0.1); --accent-blue-border: rgba(88, 166, 255, 0.3);
+ *   --diff-add-text: #3fb950; --diff-add-bg: rgba(46, 160, 67, 0.15);
+ *   --diff-del-text: #f85149; --diff-del-bg: rgba(248, 81, 73, 0.15);
+ */
+
+:root {
+  --bg-app: #0a0e14;
+  --bg-surface: #0f141c;
+  --bg-surface-elevated: #141b24;
+  --bg-card: #111822;
+  --bg-card-hover: #151e2b;
+  --bg-subtle: #182230;
+  --bg-inset: #070a0e;
+
+  --border-subtle: #1c2634;
+  --border-default: #253346;
+  --border-focus: #3e5473;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #8b9bb0;
+  --text-muted: #57657a;
+  --text-dim: #3d4959;
+
+  --status-green: #2ea043;
+  --status-green-bg: rgba(46, 160, 67, 0.12);
+  --status-green-border: rgba(46, 160, 67, 0.35);
+
+  --status-red: #f85149;
+  --status-red-bg: rgba(248, 81, 73, 0.12);
+  --status-red-border: rgba(248, 81, 73, 0.35);
+
+  --status-amber: #d29922;
+  --status-amber-bg: rgba(210, 153, 34, 0.12);
+  --status-amber-border: rgba(210, 153, 34, 0.35);
+
+  --status-neutral: #7d8590;
+  --status-neutral-bg: rgba(125, 133, 144, 0.12);
+  --status-neutral-border: rgba(125, 133, 144, 0.3);
+
+  --accent-blue: #58a6ff;
+  --accent-blue-bg: rgba(88, 166, 255, 0.1);
+  --accent-blue-border: rgba(88, 166, 255, 0.3);
+
+  --diff-add-bg: rgba(46, 160, 67, 0.15);
+  --diff-add-text: #3fb950;
+  --diff-del-bg: rgba(248, 81, 73, 0.15);
+  --diff-del-text: #f85149;
+  --diff-hunk-bg: rgba(88, 166, 255, 0.08);
+  --diff-hunk-text: #79c0ff;
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #06080c;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* Browser device frame */
+.browser-frame {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  background: var(--bg-app);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.browser-titlebar {
+  background: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.browser-dots {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.browser-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-default);
+}
+
+.browser-url-bar {
+  flex: 1;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  padding: 0.2rem 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-url-bar span {
+  color: var(--text-secondary);
+}
+
+/* App container */
+.app-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 4rem;
+}
+
+/* Header */
+.app-header {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.header-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+}
+
+.brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.brand-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.brand-title .sep {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin: 0 0.15rem;
+}
+
+.brand-subtitle {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.875rem;
+}
+
+.ref-spec {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  padding: 0.15rem 0.5rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+
+.ref-spec .val {
+  color: var(--accent-blue);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.toggle-input-track {
+  width: 2rem;
+  height: 1.125rem;
+  background: var(--status-green-bg);
+  border: 1px solid var(--status-green-border);
+  border-radius: 999px;
+  position: relative;
+  display: inline-block;
+}
+
+.toggle-input-knob {
+  position: absolute;
+  top: 1px;
+  left: calc(2px + 0.875rem);
+  width: 0.875rem;
+  height: 0.875rem;
+  background: var(--status-green);
+  border-radius: 50%;
+}
+
+.btn-refresh {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.btn-tour-header {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  color: var(--accent-blue);
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.btn-tour-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Summary chips */
+.header-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  min-height: 28px;
+}
+
+.summary-chip .chip-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+.summary-chip .chip-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.summary-chip.is-alert {
+  border-color: var(--status-red-border);
+  background-color: var(--status-red-bg);
+}
+
+.summary-chip.is-alert .chip-value {
+  color: var(--status-red);
+}
+
+.summary-chip.is-warn {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+}
+
+.summary-chip.is-warn .chip-value {
+  color: var(--status-amber);
+}
+
+.summary-chip.is-clean {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+}
+
+.summary-chip.is-clean .chip-value {
+  color: var(--status-green);
+}
+
+/* Ticker */
+.ticker-section {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.35rem 0.75rem;
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+  gap: 0.75rem;
+}
+
+.ticker-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ticker-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--status-green);
+  opacity: 0.8;
+}
+
+.ticker-events {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.ticker-event {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.ticker-event .event-type {
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  padding: 0.1rem 0.35rem;
+  font-size: 0.6875rem;
+}
+
+.ticker-event .event-repo {
+  color: var(--text-primary);
+}
+
+.ticker-event .event-time {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* Section headers */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.875rem;
+}
+
+.section-title {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.section-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Conflict panel */
+.conflicts-section {
+  margin-bottom: 2rem;
+}
+
+.conflicts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.conflict-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  padding: 1rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.conflict-card.severity-red {
+  border-left: 4px solid var(--status-red);
+  background: linear-gradient(90deg, rgba(248, 81, 73, 0.05) 0%, var(--bg-surface) 120px);
+}
+
+.conflict-card.severity-neutral {
+  border-left: 4px solid var(--status-neutral);
+}
+
+.conflict-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conflict-file {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.conflict-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.badge-red {
+  background-color: var(--status-red-bg);
+  border-color: var(--status-red-border);
+  color: var(--status-red);
+}
+
+.badge-amber {
+  background-color: var(--status-amber-bg);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+
+.badge-neutral {
+  background-color: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
+  color: var(--status-neutral);
+}
+
+.badge-secret {
+  background-color: rgba(210, 153, 34, 0.15);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+
+.badge-clean {
+  background-color: var(--status-green-bg);
+  border-color: var(--status-green-border);
+  color: var(--status-green);
+}
+
+.conflict-repos-involved {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.conflict-repos-involved .repo-tag {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: 0.1rem 0.4rem;
+  color: var(--text-primary);
+}
+
+.conflict-pairs {
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.conflict-pair-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.pair-endpoints {
+  color: var(--text-primary);
+}
+
+.pair-kind {
+  color: var(--text-secondary);
+}
+
+.pair-region {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* Proposals grid */
+.proposals-section {
+  margin-bottom: 2rem;
+}
+
+.proposals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.proposal-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.proposal-card.is-landed {
+  opacity: 0.55;
+  border-style: dashed;
+  background-color: var(--bg-surface);
+}
+
+.proposal-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.5rem;
+}
+
+.proposal-repo-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.proposal-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.btn-card-action {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.5rem;
+  line-height: 1.2;
+}
+
+.btn-land {
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+.proposal-intent {
+  background: var(--bg-surface);
+  border-left: 2px solid var(--accent-blue);
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.proposal-intent .intent-label {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.35rem;
+  font-weight: 400;
+}
+
+.proposal-stats {
+  display: flex;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.stat-item .stat-num {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-item.additions .stat-num { color: var(--diff-add-text); }
+.stat-item.deletions .stat-num { color: var(--diff-del-text); }
+
+.landed-banner {
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-inset);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.landed-banner .landed-status {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.proposal-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  gap: 0.5rem;
+}
+
+.file-path-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-path {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-status-indicator {
+  font-size: 0.625rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.file-status-indicator.status-added {
+  background: var(--diff-add-bg);
+  color: var(--diff-add-text);
+}
+
+.file-status-indicator.status-modified {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.file-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.file-counts {
+  font-size: 0.6875rem;
+}
+
+.file-counts .adds { color: var(--diff-add-text); margin-right: 0.25rem; }
+.file-counts .dels { color: var(--diff-del-text); }
+
+.btn-file-diff {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.secret-keys-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.secret-key-tag {
+  background: rgba(210, 153, 34, 0.12);
+  border: 1px solid rgba(210, 153, 34, 0.25);
+  color: var(--status-amber);
+  padding: 0.05rem 0.35rem;
+  font-size: 0.625rem;
+}
+
+/* Footer info */
+.app-footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  font-size: 0.6875rem;
+}
+
+/* Planned Extension Section */
+.extension-stage {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  border-top: 2px dashed var(--border-default);
+  padding-top: 2rem;
+}
+
+.extension-caption {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border-left: 3px solid var(--status-amber);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.extension-caption code {
+  color: var(--status-amber);
+}
+
+.judge-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.judge-chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.judge-chip-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+  </style>
+</head>
+<body>
+
+  <!-- BROWSER FRAME: CANONICAL TRIAGE CANVAS -->
+  <div class="browser-frame">
+    <div class="browser-titlebar">
+      <div class="browser-dots">
+        <span class="browser-dot"></span>
+        <span class="browser-dot"></span>
+        <span class="browser-dot"></span>
+      </div>
+      <div class="browser-url-bar">
+        https://nextgit-platform.internal.workers.dev<span>/</span> (demo @ main)
+      </div>
+    </div>
+
+    <div class="app-container">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-top">
+          <div class="brand-group">
+            <h1 class="brand-title">NextGit<span class="sep">/</span><span class="brand-subtitle">your agents' work, all in one place</span></h1>
+            <div class="ref-spec" id="ref-spec">
+              base: <span class="val" id="base-val">demo</span> · ref: <span class="val" id="ref-val">main</span>
+            </div>
+          </div>
+
+          <div class="header-controls">
+            <label class="toggle-label" title="Poll /proposals every 8 seconds">
+              <span class="toggle-input-track"><span class="toggle-input-knob"></span></span>
+              <span>auto-refresh (8s)</span>
+            </label>
+            <button id="btn-manual-refresh" class="btn-refresh" type="button">
+              refresh
+            </button>
+            <a href="#" class="btn-tour-header">Start the tour</a>
+            <a href="#" class="btn-tour-help" aria-label="Tour and help">?</a>
+          </div>
+        </div>
+
+        <!-- Summary chips: 5 count chips with alert/warn/clean tints -->
+        <div class="header-summary" id="header-summary">
+          <div class="summary-chip" id="chip-proposals">
+            <span class="chip-label">proposals</span>
+            <span class="chip-value" id="val-proposals">4</span>
+          </div>
+          <div class="summary-chip is-warn" id="chip-shared">
+            <span class="chip-label">shared files</span>
+            <span class="chip-value" id="val-shared">1</span>
+          </div>
+          <div class="summary-chip is-alert" id="chip-conflicts">
+            <span class="chip-label">conflicting pairs</span>
+            <span class="chip-value" id="val-conflicts">1</span>
+          </div>
+          <div class="summary-chip" id="chip-changed">
+            <span class="chip-label">changed files</span>
+            <span class="chip-value" id="val-changed">4</span>
+          </div>
+          <div class="summary-chip is-clean" id="chip-clean">
+            <span class="chip-label">clean pairs</span>
+            <span class="chip-value" id="val-clean">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Live events ticker (3-4 realistic events) -->
+      <div class="ticker-section" id="ticker-section" aria-label="Live event ticker">
+        <div class="ticker-label">
+          <span class="ticker-pulse" id="ticker-pulse"></span>
+          <span>events</span>
+        </div>
+        <div class="ticker-events" id="ticker-events">
+          <div class="ticker-event">
+            <span class="event-type">repo.pushed</span>
+            <span class="event-repo">agent-4</span>
+            <span class="event-time">14:22:04</span>
+          </div>
+          <div class="ticker-event">
+            <span class="event-type">repo.pushed</span>
+            <span class="event-repo">agent-1</span>
+            <span class="event-time">14:21:48</span>
+          </div>
+          <div class="ticker-event">
+            <span class="event-type">repo.pushed</span>
+            <span class="event-repo">agent-2</span>
+            <span class="event-time">14:21:32</span>
+          </div>
+          <div class="ticker-event">
+            <span class="event-type">repo.forked</span>
+            <span class="event-repo">agent-3</span>
+            <span class="event-time">14:20:15</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content: Conflicts & Proposals -->
+      <main>
+        <!-- Convergence Conflicts Panel (two cards: red text-conflict + neutral) -->
+        <section class="conflicts-section" id="conflicts-section">
+          <div class="section-header">
+            <h2 class="section-title">Convergence Conflicts</h2>
+            <span class="section-meta" id="conflicts-meta">2 detected</span>
+          </div>
+          <div class="conflicts-list" id="conflicts-list">
+            <!-- Card 1: Severity Red on src/auth.ts -->
+            <div class="conflict-card severity-red">
+              <div class="conflict-card-header">
+                <span class="conflict-file">src/auth.ts</span>
+                <div class="conflict-badge-group">
+                  <span class="badge badge-red">text-conflict</span>
+                </div>
+              </div>
+              <div class="conflict-repos-involved">
+                <span>proposals:</span>
+                <span class="repo-tag">agent-1</span>
+                <span class="repo-tag">agent-2</span>
+              </div>
+              <div class="conflict-pairs">
+                <div class="conflict-pair-row">
+                  <span class="pair-endpoints">agent-1 ↔ agent-2</span>
+                  <span class="pair-kind">text-conflict</span>
+                  <span class="pair-region">(base: 3L, agent-1: 5L, agent-2: 3L)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Severity Neutral (orthogonal or identical-add) -->
+            <div class="conflict-card severity-neutral">
+              <div class="conflict-card-header">
+                <span class="conflict-file">src/types.ts</span>
+                <div class="conflict-badge-group">
+                  <span class="badge badge-neutral">mergeable</span>
+                </div>
+              </div>
+              <div class="conflict-repos-involved">
+                <span>proposals:</span>
+                <span class="repo-tag">agent-1</span>
+                <span class="repo-tag">agent-4</span>
+              </div>
+              <div class="conflict-pairs">
+                <div class="conflict-pair-row">
+                  <span class="pair-endpoints">agent-1 ↔ agent-4</span>
+                  <span class="pair-kind">mergeable</span>
+                  <span class="pair-region">(disjoint regions: L14 vs L82)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Concurrent Proposals Grid (agent-1, agent-2, agent-3, agent-4) -->
+        <section class="proposals-section" id="proposals-section">
+          <div class="section-header">
+            <h2 class="section-title">Concurrent Proposals</h2>
+            <span class="section-meta" id="proposals-meta">4 active</span>
+          </div>
+          <div class="proposals-grid" id="proposals-grid">
+            
+            <!-- Proposal 1: agent-1 (conflict pair A) -->
+            <div class="proposal-card" id="card-agent-1">
+              <div class="proposal-card-header">
+                <span class="proposal-repo-title">agent-1</span>
+                <div class="proposal-actions">
+                  <button class="btn-card-action" type="button">preview merge</button>
+                  <button class="btn-card-action btn-land" type="button">Land into demo</button>
+                </div>
+              </div>
+              <div class="proposal-intent">
+                <span class="intent-label">intent:</span>Feature: refreshSession() extends a live session by TTL
+              </div>
+              <div class="proposal-stats">
+                <span class="stat-item"><span class="stat-num">1</span> files</span>
+                <span class="stat-item additions"><span class="stat-num">+5</span></span>
+                <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+              </div>
+              <div class="proposal-files-list">
+                <div class="file-row">
+                  <div class="file-path-col">
+                    <span class="file-status-indicator status-modified">modified</span>
+                    <span class="file-path" title="src/auth.ts">src/auth.ts</span>
+                  </div>
+                  <div class="file-actions-col">
+                    <div class="file-counts">
+                      <span class="adds">+5</span>
+                      <span class="dels">-0</span>
+                    </div>
+                    <button class="btn-file-diff" type="button">view diff</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Proposal 2: agent-2 (conflict pair B) -->
+            <div class="proposal-card" id="card-agent-2">
+              <div class="proposal-card-header">
+                <span class="proposal-repo-title">agent-2</span>
+                <div class="proposal-actions">
+                  <button class="btn-card-action" type="button">preview merge</button>
+                  <button class="btn-card-action btn-land" type="button">Land into demo</button>
+                </div>
+              </div>
+              <div class="proposal-intent">
+                <span class="intent-label">intent:</span>Fix: tolerate clock skew in isExpired via leewayMs
+              </div>
+              <div class="proposal-stats">
+                <span class="stat-item"><span class="stat-num">1</span> files</span>
+                <span class="stat-item additions"><span class="stat-num">+2</span></span>
+                <span class="stat-item deletions"><span class="stat-num">-2</span></span>
+              </div>
+              <div class="proposal-files-list">
+                <div class="file-row">
+                  <div class="file-path-col">
+                    <span class="file-status-indicator status-modified">modified</span>
+                    <span class="file-path" title="src/auth.ts">src/auth.ts</span>
+                  </div>
+                  <div class="file-actions-col">
+                    <div class="file-counts">
+                      <span class="adds">+2</span>
+                      <span class="dels">-2</span>
+                    </div>
+                    <button class="btn-file-diff" type="button">view diff</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Proposal 3: agent-3 (landed) -->
+            <div class="proposal-card is-landed" id="card-agent-3">
+              <div class="proposal-card-header">
+                <span class="proposal-repo-title">agent-3</span>
+                <div class="proposal-actions">
+                  <span class="badge badge-neutral">landed</span>
+                </div>
+              </div>
+              <div class="proposal-intent">
+                <span class="intent-label">intent:</span>Perf: read-through memo cache for store reads
+              </div>
+              <div class="landed-banner">
+                <span class="landed-status">landed — nothing pending</span>
+                <span>All changes from this branch have been merged into baseline.</span>
+              </div>
+            </div>
+
+            <!-- Proposal 4: agent-4 (clean + secret-typed row) -->
+            <div class="proposal-card" id="card-agent-4">
+              <div class="proposal-card-header">
+                <span class="proposal-repo-title">agent-4</span>
+                <div class="proposal-actions">
+                  <button class="btn-card-action" type="button">preview merge</button>
+                  <button class="btn-card-action btn-land" type="button">Land into demo</button>
+                </div>
+              </div>
+              <div class="proposal-intent">
+                <span class="intent-label">intent:</span>Feature: checkout flags + env template
+              </div>
+              <div class="proposal-stats">
+                <span class="stat-item"><span class="stat-num">2</span> files</span>
+                <span class="stat-item additions"><span class="stat-num">+43</span></span>
+                <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+              </div>
+              <div class="proposal-files-list">
+                <!-- Clean normal file -->
+                <div class="file-row">
+                  <div class="file-path-col">
+                    <span class="file-status-indicator status-added">added</span>
+                    <span class="file-path" title="src/feature.ts">src/feature.ts</span>
+                  </div>
+                  <div class="file-actions-col">
+                    <div class="file-counts">
+                      <span class="adds">+43</span>
+                      <span class="dels">-0</span>
+                    </div>
+                    <button class="btn-file-diff" type="button">view diff</button>
+                  </div>
+                </div>
+                <!-- Secret-typed file (no view diff button, key tags only) -->
+                <div class="file-row">
+                  <div class="file-path-col">
+                    <span class="file-status-indicator status-added">added</span>
+                    <span class="file-path" title="config/.env">config/.env</span>
+                    <span class="badge badge-secret">secret-typed</span>
+                  </div>
+                  <div class="file-actions-col">
+                    <div class="secret-keys-list">
+                      <span class="secret-key-tag">DATABASE_URL</span>
+                      <span class="secret-key-tag">REDIS_URL</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+      </main>
+
+      <!-- Minimal footer -->
+      <footer class="app-footer">
+        <span>nextgit — serverless convergence engine</span>
+        <span id="last-sync-time">synced 14:22:06</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- PLANNED EXTENSION SECTION -->
+  <section class="extension-stage">
+    <div class="extension-caption">
+      planned extension — per DESIGN.md Components; [ASSUMPTION] placement
+    </div>
+
+    <!-- Illustrated on a dedicated preview card showing the three planned chips -->
+    <div style="max-width: 480px;">
+      <div class="proposal-card">
+        <div class="proposal-card-header" style="flex-direction: column; align-items: flex-start; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <span class="proposal-repo-title">agent-1 (with judge-layer extension)</span>
+            <div class="proposal-actions">
+              <button class="btn-card-action" type="button">preview merge</button>
+              <button class="btn-card-action btn-land" type="button">Land into demo</button>
+            </div>
+          </div>
+          <!-- The 3 planned judge chips in proposal card header badge slot -->
+          <div class="judge-chips-row">
+            <!-- 1. Risk Chip: Routine (green) -->
+            <div class="judge-chip-group">
+              <span class="judge-chip-label">risk:</span>
+              <span class="badge badge-clean">Routine</span>
+            </div>
+            <!-- 2. Intent-verification Badge: supports (green) -->
+            <span class="badge badge-clean">intent verified</span>
+            <!-- 3. Semantic Collision Chip: soft-collision (amber advisory) -->
+            <span class="badge badge-amber">soft collision</span>
+          </div>
+        </div>
+        <div class="proposal-intent">
+          <span class="intent-label">intent:</span>Feature: refreshSession() extends a live session by TTL
+        </div>
+        <div class="proposal-stats">
+          <span class="stat-item"><span class="stat-num">1</span> files</span>
+          <span class="stat-item additions"><span class="stat-num">+5</span></span>
+          <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+        </div>
+        <div class="proposal-files-list">
+          <div class="file-row">
+            <div class="file-path-col">
+              <span class="file-status-indicator status-modified">modified</span>
+              <span class="file-path">src/auth.ts</span>
+            </div>
+            <div class="file-actions-col">
+              <div class="file-counts"><span class="adds">+5</span></div>
+              <button class="btn-file-diff" type="button">view diff</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

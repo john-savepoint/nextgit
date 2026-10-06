@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — Key Screen Mock: Merge Preview</title>
+  <style>
+/*
+ * NextGit UX Key Screen — Merge Preview Overlay
+ * Governing spine sections:
+ *   - DESIGN.md: Colors (ramp, status triads, accent, diff staff), Typography (mono-only, 13px base),
+ *     Shapes (square DEFAULT=0), Elevation (tonal depth, modal shadow 0 16px 40px rgba(0, 0, 0, 0.5)),
+ *     Components: modal (backdrop rgba(4, 7, 11, 0.8), header bg-surface-elevated, close button),
+ *     merge-pane (bg-inset, conflict border status-red-border, tab active bg-surface-elevated),
+ *     badges (badge-clean, badge-red, badge-secret, badge-neutral), empty-state.
+ *   - EXPERIENCE.md: IA (Triage app §45 Inspector modal: Merge preview), Voice and Tone (§69-90),
+ *     Component Patterns (§102 Merge preview, §143-150 Merge preview exact copy),
+ *     Key Flows (Flow 1 beat 4-6, Flow 3 Triage).
+ * Tokens applied hex-for-hex:
+ *   --bg-app: #0a0e14; --bg-surface: #0f141c; --bg-surface-elevated: #141b24;
+ *   --bg-card: #111822; --bg-subtle: #182230; --bg-inset: #070a0e;
+ *   --border-subtle: #1c2634; --border-default: #253346; --border-focus: #3e5473;
+ *   --text-primary: #e6edf3; --text-secondary: #8b9bb0; --text-muted: #57657a; --text-dim: #3d4959;
+ *   --status-green: #2ea043; --status-green-bg: rgba(46, 160, 67, 0.12); --status-green-border: rgba(46, 160, 67, 0.35);
+ *   --status-red: #f85149; --status-red-bg: rgba(248, 81, 73, 0.12); --status-red-border: rgba(248, 81, 73, 0.35);
+ *   --status-amber: #d29922; --status-amber-bg: rgba(210, 153, 34, 0.12); --status-amber-border: rgba(210, 153, 34, 0.35);
+ *   --status-neutral: #7d8590; --status-neutral-bg: rgba(125, 133, 144, 0.12); --status-neutral-border: rgba(125, 133, 144, 0.3);
+ *   --accent-blue: #58a6ff; --accent-blue-bg: rgba(88, 166, 255, 0.1); --accent-blue-border: rgba(88, 166, 255, 0.3);
+ *   --modal-backdrop: rgba(4, 7, 11, 0.8);
+ */
+
+:root {
+  --bg-app: #0a0e14;
+  --bg-surface: #0f141c;
+  --bg-surface-elevated: #141b24;
+  --bg-card: #111822;
+  --bg-subtle: #182230;
+  --bg-inset: #070a0e;
+
+  --border-subtle: #1c2634;
+  --border-default: #253346;
+  --border-focus: #3e5473;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #8b9bb0;
+  --text-muted: #57657a;
+  --text-dim: #3d4959;
+
+  --status-green: #2ea043;
+  --status-green-bg: rgba(46, 160, 67, 0.12);
+  --status-green-border: rgba(46, 160, 67, 0.35);
+
+  --status-red: #f85149;
+  --status-red-bg: rgba(248, 81, 73, 0.12);
+  --status-red-border: rgba(248, 81, 73, 0.35);
+
+  --status-amber: #d29922;
+  --status-amber-bg: rgba(210, 153, 34, 0.12);
+  --status-amber-border: rgba(210, 153, 34, 0.35);
+
+  --status-neutral: #7d8590;
+  --status-neutral-bg: rgba(125, 133, 144, 0.12);
+  --status-neutral-border: rgba(125, 133, 144, 0.3);
+
+  --accent-blue: #58a6ff;
+  --accent-blue-bg: rgba(88, 166, 255, 0.1);
+  --accent-blue-border: rgba(88, 166, 255, 0.3);
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+/* Page title & context */
+.preview-showcase-header {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.preview-showcase-header h1 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.preview-showcase-header p {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* Modal backdrop presentation */
+.modal-stage {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  background-color: rgba(4, 7, 11, 0.8);
+  border: 1px solid var(--border-subtle);
+  padding: 1.5rem;
+}
+
+.modal-window {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-elevated);
+}
+
+.modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.modal-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.badge-clean {
+  background-color: var(--status-green-bg);
+  border-color: var(--status-green-border);
+  color: var(--status-green);
+}
+
+.badge-red {
+  background-color: var(--status-red-bg);
+  border-color: var(--status-red-border);
+  color: var(--status-red);
+}
+
+.badge-amber {
+  background-color: var(--status-amber-bg);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+
+.badge-neutral {
+  background-color: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
+  color: var(--status-neutral);
+}
+
+/* Merge viewer components */
+.merge-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.merge-status-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.merge-status-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.merge-files-tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.25rem;
+}
+
+.merge-file-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  line-height: 1.2;
+}
+
+.merge-file-tab.active {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.merge-file-tab.has-conflict-indicator {
+  color: var(--status-red);
+}
+
+.merge-current-path {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  margin-top: 0.25rem;
+}
+
+.merge-pane {
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+  min-height: 180px;
+  color: var(--text-primary);
+}
+
+.merge-pane.has-conflict {
+  border-color: var(--status-red-border);
+}
+
+/* Empty state / Withheld state */
+.empty-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  border: 1px dashed var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+}
+
+.empty-state-title {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.empty-state-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.section-divider {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.panel-subheading {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+  </style>
+</head>
+<body>
+
+  <header class="preview-showcase-header">
+    <h1>Merge Preview — Inspector Modal Overlay</h1>
+    <p>As-built anatomy rendered offline: backdrop, modal window, status bar, per-file tabs, and content panes.</p>
+  </header>
+
+  <!-- PANEL VARIANT 1: CLEAN MERGE PREVIEW (agent-3 into demo) -->
+  <section class="modal-stage">
+    <div class="panel-subheading">Variant A: Clean Merge Projection (agent-3 into demo)</div>
+    <div class="modal-window">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="badge badge-clean">clean</span>
+          <h2 class="modal-title">Merge preview — agent-3</h2>
+        </div>
+        <button class="btn-close-modal" type="button" aria-label="Close inspector">close</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <div class="merge-status-bar">
+          <div class="merge-status-left">
+            <span>Overall status: <span class="badge badge-clean">clean</span></span>
+            <span class="merge-status-meta">action: write · result: merged</span>
+          </div>
+        </div>
+
+        <div class="merge-files-tabs">
+          <button class="merge-file-tab active" type="button">src/store.ts</button>
+        </div>
+
+        <div class="merge-current-path">src/store.ts</div>
+
+        <div class="merge-pane">// store.ts — serverless baseline store with read-through cache
+import { Row } from "./types";
+
+const rows = new Map&lt;string, Row&lt;unknown&gt;&gt;();
+
+/** Read-through cache so repeated reads of a hot row skip the map lookup. */
+const cache = new Map&lt;string, Row&lt;unknown&gt;&gt;();
+
+export function getCached&lt;T&gt;(id: string): Row&lt;T&gt; | undefined {
+  const hit = cache.get(id);
+  if (hit) return hit as Row&lt;T&gt;;
+  const row = get&lt;T&gt;(id);
+  if (row) cache.set(id, row as Row&lt;unknown&gt;);
+  return row;
+}
+
+export function invalidateCache(id?: string): void {
+  if (id === undefined) cache.clear();
+  else cache.delete(id);
+}
+
+export function get&lt;T&gt;(id: string): Row&lt;T&gt; | undefined {
+  return rows.get(id) as Row&lt;T&gt; | undefined;
+}
+
+export function put&lt;T&gt;(id: string, value: T): Row&lt;T&gt; {
+  const row: Row&lt;T&gt; = { id, value, updatedAt: Date.now() };
+  rows.set(id, row as Row&lt;unknown&gt;);
+  return row;
+}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL VARIANT 2: CONFLICTING MERGE PREVIEW (agent-1 + agent-2 collision on src/auth.ts) -->
+  <section class="modal-stage">
+    <div class="panel-subheading">Variant B: Conflict Projection &amp; Secret Handling (colliding set into demo)</div>
+    <div class="modal-window">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="badge badge-red">conflict</span>
+          <h2 class="modal-title">Merge preview — agent-1, agent-2</h2>
+        </div>
+        <button class="btn-close-modal" type="button" aria-label="Close inspector">close</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <div class="merge-status-bar">
+          <div class="merge-status-left">
+            <span>Overall status: <span class="badge badge-red">conflict</span></span>
+            <span class="merge-status-meta">action: write · result: conflict</span>
+          </div>
+        </div>
+
+        <!-- Per-file tabs including conflict marker and secret-class file -->
+        <div class="merge-files-tabs">
+          <button class="merge-file-tab active has-conflict-indicator" type="button">src/auth.ts [!]</button>
+          <button class="merge-file-tab" type="button">config/.env</button>
+        </div>
+
+        <div class="merge-current-path">src/auth.ts</div>
+
+        <!-- Conflict pane with red border and 3-way conflict markers -->
+        <div class="merge-pane has-conflict">import { Session } from "./types";
+export const DEFAULT_TTL_MS = 3600_000;
+
+export function createSession(userId: string, ttlMs = DEFAULT_TTL_MS): Session {
+  const now = Date.now();
+  return { userId, createdAt: now, expiresAt: now + ttlMs };
+}
+
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; ours (agent-1 adds refreshSession)
+/** Extend a live session, returning a new session with the same identity. */
+export function refreshSession(session: Session, ttlMs = DEFAULT_TTL_MS): Session {
+  return createSession(session.userId, ttlMs);
+}
+
+export function isExpired(session: Session, now = Date.now()): boolean {
+  return now &gt; session.expiresAt;
+}
+=======
+export function isExpired(session: Session, leewayMs = 0, now = Date.now()): boolean {
+  return now &gt; session.expiresAt + leewayMs;
+}
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; theirs (agent-2 adds clock-skew leewayMs)</div>
+
+        <!-- Secret file section illustration (when config/.env tab is active) -->
+        <div style="margin-top: 1rem; border-top: 1px dashed var(--border-subtle); padding-top: 1rem;">
+          <div class="merge-status-bar">
+            <div class="merge-status-left">
+              <span class="merge-status-meta">tab preview: config/.env · action: write · result: withheld-secret</span>
+            </div>
+          </div>
+          <div class="merge-current-path">config/.env</div>
+          <div class="empty-state">
+            <div class="empty-state-title">Secret content withheld</div>
+            <div class="empty-state-desc">Secret-class file contents are withheld from merge previews.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

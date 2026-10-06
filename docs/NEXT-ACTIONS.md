@@ -17,8 +17,6 @@ Ref: interface-contract.md What Agent Office lacks (H6); demo-scope.md story ste
 Ref: SPEC.md Constraints (competition); demo-scope.md Demo story
 - [pending] P0 — Submission compliance: OSI license + LICENSE file + run instructions — Competition requires an OSI license (MIT/Apache/BSD) with a LICENSE file and run instructions in the submission.
 Ref: SPEC.md Constraints (OSI license + run instructions)
-- [pending] P0 — Eligibility: resolve US/Canada residency before entering — Terms section 3 voids the entry unless the entrant (or teammate) is a legal US/Canada resident; unresolved open question.
-Ref: SPEC.md Open Questions (eligibility); SPEC.md Constraints
 - [pending] P0 — Submission: repo location + single entry registered by Oct 14 — Decide where the submission repo lives and register the single entry before the 2026-10-14 deadline.
 Ref: SPEC.md Open Questions (submission repo); SPEC.md Constraints (single entry, deadline)
 - [pending] P0 — Live-only E2E verification gate before submission (no mocks) — Constraint: built on live Workers + Artifacts end to end, no mocks. Run the full demo story against the deployed platform as the pre-submission gate.
@@ -111,8 +109,6 @@ Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:65,83,
 Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:56,102
 - [pending] P0 — Demo: one repo, 3-5 agents, seeded collision, land one, scrub leak — Demo shape: one repo with 3-5 concurrent agents, an intentional cross-agent collision, the conflict map on the canvas, reviewer triage with provenance and risk, one proposal landing through predictive validation, and a secret-leak attempt scrubbed at commit - one uninterrupted story that touches every scored dimension.
 Ref: agentic-git-platform-ecosystem-feature-matrix/report.md:387,399
-- [pending] P0 — Resolve competition eligibility: US/Canada residency (§3) — Entrants must be legal US/Canada residents (18+); entry is void outside those countries. The Cloudflare account is a .com.au address and this machine runs UTC+9 — flagged in-session; owner John must answer before submission completes, or name an eligible teammate.
-Ref: session history 2026-10-02 competition-terms read (US/Canada §3); docs/STATE.md:38 standing-reds row; docs/NEXT-ACTIONS.md [pending] P0 — Submission package row
 - [pending] P0 — Pin competition milestone calendar (deadline, finalists, finals) — Submission due Oct 14 11:59 PM PDT (single entry); finalists named Oct 16; finals Oct 21, live on stage at Cloudflare Connect, Moscone West SF — 10-minute presentation, up to 2 people flown out, winner must be present. Calendar must be treated as hard stops for every workstream.
 Ref: session history 2026-10-05 competition-terms read summary (deadline/finalists/finals); SPEC.md Constraints (due 2026-10-14, Oct 21)
 - [pending] P0 — Import registry harvest into the task store (dedupe + IDs) — Merge every porting/harvest/*.json (session, spec, memlog, research, judge, source-docs, ...) into porting/tasks.db through the CLI (layer/source columns), deduplicating cross-source rows, assigning canonical IDs, and preserving priority/layer/ref. This is the master itemized list John ordered: workflows then iterate over the DB ad nauseum.
@@ -909,6 +905,8 @@ Ref: SPEC.md CAP-6; demo-scope.md MUST map; platform/src/index.ts:647-676,863-88
 Ref: SPEC.md CAP-7; demo-scope.md story step 5; platform/src/index.ts:694-808,849-851; platform/src/land.ts; platform/CONTRACT.md POST /land
 - [done] P0 — Demo agent harness: deterministic writers + real AI CLIs — Both harnesses exist: a deterministic text-transform writer set and a real-AI-CLI driver that hands tasks to actual agent binaries in real fork clones so proposals are what agents really wrote.
 Ref: SPEC.md Assumptions (harness choice); platform/scripts/agents.mjs; platform/scripts/real-agents.mjs:1-40
+- [done] P0 — Eligibility: resolve US/Canada residency before entering — Terms section 3 voids the entry unless the entrant (or teammate) is a legal US/Canada resident; unresolved open question.
+Ref: SPEC.md Open Questions (eligibility); SPEC.md Constraints
 - [done] P0 — Render concurrent proposals as one set-level triage canvas — (demo MUST) Present all concurrent agent change-sets as one comparable set on a single canvas; the human reviews the set, not one PR at a time. Base canvas is shipped with per-proposal cards, conflict panel, and summary counts.
 Ref: built: platform/ui/app.js + platform/src/index.ts /proposals; source: _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/.memlog.md:92; _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/brainstorm-intent.md section 2
 - [done] P0 — Detect cross-proposal conflicts into a conflict map — (demo MUST) Pairwise diff3 simulation across concurrent proposals producing a per-file conflict map with kinds (text-conflict, modify/delete, add/add, undetermined, mergeable, identical-add, both-removed) and per-pair regions.
@@ -929,6 +927,8 @@ Ref: built: per-agent Artifacts repos (demo, agent-1..4); source: _bmad-output/b
 Ref: built: docs/BUILD-LOG.md wave1 + tour; source: _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/brainstorm-pitch.md section 'What we built for the demo (Oct 14)'; _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/.memlog.md:92
 - [done] P0 — Simulate concurrent proposals with server-side diff3 conflict maps — Server-side change-set computation (no clones) plus pairwise 3-way merge simulation across concurrent proposals with real conflict kinds (text-conflict, modify/delete, add/add, mergeable) and an ordered fold merge. Closes the Artifacts gaps: no server-side merge API, no diff endpoint, no conflict detection.
 Ref: _bmad-output/planning-artifacts/research/technical-next-gen-git-platform-on-cloudflare-2026-10-02/imports/artifacts-recon-brief.md Critical gaps (L27-32); built: platform/src/index.ts:1-14, platform/CONTRACT.md §/proposals §/merge
+- [done] P0 — Resolve competition eligibility: US/Canada residency (§3) — Entrants must be legal US/Canada residents (18+); entry is void outside those countries. The Cloudflare account is a .com.au address and this machine runs UTC+9 — flagged in-session; owner John must answer before submission completes, or name an eligible teammate.
+Ref: session history 2026-10-02 competition-terms read (US/Canada §3); docs/STATE.md:38 standing-reds row; docs/NEXT-ACTIONS.md [pending] P0 — Submission package row
 - [done] P0 — Browser-first hero loop verified: agents work → one click ships — The hero flow lives in the browser with no CLI and no clones: real agents push proposals, the set view shows them with intents, and clicking 'Land into demo' ships the chosen proposal server-side. Verified live: agent-3 landed (commit da120ab2), banner confirmed, card collapsed, live feed ticked.
 Ref: session history 2026-10-04T12:36-12:38 (landed da120ab2); platform/src/index.ts:679-760; platform/ui/app.js:487-517; docs/BUILD-LOG.md:5-6
 - [done] P0 — Fork-point change-set semantics + no-changes 409 gate — Change-sets are computed against each proposal's fork point, not the moving base head — this killed the false reverse-deletion noise after the first live land. Re-landing an unchanged proposal returns 409 no-changes, agreeing with /proposals' landed view.
@@ -941,6 +941,7 @@ Ref: porting/tasks.db; porting/tasks.mjs; porting/tests/tasks.test.mjs; docs/CHE
 Ref: demo-scope.md MUST map (set-level triage canvas); platform/ui/index.html:103; platform/ui/app.js:163-236,404-541
 - [done] P0 — Land security remediation (DONE): credential-free failure path + single-use tokens — Shipped d0d8b17 + deployed 87958c11: /land push-failure returns fold artifacts only (no token, no shell snippets); worker-minted tokens 300s TTL revoked in finally; land.mjs delegates to /land (no replays).
 - [done] P1 — State spine + loop scaffolding — `docs/` spine, `porting/` runner, `.omp/commands/`, `scripts/status-index.mjs` (this bootstrap)
+- [done] P1 — Write the product brief (bmad-product-brief) — Draft landed (fast path); finalize runs after John's content pass.
 - [done] P1 — Git-notes provenance: intent durable across rebases (demo SHOULD) — Records persist as git notes (refs/notes/*) so intent survives rebases and baseline movement; the platform reads notes via the nextgit-notes branch mirror because the Artifacts binding cannot resolve refs/notes/* directly.
 Ref: SPEC.md CAP-5 success; demo-scope.md SHOULD map (git-notes provenance); platform/src/index.ts:157-178
 - [done] P1 — Secret-typed files: schema-only views + withheld land (demo SHOULD) — Path-driven secret classes (.env*, *.pem/*.key/*.p12, credentials/secrets json, secrets/) render as key schema only; patches never leave the worker; /land refuses to push affected files with 409 withheld-secret.
@@ -980,6 +981,5 @@ Ref: .omp/agents.md:22 (project facts); docs/CHECKPOINT.md:41 (wrangler note); s
 Ref: docs/CHECKPOINT.md:24 (CORRECTIONS #7); commit 7ca477b; session history 2026-10-06T02:27-02:29
 - [done] P3 — Bootstrap health sweep — first loop order: 4/4 checks green across 5+ independent reproductions; gates caught real findings (NUL injection, fictional jaq guard, two fail-opens, heal-budget bug, citation rot); all gate-required caller remedies applied (runner committed `d5f6b5b`, fail-closed, 10-case test); stale gate reports certified superseded (`porting/certifications/bootstrap-health-sweep.md`); evidence: `porting/runs/bootstrap-health-sweep/`
 - [partial] P0 — UX spec for the triage surface (bmad-ux) — canvas review flow, judge chips, land flow, recording needs; acceptance: DESIGN/EXPERIENCE docs exist and the video storyboard cites them
-- [partial] P1 — Write the product brief (bmad-product-brief) — Draft landed (fast path); finalize runs after John's content pass.
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.

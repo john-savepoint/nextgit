@@ -1,40 +1,61 @@
-// porting/wf-template.ddw.js — NextGit single work-order runner (DDW, handle era).
+// porting/wf-template.ddw.js — NextGit single work-order runner (DDW, handle era). v3
 //
 // RUN VIA ONE-LINER IMPORT — never transcribe this file:
 //   const { runWorkOrder } = await import("./porting/wf-template.ddw.js");
 //   await runWorkOrder({ id, title, scope, corpus, testCmd, acceptance });
 //   await runWorkOrder(order, { resume: true })   // phase-granular resume (see below)
+//   await runWorkOrder(order, { lenses: FULL_LENSES, agents: { plan: "task" } })  // overrides
 //
 // Contract: PLAN → IMPLEMENT → VERIFY → GATE → HEAL (budgeted, file-partitioned) → REPORT.
 // Disk is the truth: every phase writes into porting/runs/<order-id>/ + run-state.json.
 // Workers never commit; the CALLER (orchestrator) commits on green.
 //
-// FIXES 2026-10-05 (learned from the bootstrap-health-sweep run):
-//  - verdicts live in a Map keyed by lens; re-gates receive the failing lens list explicitly
-//    (the old array-mutation approach mislabeled a lens as "undefined")
-//  - normalizeVerdict(): schema slips (array/string/errored shapes) are coerced, never dropped
-//  - heal briefs inline the extracted blockers AND name the gate reports as authoritative
-//    (the old brief could be empty when a lens returned a non-object shape — it happened)
-//  - resume:true skips phases whose artifacts exist (plan.md / implement.md / verify.md) and
-//    ALWAYS re-runs gates; the in-flight phase restarts from scratch. Resume is never a
-//    silent no-op: gates/heals execute and rewrite result.json.
+// v3 (2026-10-06) — specialist roster + read-only protocol:
+//  - ROUTING: phases spawn their specialist agent type (plan-agent / wf-implementer /
+//    wf-verifier / heal-researcher / per-lens reviewers). See DEFAULT_AGENTS. Legacy
+//    opts.agent still forces one type for all phases (blunt mode, kept for fallback).
+//  - READ-ONLY PROTOCOL: most specialists cannot write files. The RUNNER persists every
+//    artifact from schema-validated returns (plan.md, verify.md, gate-*.md, heal-N-research.md);
+//    only wf-implementer (write+edit tools) writes implement.md / heal-N.md itself.
+//  - HEAL SPLIT: heal-researcher proposes (read-only) → wf-implementer applies (one writer
+//    per file) → wf-verifier re-verifies → failed lenses re-gate.
+//  - PINNED-SHAPE ADAPTER: the fork's reviewer defs yield {verdict: PASS|WARN|FAIL, findings[]};
+//    normalizeVerdict maps that (FAIL/CRITICAL/HIGH → BLOCK) instead of dropping it.
+//  - SKILL HINTS are named in phase prompts. Recorded skill gaps: compliance / resilience /
+//    spec-fit / parity lenses have no dedicated skill — the prompt carries the lens text.
 //
-// FIXES 2026-10-06 (heal round 4 of the same run — the claims above were not yet true):
-//  - normalizeVerdict() fails CLOSED. The array branch used to take a bare verdict token and
-//    shove every finding into `notes`, so ["SHIP", "HIGH: ..."] normalized to SHIP with
-//    highs: [] — a green light manufactured by the very layer that exists to stop
-//    mislabeling. A bare token now decides the verdict only when it is alone; every other
-//    string is routed by severity prefix into shipBlockers/highs/mediums so it counts.
-//  - blank strings are dropped and a verdict-less lens is BLOCK with a shipBlocker, so the
-//    shipBlockers: [""] / highs: [""] recorded in this run's result.json cannot recur.
-//  - the heal budget counts rounds run by THIS invocation, not heal-N.md files on disk. It
-//    compared the on-disk count to the max, so resuming an order that had already spent
-//    its budget could never heal again — exactly what this order is doing.
-// v1 notes: sequential, single workspace; per-order worktree isolation is a recorded carry.
+// v2 (2026-10-05/06) fixes preserved: fail-CLOSED normalizeVerdict (SHIP with listed findings
+//  is overridden to BLOCK; blanks are not findings), verdicts in a Map keyed by lens, resume
+//  skips plan/implement/verify artifacts + counts heal artifacts as implement record, heal
+//  budget counted per invocation, loud implement guard, truncation markers, lensesRun recorded.
+// v1 note: sequential, single workspace; per-order worktree isolation remains a recorded carry.
 
-import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync, appendFileSync, existsSync, readdirSync } from "node:fs";
 
-export const DEFAULT_LENSES = ["quality", "spec-fit", "security", "resilience"]; // scale down, never to zero
+// Full gate battery (reference: security · quality+architecture · spec-fit · compliance ·
+// resilience ×2 · + project extras parity/ux). Default = scaled-down 4 (never zero).
+export const FULL_LENSES = ["security", "quality", "spec-fit", "compliance", "resilience", "resilience-2"];
+export const DEFAULT_LENSES = ["quality", "spec-fit", "security", "resilience"];
+
+export const DEFAULT_AGENTS = {
+  plan: "plan-agent",
+  implement: "wf-implementer",
+  verify: "wf-verifier",
+  healResearch: "heal-researcher",
+  healApply: "wf-implementer",
+  fallback: "task",
+  mergedGate: "senior-reviewer",
+  lens: {
+    security: "security-reviewer",
+    quality: "senior-reviewer",
+    "spec-fit": "reviewer",
+    compliance: "compliance-reviewer",
+    resilience: "senior-reviewer",
+    "resilience-2": "reviewer",
+    parity: "parity-auditor",
+    ux: "designer",
+  },
+};
 
 const LENS_SCHEMA = {
   type: "object",
@@ -48,6 +69,9 @@ const LENS_SCHEMA = {
     notes: { type: "array", items: { type: "string" } },
   },
 };
+const PLAN_SCHEMA = { type: "object", required: ["plan", "summary"], properties: { plan: { type: "string" }, summary: { type: "string" } } };
+const VERIFY_SCHEMA = { type: "object", required: ["verdict", "evidence"], properties: { verdict: { enum: ["PASS", "FAIL"] }, evidence: { type: "string" }, notes: { type: "array", items: { type: "string" } } } };
+const HEAL_RESEARCH_SCHEMA = { type: "object", required: ["proposals"], properties: { proposals: { type: "string" } } };
 
 const asArr = (x) => (Array.isArray(x) ? x : x == null ? [] : [x]);
 // Blanks are not findings: asArr([""]).map(String) yields [""], and "" counted under the
@@ -59,6 +83,17 @@ const strs = (x) => asArr(x).flat(Infinity).map((s) => (s == null ? "" : String(
 export function normalizeVerdict(lens, v, err) {
   if (err) return { lens, verdict: "BLOCK", shipBlockers: [`lens errored: ${err?.message ?? err}`], highs: [], mediums: [], notes: [] };
   if (v && typeof v === "object" && !Array.isArray(v)) {
+    // Adapter: the fork's reviewer defs pin {verdict: PASS|WARN|FAIL, findings:[{severity}]}.
+    // FAIL or any CRITICAL/HIGH finding blocks; WARN + non-high findings ships with records.
+    if (["PASS", "WARN", "FAIL"].includes(String(v.verdict ?? "").toUpperCase()) && Array.isArray(v.findings)) {
+      const sev = (f) => String(f?.severity ?? f?.level ?? "").toUpperCase();
+      const tag = (f) => String(f?.title ?? f?.summary ?? JSON.stringify(f));
+      const crit = v.findings.filter((f) => /CRITICAL|HIGH/.test(sev(f))).map(tag);
+      const nonHigh = v.findings.filter((f) => !/CRITICAL|HIGH/.test(sev(f))).map(tag);
+      const failed = String(v.verdict).toUpperCase() === "FAIL";
+      const shipBlockers = crit.length > 0 ? crit : failed ? [String(v.summary ?? "lens FAIL")] : [];
+      return { lens, verdict: failed || crit.length > 0 ? "BLOCK" : "SHIP", shipBlockers, highs: [], mediums: nonHigh.slice(0, 12), notes: v.reportPath ? [`reportPath: ${v.reportPath}`] : [] };
+    }
     const shipBlockers = [...strs(v.shipBlockers ?? v.ship_blockers), ...(v.verdict == null ? ["lens returned no verdict field"] : [])];
     const highs = strs(v.highs);
     const saidShip = String(v.verdict ?? "BLOCK").toUpperCase() === "SHIP";
@@ -100,7 +135,14 @@ export async function runWorkOrder(order, opts = {}) {
   const root = opts.root ?? process.cwd();
   const healMax = opts.healMax ?? 3;
   const lenses = opts.lenses ?? DEFAULT_LENSES;
-  const agentType = opts.agent ?? "task";
+  const ag = {
+    ...DEFAULT_AGENTS,
+    ...(opts.agents ?? {}),
+    lens: { ...DEFAULT_AGENTS.lens, ...(opts.agents?.lens ?? {}) },
+  };
+  // Legacy blunt mode: opts.agent forces ONE type for every phase.
+  if (opts.agent) { for (const k of ["plan", "implement", "verify", "healResearch", "healApply"]) ag[k] = opts.agent; ag.fallback = opts.agent; }
+  const lensAgent = (lens) => ag.lens[lens] ?? ag.fallback;
   const runDir = `${root}/porting/runs/${order.id}`;
   mkdirSync(runDir, { recursive: true });
 
@@ -123,48 +165,63 @@ export async function runWorkOrder(order, opts = {}) {
     writeFileSync(`${runDir}/run-state.json`, JSON.stringify({ order: order.id, title: order.title, phase, healRound: heals, resumed, updatedAt: new Date().toISOString(), ...extra }, null, 2));
 
   phase(`ORDER ${order.id}: ${order.title}${resumed ? " (resume)" : ""}`);
-  writeState(resumed ? "resume-scan" : "plan");
+  writeState(resumed ? "resume-scan" : "plan", { agents: { plan: ag.plan, implement: ag.implement, verify: ag.verify, healResearch: ag.healResearch, healApply: ag.healApply } });
 
-  // ---- PLAN ----------------------------------------------------------------
-  if (!skip("plan.md")) await agent(
-    `PLAN phase for work order "${order.id}" — ${order.title}.\n` +
-    `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
-    `Corpus (read first): ${corpus}. Repo root: ${root}.\n` +
-    `Write a file-level plan to ${runDir}/plan.md (files touched, exact changes, the check that proves it). ` +
-    `Do NOT implement anything yet. Do NOT commit. Return only a <=5 line summary.`,
-    { agent: agentType, label: `plan:${order.id}` },
-  ).wait();
+  // ---- PLAN (plan-agent: read-only → returns; runner persists) --------------
+  if (!skip("plan.md")) {
+    const p = await agent(
+      `PLAN phase for work order "${order.id}" — ${order.title}.\n` +
+      `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
+      `Corpus (read first): ${corpus}. Repo root: ${root}.\n` +
+      `Produce a file-level plan (files touched, exact changes, the check that proves it) and return it as {plan: "<full plan markdown>", summary: "<<=5 lines>"}. ` +
+      `Do NOT implement anything yet. Do NOT commit.`,
+      { agent: ag.plan, label: `plan:${order.id}`, schema: PLAN_SCHEMA },
+    ).wait();
+    const planText = typeof p === "string" ? p : (p?.plan ?? JSON.stringify(p, null, 2));
+    writeFileSync(`${runDir}/plan.md`, planText);
+    log(`plan: ${String(typeof p === "object" ? (p?.summary ?? "") : "").slice(0, 200)}`);
+  }
 
-  // ---- IMPLEMENT -----------------------------------------------------------
+  // ---- IMPLEMENT (wf-implementer: has write; writes implement.md itself) ----
   if (!implDone()) await agent(
     `IMPLEMENT phase of ${order.id} per ${runDir}/plan.md.\n` +
-    `Smallest correct diffs; respect existing patterns. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
+    `Smallest correct diffs; respect existing patterns (follow the typescript-professional skill for TS edits). Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
     `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
-    { agent: agentType, label: `impl:${order.id}` },
+    { agent: ag.implement, label: `impl:${order.id}` },
   ).wait();
   // Loud phase guard: a mute IMPLEMENT (observed once — the agent wrote nothing) must not fail silent.
   if (!existsSync(`${runDir}/implement.md`)) {
     writeState("implement-no-artifact", { guard: "IMPLEMENT wrote no implement.md — gates will see an empty change set; heal artifacts count as the implement record on resume" });
   }
 
-  // ---- VERIFY (fresh eyes, no fixes) --------------------------------------
-  if (!skip("verify.md")) await agent(
-    `VERIFY phase of ${order.id}. You are a FRESH verifier: do not fix anything.\n` +
-    `Run ${order.testCmd} (cwd ${root}) and write the VERBATIM output + a PASS/FAIL judgement to ${runDir}/verify.md. ` +
-    `Also state whether the acceptance for "${order.title}" is observably met: ${order.acceptance}. Return only the verdict line.`,
-    { agent: agentType, label: `verify:${order.id}` },
-  ).wait();
+  // ---- VERIFY (wf-verifier: mechanical; runner persists) --------------------
+  const runVerify = async (label) => {
+    const v = await agent(
+      `VERIFY phase of ${order.id} (${label}). You are a FRESH verifier: do not fix anything.\n` +
+      `Run ${order.testCmd} (cwd ${root}) and return {verdict: "PASS"|"FAIL", evidence: "<the VERBATIM output>", notes: [...]}. ` +
+      `Per verification-before-completion: evidence is the executed command + raw output, nothing paraphrased. ` +
+      `Also state whether the acceptance is observably met: ${order.acceptance}`,
+      { agent: ag.verify, label: `verify:${order.id}:${label}`, schema: VERIFY_SCHEMA },
+    ).wait();
+    const verdict = typeof v === "object" && v ? (v.clean !== undefined ? (v.clean ? "PASS" : "FAIL") : (v.verdict ?? "UNKNOWN")) : "UNKNOWN";
+    const evidence = typeof v === "string" ? v : (v?.evidence ?? JSON.stringify(v, null, 2));
+    appendFileSync(`${runDir}/verify.md`, `\n\n## VERIFY — ${label} @ ${new Date().toISOString()}\nverdict: ${verdict}\n\n${evidence}\n`);
+    writeState(`verify:${label}`, { verifyVerdict: verdict });
+    return verdict;
+  };
+  if (!skip("verify.md")) await runVerify("phase");
 
-  // ---- GATE (lens set; explicit lens list per pass; missing/errored = BLOCK) ----
+  // ---- GATE (lens set; specialist per lens; missing/errored = BLOCK) --------
   const gatePass = async (round, lensList) => {
     writeState(`gate:${round}`);
     const handles = lensList.map((lens) =>
       agent(
         `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
-        `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).\n` +
+        `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).` +
+        (lens === "security" ? " Apply the security-audit skill's review discipline." : "") + "\n" +
         `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
-        `Write the verdict to ${runDir}/gate-${lens}.md AND return it as the structured object {lens, verdict, shipBlockers, highs, mediums, notes} — objects only, no arrays, no prose.`,
-        { agent: agentType, label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA },
+        `Do NOT write files — the runner records your verdict. Return ONLY the object {lens, verdict, shipBlockers, highs, mediums, notes} (objects only, no arrays, no prose).`,
+        { agent: lensAgent(lens), label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA },
       ),
     );
     const settled = await wait(handles, { raiseErrors: false });
@@ -175,35 +232,43 @@ export async function runWorkOrder(order, opts = {}) {
       if (out.get(lens).verdict !== "SHIP" && s && !(s instanceof Error) && typeof s !== "object") {
         out.get(lens).notes.push("verdict shape was coercible but non-conforming — see gate-" + lens + ".md");
       }
+      // Persist the verdict file ourselves: reviewer defs are read-only.
+      writeFileSync(`${runDir}/gate-${lens}.md`, JSON.stringify(out.get(lens), null, 2));
     });
     return out;
   };
 
   const verdicts = await gatePass(resumed ? heals : 0, lenses);
 
-  // ---- HEAL (file-partitioned, budgeted) -----------------------------------
+  // ---- HEAL (research → apply → re-verify → re-gate failed lenses) ----------
   while (healedThisRun < healMax && [...verdicts.values()].some((v) => v.verdict !== "SHIP")) {
     heals++;
     healedThisRun++;
-    writeState("heal", { healRound: heals });
+    writeState("heal-research", { healRound: heals });
     const blockers = [...verdicts.values()]
       .filter((v) => v.verdict !== "SHIP")
       .flatMap((v) => [...(v.shipBlockers ?? []), ...(v.highs ?? [])])
       .filter(Boolean);
-    await agent(
-      `HEAL round ${heals} for ${order.id}.\n` +
+    const hr = await agent(
+      `HEAL research round ${heals} for ${order.id} (systematic-debugging: root cause before fix).\n` +
       `The AUTHORITATIVE findings are the gate reports in ${runDir}/gate-*.md — read them first; the inline list below may be partial.\n` +
       `Inline (extracted, may be empty): ${blockers.length ? blockers.join(" | ") : "(none extracted — use the gate reports)"}\n` +
-      `Group findings by file; ONE writer per file per wave; <=10 files; fix only what the findings name.\n` +
-      `Re-run ${order.testCmd} after the wave. Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
-      { agent: agentType, label: `heal:${order.id}:${heals}` },
+      `For each blocking finding return a minimal fix: finding → file:line → the repo-sibling pattern to follow. Do NOT edit files.\n` +
+      `Return {proposals: "<full markdown>"}.`,
+      { agent: ag.healResearch, label: `heal-research:${order.id}:${heals}`, schema: HEAL_RESEARCH_SCHEMA },
+    ).wait();
+    writeFileSync(`${runDir}/heal-${heals}-research.md`, String(typeof hr === "object" ? (hr?.proposals ?? JSON.stringify(hr, null, 2)) : hr));
+
+    writeState("heal", { healRound: heals });
+    await agent(
+      `HEAL apply round ${heals} for ${order.id}. Read ${runDir}/heal-${heals}-research.md and the gate reports; apply the minimal fixes.\n` +
+      `Group by file; ONE writer per file per wave; <=10 files; fix only what the findings name. Run ${order.testCmd} after the wave.\n` +
+      `Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
+      { agent: ag.healApply, label: `heal:${order.id}:${heals}` },
     ).wait();
 
     writeState("re-verify", { healRound: heals });
-    await agent(`Re-run ${order.testCmd} (cwd ${root}) after heal round ${heals}; append the VERBATIM output to ${runDir}/verify.md. Do not fix anything.`, {
-      agent: agentType,
-      label: `reverify:${order.id}:${heals}`,
-    }).wait();
+    await runVerify(`heal-${heals}`);
 
     const failed = [...verdicts.entries()].filter(([, v]) => v.verdict !== "SHIP").map(([lens]) => lens);
     const re = await gatePass(heals, failed);
@@ -220,6 +285,7 @@ export async function runWorkOrder(order, opts = {}) {
     resumed,
     lensesRun: lenses,
     healMax,
+    agentsRun: { plan: ag.plan, implement: ag.implement, verify: ag.verify, healResearch: ag.healResearch, healApply: ag.healApply, lens: Object.fromEntries(lenses.map((l) => [l, lensAgent(l)])) },
     lenses: Object.fromEntries(
       [...verdicts.entries()].map(([lens, v]) => [lens, { verdict: v.verdict, shipBlockers: v.shipBlockers, highs: v.highs, mediums: v.mediums }]),
     ),
