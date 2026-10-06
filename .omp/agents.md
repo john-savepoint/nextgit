@@ -8,6 +8,20 @@
 
 **Loop roster (runner v3, 2026-10-06):** every phase spawns its specialist — `plan`→**plan-agent** · `implement`/heal-apply→**wf-implementer** (the only editing role) · `verify`→**wf-verifier** (mechanical, verbatim) · heal-research→**heal-researcher** (read-only proposals) · gate lenses: `security`→**security-reviewer** · `quality`→**senior-reviewer** · `spec-fit`→**reviewer** · `compliance`→**compliance-reviewer** · `resilience`/`resilience-2`→senior-reviewer + reviewer (independent finders) · `parity`→**parity-auditor** · `ux`→**designer** · merged batch gate→**senior-reviewer**. Read-only specialists return schema-validated objects; **the runner persists the artifacts** (plan.md, verify.md, gate-*.md, heal-N-research.md). Lens sets: `DEFAULT_LENSES` (quality/spec-fit/security/resilience) scales up to `FULL_LENSES` (+compliance/+resilience-2, +parity/ux per order). Skill hints ride in the prompts (typescript-professional · verification-before-completion · security-audit · systematic-debugging); recorded skill gaps: compliance/resilience/spec-fit lenses carry their own prompt text (no dedicated skill). All role defs live at `~/.omp/agent/agents/*.md` (additive; `compliance-reviewer` added 2026-10-06).
 
+**Skill packs (mapping pass 2026-10-06 — rated 1-5 by per-agent comparators; full tables in `porting/runs/agent-skill-map/*.json`).** Runner names these in every phase prompt (`SKILL_HINTS` in `porting/wf-template.ddw.js`); load from these paths when the skill router misses them:
+- plan → `writing-plans` (`~/.agents/skills/writing-plans`) + `security-design-review`
+- implement / heal-apply → `workers-best-practices` · `typescript-professional` · `cloudflare`
+- verify → `verification-before-completion` (plugin cache: `~/.omp/plugins/cache/plugins/claude-plugins-official___superpowers___6.0.3/skills/`) + `full-output-enforcement` (dir `~/.claude/skills/output-skill`)
+- heal-research → `systematic-debugging` + `receiving-code-review` (same plugin cache)
+- security lens → `claude-code-security-review` + `security-design-review` + `workers-best-practices`
+- quality lens (senior-reviewer, merged gate) → `typescript-professional` + `concurrency-pro` (`bmad-review` alternate)
+- spec-fit lens → `bmad-review` (pin edge-case + verification-gap lenses) + `verification-before-completion`
+- compliance lens → `compliance` (`web-analytics` when tracking/consent surfaces are touched)
+- parity lens → `omp-dev` + `git-pro`
+- ux lens / designer → `impeccable` + `design-taste-frontend` (dir `taste-skill`) + `accessibility-pro` (crowded family — pick one per run)
+- **Alias dirs (name≠purpose, verified):** `soft-skill`=high-end-visual-design · `output-skill`=full-output-enforcement · `taste-skill`=design-taste-frontend · `redesign-skill`=redesign-existing-projects
+- **Recorded skill gaps (candidates to build):** licensing/attribution review · git-internals (objects/diff3) · browser visual-QA · test authoring · acceptance-vs-change gate. Queue row: `close-agent-skill-gaps`.
+
 **Evidence:** every claim carries the command + its verbatim output. "Done" names the check that would red if it regressed.
 
 **Secrets:** never in argv, records, or transcripts. The wrangler OAuth token lives at `~/.config/.wrangler/config/default.toml`; Artifacts repo tokens are minted per-run from it and never committed.

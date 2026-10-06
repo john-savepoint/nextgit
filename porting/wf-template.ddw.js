@@ -57,6 +57,22 @@ export const DEFAULT_AGENTS = {
   },
 };
 
+// Skill packs per phase/lens (mapping pass 2026-10-06; full ratings in
+// porting/runs/agent-skill-map/*.json). Names + paths are also recorded in .omp/agents.md —
+// some live in plugin caches the skill router may miss, so the prompt names them explicitly.
+export const SKILL_HINTS = {
+  plan: "writing-plans + security-design-review (STRIDE for scoping)",
+  implement: "workers-best-practices + typescript-professional (+ cloudflare when a bound product is touched)",
+  verify: "verification-before-completion (+ full-output-enforcement: report EVERY failure line)",
+  healResearch: "systematic-debugging + receiving-code-review",
+  lens: {
+    security: "claude-code-security-review + security-design-review",
+    quality: "typescript-professional + concurrency-pro",
+    "spec-fit": "bmad-review (pin the edge-case + verification-gap lenses)",
+    compliance: "compliance (web-analytics when tracking/consent surfaces are touched)",
+  },
+};
+
 const LENS_SCHEMA = {
   type: "object",
   required: ["lens", "verdict", "shipBlockers", "highs", "mediums", "notes"],
@@ -185,6 +201,7 @@ export async function runWorkOrder(order, opts = {}) {
       `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
       `Corpus (read first): ${corpus}. Repo root: ${root}.\n` +
       `Produce a file-level plan (files touched, exact changes, the check that proves it) and return it as {plan: "<full plan markdown>", summary: "<<=5 lines>"}. ` +
+      `Skills: apply ${SKILL_HINTS.plan} (paths in .omp/agents.md if the router misses them).\n` +
       `Do NOT implement anything yet. Do NOT commit.`,
       { agent: ag.plan, label: `plan:${order.id}`, schema: PLAN_SCHEMA },
     ).wait();
@@ -196,7 +213,7 @@ export async function runWorkOrder(order, opts = {}) {
   // ---- IMPLEMENT (wf-implementer: has write; writes implement.md itself) ----
   if (!implDone()) await agent(
     `IMPLEMENT phase of ${order.id} per ${runDir}/plan.md.\n` +
-    `Smallest correct diffs; respect existing patterns (follow the typescript-professional skill for TS edits). Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
+    `Smallest correct diffs; respect existing patterns. Skills: ${SKILL_HINTS.implement}. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
     `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
     { agent: ag.implement, label: `impl:${order.id}` },
   ).wait();
@@ -210,7 +227,7 @@ export async function runWorkOrder(order, opts = {}) {
     const v = await agent(
       `VERIFY phase of ${order.id} (${label}). You are a FRESH verifier: do not fix anything.\n` +
       `Run ${order.testCmd} (cwd ${root}) and return {verdict: "PASS"|"FAIL", evidence: "<the VERBATIM output>", notes: [...]}. ` +
-      `Per verification-before-completion: evidence is the executed command + raw output, nothing paraphrased. ` +
+      `Per ${SKILL_HINTS.verify}: evidence is the executed command + raw output, nothing paraphrased. ` +
       `Also state whether the acceptance is observably met: ${order.acceptance}`,
       { agent: ag.verify, label: `verify:${order.id}:${label}`, schema: VERIFY_SCHEMA },
     ).wait();
@@ -232,7 +249,7 @@ export async function runWorkOrder(order, opts = {}) {
       agent(
         `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
         `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).` +
-        (lens === "security" ? " Apply the security-audit skill's review discipline." : "") + "\n" +
+        (SKILL_HINTS.lens[lens] ? ` Apply: ${SKILL_HINTS.lens[lens]}.` : "") + "\n" +
         `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
         `Do NOT write files — the runner records your verdict. Return ONLY the object {lens, verdict, shipBlockers, highs, mediums, notes} (objects only, no arrays, no prose).`,
         { agent: lensAgent(lens), label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA },
@@ -264,7 +281,7 @@ export async function runWorkOrder(order, opts = {}) {
       .flatMap((v) => [...(v.shipBlockers ?? []), ...(v.highs ?? [])])
       .filter(Boolean);
     const hr = await agent(
-      `HEAL research round ${heals} for ${order.id} (systematic-debugging: root cause before fix).\n` +
+      `HEAL research round ${heals} for ${order.id} (skills: ${SKILL_HINTS.healResearch} — root cause before fix).\n` +
       `The AUTHORITATIVE findings are the gate reports in ${runDir}/gate-*.md — read them first; the inline list below may be partial.\n` +
       `Inline (extracted, may be empty): ${blockers.length ? blockers.join(" | ") : "(none extracted — use the gate reports)"}\n` +
       `For each blocking finding return a minimal fix: finding → file:line → the repo-sibling pattern to follow. Do NOT edit files.\n` +

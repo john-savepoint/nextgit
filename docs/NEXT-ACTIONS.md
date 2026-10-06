@@ -880,6 +880,7 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L638 (§1 The Spatial Shard
 Ref: Redesigning-GitHub-With-Git-Architecture (2).md L639 (§1 Decoupled Multi-Tier Security Profiles)
 - [pending] P3 — Revision-centric VCS with effortless stacking and rewriting — Adopt a jj-style revision-centric model where every working-copy change is automatically a commit, making stacking, reordering and splitting changes first-class operations without corruption risk.
 Ref: is-there-an-open-source-CodeRabbit-or-Graphite.md L23, L64 (Jujutsu jj)
+- [pending] P3 — Close agent-skill gaps (5 shadow skills) — Author skills the mapping proved missing: licensing/attribution review, git-internals (objects/diff3), browser visual-QA, test authoring, acceptance-vs-change gate. Each: SKILL.md with trigger phrases; register in .omp/agents.md packs.
 
 - [done] P0 — SQLite task backbone — `porting/tasks.db` (WAL, claims, events) + `porting/tasks.mjs` CLI (init/import/add/next/claim/release/set/list/view/query) + tests incl. two-process claim contention; `docs/NEXT-ACTIONS.md` becomes a derived view; batch runner reads the DB; acceptance: `bun porting/tests/tasks.test.mjs` all-pass + view round-trip equal; check: bun porting/tests/tasks.test.mjs
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
@@ -980,6 +981,7 @@ Ref: .omp/agents.md:22 (project facts); docs/CHECKPOINT.md:41 (wrangler note); s
 - [done] P2 — Pre-commit freshness enforcement re-armed repo-locally + proven — The bootstrap pre-commit freshness hook had never executed: global core.hooksPath (~/.githooks) shadowed .git/hooks. Re-armed repo-locally (core.hooksPath=.git/hooks) with the global commit-msg stripper copied in — no global edits; enforcement proven by a deliberately blocked stale-index commit.
 Ref: docs/CHECKPOINT.md:24 (CORRECTIONS #7); commit 7ca477b; session history 2026-10-06T02:27-02:29
 - [done] P2 — Workflow v3 self-test (specialist routing) — Machinery-only self-test: five-check battery through runner v3 specialist routing; GREEN 0 heals; found 3 routing defects → v3.1.
+- [done] P2 — Agent-skill mapping (10 comparators, top-3 packs wired) — Rate skills 1-5 per routed agent; wire packs into runner SKILL_HINTS + .omp/agents.md; document aliases + plugin-cache paths.
 - [done] P3 — Bootstrap health sweep — first loop order: 4/4 checks green across 5+ independent reproductions; gates caught real findings (NUL injection, fictional jaq guard, two fail-opens, heal-budget bug, citation rot); all gate-required caller remedies applied (runner committed `d5f6b5b`, fail-closed, 10-case test); stale gate reports certified superseded (`porting/certifications/bootstrap-health-sweep.md`); evidence: `porting/runs/bootstrap-health-sweep/`
 - [partial] P0 — UX spec for the triage surface (bmad-ux) — canvas review flow, judge chips, land flow, recording needs; acceptance: DESIGN/EXPERIENCE docs exist and the video storyboard cites them
 

@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T04:12:58.203Z",
-  "head": "13addac",
+  "generatedAt": "2026-10-06T05:10:44.194Z",
+  "head": "21dc2ff",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -10,10 +10,10 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 508,
+    "total": 510,
     "byStatus": {
-      "pending": 452,
-      "done": 55,
+      "pending": 453,
+      "done": 56,
       "partial": 1
     },
     "items": [
@@ -2276,6 +2276,11 @@
         "status": "pending",
         "priority": "P3",
         "title": "Revision-centric VCS with effortless stacking and rewriting"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Close agent-skill gaps"
       },
       {
         "status": "partial",
