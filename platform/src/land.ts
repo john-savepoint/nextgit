@@ -15,27 +15,27 @@ import { createMemFs } from "./memfs";
 import { createGitHttpClient } from "./githttp";
 
 const LAND_COMMIT_AUTHOR = {
-  name: "nextgit-platform",
-  email: "platform@nextgit.dev",
+ name: "nextgit-platform",
+ email: "platform@nextgit.dev",
 } as const;
 
-const TOKEN_TTL_SECONDS = 3600;
+const TOKEN_TTL_SECONDS = 300; // one push, seconds-scale; revoked in a finally by the caller
 const LAND_WORKDIR = "/repo";
 
 /** One file of a folded merge, as /merge produces it. */
 export interface LandFile {
-  path: string;
-  action: "write" | "delete";
-  result: "merged" | "conflict" | "withheld-secret";
-  merged?: string;
+ path: string;
+ action: "write" | "delete";
+ result: "merged" | "conflict" | "withheld-secret";
+ merged?: string;
 }
 
 export interface LandInput {
-  remote: string;
-  token: string;
-  baseRef: string;
-  repos: string[];
-  files: LandFile[];
+ remote: string;
+ token: string;
+ baseRef: string;
+ repos: string[];
+ files: LandFile[];
 }
 
 /**
@@ -45,51 +45,51 @@ export interface LandInput {
  * can fall back to handing the fold to a CLI.
  */
 export async function pushLand(input: LandInput): Promise<{ commit: string; remote: string }> {
-  const fs = createMemFs();
-  const http = createGitHttpClient(input.token);
+ const fs = createMemFs();
+ const http = createGitHttpClient(input.token);
 
-  await git.clone({
-    fs: fs as unknown as Parameters<typeof git.clone>[0]["fs"],
-    http: http as unknown as Parameters<typeof git.clone>[0]["http"],
-    dir: LAND_WORKDIR,
-    url: input.remote,
-    ref: input.baseRef,
-    singleBranch: true,
-    depth: 1,
-  });
+ await git.clone({
+  fs: fs as unknown as Parameters<typeof git.clone>[0]["fs"],
+  http: http as unknown as Parameters<typeof git.clone>[0]["http"],
+  dir: LAND_WORKDIR,
+  url: input.remote,
+  ref: input.baseRef,
+  singleBranch: true,
+  depth: 1,
+ });
 
-  for (const file of input.files) {
-    const abs = `${LAND_WORKDIR}/${file.path}`;
-    if (file.action === "delete") {
-      await fs.unlink(abs);
-      await git.remove({ fs: fs as never, dir: LAND_WORKDIR, filepath: file.path });
-    } else {
-      if (typeof file.merged !== "string") throw new Error(`land: no merged text for ${file.path}`);
-      await fs.writeFile(abs, file.merged);
-      await git.add({ fs: fs as never, dir: LAND_WORKDIR, filepath: file.path });
-    }
+ for (const file of input.files) {
+  const abs = `${LAND_WORKDIR}/${file.path}`;
+  if (file.action === "delete") {
+   await fs.unlink(abs);
+   await git.remove({ fs: fs as never, dir: LAND_WORKDIR, filepath: file.path });
+  } else {
+   if (typeof file.merged !== "string") throw new Error(`land: no merged text for ${file.path}`);
+   await fs.writeFile(abs, file.merged);
+   await git.add({ fs: fs as never, dir: LAND_WORKDIR, filepath: file.path });
   }
+ }
 
-  const commit = await git.commit({
-    fs: fs as never,
-    dir: LAND_WORKDIR,
-    message: `land(${input.repos.join(",")}): fold proposal(s)`,
-    author: LAND_COMMIT_AUTHOR,
-    committer: LAND_COMMIT_AUTHOR,
-  });
+ const commit = await git.commit({
+  fs: fs as never,
+  dir: LAND_WORKDIR,
+  message: `land(${input.repos.join(",")}): fold proposal(s)`,
+  author: LAND_COMMIT_AUTHOR,
+  committer: LAND_COMMIT_AUTHOR,
+ });
 
-  const result = (await git.push({
-    fs: fs as never,
-    http: http as never,
-    dir: LAND_WORKDIR,
-    ref: input.baseRef,
-  })) as unknown as { refs: Record<string, { ok: boolean; error?: string }> };
+ const result = (await git.push({
+  fs: fs as never,
+  http: http as never,
+  dir: LAND_WORKDIR,
+  ref: input.baseRef,
+ })) as unknown as { refs: Record<string, { ok: boolean; error?: string }> };
 
-  const refResult = result.refs[`refs/heads/${input.baseRef}`];
-  if (!refResult?.ok) {
-    throw new Error(`land: push rejected: ${refResult?.error ?? "unknown ref result"}`);
-  }
-  return { commit, remote: input.remote };
+ const refResult = result.refs[`refs/heads/${input.baseRef}`];
+ if (!refResult?.ok) {
+  throw new Error(`land: push rejected: ${refResult?.error ?? "unknown ref result"}`);
+ }
+ return { commit, remote: input.remote };
 }
 
 /**
@@ -97,6 +97,6 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
  * path share one minting rule.
  */
 export async function mintWriteToken(repo: ArtifactsRepo): Promise<string> {
-  const token = await repo.createToken("write", TOKEN_TTL_SECONDS);
-  return token.plaintext;
+ const token = await repo.createToken("write", TOKEN_TTL_SECONDS);
+ return token.plaintext;
 }

@@ -783,32 +783,27 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
     return Response.json({ ok: true, landed });
   } catch (err) {
     const detail = String((err as Error)?.message ?? err);
-    // Documented fallback: hand back the exact fold plus a one-time write
-    // token so any git CLI can finish the push in one command.
+    // Credential-free failure: no token, no shell snippets. The caller may
+    // retry, preview again, or land through the sanctioned control plane —
+    // never via a handed-out write credential (spine AD-9).
     return Response.json(
       {
         ok: false,
         error: "push-failed",
         detail,
         repos,
-        remote: info.remote,
         branch: baseRef,
         files: writeable,
-        commands: [
-          `git clone ${info.remote} land`,
-          "cd land",
-          `git config http.extraheader "Authorization: Bearer ${token}"`,
-          ...writeable.flatMap((f) =>
-            f.action === "delete"
-              ? [`git rm --quiet -- ${JSON.stringify(f.path)}`]
-              : [`printf %s ${JSON.stringify(f.merged ?? "")} > ${JSON.stringify(f.path)}`, `git add -- ${JSON.stringify(f.path)}`],
-          ),
-          `git commit -m ${JSON.stringify(`land(${repos.join(",")}): fold proposal(s)`)}`,
-          `git push origin HEAD:refs/heads/${baseRef}`,
-        ],
       },
       { status: 500 },
     );
+  } finally {
+    // Worker-minted tokens are single-use: revoke whether the push landed or failed.
+    try {
+      await baseRepo.revokeToken(token);
+    } catch {
+      // Best-effort; the short TTL still bounds exposure.
+    }
   }
 }
 
