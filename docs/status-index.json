@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T14:48:56.318Z",
-  "head": "6e55692",
+  "generatedAt": "2026-10-06T14:52:02.142Z",
+  "head": "54491d0",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 513,
     "byStatus": {
-      "pending": 450,
-      "done": 62,
+      "pending": 449,
+      "done": 63,
       "partial": 1
     },
     "items": [
@@ -41,11 +41,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Demo video: 5-10 min single take covering all three axes"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Submission compliance: OSI license + LICENSE file + run instructions"
       },
       {
         "status": "pending",

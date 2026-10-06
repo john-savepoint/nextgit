@@ -2,6 +2,11 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-06 — Submission compliance bundle: README + LICENSE (MIT)
+**Shipped:** `README.md` (submission-grade: what/why with the sourced 41.7% figure, live URL + tour, the demo's six claims, run-it-yourself chain — deploy → seed → real-agents → secret-fixture → `demo-verify` 25/25 — repo map, honest scope) + `LICENSE` (MIT, "NextGit contributors"). Closes the competition's *OSI license + LICENSE file + run instructions* requirement (`submission-compliance-…` → done).
+**Remaining submission work:** recording (after John's script review), repo curation, single-entry filing (`submission-package` / `submission-repo-location` — John + next agents).
+**Next:** John reviews the video script → record.
+
 ## 2026-10-06 — Demo scenario reset GREEN: fresh fleet + secret fixture (recording-ready)
 **Shipped:** fresh 4-real-agent fleet (omp; pushes `f401b21`/`cff80a0`/`e3be4af`/`da8b3aa`) — all pending, agent-1×agent-2 conflict on src/auth.ts, intents present; `platform/scripts/secret-fixture.mjs` (agent-5, `config/.env` fixture, idempotent); `platform/scripts/demo-verify.mjs` — the canonical live-state acceptance check (25/25 PASS; run repeatedly through the wave; one transport flake (undici fetch on the IPv6-only host) recorded — not demo state). Wave: 0 heals, 2-lens SHIP.
 **Verified live:** 5 proposals; namespace exactly {demo, agent-1..5}; agent-5 skipped as `secret-class` in `/judge` (the secret path is now LIVE-triggerable for the first time); masking law holds across /proposals, /changes, /judge (no fixture value anywhere).

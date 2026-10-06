@@ -9,8 +9,6 @@
 Ref: interface-contract.md What Agent Office lacks (H6); demo-scope.md story step 3
 - [pending] P0 — Demo video: 5-10 min single take covering all three axes — Record the 5-10 minute demo as one uninterrupted story (workspaces, collision, conflict map, triage, landing, secret beat) exercising all three scored axes.
 Ref: SPEC.md Constraints (competition); demo-scope.md Demo story
-- [pending] P0 — Submission compliance: OSI license + LICENSE file + run instructions — Competition requires an OSI license (MIT/Apache/BSD) with a LICENSE file and run instructions in the submission.
-Ref: SPEC.md Constraints (OSI license + run instructions)
 - [pending] P0 — Submission: repo location + single entry registered by Oct 14 — Decide where the submission repo lives and register the single entry before the 2026-10-14 deadline.
 Ref: SPEC.md Open Questions (submission repo); SPEC.md Constraints (single entry, deadline)
 - [pending] P0 — Live-only E2E verification gate before submission (no mocks) — Constraint: built on live Workers + Artifacts end to end, no mocks. Run the full demo story against the deployed platform as the pre-submission gate.
@@ -908,6 +906,8 @@ Ref: SPEC.md CAP-6; demo-scope.md MUST map; platform/src/index.ts:647-676,863-88
 Ref: SPEC.md CAP-7; demo-scope.md story step 5; platform/src/index.ts:694-808,849-851; platform/src/land.ts; platform/CONTRACT.md POST /land
 - [done] P0 — Demo agent harness: deterministic writers + real AI CLIs — Both harnesses exist: a deterministic text-transform writer set and a real-AI-CLI driver that hands tasks to actual agent binaries in real fork clones so proposals are what agents really wrote.
 Ref: SPEC.md Assumptions (harness choice); platform/scripts/agents.mjs; platform/scripts/real-agents.mjs:1-40
+- [done] P0 — Submission compliance: OSI license + LICENSE file + run instructions — Competition requires an OSI license (MIT/Apache/BSD) with a LICENSE file and run instructions in the submission.
+Ref: SPEC.md Constraints (OSI license + run instructions)
 - [done] P0 — Eligibility: resolve US/Canada residency before entering — Terms section 3 voids the entry unless the entrant (or teammate) is a legal US/Canada resident; unresolved open question.
 Ref: SPEC.md Open Questions (eligibility); SPEC.md Constraints
 - [done] P0 — Render concurrent proposals as one set-level triage canvas — (demo MUST) Present all concurrent agent change-sets as one comparable set on a single canvas; the human reviews the set, not one PR at a time. Base canvas is shipped with per-proposal cards, conflict panel, and summary counts.

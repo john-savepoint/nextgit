@@ -26,7 +26,7 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) — **506 rows, registry populated**; runner v3 specialist routing (self-test GREEN — `porting/runs/wf-v3-selftest/`); claim-safe batches; tests `porting/tests/{normalize,tasks}.test.mjs` |
 | Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
 | Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief FINAL ✓; PRD ✓ (`1e58c50` — FR-1..47, M1–M4); ux-designs ✓ (partial — 4 LIVE conflicts await John); epics pending (parallel agent) |
-| Submission package | not started | video + README + LICENSE + repo curation (eligibility resolved 2026-10-06) — queue P0/P1 |
+| Submission package | in progress | README ✓ + LICENSE (MIT) ✓ with run instructions ✓ (2026-10-06); recording + repo curation + single-entry filing remain — John/next agents |
 
 ## Standing red set (pre-existing, owned)
 
