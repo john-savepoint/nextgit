@@ -41,8 +41,9 @@ export interface LandInput {
 /**
  * Clone `remote` into memory, apply the fold, commit, and push.
  *
- * Returns the new commit sha; throws when the push is rejected so the caller
- * can fall back to handing the fold to a CLI.
+ * Returns the new commit sha; throws on push failure so the caller can return
+ * a credential-free error (spine AD-9: no tokens and no shell snippets in any
+ * response, failure paths included).
  */
 export async function pushLand(input: LandInput): Promise<{ commit: string; remote: string }> {
  const fs = createMemFs();

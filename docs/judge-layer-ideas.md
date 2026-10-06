@@ -42,7 +42,7 @@ Note the calibration nuance it exposed: the noul correctly says the two changes 
 
 ### B. Landing & the set view
 
-5. **Auto-land eligibility** — confidence-gated routing: ACT / CONFIRM / ESCALATE over the other answers. → behind the Land button; safe proposals land themselves.
+5. **Auto-land eligibility** — confidence-gated routing: ACT / CONFIRM / ESCALATE over the other answers. → **evaluated server-side inside `POST /land`** (spine AD-11); clients render the verdict, never decide it; off until the injection-testing spike passes.
 6. **Conflict resolution strategy** — choice per conflicted pair: take-A / take-B / combine / needs-human. → pre-fills the resolution UI.
 7. **Landing-subset risk** — score: how safe is landing *this combination* (A+B vs A+C) together?
 8. **Duplication check** — noul: is this behavior already covered by another proposal/fork? → merge-it recommendation.
@@ -93,8 +93,8 @@ Note the calibration nuance it exposed: the noul correctly says the two changes 
 ## How we wire it into NextGit
 
 1. `platform/wrangler.jsonc`: add `"ai": { "binding": "AI" }`.
-2. Worker: `POST /judge` — passthrough `{ state, questions }` → answers; restrict question types/sizes; pin model id; log the returned `model`.
-3. First three card fields: **risk score + intent verification + semantic collision**; render as chips; then the auto-land gate behind the Land button.
+2. Worker: `POST /judge` — request shape `{ setId, target {base, repos, refs} }`; state is assembled **server-side** through the masking filter (untrusted repo content delimited/labeled); caller-supplied `state`/`questions` are prohibited; pin model id; log the returned `model`; wrong/absent model ⇒ fail closed.
+3. First three card fields: **risk score + intent verification + semantic collision**; render as chips; the auto-land gate is enforced **inside `POST /land`** (server-side, fail-closed) — the UI only renders verdicts.
 4. Question sets live in code (versioned with the platform); thresholds tuned on our own labeled proposals — never copied from a cookbook.
 
 ## Rules that keep it honest

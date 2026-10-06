@@ -1,8 +1,8 @@
 # State — NextGit
 
-**Last updated:** 2026-10-05 (bootstrap acceptance closed; spawn outage RESOLVED — all 16 agent overrides redirected to `commandcode/deepseek/deepseek-v4.1-flash` (probe green); judge layer is the next build)
-**Branch:** `main` · **Last commit:** `8f17b84` (bootstrap acceptance records; runner hardening in `d5f6b5b`)
-**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current. Current status: **GREEN (2026-10-05, first loop order)**; standing reds below.
+**Last updated:** 2026-10-06 (architecture spine shipped through a 4-lens gate — 2 live HIGH fixes deployed `d0d8b17`; queue migrated to the SQLite task store by a parallel session; pre-commit enforcement re-armed and proven)
+**Branch:** `main` · **Last commit:** `857d0ce` (architecture run; live fixes in `d0d8b17`)
+**Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (10/10 PASS) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `_bmad-output/specs/spec-next-git-platform/SPEC.md` + companions (`demo-scope.md`, `engineering-laws.md`, `stack.md`, `interface-contract.md`, `fork-community.md`) — the frozen contract
 - `platform/CONTRACT.md` — frozen platform API v2
@@ -23,7 +23,8 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` (lands or refuses) — reproducible two-command demo |
 | Real agent fleet | working (2 CLIs) | omp + codex verified producing real proposals; claude/gemini/opencode need logins (standing reds, John) |
 | Judge layer (Clef) | verified callable | live typed answers 2026-10-05 (~1.3 s REST, ~$0.00012/call); catalog in `docs/judge-layer-ideas.md`; NOT yet wired |
-| State spine + loop | shipped | first order run end-to-end 2026-10-05 (4/4 green; gates caught real findings); runner committed `d5f6b5b`; regression test `porting/tests/normalize.test.mjs` |
+| State spine + loop | shipped | first order run end-to-end 2026-10-05 (4/4 green; gates caught real findings); runner committed `d5f6b5b`; regression test `porting/tests/normalize.test.mjs`; queue now SQLite-backed (`porting/tasks.db`, parallel session) |
+| Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
 | Planning artifacts | partial | SPEC yes; PRD / UX / architecture runs pending (queue P0) |
 | Submission package | not started | video + README + LICENSE + repo curation + eligibility — queue P0/P1 |
 

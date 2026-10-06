@@ -1,21 +1,26 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-05T23:53:30.331Z",
-  "head": "b52c42d",
+  "generatedAt": "2026-10-06T02:28:27.878Z",
+  "head": "857d0ce",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-05 ",
+    "lastUpdated": "2026-10-06 ",
     "branch": "main",
-    "lastCommit": "8f17b84",
+    "lastCommit": "857d0ce",
     "standingRedSet": null
   },
   "queue": {
-    "total": 22,
+    "total": 33,
     "byStatus": {
-      "pending": 18,
-      "done": 4
+      "pending": 28,
+      "done": 5
     },
     "items": [
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "SQLite task backbone"
+      },
       {
         "status": "pending",
         "priority": "P0",
@@ -30,11 +35,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "UX spec for the triage surface"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Architecture doc"
       },
       {
         "status": "pending",
@@ -55,6 +55,16 @@
         "status": "pending",
         "priority": "P0",
         "title": "Submission package"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Contract-pin /judge shapes + card signals before the judge wave"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Land hardening: reviewed heads + base-moved preconditions + evidence record"
       },
       {
         "status": "pending",
@@ -83,6 +93,41 @@
       },
       {
         "status": "pending",
+        "priority": "P1",
+        "title": "Auth seam v1: AUTH_MODE default-deny + authorize"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Token lifecycle: account-scoped control-plane token + 0600 storage + audit"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Secret-class widening + free-text scrub"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Event consumer: sole recorder + dedupe + payload validation"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "DO lease serializes lands"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "R2 asset tier + first-slice manifest/pointer format"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Workflows provisioning: token minting moves worker-side"
+      },
+      {
+        "status": "pending",
         "priority": "P2",
         "title": "Tour v2"
       },
@@ -100,6 +145,11 @@
         "status": "pending",
         "priority": "P2",
         "title": "tsc hygiene"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Contract smoke in platform verify gates"
       },
       {
         "status": "pending",
