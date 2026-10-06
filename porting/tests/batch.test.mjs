@@ -120,10 +120,10 @@ try {
     check("1 ordering: every order call < parity < merged", pIdx > lastOrder && mIdx > pIdx && lastOrder >= 0, `lastOrder=${lastOrder} parity=${pIdx} merged=${mIdx}`);
     check("1 batch gates spawn their specialists", o.calls[pIdx]?.spawn === "parity-auditor" && o.calls[mIdx]?.spawn === "senior-reviewer", JSON.stringify([o.calls[pIdx]?.spawn, o.calls[mIdx]?.spawn]));
     check("1 order artifacts persisted by the runner", [a, b].every((id) => ["plan.md", "verify.md", "result.json", "run-state.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", id, f)))));
-    const claims = o.fx.q("SELECT task_id FROM claims");
-    check("1 claims released when the batch completes", claims.length === 0, JSON.stringify(claims));
+    const claims = o.fx.q("SELECT task_id, agent FROM claims");
+    check("1 green rows KEEP claims for the caller tick (no release-tick window)", claims.length === 2 && claims.every((c) => String(c.agent ?? "").startsWith("batch:")), JSON.stringify(claims));
     const ev = o.fx.q("SELECT kind FROM events WHERE kind IN ('claim','release')");
-    check("1 claim→release cycle recorded per pick", ev.filter((e) => e.kind === "claim").length === 2 && ev.filter((e) => e.kind === "release").length === 2, JSON.stringify(ev));
+    check("1 claim recorded per pick; no release on green", ev.filter((e) => e.kind === "claim").length === 2 && ev.filter((e) => e.kind === "release").length === 0, JSON.stringify(ev));
     const pend = o.fx.q("SELECT id FROM tasks WHERE status='pending'");
     check("1 rows stay pending (only the caller ticks)", pend.length === 2, JSON.stringify(pend));
     check("1 queue + claims resolved through TASKS_DB (no fixture-default store created)", !existsSync(join(o.fx.root, "porting/tasks.db")));
@@ -142,7 +142,7 @@ try {
     const pIdx = o.calls.findIndex((x) => x.label.startsWith("gate:parity:"));
     const mIdx = o.calls.findIndex((x) => x.label.startsWith("gate:merged:"));
     check("2 merged gate still runs after a parity block", mIdx > pIdx && r.gate.verdict === "SHIP");
-    check("2 claims released on a blocked batch", o.fx.q("SELECT task_id FROM claims").length === 0);
+    check("2 green-but-batch-blocked: claim retained (caller must not tick; TTL re-picks)", o.fx.q("SELECT task_id FROM claims").length === 1, JSON.stringify(o.fx.q("SELECT task_id FROM claims")));
   }
 } catch (e) { check("2 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 

@@ -7,6 +7,8 @@
 // docs/NEXT-ACTIONS.md), runs each through runWorkOrder
 // (direct composition — the sub-driver returns a result promise, wait() is not involved),
 // then a MERGED gate over the union. The CALLER ticks rows + commits — this driver never does.
+// Claim discipline: GREEN rows keep their claim until the caller ticks them (a release here
+// opens a duplicate-run window); red/stopped/unpicked rows are released immediately.
 // v1 note: orders run SEQUENTIALLY in one workspace; per-order worktree isolation + parallel
 // orders are a recorded carry (see docs/STATE.md).
 
@@ -130,8 +132,10 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     const r = await runWorkOrder(order, { root, lenses, agent: agentOpt, agents, resume });
     results.push(r);
     ranIds.add(row.id);
-    if (row.claimed) releaseRow(row.id);
-    if (r.verdict !== "GREEN") break;
+    // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
+    // Releasing here opens a duplicate-run window — observed live: two sessions ran the
+    // same row between this release and the caller's tick.
+    if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id); break; }
   }
   // picks that never ran (batch stopped early) must not hold leases
   for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
