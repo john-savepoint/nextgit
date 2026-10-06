@@ -11,7 +11,7 @@ Load-path notes: OMP's skill router resolves many skills by name; entries marked
 | bmad suite | path: `/home/johnzealanddoyle/projects/cloudflare-git-comp/.claude/skills/bmad-*` | planning artifacts P0 (prd, ux, architecture, spec), deep-recon, brainstorming, build |
 | verification-before-completion | router | before claiming done — evidence discipline |
 | typescript-professional | router | platform TS edits |
-| security-audit | router | trust-layer / auth-surface reviews |
+| security-reviewer (pack) | router; plugin paths in `.omp/agents.md` | review-phase security: `claude-code-security-review` + `security-design-review` (+ `workers-best-practices`) — audit-* skills excluded as audit-phase |
 | omp-dev | router | harness internals, workflows, hook debugging |
 | cloudflare · wrangler · workers-best-practices | router | Workers/Artifacts work when deeper CF docs are needed |
 

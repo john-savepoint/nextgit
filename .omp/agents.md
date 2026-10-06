@@ -18,7 +18,7 @@
 - spec-fit lens → `bmad-review` (pin edge-case + verification-gap lenses) + `verification-before-completion`
 - compliance lens → `compliance` (`web-analytics` when tracking/consent surfaces are touched)
 - parity lens → `omp-dev` + `git-pro`
-- ux lens / designer → `impeccable` + `design-taste-frontend` (dir `taste-skill`) + `accessibility-pro` (crowded family — pick one per run)
+- ux lens / designer → `impeccable` + `design-taste-frontend` (dir `taste-skill`) + `accessibility-pro` (crowded family — pick one per run) · `stitch-design` (**Open Design Bridge** — composes `nexu-io/open-design`'s catalogue: 70+ skills, 139+ design systems + template library, renders via Google Stitch MCP with HTML mirrored to `<project>/design/`; use for brand-grade/demo surfaces; rendering needs the Stitch MCP configured — the catalogue/discovery path works without it)
 - **Alias dirs (name≠purpose, verified):** `soft-skill`=high-end-visual-design · `output-skill`=full-output-enforcement · `taste-skill`=design-taste-frontend · `redesign-skill`=redesign-existing-projects
 - **Recorded skill gaps (candidates to build):** licensing/attribution review · git-internals (objects/diff3) · browser visual-QA · test authoring · acceptance-vs-change gate. Queue row: `close-agent-skill-gaps`.
 

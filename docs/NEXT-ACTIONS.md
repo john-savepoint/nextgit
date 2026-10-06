@@ -731,6 +731,7 @@ Ref: is-there-an-open-source-CodeRabbit-or-Graphite.md L24 (Git Town)
 Ref: is-there-an-open-source-CodeRabbit-or-Graphite.md L82 (Trunk)
 - [pending] P2 — Batch merge bot: temp branch, full CI, push only if green — Implement the Not Rocket Science rule: a bot builds a temporary branch containing a batch of approved changes, runs the full CI suite against that exact batch and pushes to main only if everything passes.
 Ref: is-there-an-open-source-CodeRabbit-or-Graphite.md L84 (Bors-NG)
+- [pending] P2 — Capability parity harness vs GitHub baseline — Systematic compare of our feature set vs GitHub's baseline (research dossiers); flag any area below baseline — 'if we're not exceeding GitHub, we're failing'. Extends the parity gate's competitor mode into a running dashboard.
 - [pending] P3 — Post-submission roadmap — R2 asset tier, Agent Office integration, fork community, Clef RL fine-tune track
 - [pending] P3 — Law 8: ambient capability + GitLens-class parity (demo COULD) — GitLens-class parity surfaced in context - discoverable in place, never buried in tabs, SPA-like continuity with no tab explosion.
 Ref: engineering-laws.md law 8; demo-scope.md COULD (GitLens-class parity)

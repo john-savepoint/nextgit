@@ -62,6 +62,9 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const batchDir = `${root}/porting/runs/batch-${ts}`;
   mkdirSync(batchDir, { recursive: true });
+  // Parity baseline: the commit BEFORE the batch ran. The almost-last gate compares against it.
+  let preBatchCommit = "";
+  try { preBatchCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", timeout: 10000 }).trim(); } catch { }
 
   // --- queue (DB preferred; md fallback on a store fault) --------------------
   const { source: queueSource, rows } = readQueueRows(root);
@@ -113,6 +116,24 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
   // picks that never ran (batch stopped early) must not hold leases
   for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
 
+  // --- PARITY GATE (almost last): did this batch LOSE anything vs the pre-batch state? -----
+  // Principle (John, 2026-10-06): every build must do MORE than the one before, never less.
+  // Declared removals pass; adequate tests substitute for manual comparison; else it blocks.
+  const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
+  let parity = null;
+  if (preBatchCommit && results.some((r) => r.verdict === "GREEN")) {
+    const pRaw = await agent(
+      `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
+      `Pre-batch commit: ${preBatchCommit}. Run \`git diff --stat ${preBatchCommit}\` and \`git diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
+      `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
+      `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
+      `Return ONLY {verdict, shipBlockers, highs, notes}.`,
+      { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
+    ).wait();
+    parity = normalizeVerdict("parity", pRaw);
+    writeFileSync(`${batchDir}/gate-parity.md`, JSON.stringify(parity, null, 2));
+  }
+
   // --- merged gate (v1: sequential workspace; this gate sees the union) ------
   // Fail-closed like every per-order gate: a merged return is RAW INPUT, not a verdict —
   // an incoherent {verdict:"SHIP", shipBlockers:[…]} must not read ALL GREEN (v3.2).
@@ -127,8 +148,9 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
   const merged = normalizeVerdict("merged", mergedRaw);
   writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
 
-  const next = results.some((r) => r.verdict !== "GREEN") || merged.verdict !== "SHIP" ? "BLOCKED — see per-order results + gate-merged.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
-  const report = { batch: ts, queueSource, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, next };
+  const parityBlocked = parity !== null && parity.verdict !== "SHIP";
+  const next = results.some((r) => r.verdict !== "GREEN") || merged.verdict !== "SHIP" || parityBlocked ? "BLOCKED — see per-order results + gate-merged.md + gate-parity.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
+  const report = { batch: ts, queueSource, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, parity, next };
   writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
   log(`batch ${ts}: ${next}`);
   return report;

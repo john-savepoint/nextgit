@@ -63,6 +63,7 @@ export const DEFAULT_AGENTS = {
 export const SKILL_HINTS = {
   plan: "writing-plans + security-design-review (STRIDE for scoping)",
   implement: "workers-best-practices + typescript-professional (+ cloudflare when a bound product is touched)",
+  healApply: "workers-best-practices + typescript-professional",
   verify: "verification-before-completion (+ full-output-enforcement: report EVERY failure line)",
   healResearch: "systematic-debugging + receiving-code-review",
   mergedGate: "typescript-professional + concurrency-pro",
@@ -71,6 +72,8 @@ export const SKILL_HINTS = {
     quality: "typescript-professional + concurrency-pro",
     "spec-fit": "bmad-review (pin the edge-case + verification-gap lenses)",
     compliance: "compliance (web-analytics when tracking/consent surfaces are touched)",
+    parity: "git-pro (range-diff for lost behavior)",
+    ux: "impeccable + design-taste-frontend + accessibility-pro (pick one per run) + stitch-design (Open Design Bridge: catalogue → Stitch MCP render; for brand-grade/demo surfaces)",
   },
 };
 
@@ -250,7 +253,10 @@ export async function runWorkOrder(order, opts = {}) {
       agent(
         `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
         `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).` +
-        (SKILL_HINTS.lens[lens] ? ` Apply: ${SKILL_HINTS.lens[lens]}.` : "") + "\n" +
+        (SKILL_HINTS.lens[lens] ? ` Apply: ${SKILL_HINTS.lens[lens]}.` : "") +
+        (lens === "parity"
+          ? " PARITY semantics: compare the current tree against the batch base — list any behavior, file, endpoint, capability, or output REMOVED or weakened. A removal blocks UNLESS this order's scope/acceptance declares it (intentional replacement) or an adequate covering test still passes (tests substitute for manual comparison); with neither, it is a ship-blocker. The rule is: this build must be ≥ the previous build. Competitor mode: compare against the GitHub baseline feature list in the research dossiers."
+          : "") + "\n" +
         `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
         `Do NOT write files — the runner records your verdict. Return ONLY the object {lens, verdict, shipBlockers, highs, mediums, notes} (objects only, no arrays, no prose).`,
         { agent: lensAgent(lens), label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA },
@@ -293,7 +299,7 @@ export async function runWorkOrder(order, opts = {}) {
 
     writeState("heal", { healRound: heals });
     await agent(
-      `HEAL apply round ${heals} for ${order.id}. Read ${runDir}/heal-${heals}-research.md and the gate reports; apply the minimal fixes.\n` +
+      `HEAL apply round ${heals} for ${order.id}. Read ${runDir}/heal-${heals}-research.md and the gate reports; apply the minimal fixes. Skills: ${SKILL_HINTS.healApply}.\n` +
       `Group by file; ONE writer per file per wave; <=10 files; fix only what the findings name. Run ${order.testCmd} after the wave.\n` +
       `Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
       { agent: ag.healApply, label: `heal:${order.id}:${heals}` },

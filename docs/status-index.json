@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T05:10:44.194Z",
-  "head": "21dc2ff",
+  "generatedAt": "2026-10-06T05:24:25.299Z",
+  "head": "7970c64",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -10,9 +10,9 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 510,
+    "total": 511,
     "byStatus": {
-      "pending": 453,
+      "pending": 454,
       "done": 56,
       "partial": 1
     },
@@ -1901,6 +1901,11 @@
         "status": "pending",
         "priority": "P2",
         "title": "Batch merge bot: temp branch, full CI, push only if green"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Capability parity harness vs GitHub baseline"
       },
       {
         "status": "pending",
