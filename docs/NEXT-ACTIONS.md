@@ -3,10 +3,8 @@
 > Derived from porting/tasks.db via bun porting/tasks.mjs — never edit by hand; starting fresh? Read docs/STATE.md then docs/CHECKPOINT.md.
 
 - [pending] P0 — Demo scenario reset + fresh real-agent fleet — run `seed.mjs` → `real-agents.mjs` for a pristine 4-pending state; acceptance: `/proposals` = 4 real proposals, ≥1 conflict, intents present
-- [pending] P0 — Video script + storyboard — the 5–10 min narrative: agents work → collision → judge chips → one click lands → done; acceptance: script reviewed by John before recording
 - [pending] P0 — Record + edit the submission video — capture the live platform end-to-end (reset first); acceptance: 5–10 min video ready to submit
 - [pending] P0 — Submission package — OSI LICENSE + README + run instructions + repo curation + eligibility resolution; acceptance: every submission requirement checked off; entry filed
-- [pending] P0 — Land hardening: reviewed heads + base-moved preconditions + evidence record (AD-3) — Additive request fields for reviewed base/proposal heads (409 stale on mismatch); re-read base head after clone (409 base-moved); landing records ancestor + heads + foldHash and returns the commit as the evidence reference; contract bump first; includes the AD-9 demo allowlist + edge rate limits on /land.
 - [pending] P0 — Write epics and stories (bmad-create-epics-and-stories) — Turn the PRD + registry into the buildable epic/story set; stories feed the store as schedulable items.
 - [pending] P0 — Demo beat: visibly outrun the 90s poll baseline — Contract H6 requires the demo to visibly beat Agent Office's 90s polling; add an on-screen timing comparison (push latency vs the 90s poll reference) so the difference is legible to judges.
 Ref: interface-contract.md What Agent Office lacks (H6); demo-scope.md story step 3
@@ -885,8 +883,10 @@ Ref: is-there-an-open-source-CodeRabbit-or-Graphite.md L23, L64 (Jujutsu jj)
 - [done] P0 — Wire the Clef judge layer — add `"ai"` binding + `POST /judge` to the worker; put risk score + intent-vs-diff verification + semantic-collision chips on proposal cards; acceptance: chips render from live Clef answers in-browser; check: curl `/proposals` shows judge fields + the page renders them (ideas 1-4 in docs/judge-layer-ideas.md)
 - [done] P0 — Write the PRD (bmad-prd) — product requirements for platform + demo + submission, built from SPEC + dossiers; acceptance: PRD lands under `_bmad-output/planning-artifacts/` and upstream SPEC re-derives clean
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
+- [done] P0 — Video script + storyboard — the 5–10 min narrative: agents work → collision → judge chips → one click lands → done; acceptance: script reviewed by John before recording
 - [done] P0 — Judge-layer research + live proof — Clef verified callable 2026-10-05; 36 ideas recorded in `docs/judge-layer-ideas.md`
 - [done] P0 — Contract-pin /judge shapes + card signals before the judge wave (AD-8) — Pin request kinds, response envelope (setId/modelId), error cases, and the three card-chip fields in platform/CONTRACT.md before the judge wave ships; no undocumented shape reaches a producer or consumer; contract-first is a gate (spine AD-8).
+- [done] P0 — Land hardening: reviewed heads + base-moved preconditions + evidence record (AD-3) — Additive request fields for reviewed base/proposal heads (409 stale on mismatch); re-read base head after clone (409 base-moved); landing records ancestor + heads + foldHash and returns the commit as the evidence reference; contract bump first; includes the AD-9 demo allowlist + edge rate limits on /land.
 - [done] P0 — Workspace fan-out: one command creates N forks with scoped tokens (demo MUST) — Provision N isolated Artifacts forks of the baseline in one command, each minted a repo-scoped write token, so concurrent agents work without stepping on each other. N=4 proven live 2026-10-03.
 Ref: SPEC.md CAP-1; demo-scope.md MUST map; platform/scripts/fanout.mjs:1-40
 - [done] P0 — Independent-push events: every fork push emits a platform event — Each workspace accepts pushes independently and every push emits an event (repo.pushed etc.) consumed from Queue nextgit-events and persisted to the KV feed.

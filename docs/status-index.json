@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T13:36:57.395Z",
-  "head": "6d355b4",
+  "generatedAt": "2026-10-06T14:32:34.449Z",
+  "head": "3dc77a0",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 511,
     "byStatus": {
-      "pending": 452,
-      "done": 58,
+      "pending": 450,
+      "done": 60,
       "partial": 1
     },
     "items": [
@@ -25,22 +25,12 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Video script + storyboard"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Record + edit the submission video"
       },
       {
         "status": "pending",
         "priority": "P0",
         "title": "Submission package"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Land hardening: reviewed heads + base-moved preconditions + evidence record"
       },
       {
         "status": "pending",

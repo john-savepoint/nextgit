@@ -1,6 +1,6 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (judge layer + land hardening SHIPPED (contract-pinned; concurrency-safe /land; probe green on deployed `69b59673`); video script written (await John's review); masked-write-back corruption repaired + model config restored to deepseek; next: demo chain — scenario reset + secret fixture)
+**Last updated:** 2026-10-06 (SESSION CLOSE-OUT — demo reset to recording-ready: fresh fleet + secret-skip live, demo-verify 25/25; judge + land waves shipped and closed; corruption repaired; models restored to deepseek; PRD shipped by the parallel agent (`1e58c50`); remaining work queued for handoff: record video (after John's script review), poll-beat, fleet-scale, submission package)
 **Branch:** `main` · **Last commit:** `2cb2864` (brief finalize + eligibility resolution; v3 machinery in `1619073`)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `node porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (ALL PASS, exit 0) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
@@ -18,14 +18,14 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 
 | Subsystem | State | Evidence / next |
 |---|---|---|
-| Platform worker (`platform/src/index.ts`) | shipped | live: `/health /changes /proposals /merge /land /events`; latest deploy 2026-10-05 (tour version). Next: add `AI` binding + `/judge` (queue P0) |
+| Platform worker (`platform/src/index.ts`) | shipped | live: `/health /changes /proposals /merge /land /judge /events`; deploys: `69b59673` (land hardening; judge `0518de12`); land hardening: 409 stale/base-moved + evidence record |
 | Triage UI + tour (`platform/ui/`) | shipped | live at `/` and `/tour.html`; click-to-land verified in real browser; landed-state via `landing.status` |
-| Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` (lands or refuses) — reproducible two-command demo |
-| Real agent fleet | working (2 CLIs) | omp + codex verified producing real proposals; claude/gemini/opencode need logins (standing reds, John) |
+| Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` · `secret-fixture.mjs` (agent-5 secret fixture) · `demo-verify.mjs` (canonical live-state check, 25/25) — reproducible reset + pre-recording gate |
+| Real agent fleet | fresh + recording-ready | 4 omp agents live (2026-10-06 reset), all-pending with intents + collision; claude/gemini/opencode remain unauth (standing reds, John) |
 | Judge layer (Clef) | wired + live | `POST /judge` live (pinned envelope; egress masking; fail-closed 503); chips render in-browser on agent-1/2/4; skipped/landed render none (2026-10-06); suite `porting/tests/judge.test.mjs` 73/73 |
 | State spine + loop | shipped | task store `porting/tasks.db` (SQLite/WAL/claims; CLI `bun porting/tasks.mjs`; `NEXT-ACTIONS.md` derived) — **506 rows, registry populated**; runner v3 specialist routing (self-test GREEN — `porting/runs/wf-v3-selftest/`); claim-safe batches; tests `porting/tests/{normalize,tasks}.test.mjs` |
 | Architecture spine | shipped | 15 ADs at `_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/`; lint 0; 4-lens gate (`reviews/`); live HIGH fixes `d0d8b17`; governs every unit below |
-| Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief FINAL ✓ (polish applied 2026-10-06); ux-designs landed ✓ (partial — key-screen mock + 4 LIVE conflicts await John); PRD + epics pending (queue) |
+| Planning artifacts | mixed | SPEC ✓; architecture spine ✓ (15 ADs); brief FINAL ✓; PRD ✓ (`1e58c50` — FR-1..47, M1–M4); ux-designs ✓ (partial — 4 LIVE conflicts await John); epics pending (parallel agent) |
 | Submission package | not started | video + README + LICENSE + repo curation (eligibility resolved 2026-10-06) — queue P0/P1 |
 
 ## Standing red set (pre-existing, owned)
