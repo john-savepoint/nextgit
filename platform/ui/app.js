@@ -18,6 +18,10 @@ const state = {
   confirmingRepo: null,  // repo in inline confirmation state
   lastEventSeenAt: null, // timestamp/id of newest event seen
   debounceRefreshTimer: null, // timer for event-triggered refresh
+  judgeData: null,        // repo -> advisory judgment from /judge (setId v1)
+  judgeSignature: null,   // payload signature the last judge call answered
+  judgeLastAttempt: 0,    // ms clock of the last judge attempt (cheap-path throttle)
+  judgeInFlight: false,   // a judge request is in flight
 };
 
 // UI Selectors
@@ -170,10 +174,60 @@ async function loadProposals() {
     state.lastError = null;
     state.lastSyncTime = new Date();
     renderProposalsView();
+    maybeJudge(); // advisory layer — unawaited, never blocks the render
   } catch (err) {
     state.connectionError = true;
     state.lastError = err.message || "Failed to fetch /proposals";
     renderConnectionState();
+  }
+}
+
+/**
+ * Advisory judge layer (setId v1): at most one /judge call per payload change
+ * AND per JUDGE_MIN_INTERVAL_MS. Failures are silent — a judge outage must
+ * never color the connection state or block landing.
+ */
+const JUDGE_MIN_INTERVAL_MS = 30000;
+
+function judgeSignatureOf(data) {
+  return JSON.stringify({ base: data?.base, ref: data?.ref, proposals: data?.proposals });
+}
+
+async function maybeJudge() {
+  const data = state.proposalsData;
+  if (!data || state.judgeInFlight) return;
+  const signature = judgeSignatureOf(data);
+  if (signature === state.judgeSignature) return;
+  const now = Date.now();
+  if (now - state.judgeLastAttempt < JUDGE_MIN_INTERVAL_MS) return;
+
+  const repos = (data.proposals || []).map((p) => p.repo).slice(0, 16);
+  if (!repos.length) {
+    state.judgeData = {};
+    state.judgeSignature = signature;
+    renderProposals();
+    return;
+  }
+
+  state.judgeInFlight = true;
+  state.judgeLastAttempt = now;
+  try {
+    const result = await fetchJson("/judge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        setId: "v1",
+        target: { base: data.base?.repo || "demo", repos, refs: [data.ref || "main"] },
+      }),
+    });
+    state.judgeData = Object.fromEntries((result.judgments || []).map((j) => [j.repo, j]));
+    state.judgeSignature = signature;
+    renderProposals();
+  } catch {
+    // Silent by design: chips are advisory; the signature stays untouched so a
+    // later refresh retries.
+  } finally {
+    state.judgeInFlight = false;
   }
 }
 
@@ -399,6 +453,48 @@ function renderConflicts() {
 }
 
 /**
+ * Advisory judge chips for one proposal card (setId v1 vocabulary).
+ * Renders nothing when there is no judgment (never judged / skipped) or when
+ * the card is landed — a landed card never wears stale chips.
+ */
+function judgeChipsHtml(repo, isLanded) {
+  const judgment = state.judgeData ? state.judgeData[repo] : null;
+  if (!judgment || isLanded) return "";
+
+  const chips = [];
+  const risk = judgment.risk || {};
+  if (risk.label) {
+    const riskClass =
+      risk.label === "routine" ? "badge-clean" : risk.label === "senior-security" ? "badge-red" : "badge-amber";
+    chips.push(
+      `<span class="badge ${riskClass}" title="risk score ${escapeHtml(risk.score)}"><span class="chip-label">risk:</span> ${escapeHtml(risk.label)}</span>`,
+    );
+  }
+
+  const intent = judgment.intent || {};
+  if (intent.verdict) {
+    const intentClass =
+      intent.verdict === "supports" ? "badge-clean" : intent.verdict === "contradicts" ? "badge-red" : "badge-neutral";
+    const intentLabel =
+      intent.verdict === "supports" ? "intent verified" : intent.verdict === "contradicts" ? "intent mismatch" : "insufficient";
+    chips.push(`<span class="badge ${intentClass}">${intentLabel}</span>`);
+    if (intent.overclaim != null) {
+      chips.push(
+        `<span class="judge-overclaim" title="overclaim probability">overclaim ${escapeHtml(intent.overclaim)}</span>`,
+      );
+    }
+  }
+
+  if (judgment.collision === true) {
+    chips.push(
+      `<span class="badge badge-amber" title="semantic collision — same behavior as another proposal (distinct from the diff3 conflict map)">soft collision</span>`,
+    );
+  }
+
+  return chips.join("");
+}
+
+/**
  * Render Proposals Grid
  */
 function renderProposals() {
@@ -500,6 +596,7 @@ function renderProposals() {
         <div class="${cardClasses}" id="card-${repo}">
           <div class="proposal-card-header">
             <span class="proposal-repo-title">${repo}</span>
+            <div class="proposal-badges">${judgeChipsHtml(p.repo, isLanded)}</div>
             <div class="proposal-actions">
               ${actionButtonsHtml}
             </div>

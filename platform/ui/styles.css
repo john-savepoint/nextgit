@@ -611,6 +611,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 0.5rem;
@@ -619,6 +620,22 @@ html, body {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--accent-blue);
+}
+.proposal-badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.proposal-badges .chip-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+.judge-overclaim {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
 }
 .proposal-actions {
   display: flex;

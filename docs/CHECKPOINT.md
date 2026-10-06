@@ -2,6 +2,12 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-06 — Judge wave GREEN: Clef wired, chips live (first-pass, 0 heals)
+**Shipped:** `platform/src/judge.ts` + `/judge` route (six seams in `index.ts`), `AI` binding (`wrangler.jsonc`), UI judge chips (`app.js` / `styles.css`, 30s maybeJudge throttle), contract suite `porting/tests/judge.test.mjs`. Deployed via lockfile-pinned wrangler (Version `0518de12`). Live verified: `POST /judge` → pinned envelope (`model: @cf/cloudflare/clef`; agent-1/2/4 judged; agent-3 skipped `empty-change-set`); masking law on all egress; fail-closed 503 suite (wrong/absent model, schema matrix); untrusted-content delimiters + AD-4 scrub.
+**Verification:** gate lenses quality · spec-fit · security — **SHIP, 0 heals**; suite 73/73; six-route smoke clean; deployed assets byte-identical; **orchestrator browser pass**: chips render live — `RISK: focused · intent verified · overclaim 0.14–0.30` (agent-1/2/4), **none on landed agent-3** (correct skip semantics), zero console errors, ~7 s from load. Evidence: `porting/runs/wire-the-clef-judge-layer/`.
+**Carries:** live Clef takes `questions` as a **map** (worker adapts; route surface unchanged) · model echo arrives as bare `clef` → normalized before the pinned-echo check · risk scores jitter ±0.4 across identical calls (sampling — for the judge-calibration task) · live secret-class skip path is suite-covered only (fleet has no secret-class repo today).
+**Next:** land-hardening (AD-3 — concurrency-safe `/land`, contract bump first) — dispatched. Video script storyboard — dispatched in parallel.
+
 ## 2026-10-06 — judge-contract-pin GREEN (first order on the store queue)
 **Shipped:** `platform/CONTRACT.md` +47/−0 — new `## POST /judge` (:86) + `### Card-signal vocabulary (setId v1)` (:123): request `{setId, target{base,repos,refs}}` (closed schema — caller state/questions prohibited; server-side state assembly; AD-4 masking on all egress; secret-class paths enter as key names only); response `{ok,setId,model,judgments[],skipped[]}` with pinned `@cf/cloudflare/clef` (mismatch/absent ⇒ 503, fail closed); errors 400/503/429/500; skip reasons `secret-class | empty-change-set`; advisory-only ("the judge advises; code decides").
 **Gate:** quality · spec-fit · security — all **SHIP, 0 heals** (first pass). Evidence: `porting/runs/judge-contract-pin/`.

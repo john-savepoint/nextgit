@@ -16,11 +16,21 @@
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
 import { mintWriteToken, pushLand, type LandFile } from "./land";
+import {
+  JUDGE_SET_ID,
+  PINNED_MODEL_ID,
+  MODEL_SELECTOR,
+  buildJudgeRequest,
+  validateJudgeResponse,
+  judgeRateAllow,
+  type JudgeRepoInput,
+} from "./judge";
 
 interface Env {
   ARTIFACTS: Artifacts;
   LIVE: KVNamespace;
   ASSETS: Fetcher;
+  AI: Ai;
 }
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
@@ -684,6 +694,10 @@ const MAX_LAND_REPOS = 16;
 /** Repo names are used in a remote path, so keep them to a safe charset. */
 const REPO_NAME_RE = /^[A-Za-z0-9._-]+$/;
 
+// Refs go into a remote refspec; reject anything that could forge one. A
+// `..` segment would escape the branch namespace on the push.
+const REF_RE = /^[\w./-]+$/;
+
 function badRequest(error: string): Response {
   return Response.json({ ok: false, error }, { status: 400 });
 }
@@ -711,11 +725,8 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
     repos.push(r);
   }
   if (!REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
-  // Refs go into a remote refspec; reject anything that could forge one. A
-  // `..` segment would escape the branch namespace on the push.
-  const refRe = /^[\w./-]+$/;
   for (const r of [ref, baseRef]) {
-    if (!refRe.test(r) || r.includes("..") || r.startsWith("/") || r.endsWith("/")) {
+    if (!REF_RE.test(r) || r.includes("..") || r.startsWith("/") || r.endsWith("/")) {
       return badRequest(`invalid ref: ${JSON.stringify(r)}`);
     }
   }
@@ -807,6 +818,128 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// POST /judge — typed advisory judgments for a target set of proposals (AD-11).
+// Advisory only: the route writes nothing and lands nothing.
+// ---------------------------------------------------------------------------
+
+const MAX_JUDGE_REPOS = 16; // the platform's per-request repo cap
+
+/** Judge error bodies are exactly { ok, error } — no message sentences. */
+function judgeError(error: "bad-request" | "unknown-set" | "judge-unavailable", status: number): Response {
+  return Response.json({ ok: false, error }, { status });
+}
+
+function judgeUnavailable(): Response {
+  return judgeError("judge-unavailable", 503);
+}
+
+interface JudgeRequestBody {
+  setId?: unknown;
+  target?: unknown;
+}
+
+interface JudgeTargetBody {
+  base?: unknown;
+  repos?: unknown;
+  refs?: unknown;
+}
+
+function parseJudgeBody(raw: unknown): { base: string; repos: string[]; ref: string } | Response {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return judgeError("bad-request", 400);
+  const body = raw as JudgeRequestBody;
+  if (!Object.keys(body).every((k) => k === "setId" || k === "target")) return judgeError("bad-request", 400);
+
+  const setId = body.setId;
+  if (typeof setId !== "string" || !setId) return judgeError("bad-request", 400);
+  if (setId !== JUDGE_SET_ID) return judgeError("unknown-set", 400);
+
+  if (!body.target || typeof body.target !== "object" || Array.isArray(body.target)) {
+    return judgeError("bad-request", 400);
+  }
+  const target = body.target as JudgeTargetBody;
+  if (!Object.keys(target).every((k) => k === "base" || k === "repos" || k === "refs")) {
+    return judgeError("bad-request", 400);
+  }
+
+  const base = target.base === undefined ? "demo" : target.base;
+  if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return judgeError("bad-request", 400);
+
+  const requested = target.repos;
+  if (!Array.isArray(requested) || !requested.length || requested.length > MAX_JUDGE_REPOS) {
+    return judgeError("bad-request", 400);
+  }
+  const repos: string[] = [];
+  for (const name of requested) {
+    if (typeof name !== "string" || !REPO_NAME_RE.test(name)) return judgeError("bad-request", 400);
+    if (repos.includes(name)) return judgeError("bad-request", 400);
+    repos.push(name);
+  }
+
+  // v1 accepts exactly one ref: base and proposals are read at it.
+  const refs = target.refs === undefined ? ["main"] : target.refs;
+  if (!Array.isArray(refs) || refs.length !== 1) return judgeError("bad-request", 400);
+  const ref = refs[0];
+  if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+    return judgeError("bad-request", 400);
+  }
+  return { base, repos, ref };
+}
+
+async function handleJudge(request: Request, env: Env): Promise<Response> {
+  const parsed = parseJudgeBody(await request.json().catch(() => null));
+  if (parsed instanceof Response) return parsed;
+
+  const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!judgeRateAllow(caller)) return Response.json({ ok: false, error: "rate-limited" }, { status: 429 });
+  if (!env.AI || typeof env.AI.run !== "function") return judgeUnavailable();
+
+  const skipped: Array<{ repo: string; reason: "secret-class" | "empty-change-set" }> = [];
+  const judged: JudgeRepoInput[] = [];
+  for (const name of parsed.repos) {
+    // The same fork-point reads /proposals uses, with texts for the fold below.
+    const changeSet = await computeChangeSet(env, parsed.base, parsed.ref, name, parsed.ref, { includeTexts: true });
+    if (changeSet.files.some((f) => isSecretPath(f.path))) {
+      // Secret-class content cannot enter state: the repo is listed by name only.
+      skipped.push({ repo: name, reason: "secret-class" });
+      continue;
+    }
+    // The fold /proposals reads as `landed`: zero files means nothing to judge.
+    const fold = await computeMerge(env, parsed.base, parsed.ref, [name], parsed.ref);
+    if (fold.files.length === 0) {
+      skipped.push({ repo: name, reason: "empty-change-set" });
+      continue;
+    }
+    judged.push({ repo: name, intent: changeSet.files.find((f) => f.intent)?.intent, files: changeSet.files });
+  }
+
+  if (judged.length === 0) {
+    // Nothing to ask: the pinned model requires at least one question, and no
+    // model was served — the envelope echoes the pinned id without a call.
+    return Response.json({ ok: true, setId: JUDGE_SET_ID, model: PINNED_MODEL_ID, judgments: [], skipped });
+  }
+
+  const { state, questions, plan } = buildJudgeRequest(judged, isSecretPath);
+  const raw = await env.AI.run(PINNED_MODEL_ID, { model: MODEL_SELECTOR, state, questions }).catch(() => null);
+  const validated = validateJudgeResponse(raw, plan);
+  if (!validated.ok) {
+    console.log("judge-unavailable", JSON.stringify({ reason: validated.reason }));
+    return judgeUnavailable();
+  }
+  // Content-free log: counts only — never state, answers, or repo content.
+  console.log(
+    "judge",
+    JSON.stringify({ setId: JUDGE_SET_ID, model: validated.model, judged: judged.length, skipped: skipped.length }),
+  );
+  return Response.json({
+    ok: true,
+    setId: JUDGE_SET_ID,
+    model: PINNED_MODEL_ID,
+    judgments: validated.judgments,
+    skipped,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -848,6 +981,10 @@ export default {
 
       if (url.pathname === "/land" && request.method === "POST") {
         return await handleLand(request, env);
+      }
+
+      if (url.pathname === "/judge" && request.method === "POST") {
+        return await handleJudge(request, env);
       }
 
       if (url.pathname === "/events" && request.method === "GET") {

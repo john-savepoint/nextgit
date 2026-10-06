@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T05:24:25.299Z",
-  "head": "7970c64",
+  "generatedAt": "2026-10-06T05:49:50.135Z",
+  "head": "b32bb3c",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,16 +12,11 @@
   "queue": {
     "total": 511,
     "byStatus": {
-      "pending": 454,
-      "done": 56,
+      "pending": 453,
+      "done": 57,
       "partial": 1
     },
     "items": [
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Wire the Clef judge layer"
-      },
       {
         "status": "pending",
         "priority": "P0",
