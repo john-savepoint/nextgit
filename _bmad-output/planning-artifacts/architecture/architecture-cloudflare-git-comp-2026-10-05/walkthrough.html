@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NextGit — Architecture Walkthrough</title>
+<style>
+  :root {
+    --bg: #0a0e14; --panel: #0d1219; --border: #1c2430; --ink: #e6edf3; --ink2: #9aa7b4; --ink3: #5c6b7a;
+    --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --new: #bc8cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.65 var(--sans); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+  header { padding: 64px 0 40px; border-bottom: 1px solid var(--border); }
+  .badge { display: inline-block; font: 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+           color: var(--accent); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+  h1 { font-size: clamp(28px, 4vw, 44px); line-height: 1.15; margin: 20px 0 12px; font-weight: 650; letter-spacing: -0.01em; }
+  .paradigm { font-family: var(--mono); color: var(--ink2); font-size: 15px; max-width: 72ch; }
+  .meta { margin-top: 18px; font: 12px/1.7 var(--mono); color: var(--ink3); }
+  section { padding: 56px 0 8px; }
+  h2 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink3); font-weight: 600; margin: 0 0 22px; font-family: var(--mono); }
+  .cards3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .card p { margin: 0; color: var(--ink2); font-size: 13.5px; }
+  .tag { font: 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; border-radius: 999px; padding: 4px 9px; margin-left: 8px; vertical-align: 1px; }
+  .tag.adopted { color: var(--ok); border: 1px solid #1d3c26; }
+  .tag.new { color: var(--new); border: 1px solid #3a2d52; }
+  /* step-through */
+  .stepper { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .step-body { padding: 26px 28px; min-height: 128px; }
+  .step-body .k { font: 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .step-body h3 { margin: 12px 0 8px; font-size: 19px; }
+  .step-body p { margin: 0; color: var(--ink2); max-width: 70ch; }
+  .step-nav { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-top: 1px solid var(--border); background: #0b0f15; }
+  button { background: #131a23; color: var(--ink); border: 1px solid var(--border); border-radius: 7px; padding: 8px 14px; font: 13px var(--sans); cursor: pointer; }
+  button:hover { border-color: var(--ink3); }
+  button:disabled { opacity: .35; cursor: default; }
+  .dots { display: flex; gap: 6px; margin-left: auto; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #1e2836; }
+  .dot.on { background: var(--accent); }
+  /* AD explorer */
+  .filters { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .chip { font: 12px var(--mono); padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--ink2); }
+  .chip.on { border-color: var(--accent); color: var(--accent); }
+  .ad { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; }
+  .ad summary { cursor: pointer; padding: 15px 20px; display: flex; align-items: baseline; gap: 10px; list-style: none; }
+  .ad summary::-webkit-details-marker { display: none; }
+  .ad[open] summary { border-bottom: 1px solid var(--border); }
+  .ad .num { font: 12px var(--mono); color: var(--ink3); }
+  .ad .title { font-size: 14.5px; font-weight: 600; }
+  .ad .fields { padding: 16px 20px 18px; display: grid; gap: 10px; }
+  .field { display: grid; grid-template-columns: 88px 1fr; gap: 12px; font-size: 13.5px; }
+  .field b { font: 11px/1.9 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); font-weight: 600; }
+  .field span { color: var(--ink2); }
+  /* gate */
+  .lens { border-left: 3px solid var(--border); }
+  .lens.bad { border-left-color: var(--bad); } .lens.warn { border-left-color: var(--warn); } .lens.ok { border-left-color: var(--ok); }
+  .timeline { list-style: none; margin: 22px 0 0; padding: 0; counter-reset: t; }
+  .timeline li { position: relative; padding: 0 0 22px 34px; counter-increment: t; }
+  .timeline li::before { content: counter(t); position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%;
+    background: #131a23; border: 1px solid var(--border); font: 11px/20px var(--mono); text-align: center; color: var(--ink2); }
+  .timeline li::after { content: ""; position: absolute; left: 11px; top: 26px; bottom: 4px; width: 1px; background: var(--border); }
+  .timeline li:last-child::after { display: none; }
+  .timeline h4 { margin: 0 0 4px; font-size: 14px; }
+  .timeline p { margin: 0; color: var(--ink2); font-size: 13.5px; max-width: 70ch; }
+  .mono { font-family: var(--mono); font-size: 12.5px; color: var(--ink2); }
+  /* stack + lists */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); font-weight: 600; }
+  td { color: var(--ink2); } td:first-child { color: var(--ink); }
+  .cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 16px; }
+  .cols2 h3 { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); margin: 0 0 12px; font-family: var(--mono); }
+  .cols2 ul { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 13.5px; }
+  .cols2 li { margin-bottom: 8px; }
+  footer { margin-top: 72px; padding-top: 28px; border-top: 1px solid var(--border); font: 12px/1.9 var(--mono); color: var(--ink3); }
+  footer a { color: var(--accent); text-decoration: none; }
+  @media (max-width: 640px) { .field { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="badge">architecture spine · status final · 15 ADs</span>
+  <h1>NextGit — Architecture Walkthrough</h1>
+  <p class="paradigm">Read-mostly CQRS edge worker — one gated write path, binding-native reads, judgment delegated, convergence at set level.</p>
+  <div class="meta">15 architecture decisions · gate: rubric / adversarial / security / reality (4 parallel lenses) · 2 live HIGH fixes shipped while gating<br>
+  source of truth: <span class="mono">_bmad-output/planning-artifacts/architecture/architecture-cloudflare-git-comp-2026-10-05/ARCHITECTURE-SPINE.md</span></div>
+</header>
+
+<section>
+  <h2>The paradigm, decoded</h2>
+  <div class="cards3">
+    <div class="card"><h3>Commands — writes</h3><p>Every git write funnels through <b>one</b> gated path: <span class="mono">POST /land</span> — fold the chosen proposal set, create one commit, push. Provisioning and token minting live in the control plane (scripts → Workflows).</p></div>
+    <div class="card"><h3>Queries — reads</h3><p>Binding-native, side-effect-free, never cloning: <span class="mono">/changes</span>, <span class="mono">/proposals</span>, <span class="mono">/merge</span> preview, <span class="mono">/events</span> — all within the Workers CPU budget.</p></div>
+    <div class="card"><h3>Judgment — delegated</h3><p>Typed decisions go to Clef via one <span class="mono">/judge</span> endpoint; policy, weights, and thresholds stay in code. The judge advises; code decides; humans own irreversible acts.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>The convergence flow — step through it</h2>
+  <div class="stepper">
+    <div class="step-body" id="stepBody"></div>
+    <div class="step-nav">
+      <button id="btnPrev">← Prev</button>
+      <button id="btnNext">Next →</button>
+      <div class="dots" id="dots"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The 15 decisions — the rules every next unit builds against</h2>
+  <div class="filters">
+    <button class="chip on" data-f="all">All (15)</button>
+    <button class="chip" data-f="adopted">Adopted (12)</button>
+    <button class="chip" data-f="new">New (3)</button>
+  </div>
+  <div id="adList"></div>
+</section>
+
+<section>
+  <h2>The gate — four lenses, real catches</h2>
+  <div class="cards3">
+    <div class="card lens warn"><h3>Rubric walker</h3><p>2 HIGH · 2 MED · 5 LOW — concurrent-land race; CAP-7 evidence carrier undecided; CAP-8 reveal/scrub; contract-conformance needed a check; API-edge edge conventions.</p></div>
+    <div class="card lens warn"><h3>Adversarial</h3><p>5 HIGH + 4 MED + 3 LOW divergence pairs — two units obeying every rule yet building incompatibly. All closed as AD amendments.</p></div>
+    <div class="card lens bad"><h3>Security — FAIL</h3><p>2 live HIGHs <b>on the deployed worker</b>: a write token handed out in failure responses; shell-snippet interpolation risk. Fixed same hour, deployed, then proven.</p></div>
+    <div class="card lens ok"><h3>Reality</h3><p>Committed tech verified current; 2 corrections applied (a wrong wrangler claim in the stack, an unused dependency).</p></div>
+  </div>
+  <ol class="timeline">
+    <li><h4>Found — live, on the deployed platform</h4><p>The <span class="mono">/land</span> push-failure path returned a working write token inside a shell snippet; the snippet interpolated repo content into a command line. Real, internet-reachable, demo account.</p></li>
+    <li><h4>Fixed — same hour</h4><p>Token handout and shell snippets removed (failures now return fold artifacts only); worker-minted tokens made single-use (300 s TTL, revoked in a <span class="mono">finally</span>); the <span class="mono">land.mjs</span> replay path removed — it now delegates to <span class="mono">/land</span>.</p></li>
+    <li><h4>Deployed</h4><p>Commit <span class="mono">d0d8b17</span> → worker version <span class="mono">87958c11</span> → live smoke green.</p></li>
+    <li><h4>Proven — exercised, not assumed</h4><p>A concurrent-land race on a scratch fleet produced real push failures: <b>2 of 4 calls → 500, every failure body credential-free</b>. A read_only probe then proved the platform's <span class="mono">read_only</span> flag does <b>not</b> constrain binding-level writes — write protection must be ours (auth seam).</p></li>
+    <li><h4>Closed as rules</h4><p>All five adversarial divergence pairs folded into AD-1/3/4/5/6/8/9/10/11 (+ conventions); contract-first, evidence carriers, and the land-hardening preconditions queued as work orders.</p></li>
+  </ol>
+</section>
+
+<section>
+  <h2>Stack — pinned</h2>
+  <table>
+    <tr><th>Name</th><th>Version</th></tr>
+    <tr><td>Cloudflare Workers runtime</td><td>compat date 2026-09-01 (no nodejs_compat; in-tree fs/Buffer shims)</td></tr>
+    <tr><td>wrangler</td><td>^4.147.0 pinned; deploys use the lockfile binary, never @latest</td></tr>
+    <tr><td>Artifacts</td><td>binding ARTIFACTS · namespace nextgit (open beta)</td></tr>
+    <tr><td>Queues · KV</td><td>nextgit-events (single consumer) · LIVE (single writer)</td></tr>
+    <tr><td>Clef (Workers AI)</td><td>@cf/cloudflare/clef · clef-flash — model id pinned + logged per response</td></tr>
+    <tr><td>isomorphic-git · node-diff3 · diff</td><td>^1.43.0 (v1 wire protocol) · ^3.2.1 · ^9.0.0</td></tr>
+    <tr><td>buffer</td><td>^6.0.3 · Node ≥20 (engines pinned)</td></tr>
+  </table>
+  <div class="cols2">
+    <div class="card"><h3>Open questions</h3><ul>
+      <li>DO / Workflows / R2 introduction slices and order — scheduled as work orders (demo incorporation required).</li>
+      <li>Judge question-set v1 contents + labeled thresholds — pinned at the judge wave, contract-pinned first.</li>
+      <li>Loop runner: worktree isolation + parallel orders — v1 sequential.</li>
+      <li>Land hardening slice shape: reviewed heads + evidence object + allowlist/rate rules ship together.</li>
+    </ul></div>
+    <div class="card"><h3>Deferred (with reasons)</h3><ul>
+      <li>Game-asset internals (CDC params, locks, ACLs) — waits on the R2 tier; the first R2 slice owns the pointer format.</li>
+      <li>Federation runners (Windows/GPU) — post-competition; boundary fixed (orchestrate, never host).</li>
+      <li>Fork community + intent router — needs fleet data.</li>
+      <li>Staging/prod split + Save Point SSO wiring — arrives with the auth seam.</li>
+      <li>SSE/WebSocket live feed · data jurisdictions — at real scale / first tenant.</li>
+    </ul></div>
+  </div>
+</section>
+
+<footer>
+  NextGit · architecture spine v1 · 2026-10-06 · every claim above traces to <span class="mono">ARCHITECTURE-SPINE.md</span> and <span class="mono">reviews/</span> in the run folder.<br>
+  The spine governs the next wave: judge layer first (contract-pinned), then land hardening, the auth seam, DO/Workflows/R2 — all claim-scheduled from the task store.
+</footer>
+
+</div>
+<script>
+const AD = [
+ {n:"AD-1", t:"One gated write path", k:"adopted", b:"all worker routes; base-repo branches", p:"ad-hoc write endpoints; two writers of the same base ref; control-plane landing replays", r:"No git writes except the single-commit fold+push in POST /land; base branches written ONLY by /land; control-plane pushes limited to provisioning content and proposal repos."},
+ {n:"AD-2", t:"Binding-native reads; review never clones", k:"adopted", b:"/changes, /proposals, /merge", p:"clone-per-review cost, latency, CPU blowouts", r:"All change-set/proposal/merge reads use Artifacts binding reads within CPU budget; no read route shells out to git; the only in-memory clone lives inside /land."},
+ {n:"AD-3", t:"Fork-point semantics; reviewed-state landing; content-test verdict", k:"adopted", b:"/changes, /proposals, /merge, /land", p:"baseline-motion misreads; silent overwrites between concurrent lands; landing content no reviewer saw", r:"Diffs vs the fork point (first-parent ∩, limit 200; base-head fallback). 3-way ancestor = fork point. Zero-change fold → landed. /land accepts reviewed heads (409 stale on mismatch) and re-reads the base after clone (409 base-moved). Records ancestor + heads + foldHash."},
+ {n:"AD-4", t:"Secret masking law", k:"adopted", b:"every egress channel — responses, folds, intent, logs, model states", p:"per-endpoint leak policies; secrets escaping via patches, folds, intent, logs, or judge calls", r:"Secret-class paths render keys-only everywhere; secret rows carry no patch/intent; folds return withheld-secret; judge states are built through the masking filter; free-text channels are scrubbed. Widening is additive via CONTRACT."},
+ {n:"AD-5", t:"Provenance via the notes mirror; one pusher", k:"adopted", b:"intent plumbing; proposal-repo refs", p:"readers assuming binding-side refs/notes; competing pushers; mirror rewinds", r:"Notes push to refs/notes/commits and mirror to branch nextgit-notes in one push; readers use the mirror; the runner is the ONLY pusher; the mirror is fast-forward-only."},
+ {n:"AD-6", t:"Event and feed roles", k:"adopted", b:"Queues, KV, /events, UI freshness", p:"double consumers; duplicated feed entries; unvalidated payloads becoming platform state", r:"One consumer, the sole recorder, deduping on (type, repo, ref, after); payload validation before recording; KV has one writer; the feed is a hint, never authority."},
+ {n:"AD-7", t:"Control plane owns provisioning and tokens", k:"adopted", b:"repos, forks, tokens, scripts, Workflows", p:"write-token sprawl; agents holding credentials; unbounded token lifetimes; discovery gaps", r:"Control plane mints forks and tokens; agents never push; the worker's only push is /land. Worker tokens: minutes-scale, single-use, revoked in finally; 0600 storage; audit events; discoverability guaranteed before handoff."},
+ {n:"AD-8", t:"Single shape source; contract-first; pinned defaults", k:"adopted", b:"all routes; web UI; any adapter", p:"silent shape drift; routes shipping unregistered; private default-resolution divergence", r:"CONTRACT.md is the single shape source; additive-only; every new route/payload lands its shape in the same slice — contract-first is a gate. Identical base/ref/baseRef defaults on every route; method enforcement; unknown API paths return JSON 404."},
+ {n:"AD-9", t:"Auth seam: auth-ready, demo-open; zero credential egress", k:"new", b:"all routes; future SSO; viewership; elevated reveal", p:"auth retrofit by rewriting handlers; credential leakage; the seam staying a sentence", r:"No response ever contains tokens or credentials — failure paths included; no shell snippets with repo content. One authorize() chokepoint on every route; AUTH_MODE default deny; demo repo allowlist + rate limits; CAP-8's reveal sits behind the seam."},
+ {n:"AD-10", t:"Durable Objects, Workflows, R2 are in scope", k:"new", b:"coordination, provisioning, asset tier", p:"interim hacks conflicting with each component's arrival; unpinned shared interfaces", r:"DO = surgical expiring leases (serializes lands when it arrives); Workflows = provisioning + long flows; R2 = blob tier with manifests in Artifacts — first slice owns the pointer format; pointer files are non-diffable."},
+ {n:"AD-11", t:"Judge-layer contract (Clef)", k:"new", b:"/judge, AI binding, card chips, auto-land", p:"per-feature prompt policy; injection-driven decisions; client-side-only gates; silent judge absence", r:"One POST /judge; request {setId, target}; state assembled server-side through the masking filter; question sets versioned in code; thresholds in code; the auto-land gate is enforced inside /land and fails closed; injection spike required before enabling."},
+ {n:"AD-12", t:"Loop machinery governance", k:"adopted", b:"porting/, .omp/, the queue", p:"divergent orchestration; unverifiable done; lost state across rewinds", r:"Queue → work orders → gates. Block rule: 0 ship-blockers + 0 highs; only introduced reds block. Disk is truth; workers never commit; one writer per file per wave; contract smoke in platform verify gates."},
+ {n:"AD-13", t:"Runtime shape pinned", k:"adopted", b:"worker config, dependencies, deploy path, types", p:"runtime-shape divergence; unpinned tooling deploying with credentials; secrets in logs", r:"Single worker; compat date 2026-09-01; no nodejs_compat; pinned deps + engines; generated types regenerated on binding changes; deploys via the lockfile wrangler, never @latest; logs never carry auth headers or bodies."},
+ {n:"AD-14", t:"Client contract", k:"adopted", b:"the API surface clients render; adapters", p:"client-specific platform hacks; adapter logic leaking into the core", r:"The 11-entity protocol + the contract-pinned push-event vocabulary is THE client contract; GitHub-specific semantics are synthesized in the adapter — never in the client, never in the core."},
+ {n:"AD-15", t:"Federation boundary", k:"adopted", b:"Windows/GPU/macOS workloads", p:"hosting what Cloudflare can't; federated runners becoming rogue consumers", r:"The platform orchestrates foreign workloads and never hosts them; federated runners publish only through the worker-mediated events route and never consume the queue; the envelope is contract-pinned."}
+];
+const STEPS = [
+ {k:"step 1 · agents", t:"Agents work in their own forks", p:"Each agent edits in an isolated Artifacts fork and pushes small increments, plus a notes-mirror push carrying its intent — the runner is the only pusher."},
+ {k:"step 2 · events", t:"Pushes arrive as events", p:"Artifacts emits repo.pushed; exactly one queue consumer records it (deduped) and appends the live feed — the UI learns in seconds, not polls."},
+ {k:"step 3 · reads", t:"The platform reads everything, clones nothing", p:"Binding-native reads compute each proposal's change-set against its fork point, the cross-proposal conflict map (diff3 simulation), and each landing verdict — all inside the worker."},
+ {k:"step 4 · judgment", t:"Judgments become typed chips", p:"POST /judge sends server-assembled, masked state to Clef; typed answers (risk, intent verification, collision) render as chips — the judge advises, code decides."},
+ {k:"step 5 · the decision", t:"A human (or an agent) chooses", p:"The triage surface shows the whole set at once — one canvas, conflict map and provenance included — and one proposal (or a subset) is chosen to ship."},
+ {k:"step 6 · landing", t:"One gated command lands it", p:"POST /land checks the reviewed heads and the base head, folds at the fork point, writes ONE commit and pushes it — the only git write in the system."},
+ {k:"step 7 · the loop closes", t:"The baseline advances; the set re-reads", p:"A push event fires, the view refreshes, landed proposals collapse to nothing-pending — and the fleet keeps working against the new baseline."}
+];
+let step = 0, filter = "all";
+const adList = document.getElementById("adList");
+function renderAds(){
+  adList.innerHTML = AD.filter(a => filter === "all" || a.k === filter).map(a => `
+    <details class="ad">
+      <summary><span class="num">${a.n}</span><span class="title">${a.t}</span><span class="tag ${a.k}">${a.k}</span></summary>
+      <div class="fields">
+        <div class="field"><b>Binds</b><span>${a.b}</span></div>
+        <div class="field"><b>Prevents</b><span>${a.p}</span></div>
+        <div class="field"><b>Rule</b><span>${a.r}</span></div>
+      </div>
+    </details>`).join("");
+}
+function renderStep(){
+  const s = STEPS[step];
+  document.getElementById("stepBody").innerHTML = `<div class="k">${s.k}</div><h3>${s.t}</h3><p>${s.p}</p>`;
+  document.getElementById("btnPrev").disabled = step === 0;
+  document.getElementById("btnNext").disabled = step === STEPS.length - 1;
+  document.getElementById("dots").innerHTML = STEPS.map((_, i) => `<span class="dot${i === step ? " on" : ""}"></span>`).join("");
+}
+document.getElementById("btnPrev").onclick = () => { if (step > 0) { step--; renderStep(); } };
+document.getElementById("btnNext").onclick = () => { if (step < STEPS.length - 1) { step++; renderStep(); } };
+document.querySelectorAll(".chip").forEach(c => c.onclick = () => {
+  filter = c.dataset.f;
+  document.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+  renderAds();
+});
+renderAds(); renderStep();
+</script>
+</body>
+</html>
