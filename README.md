@@ -21,6 +21,15 @@ Built for Cloudflare's *Build the Next-Gen Git Platform on Cloudflare* competiti
 
 Requirements: Node 22+, a Cloudflare account with **Artifacts** (open beta) + Workers, and the repo's pinned `wrangler` (devDependency of `platform/`).
 
+Point the scripts at **your** account and worker — they default to the competition demo environment otherwise:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=<your-account-id>
+export NEXTGIT_PLATFORM=https://<your-worker>.workers.dev
+```
+
+(`CLOUDFLARE_API_TOKEN` is honored if set; otherwise the scripts use your `wrangler login` session.)
+
 ```bash
 # 1. deploy the platform worker (Artifacts binding + Workers AI binding)
 cd platform && npx wrangler login && npx wrangler deploy

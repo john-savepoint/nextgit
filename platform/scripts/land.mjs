@@ -13,7 +13,7 @@
 //   1  refused — conflict, withheld-secret, or no-changes (details printed)
 //   2  worker unreachable or returned an unusable response
 
-const WORKER = process.env.NEXTGIT_WORKER ?? "https://nextgit-platform.john-b7d.workers.dev";
+const WORKER = process.env.NEXTGIT_PLATFORM ?? process.env.NEXTGIT_WORKER ?? "https://nextgit-platform.john-b7d.workers.dev";
 const BASELINE = process.env.NEXTGIT_BASELINE ?? "demo";
 
 const raw = (process.argv[2] ?? "").trim();

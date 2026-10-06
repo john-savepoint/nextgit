@@ -7,6 +7,9 @@
 **Remaining submission work:** recording (after John's script review), repo curation, single-entry filing (`submission-package` / `submission-repo-location` — John + next agents).
 **Next:** John reviews the video script → record.
 
+### CORRECTIONS to the entry above
+1. **Run instructions made portable** (nit, 2026-10-06): the README now exports `CLOUDFLARE_ACCOUNT_ID` + `NEXTGIT_PLATFORM` before the run chain (a fresh runner previously hit the demo account/worker via hardcoded fallbacks); `land.mjs` was the one script with different naming (`NEXTGIT_WORKER`) and now reads `NEXTGIT_PLATFORM` first (old name still honored) — a single env pair redirects the entire script chain to a fresh account.
+
 ## 2026-10-06 — Demo scenario reset GREEN: fresh fleet + secret fixture (recording-ready)
 **Shipped:** fresh 4-real-agent fleet (omp; pushes `f401b21`/`cff80a0`/`e3be4af`/`da8b3aa`) — all pending, agent-1×agent-2 conflict on src/auth.ts, intents present; `platform/scripts/secret-fixture.mjs` (agent-5, `config/.env` fixture, idempotent); `platform/scripts/demo-verify.mjs` — the canonical live-state acceptance check (25/25 PASS; run repeatedly through the wave; one transport flake (undici fetch on the IPv6-only host) recorded — not demo state). Wave: 0 heals, 2-lens SHIP.
 **Verified live:** 5 proposals; namespace exactly {demo, agent-1..5}; agent-5 skipped as `secret-class` in `/judge` (the secret path is now LIVE-triggerable for the first time); masking law holds across /proposals, /changes, /judge (no fixture value anywhere).
