@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-06T14:32:34.449Z",
-  "head": "3dc77a0",
+  "generatedAt": "2026-10-06T14:38:33.804Z",
+  "head": "2f53214",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -10,18 +10,13 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 511,
+    "total": 512,
     "byStatus": {
-      "pending": 450,
-      "done": 60,
+      "pending": 449,
+      "done": 62,
       "partial": 1
     },
     "items": [
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Demo scenario reset + fresh real-agent fleet"
-      },
       {
         "status": "pending",
         "priority": "P0",

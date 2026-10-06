@@ -28,7 +28,7 @@ const extractCheck = (scope) => { const m = scope.match(/check:\s*(.+)$/i); retu
 // an empty store returns NO PENDING ROWS, never a silent stale-md re-read); the md parser
 // is the fallback only when the store is absent or the CLI read throws.
 export function readQueueRows(root = process.cwd()) {
-  const dbPath = `${root}/porting/tasks.db`;
+  const dbPath = process.env.TASKS_DB ?? `${root}/porting/tasks.db`;
   if (existsSync(dbPath)) {
     try {
       // execFileSync (no shell interpolation — space/metachar-safe) + a bounded wait.
@@ -56,7 +56,10 @@ export function readQueueRows(root = process.cwd()) {
   return { source: "md", rows };
 }
 
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent, agents } = {}) {
+// The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
+// spawn global that the batch-level gates below call (shadowing it crashed every batch at the
+// parity gate — `TypeError: agent is not a function`).
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume } = {}) {
   const { runWorkOrder, normalizeVerdict, SKILL_HINTS } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -71,7 +74,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
 
   // --- claim the picks (contended rows are skipped; released after running) --
   // Two sessions running batches must never pick the same row: claims are the guard.
-  const dbPath = `${root}/porting/tasks.db`;
+  const dbPath = process.env.TASKS_DB ?? `${root}/porting/tasks.db`;
   const batchAgent = `batch:${ts}`;
   const releaseRow = (id) => {
     try { execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id], { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } }); } catch { /* lease expires on its own */ }
@@ -107,7 +110,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
       corpus: DEFAULT_CORPUS.map((p) => `${root}/${p}`),
       testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
     };
-    const r = await runWorkOrder(order, { root, lenses, agent, agents });
+    const r = await runWorkOrder(order, { root, lenses, agent: agentOpt, agents, resume });
     results.push(r);
     ranIds.add(row.id);
     if (row.claimed) releaseRow(row.id);
@@ -143,7 +146,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent,
     `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
     `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
     `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
-    { agent: agents?.mergedGate ?? agent ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
+    { agent: agents?.mergedGate ?? agentOpt ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
   ).wait();
   const merged = normalizeVerdict("merged", mergedRaw);
   writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));

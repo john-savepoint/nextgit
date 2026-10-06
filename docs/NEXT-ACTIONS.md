@@ -2,7 +2,6 @@
 
 > Derived from porting/tasks.db via bun porting/tasks.mjs — never edit by hand; starting fresh? Read docs/STATE.md then docs/CHECKPOINT.md.
 
-- [pending] P0 — Demo scenario reset + fresh real-agent fleet — run `seed.mjs` → `real-agents.mjs` for a pristine 4-pending state; acceptance: `/proposals` = 4 real proposals, ≥1 conflict, intents present
 - [pending] P0 — Record + edit the submission video — capture the live platform end-to-end (reset first); acceptance: 5–10 min video ready to submit
 - [pending] P0 — Submission package — OSI LICENSE + README + run instructions + repo curation + eligibility resolution; acceptance: every submission requirement checked off; entry filed
 - [pending] P0 — Write epics and stories (bmad-create-epics-and-stories) — Turn the PRD + registry into the buildable epic/story set; stories feed the store as schedulable items.
@@ -883,6 +882,7 @@ Ref: is-there-an-open-source-CodeRabbit-or-Graphite.md L23, L64 (Jujutsu jj)
 - [done] P0 — Wire the Clef judge layer — add `"ai"` binding + `POST /judge` to the worker; put risk score + intent-vs-diff verification + semantic-collision chips on proposal cards; acceptance: chips render from live Clef answers in-browser; check: curl `/proposals` shows judge fields + the page renders them (ideas 1-4 in docs/judge-layer-ideas.md)
 - [done] P0 — Write the PRD (bmad-prd) — product requirements for platform + demo + submission, built from SPEC + dossiers; acceptance: PRD lands under `_bmad-output/planning-artifacts/` and upstream SPEC re-derives clean
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
+- [done] P0 — Demo scenario reset + fresh real-agent fleet — run `seed.mjs` → `real-agents.mjs` for a pristine 4-pending state; acceptance: `/proposals` = 4 real proposals, ≥1 conflict, intents present
 - [done] P0 — Video script + storyboard — the 5–10 min narrative: agents work → collision → judge chips → one click lands → done; acceptance: script reviewed by John before recording
 - [done] P0 — Judge-layer research + live proof — Clef verified callable 2026-10-05; 36 ideas recorded in `docs/judge-layer-ideas.md`
 - [done] P0 — Contract-pin /judge shapes + card signals before the judge wave (AD-8) — Pin request kinds, response envelope (setId/modelId), error cases, and the three card-chip fields in platform/CONTRACT.md before the judge wave ships; no undocumented shape reaches a producer or consumer; contract-first is a gate (spine AD-8).
@@ -983,6 +983,7 @@ Ref: .omp/agents.md:22 (project facts); docs/CHECKPOINT.md:41 (wrangler note); s
 Ref: docs/CHECKPOINT.md:24 (CORRECTIONS #7); commit 7ca477b; session history 2026-10-06T02:27-02:29
 - [done] P2 — Workflow v3 self-test (specialist routing) — Machinery-only self-test: five-check battery through runner v3 specialist routing; GREEN 0 heals; found 3 routing defects → v3.1.
 - [done] P2 — Agent-skill mapping (10 comparators, top-3 packs wired) — Rate skills 1-5 per routed agent; wire packs into runner SKILL_HINTS + .omp/agents.md; document aliases + plugin-cache paths.
+- [done] P2 — Batch parity machinery test (first batch-path execution) — First live execution of the batch composition path; found+fixed the agent-option shadowing bug; batch.test.mjs suite added.
 - [done] P3 — Bootstrap health sweep — first loop order: 4/4 checks green across 5+ independent reproductions; gates caught real findings (NUL injection, fictional jaq guard, two fail-opens, heal-budget bug, citation rot); all gate-required caller remedies applied (runner committed `d5f6b5b`, fail-closed, 10-case test); stale gate reports certified superseded (`porting/certifications/bootstrap-health-sweep.md`); evidence: `porting/runs/bootstrap-health-sweep/`
 - [partial] P0 — UX spec for the triage surface (bmad-ux) — canvas review flow, judge chips, land flow, recording needs; acceptance: DESIGN/EXPERIENCE docs exist and the video storyboard cites them
 
