@@ -1,0 +1,288 @@
+{
+  "generatedAt": "2026-10-06T13:35:30.759Z",
+  "slices": [
+    {
+      "id": "E1-impl",
+      "epic": "E1",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-7",
+        "NFR-8",
+        "NFR-9",
+        "UX-DR-3",
+        "UX-DR-4",
+        "UX-DR-5"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E1-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E1-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E1-impl.json"
+    },
+    {
+      "id": "E1-verify",
+      "epic": "E1",
+      "kind": "verification",
+      "reqIds": [
+        "FR-1",
+        "FR-2",
+        "FR-3",
+        "FR-4",
+        "FR-5",
+        "FR-6",
+        "FR-8"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E1-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E1-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E1-verify.json"
+    },
+    {
+      "id": "E2-verify",
+      "epic": "E2",
+      "kind": "verification",
+      "reqIds": [
+        "FR-9",
+        "FR-10",
+        "FR-11",
+        "FR-12",
+        "FR-13",
+        "NFR-1",
+        "NFR-2"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E2-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E2-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E2-verify.json"
+    },
+    {
+      "id": "E3-impl",
+      "epic": "E3",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-15",
+        "FR-16",
+        "FR-17",
+        "FR-18",
+        "FR-19",
+        "NFR-4",
+        "UX-DR-7"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E3-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E3-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E3-impl.json"
+    },
+    {
+      "id": "E3-verify",
+      "epic": "E3",
+      "kind": "verification",
+      "reqIds": [
+        "FR-14",
+        "FR-15",
+        "FR-19"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E3-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E3-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E3-verify.json"
+    },
+    {
+      "id": "E4-impl",
+      "epic": "E4",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-21",
+        "FR-22",
+        "NFR-7",
+        "UX-DR-6"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E4-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E4-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E4-impl.json"
+    },
+    {
+      "id": "E4-verify",
+      "epic": "E4",
+      "kind": "verification",
+      "reqIds": [
+        "FR-20",
+        "FR-21",
+        "FR-22"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E4-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E4-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E4-verify.json"
+    },
+    {
+      "id": "E5-impl",
+      "epic": "E5",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-26",
+        "FR-27",
+        "UX-DR-2"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E5-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E5-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E5-impl.json"
+    },
+    {
+      "id": "E5-verify",
+      "epic": "E5",
+      "kind": "verification",
+      "reqIds": [
+        "FR-23",
+        "FR-24",
+        "FR-25"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E5-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E5-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E5-verify.json"
+    },
+    {
+      "id": "E6-impl",
+      "epic": "E6",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-30",
+        "NFR-5"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E6-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E6-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E6-impl.json"
+    },
+    {
+      "id": "E6-verify",
+      "epic": "E6",
+      "kind": "verification",
+      "reqIds": [
+        "FR-28",
+        "FR-29",
+        "FR-30",
+        "FR-32",
+        "FR-33"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E6-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E6-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E6-verify.json"
+    },
+    {
+      "id": "E7-impl",
+      "epic": "E7",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-35"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E7-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E7-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E7-impl.json"
+    },
+    {
+      "id": "E7-verify",
+      "epic": "E7",
+      "kind": "verification",
+      "reqIds": [
+        "FR-34",
+        "FR-35"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E7-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E7-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E7-verify.json"
+    },
+    {
+      "id": "E8-impl",
+      "epic": "E8",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-31",
+        "FR-36",
+        "FR-45",
+        "NFR-6",
+        "UX-DR-1"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E8-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E8-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E8-impl.json"
+    },
+    {
+      "id": "E9-verify",
+      "epic": "E9",
+      "kind": "verification",
+      "reqIds": [
+        "FR-37",
+        "FR-38"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E9-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E9-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E9-verify.json"
+    },
+    {
+      "id": "E10-impl",
+      "epic": "E10",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-39",
+        "FR-41",
+        "NFR-3",
+        "NFR-10",
+        "NFR-12"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E10-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E10-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E10-impl.json"
+    },
+    {
+      "id": "E10-verify",
+      "epic": "E10",
+      "kind": "verification",
+      "reqIds": [
+        "FR-39",
+        "FR-40"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E10-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E10-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E10-verify.json"
+    },
+    {
+      "id": "E11-impl",
+      "epic": "E11",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-44",
+        "NFR-11"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E11-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E11-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E11-impl.json"
+    },
+    {
+      "id": "E11-verify",
+      "epic": "E11",
+      "kind": "verification",
+      "reqIds": [
+        "FR-42",
+        "FR-43"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E11-verify.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E11-verify.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E11-verify.json"
+    },
+    {
+      "id": "E12-impl",
+      "epic": "E12",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-47"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E12-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E12-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E12-impl.json"
+    },
+    {
+      "id": "E13-impl",
+      "epic": "E13",
+      "kind": "implementation",
+      "reqIds": [
+        "FR-46"
+      ],
+      "pack": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/packs/E13-impl.md",
+      "output": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/slices/E13-impl.json",
+      "verdict": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51/verdicts/E13-impl.json"
+    }
+  ]
+}

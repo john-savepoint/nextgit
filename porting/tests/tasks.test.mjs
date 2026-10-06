@@ -231,9 +231,41 @@ try {
   check("8 db preferred over md", pr.source === "db" && pr.rows.length === 1 && pr.rows[0].id === "db-row" && pr.rows[0].title === "Db row", JSON.stringify(pr));
 } catch (e) { check("8 case threw", false, String(e?.stack ?? e)); }
 
-// --- 9. cleanup + summary -----------------------------------------------------
+// --- 9. upsert / epic-upsert / activate (epics compiler consumer contract) ----
+try {
+  const db9 = dbFor("case9");
+  const c9 = { TASKS_DB: db9 };
+  check("9 init", run(["init"], c9).status === 0);
+  const u1 = run(["upsert", "--id", "cv-1", "--title", "First", "--status", "blocked", "--priority", "P1", "--scope", "s1", "--acceptance", "a1", "--check", "true", "--epic-id", "e1", "--fr-refs", "FR-1,FR-2", "--source", "compile:test"], c9);
+  check("9 upsert inserts", u1.status === 0 && u1.stdout.trim() === "cv-1", u1.stderr || u1.stdout);
+  const u2 = run(["upsert", "--id", "cv-1", "--title", "First renamed", "--priority", "P2", "--scope", "s1b", "--acceptance", "a1b", "--check", "true", "--epic-id", "e1", "--fr-refs", "FR-1", "--source", "compile:test"], c9);
+  check("9 upsert idempotent", u2.status === 0);
+  let rows9 = jparse(run(["list", "--json"], c9).stdout) ?? [];
+  let row9 = rows9.find((r) => r.id === "cv-1");
+  check("9 upsert updates content, preserves status", row9 && row9.title === "First renamed" && row9.priority === "P2" && row9.scope === "s1b" && row9.status === "blocked" && row9.epic_id === "e1", JSON.stringify(row9));
+  check("9 fr_refs stored", row9 && row9.fr_refs === "FR-1", JSON.stringify(row9?.fr_refs));
+  check("9 set done", run(["set", "cv-1", "--status", "done", "--evidence", "proof"], c9).status === 0);
+  run(["upsert", "--id", "cv-1", "--title", "First renamed again", "--scope", "s1c", "--source", "compile:test"], c9);
+  row9 = (jparse(run(["list", "--json"], c9).stdout) ?? []).find((r) => r.id === "cv-1");
+  check("9 upsert preserves done + evidence", row9 && row9.status === "done" && row9.evidence === "proof" && row9.title === "First renamed again", JSON.stringify(row9));
+  check("9 upsert requires id+title", run(["upsert", "--id", "x"], c9).status === 2);
+  const e1 = run(["epic-upsert", "--id", "e1", "--title", "Epic one", "--goal", "g1", "--milestone", "M1", "--source", "compile:test"], c9);
+  const e2 = run(["epic-upsert", "--id", "e1", "--title", "Epic one", "--goal", "g1b", "--milestone", "M1"], c9);
+  check("9 epic-upsert x2 exits 0", e1.status === 0 && e2.status === 0, e1.stderr + e2.stderr);
+  const epics = jparse(run(["epic-list", "--json"], c9).stdout) ?? [];
+  check("9 epic idempotent + goal updated", epics.length === 1 && epics[0].id === "e1" && epics[0].goal === "g1b" && epics[0].milestone === "M1", JSON.stringify(epics));
+  run(["upsert", "--id", "cv-2", "--title", "Second", "--status", "blocked", "--source", "compile:test"], c9);
+  run(["upsert", "--id", "cv-3", "--title", "Third", "--status", "blocked", "--source", "other"], c9);
+  const act = run(["activate", "compile:test"], c9);
+  check("9 activate count (only matching blocked)", act.status === 0 && act.stdout.trim() === "activated 1", act.stderr || act.stdout);
+  rows9 = jparse(run(["list", "--json"], c9).stdout) ?? [];
+  const st = Object.fromEntries(rows9.map((r) => [r.id, r.status]));
+  check("9 activate flips only prefix (done stays done)", st["cv-2"] === "pending" && st["cv-3"] === "blocked" && st["cv-1"] === "done", JSON.stringify(st));
+} catch (e) { check("9 case threw", false, String(e?.stack ?? e)); }
+
+// --- 10. cleanup + summary ----------------------------------------------------
 rmSync(tmp, { recursive: true, force: true });
-check("9 all temp state cleaned", !existsSync(tmp));
+check("10 all temp state cleaned", !existsSync(tmp));
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);
 

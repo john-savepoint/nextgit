@@ -1,0 +1,415 @@
+{
+  "generatedAt": "2026-10-06T13:35:29.982Z",
+  "epics": [
+    {
+      "id": "E1",
+      "title": "Convergence triage canvas",
+      "goal": "A reviewer sees every concurrent proposal as one comparable set on a single surface — cards, exact counts, the conflict map — with click-first interaction, honest first-load and failure states, and set freshness that converges on server truth.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E2",
+      "title": "Change-set engine & merge preview",
+      "goal": "A reviewer can read any proposal's commits, files, and diffs computed server-side against the fork point, trust that collisions are real because the merge was attempted, and preview the landing outcome before committing — no clones, no CLI on the review path.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E3",
+      "title": "Landing: one click, with receipt",
+      "goal": "A chosen proposal lands server-side in one click; every attempt yields one of nine unambiguous, numbered outcomes; the reviewed-state and concurrency preconditions make 'what lands is what was reviewed' true, and each landing records its validation evidence.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E4",
+      "title": "Live platform events",
+      "goal": "The platform proves it is alive: pushes, forks, and landings flow through a single-consumer, deduped, validated event pipeline to the UI in real time, with polling existing only as the degraded fallback.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E5",
+      "title": "Judge layer",
+      "goal": "A reviewer gets three typed advisory signals per proposal — risk, intent-vs-diff, semantic collision — from a server-assembled, pinned, fail-closed judge; chips advise while code decides, and thresholds are calibrated before any gating is trusted.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E6",
+      "title": "Trust: secrets, intent & provenance",
+      "goal": "Secret-class values never leave the worker — schema-only rendering, scrubbed free-text channels, withheld folds, 409-blocked landings — while every change-set durably carries its why via the notes mirror and its provenance stays visible.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E7",
+      "title": "Agent workspaces & harness onboarding",
+      "goal": "An operator provisions N isolated agent workspaces from one baseline in one command and onboards real agent CLIs — omp, codex, and BYO harnesses — through a machine-legible standard; each workspace pushes independently and emits events.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E8",
+      "title": "Identity: auth seam, tokens & elevated reveal",
+      "goal": "The platform is auth-ready and demo-open with zero credential egress: one default-deny authorize() chokepoint, short-lived scoped audited tokens, and elevated reveal existing only behind the seam — enforced before any non-demo data enters.",
+      "milestone": "M2"
+    },
+    {
+      "id": "E9",
+      "title": "Interactive tour",
+      "goal": "A first-time viewer learns the model in one sitting: a 10-step stepper that teaches with simulations, renders the real proposal set live, quizzes over it, states honest scope, and never breaks.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E10",
+      "title": "Operational excellence: demo, submission & governance",
+      "goal": "The entry can be reproduced and submitted — committed scripts, rehearsed failure paths, a 5–10 minute uninterrupted take and an open-source package — under the platform's binding operating discipline: pinned runtime, declared scope floor, engineering-law governance.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E11",
+      "title": "Platform API & client protocol",
+      "goal": "Any client can drive the whole platform through documented, additive-only route shapes that never drift silently; the 11-entity protocol plus push-event surface is the contract the second client later proves.",
+      "milestone": "M1"
+    },
+    {
+      "id": "E12",
+      "title": "R2 asset tier",
+      "goal": "A repo can carry large and binary assets without bottlenecking the git fabric: content-addressed R2 blobs with manifests/pointers in Artifacts, integrity fail-closed, lifecycle-safe deletes — clones, change-sets, and the fork-point contract unchanged.",
+      "milestone": "M3"
+    },
+    {
+      "id": "E13",
+      "title": "Fork community & intent router",
+      "goal": "A builder declares intent before building and matches it against the fork ecosystem — merge-it / use-as-context / ignore verdicts drive join-don't-restart, with merge-back-to-upstream paths defined.",
+      "milestone": "M4"
+    }
+  ],
+  "coverage": [
+    {
+      "req": "FR-1",
+      "epic": "E1",
+      "note": "The one-surface set view is this epic's headline behavior."
+    },
+    {
+      "req": "FR-2",
+      "epic": "E1",
+      "note": "Card anatomy is the canvas's unit of review."
+    },
+    {
+      "req": "FR-3",
+      "epic": "E1",
+      "note": "Set-level counts read the canvas's shape."
+    },
+    {
+      "req": "FR-4",
+      "epic": "E1",
+      "note": "Conflict map is the canvas's map panel."
+    },
+    {
+      "req": "FR-5",
+      "epic": "E1",
+      "note": "Freshness cycle keeps the canvas converging on server truth."
+    },
+    {
+      "req": "FR-6",
+      "epic": "E1",
+      "note": "One error surface keeps the canvas degrading honestly."
+    },
+    {
+      "req": "FR-7",
+      "epic": "E1",
+      "note": "First-load states are the canvas's open build gap (build-gap; impl needed)."
+    },
+    {
+      "req": "FR-8",
+      "epic": "E1",
+      "note": "Click-first interaction model governs the canvas."
+    },
+    {
+      "req": "NFR-8",
+      "epic": "E1",
+      "note": "Degrade-never-fake is the canvas's honesty law."
+    },
+    {
+      "req": "NFR-9",
+      "epic": "E1",
+      "note": "Accessibility floor governs the review surface, including the known contrast gap."
+    },
+    {
+      "req": "UX-DR-3",
+      "epic": "E1",
+      "note": "<424px overflow fix is canvas responsive work (single-column floor)."
+    },
+    {
+      "req": "UX-DR-4",
+      "epic": "E1",
+      "note": "Review-surface intake behaviors (a11y floor, focus/modal, reduced-motion, 44px, first-load); its landing card copy completes in E3/FR-15."
+    },
+    {
+      "req": "UX-DR-5",
+      "epic": "E1",
+      "note": "Interaction-as-behavior spec for the canvas (click-first, inline confirm, Escape)."
+    },
+    {
+      "req": "FR-9",
+      "epic": "E2",
+      "note": "No-clone server-side capture is the engine."
+    },
+    {
+      "req": "FR-10",
+      "epic": "E2",
+      "note": "Fork-point diff semantics define the engine's stable basis."
+    },
+    {
+      "req": "FR-11",
+      "epic": "E2",
+      "note": "Merge-attempted conflict classification is the engine's truth claim."
+    },
+    {
+      "req": "FR-12",
+      "epic": "E2",
+      "note": "Diff viewer states render what the engine computes (one reading experience, end to end)."
+    },
+    {
+      "req": "FR-13",
+      "epic": "E2",
+      "note": "Merge preview is the engine's pre-landing fold."
+    },
+    {
+      "req": "NFR-1",
+      "epic": "E2",
+      "note": "Compute envelope bounds all in-Worker change-set/conflict/merge work."
+    },
+    {
+      "req": "NFR-2",
+      "epic": "E2",
+      "note": "Artifacts envelope is the substrate the engine operates within (the platform builds what Artifacts lacks)."
+    },
+    {
+      "req": "FR-14",
+      "epic": "E3",
+      "note": "One-click server-side landing is this epic's headline."
+    },
+    {
+      "req": "FR-15",
+      "epic": "E3",
+      "note": "Nine numbered outcomes are the landing contract, incl. M1 outcomes 8-9 (stale, base-moved) and the unrendered card states."
+    },
+    {
+      "req": "FR-16",
+      "epic": "E3",
+      "note": "Reviewed-state precondition (required-M1) guards what lands."
+    },
+    {
+      "req": "FR-17",
+      "epic": "E3",
+      "note": "Concurrency precondition (required-M1) blocks silent overwrites; DO lease stays roadmap."
+    },
+    {
+      "req": "FR-18",
+      "epic": "E3",
+      "note": "Landing record + validation evidence extend the receipt (required-M1 land-hardening)."
+    },
+    {
+      "req": "FR-19",
+      "epic": "E3",
+      "note": "Landed-state card renders the outcome; landed.files count is the build gap."
+    },
+    {
+      "req": "NFR-4",
+      "epic": "E3",
+      "note": "One gated write path is the landing law."
+    },
+    {
+      "req": "UX-DR-7",
+      "epic": "E3",
+      "note": "Landing decision persists as a git note (FR-18's record)."
+    },
+    {
+      "req": "FR-20",
+      "epic": "E4",
+      "note": "Ticker is the feed's user-facing surface."
+    },
+    {
+      "req": "FR-21",
+      "epic": "E4",
+      "note": "Single recorder + dedupe core; payload validation/dedupe hardening sequenced M2."
+    },
+    {
+      "req": "FR-22",
+      "epic": "E4",
+      "note": "Real-time transport (required-M1, OQ-3 retired) with polling as degraded fallback."
+    },
+    {
+      "req": "NFR-7",
+      "epic": "E4",
+      "note": "Single writer/consumer is the pipeline invariant."
+    },
+    {
+      "req": "UX-DR-6",
+      "epic": "E4",
+      "note": "Polling cadence + push immediacy are the live-platform behaviors; its no-paging set view clause is realized in E1."
+    },
+    {
+      "req": "FR-23",
+      "epic": "E5",
+      "note": "Three typed signals are the judge's outputs."
+    },
+    {
+      "req": "FR-24",
+      "epic": "E5",
+      "note": "Server-assembled state, pinned model, fail-closed are the judge's guarantees."
+    },
+    {
+      "req": "FR-25",
+      "epic": "E5",
+      "note": "Advisory chip rendering surfaces verdicts without hard-conflict hues."
+    },
+    {
+      "req": "FR-26",
+      "epic": "E5",
+      "note": "Auto-land gate (roadmap, unsequenced) — fail-closed design owned here so it cannot silently drop."
+    },
+    {
+      "req": "FR-27",
+      "epic": "E5",
+      "note": "Calibration before trust (required-M1; advisory-only) gates any future gating."
+    },
+    {
+      "req": "UX-DR-2",
+      "epic": "E5",
+      "note": "Unrendered chips + gate close inside this epic."
+    },
+    {
+      "req": "FR-28",
+      "epic": "E6",
+      "note": "Masking law is this epic's core."
+    },
+    {
+      "req": "FR-29",
+      "epic": "E6",
+      "note": "Withheld folds / 409 landings enforce the law at the write."
+    },
+    {
+      "req": "FR-30",
+      "epic": "E6",
+      "note": "Masking posture + additive widening (content detection sequenced M2)."
+    },
+    {
+      "req": "FR-32",
+      "epic": "E6",
+      "note": "Intent records via the notes mirror are the durable why."
+    },
+    {
+      "req": "FR-33",
+      "epic": "E6",
+      "note": "Provenance visible is the trust epic's read surface."
+    },
+    {
+      "req": "NFR-5",
+      "epic": "E6",
+      "note": "Secret egress law is the epic's invariant."
+    },
+    {
+      "req": "FR-34",
+      "epic": "E7",
+      "note": "N isolated workspaces in one command is the headline (N≥4 proven; demo MUST)."
+    },
+    {
+      "req": "FR-35",
+      "epic": "E7",
+      "note": "Harness onboarding/routing — omp + codex verified, BYO path via the standard interface."
+    },
+    {
+      "req": "FR-31",
+      "epic": "E8",
+      "note": "Elevated reveal ships only behind the seam (sequenced M2)."
+    },
+    {
+      "req": "FR-36",
+      "epic": "E8",
+      "note": "Token lifecycle rides the M2 auth-seam wave."
+    },
+    {
+      "req": "FR-45",
+      "epic": "E8",
+      "note": "Auth seam (M2): default-deny chokepoint, demo allowlist, enforced before non-demo data."
+    },
+    {
+      "req": "NFR-6",
+      "epic": "E8",
+      "note": "Zero credential egress belongs to the credential/identity layer."
+    },
+    {
+      "req": "UX-DR-1",
+      "epic": "E8",
+      "note": "Elevated-reveal gap closes with the seam wave (schema-only views are the as-built surface)."
+    },
+    {
+      "req": "FR-37",
+      "epic": "E9",
+      "note": "The 10-step interactive tour is this epic."
+    },
+    {
+      "req": "FR-38",
+      "epic": "E9",
+      "note": "Tour degradation keeps it unbreakable and mobile-friendly."
+    },
+    {
+      "req": "FR-39",
+      "epic": "E10",
+      "note": "Reproducible demo scripts are the submission base."
+    },
+    {
+      "req": "FR-40",
+      "epic": "E10",
+      "note": "Rehearsed failure paths make the demo (and product) trustworthy."
+    },
+    {
+      "req": "FR-41",
+      "epic": "E10",
+      "note": "Submission package — the gate itself, not started."
+    },
+    {
+      "req": "NFR-3",
+      "epic": "E10",
+      "note": "Runtime pin + deploy/log hygiene is operating discipline."
+    },
+    {
+      "req": "NFR-10",
+      "epic": "E10",
+      "note": "Concerns floor declares the product's scope boundaries (dark-only, desktop, English, no offline)."
+    },
+    {
+      "req": "NFR-12",
+      "epic": "E10",
+      "note": "Design constitution / engineering-law governance (laws not carried as FRs ride as roadmap)."
+    },
+    {
+      "req": "FR-42",
+      "epic": "E11",
+      "note": "Contract discipline is the API epic's law."
+    },
+    {
+      "req": "FR-43",
+      "epic": "E11",
+      "note": "Seven-route surface is what clients drive."
+    },
+    {
+      "req": "FR-44",
+      "epic": "E11",
+      "note": "Client protocol + second client (sequenced M4) is the API's proof."
+    },
+    {
+      "req": "NFR-11",
+      "epic": "E11",
+      "note": "Contract-first discipline (additive-only, bump before change)."
+    },
+    {
+      "req": "FR-47",
+      "epic": "E12",
+      "note": "R2 asset tier is this epic (sequenced M3)."
+    },
+    {
+      "req": "FR-46",
+      "epic": "E13",
+      "note": "Fork ecosystem + intent router is this epic (sequenced M4)."
+    }
+  ]
+}

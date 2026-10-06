@@ -1,0 +1,11 @@
+{
+  "compileId": "compile-2026-10-06T13-31-51",
+  "runDir": "/home/johnzealanddoyle/projects/cloudflare-git-comp/porting/compile/runs/compile-2026-10-06T13-31-51",
+  "root": "/home/johnzealanddoyle/projects/cloudflare-git-comp",
+  "phase": "authoring:epics-author",
+  "updatedAt": "2026-10-06T13:36:05.176Z",
+  "slices": 21,
+  "authorPool": "epics-author",
+  "authorPushed": 21,
+  "authorSkipped": 0
+}

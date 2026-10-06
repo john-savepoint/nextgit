@@ -1,0 +1,969 @@
+{
+  "generatedAt": "2026-10-06T13:31:51.113Z",
+  "sources": {
+    "prd": "/home/johnzealanddoyle/projects/cloudflare-git-comp/_bmad-output/planning-artifacts/prds/prd-cloudflare-git-comp-2026-10-06/prd.md",
+    "ux_extract": "/home/johnzealanddoyle/projects/cloudflare-git-comp/_bmad-output/planning-artifacts/prds/prd-cloudflare-git-comp-2026-10-06/.working/ux-extract.md",
+    "arch_extract": "/home/johnzealanddoyle/projects/cloudflare-git-comp/_bmad-output/planning-artifacts/prds/prd-cloudflare-git-comp-2026-10-06/.working/arch-extract.md"
+  },
+  "counts": {
+    "frs": 47,
+    "frs_needing_implementation": 20,
+    "frs_needing_verification": 34,
+    "nfrs": 12,
+    "ux_drs": 7,
+    "arch_constraints": 14,
+    "arch_capabilities": 10
+  },
+  "frs": [
+    {
+      "id": "FR-1",
+      "title": "See all concurrent proposals as one set",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see every concurrent proposal as one comparable set on a single surface, with no paging and no tab-hopping. Realizes UJ-2.",
+      "consequences": [
+        "`GET /proposals` returns every auto-discovered proposal (`agent-*`) in one response; the UI renders all cards at once.",
+        "No route-level pagination or collapse exists in v1; a set of N proposals renders as N cards on the canvas.",
+        "The set view and the conflict map are visible without opening anything first."
+      ]
+    },
+    {
+      "id": "FR-2",
+      "title": "Proposal card anatomy",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can judge a proposal from its card: repo name, written intent, stats (`N files`, `+a`, `−d`), and per-file rows. Realizes UJ-1, UJ-3.",
+      "consequences": [
+        "Each card shows `repo`, `intent` when present, file counts, and per-file rows with path + status + additions/deletions.",
+        "Cards carry `preview merge` and `Land into demo` actions at rest; file rows carry `view diff`.",
+        "Secret-class file rows show the secret badge and key names and offer no diff action."
+      ]
+    },
+    {
+      "id": "FR-3",
+      "title": "Summary chips (set-level counts)",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can read the set's shape at a glance from five exact counts. Realizes UJ-2.",
+      "consequences": [
+        "On each `/proposals` payload, chips recompute: proposals / shared files / conflicting pairs / changed files / clean pairs.",
+        "Tint thresholds: `conflictingPairs > 0` → alert; `sharedFiles > 0` → warn; `cleanPairs > 0` → clean.",
+        "Counts are exact and labeled (\"N detected\", \"N active\"), never approximate."
+      ]
+    },
+    {
+      "id": "FR-4",
+      "title": "Collision map (Convergence Conflicts)",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see which proposals collide, on which files, and where — before reading any diff. Realizes UJ-3.",
+      "consequences": [
+        "For every conflicting pair, the map renders a per-file card: file path, `kind` badge from the conflict-kinds enum, involved repos, and pair rows naming the two repos with base/line regions.",
+        "Severity follows the kind mapping (hard conflicts red, `undetermined` amber, clean kinds neutral); cards are read-only with no actions.",
+        "The panel meta reads `N detected`; an empty set renders an explanatory empty state, not a blank panel."
+      ]
+    },
+    {
+      "id": "FR-5",
+      "title": "Freshness cycle",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "The set stays fresh without manual work: pushes appear in seconds, and the surface always converges on the server's truth. Realizes UJ-1, UJ-2.",
+      "consequences": [
+        "`/proposals` refreshes every 8s while auto-refresh is on (default on); a manual `refresh` is always available.",
+        "A new top event key (from the ticker) triggers one debounced refresh (500ms).",
+        "A land triggers an immediate reload of both `/proposals` and `/events`; within one refresh cycle a landed proposal's card state matches the server."
+      ]
+    },
+    {
+      "id": "FR-6",
+      "title": "Degradation and errors",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "The surface degrades instead of crashing, and never dresses a failure as success. Realizes UJ-2, UJ-3.",
+      "consequences": [
+        "One error surface: every failed fetch except the ticker funnels into the red Connection banner (\"Connection error: {msg}. Retrying...\" / \"Disconnected from platform worker. Retrying...\") with `Retry now`; the banner hides on the next success.",
+        "Ticker failure degrades silently — pulse goes stale, last events stay, the rest of the surface keeps rendering.",
+        "Action banner: warn in-flight, success/error outcome, dismiss-only (no auto-hide); a new action replaces the previous banner; every failure returns the card to `default`.",
+        "The footer sync line (`not synced yet` → `synced HH:MM:SS`) is never error-styled."
+      ]
+    },
+    {
+      "id": "FR-7",
+      "title": "First-load states",
+      "status_raw": "build-gap (specified; not yet built)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": null,
+      "description": "A first-time viewer can tell the difference between loading and empty. Realizes UJ-2.",
+      "consequences": [
+        "Chips render `—` until the first payload (today they start at `0`).",
+        "Both panels show a loading indicator matching the final layout (\"Loading the set from /proposals...\" [ASSUMPTION: copy]) and swap to data or empty state on the first response.",
+        "The empty states (\"No active proposals\" / \"No convergence conflicts\") explain what is awaited."
+      ]
+    },
+    {
+      "id": "FR-8",
+      "title": "Interaction model",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "Every action is reachable click-first; hover is enhancement, never the only path. Realizes UJ-1, UJ-3.",
+      "consequences": [
+        "Every action is a click/tap on a native control; no drag, no context menus, no custom shortcuts beyond Tab/Enter/Space/Escape.",
+        "Inline confirm replaces dialogs: `confirm land?` → commit; `cancel` disarms; no modal confirms, no browser `confirm()`.",
+        "Escape closes the topmost modal; backdrop click and `close` do the same; modals stack one level deep."
+      ]
+    },
+    {
+      "id": "FR-9",
+      "title": "Server-side change-set capture",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can read any proposal's commits, changed files, and diffs without a clone. Realizes UJ-3.",
+      "consequences": [
+        "`GET /changes?repo=…&base=demo&ref=main&baseRef=main` returns the baseline and head identities, stats, and per-file rows.",
+        "The change-set carries a per-fork commit list — hash, author, timestamp, message — alongside the per-file rows.",
+        "Per-file rows carry status (added/modified/removed), additions/deletions, and a patch; patches are absent for secret, binary, or oversized files.",
+        "No read route shells out to git or clones; the review path never clones (architecture: AD-2; the only in-memory clone is inside `/land`)."
+      ]
+    },
+    {
+      "id": "FR-10",
+      "title": "Fork-point diff semantics",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A proposal's change-set means \"what the agent changed\" and stays stable while the baseline moves. Realizes UJ-3.",
+      "consequences": [
+        "Change-sets are diffed against the fork point (most recent commit shared with base, first-parent walk limit 200; base-head fallback when none is found).",
+        "`/merge` and `/land` use the fork point as the 3-way ancestor (ancestor = fork-point texts, ours = current base head, theirs = proposal head).",
+        "After the baseline advances (another proposal lands), an unchanged proposal's change-set is byte-identical."
+      ]
+    },
+    {
+      "id": "FR-11",
+      "title": "Real conflict detection with enumerated kinds",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can trust that a \"conflict\" is real — it was produced by attempting the merge. Realizes UJ-3.",
+      "consequences": [
+        "`/proposals` classifies every pair; `kind` ∈ `text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed`.",
+        "Conflict cards carry the pair's line regions (`base`, `a`, `b` lines) where a region exists.",
+        "The summary's `conflictingPairs` / `cleanPairs` counts agree with the map's rendered cards."
+      ]
+    },
+    {
+      "id": "FR-12",
+      "title": "Diff viewer states",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can read one file's change-set with unambiguous states. Realizes UJ-3.",
+      "consequences": [
+        "Patch rows render additions/deletions/hunk headers with the diff color staff.",
+        "A file with no patch renders the placeholder \"No patch available for this file (omitted, withheld, or binary).\"",
+        "Secret content never renders: \"Secret content withheld\" / \"Per platform contract, secret file contents and diffs are never exposed.\" + key chips.",
+        "Error and not-found render distinct badges (\"error\" / \"not found\")."
+      ]
+    },
+    {
+      "id": "FR-13",
+      "title": "Merge preview",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see the landing outcome before committing. Realizes UJ-1, UJ-3.",
+      "consequences": [
+        "`GET /merge` folds the given proposals in order onto the baseline (diff3) and returns `status` `clean|conflict` with per-file action/result.",
+        "The modal renders merged text, conflict text with `<<<<<<< / ======= / >>>>>>>` markers, or a withheld notice for secret-class files.",
+        "No files changed → \"No files changed in merge\"; compute failure → \"Failed to compute merge\"."
+      ]
+    },
+    {
+      "id": "FR-14",
+      "title": "One-click server-side landing",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can land a chosen proposal from its card, with no clone and no CLI. Realizes UJ-1.",
+      "consequences": [
+        "`Land into demo` → inline `confirm land?` → `POST /land`; the worker folds and pushes one commit (`land(<repos>): fold proposal(s)`) to the baseline branch.",
+        "In-flight: the card shows a single disabled `landing...` button; the banner narrates \"Landing proposal {repo} into {base}...\".",
+        "The caller needs no local git, no credentials, and never sees a token."
+      ]
+    },
+    {
+      "id": "FR-15",
+      "title": "Landing outcomes — an open, numbered set",
+      "status_raw": "built (outcomes 1–5, 7) / build-gap (dedicated `no-changes` banner copy; `withheld-secret` and `conflict` card states) / required-M1 (outcomes 8–9: `stale`, `base-moved`)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": "M1",
+      "description": "A reviewer gets an unambiguous outcome for every landing attempt. The set is open and numbered: outcomes 1–7 below, plus 8 (`stale`) and 9 (`base-moved`) — nine total; the last two ship with the land-hardening slice (FR-16, FR-17). Realizes UJ-1 (edge case path).",
+      "consequences": [
+        "`Land into demo` → card flips to `confirm land?` + `cancel` (inline; no dialog).",
+        "`confirm land?` → disabled `landing...`; banner (warn) \"Landing proposal {repo} into {base}...\".",
+        "Success → banner (success) \"Successfully landed proposal {repo} into {base}. Commit `<sha8>`\" — first 8 chars, full SHA in the tooltip; proposals + events refresh immediately; the `repo.pushed` event re-enters the ticker.",
+        "409 `withheld-secret` → error banner \"Withheld-secret file — landing blocked ({files}).\"",
+        "409 `conflict` → error banner \"Conflicted files: {files}. (preview merge first)\"",
+        "409 `no-changes` → dedicated variant: \"Nothing to land — fold produced zero changes.\" [ASSUMPTION: copy]",
+        "Any other failure → error banner \"Failed to land {repo}: {msg}\".",
+        "409 `stale` → error banner \"This proposal is stale — rebase and re-push to land.\" [ASSUMPTION: copy]",
+        "409 `base-moved` → error banner \"Nothing to land — the baseline moved since this proposal was made.\" [ASSUMPTION: copy]",
+        "Every failure returns the card to `default`; the banner persists until dismissed; card states for `withheld-secret` and `conflict` are specified in the UX spine and not yet rendered (build gap)."
+      ]
+    },
+    {
+      "id": "FR-16",
+      "title": "Reviewed-state precondition",
+      "status_raw": "required-M1 — planned (land-hardening workstream; contract bump first)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M1",
+      "description": "A reviewer can trust that what lands is what was reviewed. Realizes UJ-1.",
+      "consequences": [
+        "`/land` accepts the reviewed base head and proposal heads (additive request fields) and returns 409 `stale` on mismatch — no silent re-fold.",
+        "Landing content a reviewer never saw is impossible through the public route once the precondition is enforced."
+      ]
+    },
+    {
+      "id": "FR-17",
+      "title": "Concurrency precondition",
+      "status_raw": "required-M1 — planned (land-hardening); the DO lease arrives later (roadmap, unsequenced)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M1",
+      "description": "Concurrent landings cannot silently overwrite each other. Realizes UJ-1.",
+      "consequences": [
+        "After the in-memory clone, `/land` re-reads the base head and returns 409 `base-moved` on divergence.",
+        "A Durable Object lease (roadmap, unsequenced) serializes lands when it arrives; until then the precondition is the guarantee.",
+        "The race is reproduced and covered by a regression check (4 concurrent lands → no silent overwrite)."
+      ]
+    },
+    {
+      "id": "FR-18",
+      "title": "Landing record and validation evidence",
+      "status_raw": "required-M1 (land-hardening workstream); the short-SHA receipt is the minimum the build carries today",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M1",
+      "description": "Every landing is traceable and carries its validation evidence: what was reviewed, what checks ran and their results, what was folded, and the hash that proves merged-SHA equals tested-SHA. Realizes UJ-1.",
+      "consequences": [
+        "Every landing records ancestor + heads + fold hash; merged-SHA-equals-tested-SHA is checked against the recorded fold hash — no landing claims validation it did not run.",
+        "The landing record extends with `evidence { checks[], results[], mergedSha, testedSha, artifactRef, at }` on `POST /land`; a read surface serves the record — planned route `GET /landings/{commit}`. [ASSUMPTION: the contract bump is pinned with the land-hardening workstream per contract-first discipline (FR-42) — the latest `CONTRACT.md` revision carries it.]",
+        "The short-SHA success banner is the minimum receipt, not the target; the evidence artifact ships with the land-hardening workstream (Milestone 1). `landed.files` and `landed.at` render in the same slice (contract-defined, currently unrendered — build gap).",
+        "The decision record persists as a git note on the proposal."
+      ]
+    },
+    {
+      "id": "FR-19",
+      "title": "Landed-state card",
+      "status_raw": "built (landed) / build-gap (`landed.files` count unrendered)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see at a glance that a proposal has nothing pending. Realizes UJ-1.",
+      "consequences": [
+        "`landing.status === \"landed\"` (or `stats.files === 0`) dims the card to 0.55 opacity with a dashed border and the \"landed — nothing pending\" line (\"All changes from this branch have been merged into baseline.\").",
+        "`landing.status` is content-derived: a zero-change fold is `landed`; `/land` with zero changes is 409 `no-changes` — never a fake success."
+      ]
+    },
+    {
+      "id": "FR-20",
+      "title": "Events ticker",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see recent platform activity without asking. Realizes UJ-1, UJ-2.",
+      "consequences": [
+        "The ticker shows the newest ≤8 events (type, repo, time); it consumes the real-time feed (FR-22) and polls `/events` every 2s only on the fallback path.",
+        "A push appears in the ticker within seconds and can trigger the debounced proposals refresh (FR-5).",
+        "On `/events` failure the pulse goes stale and the last events stay; the ticker never breaks the rest of the surface."
+      ]
+    },
+    {
+      "id": "FR-21",
+      "title": "Event feed discipline",
+      "status_raw": "built (core) / sequenced (M2) (payload validation + dedupe hardening)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": "M2",
+      "description": "The event feed is accurate: recorded once, deduped, validated, and never authoritative for writes. Realizes UJ-1.",
+      "consequences": [
+        "Artifacts events arrive through exactly one queue consumer (the worker) — the sole recorder; dedupe key `(type, repo, ref, after)`.",
+        "Events without repo identity are logged and dropped, never partially recorded; payloads are validated (type whitelist, repo/ref charsets, hex shas) before recording (sequenced M2).",
+        "`GET /events` serves the ≤50 newest; KV `LIVE` has exactly one writer; the feed is a hint, never authority for writes or identity."
+      ]
+    },
+    {
+      "id": "FR-22",
+      "title": "Real-time transport, polling fallback",
+      "status_raw": "required-M1 (real-time transport); built (polling fallback)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": "M1",
+      "description": "The UI is event-driven end to end: pushes, forks, and landings surface in real time; polling exists only as the degraded fallback. Realizes UJ-1, UJ-2. [OQ-3 (retired) — real-time required, 2026-10-06.]",
+      "consequences": [
+        "Real-time transport (SSE or WebSocket over a Durable Object hub) carries platform events to the UI; a push appears without any poll, and a landing updates the set without waiting for a refresh cycle.",
+        "The proof form holds: on-screen freshness visibly beats a 90 s poll (SM-2 keeps the ≤2 s form), captured as demo evidence.",
+        "Polling remains the degraded fallback: when the transport is unavailable, `/events` 2s, `/proposals` 8s (auto-refresh toggle, default on); a land reloads both endpoints immediately; `/events` failure must never break the proposals UI.",
+        "As-built today: polling only (the event pipeline is live); the real-time transport ships in Milestone 1."
+      ]
+    },
+    {
+      "id": "FR-23",
+      "title": "Three typed card signals",
+      "status_raw": "built (contract pinned 2026-10-06; live 2026-10-06)",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see three advisory signals per proposal: risk, intent-vs-diff, semantic collision. Realizes UJ-3.",
+      "consequences": [
+        "`POST /judge` `setId v1` returns one typed entry per judged proposal: `risk.label` ∈ {routine, focused, senior-security} + `risk.score` [0,2]; `intent.verdict` ∈ {supports, contradicts, insufficient} + `intent.overclaim` [0,1] (null when insufficient); `collision` boolean.",
+        "Unknown `setId` → 400 `unknown-set`; sets are versioned in code; new ids are additive and existing ids never change meaning.",
+        "The wire carries typed answers, never prose; thresholds, weights, and labels live in code."
+      ]
+    },
+    {
+      "id": "FR-24",
+      "title": "Server-assembled state, pinned model, fail-closed",
+      "status_raw": "built (contract pinned 2026-10-06; live 2026-10-06)",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can trust that judgments cannot be steered from the outside and never appear when the judge is unavailable. Realizes UJ-3.",
+      "consequences": [
+        "Callers cannot supply `state`, `questions`, or `model`; unknown fields → 400 `bad-request`.",
+        "State is assembled server-side from the same fork-point change-sets the set view uses; untrusted content enters delimited and labeled as data; instruction-like text is stripped; every outbound state passes the masking filter (no secret-class values).",
+        "Model id is pinned (`@cf/cloudflare/clef`); a response whose `model` differs or is absent ⇒ 503 `judge-unavailable` (no judgments); schema-invalid answers ⇒ 503; failures are silent to the UI and never block landing.",
+        "Per-caller caps: 60 judge runs/min and 1000/day; beyond → 429. [ASSUMPTION: constants proposed — pin in code at the land-hardening slice.] `skipped[]` lists unjudged proposals with reasons (`secret-class`, `empty-change-set`) — a skip is not a verdict."
+      ]
+    },
+    {
+      "id": "FR-25",
+      "title": "Advisory chip rendering",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can read judge output as advice, visibly distinct from hard conflict state. Realizes UJ-3.",
+      "consequences": [
+        "Chips render on proposal cards in the existing badge/chip language; collision emphasis introduces no new hues; advisory signals stay amber/neutral and are never dressed as a red hard conflict.",
+        "Skipped proposals render no chips.",
+        "\"The judge advises; code decides; humans still own irreversible acts\" holds in behavior: no chip blocks or forces an action."
+      ]
+    },
+    {
+      "id": "FR-26",
+      "title": "Auto-land gate",
+      "status_raw": "roadmap (unsequenced — the judge is live; the gate is explicitly not engaged, pending calibration per FR-27/OQ-5)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": null,
+      "description": "Auto-landing can exist later, gated and fail-closed — not before. Realizes UJ-1. *[NON-GOAL: engaging auto-land — the gate is roadmap, unsequenced (OQ-5); no demo or first-version path auto-lands.]*",
+      "consequences": [
+        "The gate is evaluated inside `POST /land` before fold and push; when engaged and the judge cannot answer, `/land` fails closed (no push).",
+        "Auto-land stays off until an injection-testing spike passes on our labeled set and at least one non-model corroborating signal exists (fold status / conflict map).",
+        "Clients render verdicts; they never decide them."
+      ]
+    },
+    {
+      "id": "FR-27",
+      "title": "Calibration before trust",
+      "status_raw": "required-M1 (advisory-only; the gate stays off) — calibration not yet run; the judge ships advisory-only until the calibration record exists",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M1",
+      "description": "Judge thresholds are tuned on our own labeled proposals before any gating is trusted.",
+      "consequences": [
+        "The calibration record's minimum contents: ≥50 labeled proposals carrying risk + intent-verification labels; precision ≥0.9 on the ship-blocking class; the injection-testing spike passes; sign-off by John. [ASSUMPTION: numeric targets proposed.]",
+        "Thresholds/weights/labels are code constants tuned on that labeled set; the first version ships advisory-only until the record exists — the auto-land gate engages only after the record exists (OQ-5 cites this).",
+        "Model id is logged per response; drift to an unpinned id fails closed."
+      ]
+    },
+    {
+      "id": "FR-28",
+      "title": "Secret-class masking law",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can read a secret-class file's schema without exposing a value. Realizes UJ-1, UJ-2.",
+      "consequences": [
+        "Secret-class paths (`.env*`, `*.pem`, `*.key`, `*.p12`, `credentials.json`, `secrets.json`, `.dev.vars`, any path containing `secrets/`) render key names only (`keys[]`) in any response body — never values; secret rows carry no patch and no intent.",
+        "No secret-class content leaves the worker in any form — including logs and any AI/judge state; outbound judge states are constructed through the masking filter.",
+        "Free-text channels derived from repo content (intent, notes, error strings) are scrubbed: `KEY=VALUE`-shaped values redacted; intent dropped whenever the head commit touches a secret-class path."
+      ]
+    },
+    {
+      "id": "FR-29",
+      "title": "Blocked landing and withheld merges",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer cannot leak a secret by landing it. Realizes UJ-1.",
+      "consequences": [
+        "A fold touching a secret-class file returns `withheld-secret`; `/land` with any affected secret-class file → 409 `withheld-secret` with the files listed; values are never pushed by the worker.",
+        "Merge previews render `result: withheld-secret` with the withheld notice and no text."
+      ]
+    },
+    {
+      "id": "FR-30",
+      "title": "Masking posture and widening",
+      "status_raw": "built (path-driven) / sequenced (M2) (content detection)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": "M2",
+      "description": "Masking is path-driven by design in this version; widening is deliberate, additive, and decided once.",
+      "consequences": [
+        "A secret value placed in a non-secret-class path is not redacted in v1 (documented limitation; values must live in secret-class paths).",
+        "Widening the class list is additive via a contract bump.",
+        "Content-detected secrets (non-path) arrive either as a contract-bumped additive status value or as a judge gate — decided once in `CONTRACT.md` before that unit ships, never implicit."
+      ]
+    },
+    {
+      "id": "FR-31",
+      "title": "Elevated reveal",
+      "status_raw": "sequenced (M2) (requires the auth seam and the §7.5 auth decision gate; not demo-able before them)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M2",
+      "description": "Masked-by-default holds everywhere until an authorization mechanism exists. [OQ-2 (retired) — sequenced to Milestone 2 behind the auth seam.] *[SEQUENCED: elevated reveal — Milestone 2, behind the auth seam and the §7.5 auth decision gate. The demo shows schema-only views and the withheld notice; no value-reveal surface ships before the seam is enforced.]*",
+      "consequences": [
+        "No route or view exposes secret-class values today; the schema-only view and the withheld notice are the complete surface.",
+        "Elevated reveal requires the auth seam plus an explicit authorization rule; until then it does not exist anywhere in the product."
+      ]
+    },
+    {
+      "id": "FR-32",
+      "title": "Intent records via the notes mirror",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "Every change-set can carry its why, durably. Realizes UJ-1, UJ-3.",
+      "consequences": [
+        "Intent lives as git notes pushed to `refs/notes/commits` and mirrored to branch `nextgit-notes` in one push (three refspecs); all readers use the mirror; fallback carrier `NEXTGIT_INTENT/<sha>.txt` lives only on the mirror.",
+        "Exactly one pusher per proposal repo — the runner/orchestrator performs the push after commit; agents never push refs; the mirror is fast-forward-only.",
+        "Intent survives a rebase and is visible on the card (`intent`) and file rows."
+      ]
+    },
+    {
+      "id": "FR-33",
+      "title": "Provenance visible",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A reviewer can see where a change came from and what was decided. Realizes UJ-2, UJ-3.",
+      "consequences": [
+        "Cards show the proposal repo and the baseline (`base: demo · ref: main` in the header).",
+        "The landing decision record persists as a git note (FR-18) and a `repo.pushed` event records the baseline move in the feed."
+      ]
+    },
+    {
+      "id": "FR-34",
+      "title": "Provision N isolated workspaces",
+      "status_raw": "built (N≥4 proven live 2026-10-03)",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "An operator can provision N isolated agent workspaces from one baseline in one command. Realizes UJ-1.",
+      "consequences": [
+        "One command creates N forks with scoped tokens; each accepts independent pushes; each push emits an event.",
+        "Provisioning guarantees discoverability before tokens are handed off (conventions naming, status ready); auto-discovery semantics are documented in the contract.",
+        "Demo floor: N≥4 real agents proven concurrently."
+      ]
+    },
+    {
+      "id": "FR-35",
+      "title": "Harness onboarding and routing",
+      "status_raw": "built (omp + codex verified) / pending (more harnesses via routing)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "An operator can onboard real agent CLIs — starting with omp and codex — and bring their own harness. Realizes UJ-1.",
+      "consequences": [
+        "omp and codex routes produce real proposals against the baseline (verified; claude/gemini/opencode are standing auth items, not blockers).",
+        "BYO harness is supported through the standard interface: agents edit their own clones; the runner/orchestrator commits and performs the single three-refspec push; agents never push refs.",
+        "The platform ships a machine-readable tool manifest + structure map into every workspace (engineering law: no context-blind agents)."
+      ]
+    },
+    {
+      "id": "FR-36",
+      "title": "Token lifecycle",
+      "status_raw": "sequenced (M2) (auth seam wave)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M2",
+      "description": "Credentials are short-lived, scoped, audited, and never rendered. Realizes UJ-1.",
+      "consequences": [
+        "Worker-minted access tokens: single-use, TTL ≤300 s, revoked in a `finally` (as-built today). Repo git tokens: 24 h default, 7 d max. [ASSUMPTION: repo git token TTLs proposed.]",
+        "Token values live mode 0600 outside repos/transcripts, never in logs or argv; mint/use/revoke are audited at two surfaces: Worker logs (observability) and Artifacts token events (`token.created` / `token.revoked`).",
+        "No response ever contains tokens or credentials (architecture AD-9; the law holds today even though the seam is sequenced (M2))."
+      ]
+    },
+    {
+      "id": "FR-37",
+      "title": "The 10-step interactive tour",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A first-time viewer can learn the model in one sitting, without documentation. Realizes UJ-4.",
+      "consequences": [
+        "The tour ships 10 clickable stepper tabs (0. Intro … 9. Your Role) with progress fill; narrow widths scroll the stepper horizontally.",
+        "Steps 0–5 teach with simulations; step 6 fetches and renders the real `/proposals` grid inside the tour, annotating real collisions, clean additions, and landed changes; step 7 quizzes over the real proposal set; step 8 states non-goals; step 9 frames the operator and offers `Open the Triage App`."
+      ]
+    },
+    {
+      "id": "FR-38",
+      "title": "Tour degradation",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "The tour never breaks and never shows an error banner. Realizes UJ-4.",
+      "consequences": [
+        "Step 6 fetch failure → console warning + graceful fallback snapshot; the tour continues.",
+        "The tour is the mobile-friendly member of the family (single-column stacking at ≤720px)."
+      ]
+    },
+    {
+      "id": "FR-39",
+      "title": "Reproducible end-to-end demo",
+      "status_raw": "built (scripts) / required-M1 (submission packaging not started)",
+      "needs": {
+        "implementation": true,
+        "verification": true
+      },
+      "milestone_hint": "M1",
+      "description": "An operator can reproduce the demo end-to-end from committed scripts.",
+      "consequences": [
+        "Committed scripts: `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` (lands or refuses) — reproducible from the repo.",
+        "The run shows N≥4 real agents concurrently, ≥1 genuine collision surfaced pre-land, one-click landing with receipt, secret masking and provenance visible.",
+        "No mocks: live Workers + Artifacts end to end."
+      ]
+    },
+    {
+      "id": "FR-40",
+      "title": "Rehearsed failure paths",
+      "status_raw": "built (spec'd; rehearsed as part of the demo run)",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "The demo (and the product) handles its failure modes with exact copy. Realizes UJ-1.",
+      "consequences": [
+        "Colliding land → 409 conflict, files named, \"(preview merge first)\"; secret-touching land → 409 withheld-secret; any other failure → generic error.",
+        "Every failure returns the card to `default`; the banner stays until dismissed."
+      ]
+    },
+    {
+      "id": "FR-41",
+      "title": "Submission package",
+      "status_raw": "required-M1 — not started (the gate itself)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M1",
+      "description": "The entry can be submitted and judged.",
+      "consequences": [
+        "Deliverables: a 5–10 minute video; an open-source repo (MIT/Apache/BSD + LICENSE file); run instructions.",
+        "The demo is one uninterrupted take exercising all three rubric axes (originality/prototype 50%, multi-agent concurrency 25%, UX 25%) on real infrastructure; single entry."
+      ]
+    },
+    {
+      "id": "FR-42",
+      "title": "Contract discipline",
+      "status_raw": "built",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "Any client can depend on shapes that never drift silently.",
+      "consequences": [
+        "`platform/CONTRACT.md` is the single source of route shapes; changes are additive-only; a shape change bumps the contract first.",
+        "Every new route or payload lands its shape in `CONTRACT.md` in the same slice that adds it — no producer or consumer ships an undocumented shape.",
+        "Default resolution of `base`/`ref`/`baseRef` is identical on every route and pinned; every API route enforces its method; unknown API paths return JSON 404 (never asset fallthrough)."
+      ]
+    },
+    {
+      "id": "FR-43",
+      "title": "Route surface",
+      "status_raw": "built (seven routes live, incl. `POST /judge`)",
+      "needs": {
+        "implementation": false,
+        "verification": true
+      },
+      "milestone_hint": null,
+      "description": "A client can drive the whole platform through the documented route surface.",
+      "consequences": [
+        "Routes: `GET /health`, `GET /changes`, `GET /proposals`, `GET /merge`, `POST /land`, `POST /judge`, `GET /events`; errors are `{ ok: false, error }` with 4xx/5xx.",
+        "Enums are frozen where documented: file status, conflict kinds, landing status; commit messages `land(<repos>): …`; timestamps ISO-8601 UTC.",
+        "`/judge` is contract-pinned and rate-limited per caller; `target.repos` ≤16; `refs` exactly one entry in v1."
+      ]
+    },
+    {
+      "id": "FR-44",
+      "title": "Client protocol for future surfaces",
+      "status_raw": "sequenced (M4) (second client); the 11-entity protocol is pending",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M4",
+      "description": "A future client — Agent Office, IDE, CLI — can render and act on platform state from the API alone; the second client is the API's proof. *[SEQUENCED: shipping a second client — Agent Office and IDE/CLI surfaces arrive in Milestone 4; the API is built for them.]*",
+      "consequences": [
+        "The 11-entity protocol (Floor/Project, Worker, Task/Queue, Issue, Pull/Proposal, Pull/Proposal detail, Presence/Peer, Whiteboard, Services, Settings, Chat/Notifications) plus the contract-pinned push-event surface is the client contract.",
+        "GitHub-specific semantics (`reviewDecision`, `mergeStateStatus`, `mergeable`) are synthesized in adapters — never in the core.",
+        "A second client (e.g., the 3D office) renders live platform state without platform changes; this is an adoption signal, not a v1 build target."
+      ]
+    },
+    {
+      "id": "FR-45",
+      "title": "Auth seam",
+      "status_raw": "sequenced (M2) (seam wave; hard precondition before non-demo data; the §7.5 auth decision gate precedes it)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M2",
+      "description": "The platform is auth-ready and demo-open, with zero credential egress.",
+      "consequences": [
+        "A single `authorize(request, env, action, {repo|base})` chokepoint is called by every route; `AUTH_MODE` defaults to deny; the demo opts in explicitly (`demo`).",
+        "While demo, a repo allowlist (`demo`, `agent-*`) is enforced on every `base`/`repos` param; edge rate limits cover `/land`, `/merge`, `/proposals`, `/judge`.",
+        "The seam is enforced before the first non-demo data exists in the namespace; CSRF protection is required for the future cookie-based SSO path."
+      ]
+    },
+    {
+      "id": "FR-46",
+      "title": "Declare intent before building; match it against the fork ecosystem",
+      "status_raw": "sequenced (M4)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M4",
+      "description": "A builder can declare intent before building and match it against the fork ecosystem — joining existing work instead of restarting it.",
+      "consequences": [
+        "The matcher returns one verdict per declared intent — `merge-it` (an existing fork already carries the work), `use-as-context` (overlap supplies context), or `ignore` (no actionable overlap).",
+        "Fork cards carry the six-cluster signals that drive matcher verdicts (defined in `fork-community.md`, the CAP-10 companion).",
+        "Join-don't-restart is a platform reflex: the default path from a declaration leads to the fork that already attempted the work, not to a restart.",
+        "Merge-back-to-upstream paths are defined: a fork's work can be routed back to the repository it forked from."
+      ]
+    },
+    {
+      "id": "FR-47",
+      "title": "R2 asset tier",
+      "status_raw": "sequenced (M3) (R2 tier in product scope; OQ-1 resolved 2026-10-06)",
+      "needs": {
+        "implementation": true,
+        "verification": false
+      },
+      "milestone_hint": "M3",
+      "description": "A repo can carry large and binary assets without bottlenecking the git fabric: assets are content-addressed blobs in R2; git carries manifests and pointers only.",
+      "consequences": [
+        "Large/binary assets are stored as content-addressed blobs in R2, and the repo holds a manifest/pointer (path, blob id, content hash, size) in Artifacts — clones, change-sets, and the fork-point contract are unchanged.",
+        "Integrity verification: a blob whose content hash does not match its pointer fails closed — no silent substitution; verification runs on any read path that materializes a blob.",
+        "Lifecycle: bucket lifecycle rules (retention/expiry) plus lifecycle-safe deletes — removing a path removes the pointer and schedules the blob; no orphan-blob accumulation.",
+        "Git is NOT re-architected for blobs: the five landing semantics, secret masking, and the fork-point change-set contract are unchanged — the tier adds a pointer layer only."
+      ]
+    }
+  ],
+  "nfrs": [
+    {
+      "id": "NFR-1",
+      "title": "Compute envelope",
+      "text": "All change-set, conflict, and merge-preview work happens in-Worker within the Workers CPU budget: 30 s default / 5 min max per HTTP request. No read route clones; the only in-memory clone is inside `/land` (AD-2). Fork walks are bounded at 200 first-parent commits."
+    },
+    {
+      "id": "NFR-2",
+      "title": "Artifacts envelope",
+      "text": "1 GB/repo · 32 MB/file · 2k git requests/10 s/repo; push cap ~64 MiB → small incremental pushes; push protocol v1-only. Artifacts provides no server-side merge, diff, conflict detection, or branch protection — the platform builds all of them (SPEC constraints)."
+    },
+    {
+      "id": "NFR-3",
+      "title": "Runtime pin",
+      "text": "One Worker (`nextgit-platform`); compatibility date 2026-09-01; no `nodejs_compat` (in-tree fs/Buffer shims). Deploys use the lockfile-pinned local wrangler, never `@latest`. Worker logs never include Authorization headers or request bodies."
+    },
+    {
+      "id": "NFR-4",
+      "title": "One gated write path",
+      "text": "The worker performs no git writes except the single-commit fold+push inside `POST /land`; base branches are written only by `/land`; control-plane pushes are limited to provisioning baselines and proposal repos; landing replays are prohibited (AD-1)."
+    },
+    {
+      "id": "NFR-5",
+      "title": "Secret egress law",
+      "text": "No secret-class content leaves the worker in any response, log, or model state; free-text channels derived from repo content are scrubbed before entering any body (AD-4)."
+    },
+    {
+      "id": "NFR-6",
+      "title": "Zero credential egress",
+      "text": "No response ever contains tokens or credentials — no exception; failure paths return fold artifacts only; no response carries shell snippets containing repo content or paths (AD-9)."
+    },
+    {
+      "id": "NFR-7",
+      "title": "Single writer / single consumer",
+      "text": "KV `LIVE` has exactly one writer (the worker); the queue has exactly one consumer; Artifacts events are deduped on `(type, repo, ref, after)`; the feed is a hint, never authority for writes or identity (AD-6)."
+    },
+    {
+      "id": "NFR-8",
+      "title": "Degrade, never fake",
+      "text": "Every failed fetch except the ticker surfaces in one connection banner; panels keep their last render; the ticker degrades silently; landing state is content-derived — the UI never shows a success it did not observe."
+    },
+    {
+      "id": "NFR-9",
+      "title": "Accessibility floor (WCAG 2.2 AA behavioral floor)",
+      "text": "Visible focus on every interactive control; modal focus trap returning focus to the trigger; Escape/backdrop/close modal semantics; reduced-motion support; ≥44px touch targets at phone widths; document-order tab order. Known gap to fix: `{colors.text-muted}` ≈3.3:1 and `{colors.text-dim}` ≈2.1:1 are below 4.5:1 for small text — confined to meta labels/ambient chrome; they must not be extended to body copy or state messaging, and raising them is a pending decision. [ASSUMPTION: floor ratified for M1 (revisit at the §7.5 gate; John may overrule anytime).] [NOTE FOR PM: raising `{colors.text-muted}`/`{colors.text-dim}` is a pending decision — the current ratios are the as-built floor, not a ratified contrast target.]"
+    },
+    {
+      "id": "NFR-10",
+      "title": "Concerns floor",
+      "text": "Dark-only theme; desktop-web primary; English-only copy; no offline, no native, no PWA. [ASSUMPTION: ratified for M1 (revisit at the §7.5 gate; John may overrule anytime).]"
+    },
+    {
+      "id": "NFR-11",
+      "title": "Contract-first",
+      "text": "Additive-only shapes; bump before change; defaults pinned in `CONTRACT.md`; consumers read only documented surfaces (AD-8)."
+    },
+    {
+      "id": "NFR-12",
+      "title": "Design constitution",
+      "text": "Every requirement's intent answers to the twelve engineering laws (`engineering-laws.md`; per-law carrier mapping: `reconcile-spec.md` §3); laws not yet carried as FRs ride as roadmap explicitly — L2 two-tier intelligence (fast System-1 sweeps classify every file before expensive reasoning), L9 work-item ↔ change-set linkage, L11 always-on decision layer; the partially-represented laws remain binding."
+    }
+  ],
+  "ux_drs": [
+    {
+      "id": "UX-DR-1",
+      "text": "GAP #5 — CAP-8 \"elevated reveal\" beat not implemented (schema-only / withheld views only) (`EXPERIENCE.md:272`)."
+    },
+    {
+      "id": "UX-DR-2",
+      "text": "GAP #6 — judge chips + auto-land gate planned P0, not rendered: risk score, intent-vs-diff verification, semantic collision; when built: chips on the card, gate behind the Land button; \"the judge advises; code decides; humans still own irreversible acts.\" Draft brief lists them as first-version — contradiction flagged (`EXPERIENCE.md:273`; `DESIGN.md:606-614`)."
+    },
+    {
+      "id": "UX-DR-3",
+      "text": "GAP #7 — <424px overflow: proposals grid 360px track floor + 2rem container padding overflows below ~424px viewports; fix = single column below the floor `[ASSUMPTION]` (`EXPERIENCE.md:259`). Triage app has no authored media queries; only tour.css has breakpoints (768px, 640px) (`EXPERIENCE.md:255-257`)."
+    },
+    {
+      "id": "UX-DR-4",
+      "text": "Pending-intake state behaviors to lock at requirement level: WCAG 2.2 AA floor; tab order; modal focus trap; reduced-motion; 44px touch targets; first-load treatment; card treatments for the two unrendered states; `no-changes` copy (`EXPERIENCE.md:264`)."
+    },
+    {
+      "id": "UX-DR-5",
+      "text": "Interaction requirements as behavior: click-first (no drag/context menus/custom shortcuts beyond Tab/Enter/Space/Escape); inline confirm replaces dialogs; Escape closes topmost modal (one level deep, never two); hover is enhancement only — every action always visible without hover; tab order = document order, modal traps focus and returns it to trigger `[ASSUMPTION — verify in build]` (`EXPERIENCE.md:32`, `:177-181`)."
+    },
+    {
+      "id": "UX-DR-6",
+      "text": "Polling cadence is behavioral requirement, not implementation detail: `/events` 2s; `/proposals` 8s with toggle on; new top event debounce 500ms; land reloads both endpoints; `/events` failure must never break proposals UI; push-style immediacy is the product goal — as-built polls (`EXPERIENCE.md:182`). Set view, no paging — all proposals on one canvas, no tab-hopping, no collapse (`EXPERIENCE.md:183`)."
+    },
+    {
+      "id": "UX-DR-7",
+      "text": "Provenance requirement: the landing decision persists as a git note (`EXPERIENCE.md:214`)."
+    }
+  ],
+  "arch_constraints": [
+    {
+      "id": "ARCH-C-1",
+      "text": "CPU budget: Workers CPU 30 s default / 5 min max per HTTP request; all change-set/conflict work in-Worker diffs, no server-side git (SPINE:69; SPEC:53)."
+    },
+    {
+      "id": "ARCH-C-2",
+      "text": "Artifacts limits: 1 GB/repo · 32 MB/file · 2k git req/10 s/repo; no server-side merge/diff/conflict/branch-protection — the platform builds them (SPEC:51); 32 MB/blob wall stands (MEMLOG:21). Push ~64 MiB cap → small incremental pushes; push protocol v1-only (SPEC:52)."
+    },
+    {
+      "id": "ARCH-C-3",
+      "text": "Runtime pin: compat 2026-09-01, no `nodejs_compat` (in-tree fs/Buffer shims) (SPINE:162,135); isomorphic-git ^1.43.0 (v1 wire; SPEC names 1.42.x — verified compatible REAL:53)."
+    },
+    {
+      "id": "ARCH-C-4",
+      "text": "Environments: one environment (live demo `nextgit-platform.john-b7d.workers.dev`); no staging split until auth seam + non-demo data (SPINE:177,251)."
+    },
+    {
+      "id": "ARCH-C-5",
+      "text": "Fork walk limit 200 on change-set diffing; landing preconditions `stale`/`base-moved` (SPINE:75)."
+    },
+    {
+      "id": "ARCH-C-6",
+      "text": "Events/polling plan: `/events` ≤50 newest; KV single writer; queue single consumer; dedupe `(type,repo,ref,after)`; polling only as fallback (SPINE:93); live-feed transport (SSE/WS) deferred until polling latency is real at scale (SPINE:253)."
+    },
+    {
+      "id": "ARCH-C-7",
+      "text": "Scale budget unresolved: `/proposals` fully recomputes per poll; only AD-2's CPU sentence bounds it; a P2 cache item is the implicit home (RUB:33); brief flags the 20–50-proposal fleet view as a known engineering budget item (BRIEF:64)."
+    },
+    {
+      "id": "ARCH-C-8",
+      "text": "Token lifecycle: worker tokens minutes-TTL, single-use, revoked in `finally`; agent tokens hours-scale; 0600 outside repos/transcripts; never logs/argv; mint/use/revoke audited (SPINE:99)."
+    },
+    {
+      "id": "ARCH-C-9",
+      "text": "Auth/demo: `AUTH_MODE` default deny; demo allowlist `demo`/`agent-*`; rate limits on `/land`,`/merge`,`/proposals`,`/judge`; seam enforced before first non-demo data (SPINE:111)."
+    },
+    {
+      "id": "ARCH-C-10",
+      "text": "Judge: pinned model, fail-closed, per-caller budget/rate caps, auto-land requires injection-spike pass + non-model corroboration (SPINE:123)."
+    },
+    {
+      "id": "ARCH-C-11",
+      "text": "Deploy/log hygiene: lockfile-pinned wrangler only; worker logs never Authorization headers or request bodies (SPINE:135)."
+    },
+    {
+      "id": "ARCH-C-12",
+      "text": "Gate rule: 0 ship-blockers + 0 highs; contract smoke in each platform VERIFY (SPINE:129)."
+    },
+    {
+      "id": "ARCH-C-13",
+      "text": "Write protection is ours to enforce: CF `read_only:true` flag does NOT constrain binding-level writes (probe landed on a read-only fork) — never assumed as a guard (MEMLOG:39)."
+    },
+    {
+      "id": "ARCH-C-14",
+      "text": "No Windows/GPU/macOS hosting; no servers to run; only local dependency is the loop host (SPINE:147,177)."
+    }
+  ],
+  "arch_capabilities": [
+    {
+      "id": "ARCH-CAP-1",
+      "text": "Judge layer wiring (P0): `POST /judge` + `AI` binding + typed envelope + card-signal vocabulary, contract-pinned before the wave (SPINE:119-123; MEMLOG:34 `judge-contract-pin` P0)."
+    },
+    {
+      "id": "ARCH-CAP-2",
+      "text": "Landing path hardening (P0): reviewed-heads fields + evidence object + `base-moved` preconditions + AD-9 allowlist/rate rules as one work order, contract bump first (SPINE:244; MEMLOG:34)."
+    },
+    {
+      "id": "ARCH-CAP-3",
+      "text": "Event pipeline: Queues → worker (sole recorder, validation, dedupe) → KV → `/events` → UI (SPINE:89-93; `event-consumer-validation-dedupe` P1 MEMLOG:34)."
+    },
+    {
+      "id": "ARCH-CAP-4",
+      "text": "Store choices in scope: Artifacts (repos/forks/notes-mirror), KV `LIVE`, Queues `nextgit-events`, DO leases (`do-lease-serializes-lands` P1), Workflows provisioning (`workflows-provisioning` P1), R2 asset tier owning manifest/pointer format (`r2-asset-tier-manifest-format` P1) (SPINE:42-56,113-117; MEMLOG:34)."
+    },
+    {
+      "id": "ARCH-CAP-5",
+      "text": "Auth seam v1 + token lifecycle (P1) (SPINE:107-111; MEMLOG:34)."
+    },
+    {
+      "id": "ARCH-CAP-6",
+      "text": "Secret-class widening + scrub (P1) and the content-scan decision landing in CONTRACT before its unit ships (SPINE:81)."
+    },
+    {
+      "id": "ARCH-CAP-7",
+      "text": "Contract smoke in VERIFY gates + `tsc --noEmit` type gate (`contract-smoke-verify-gates` P2) (SPINE:129; MEMLOG:34)."
+    },
+    {
+      "id": "ARCH-CAP-8",
+      "text": "Client contract: CONTRACT.md + 11-entity protocol + push-event surface; adapter synthesizes GitHub semantics (SPINE:137-141; capability map SPINE:226-237: CAP-1..10, CAP-10 deferred)."
+    },
+    {
+      "id": "ARCH-CAP-9",
+      "text": "Deferred (post-competition unless noted): game-asset pipeline internals, federation runners, fork community + intent router, staging/SSO split, jurisdiction, SSE/WS transport, macro-merging + SHOULD/COULD list (SPINE:248-254)."
+    },
+    {
+      "id": "ARCH-CAP-10",
+      "text": "Demo incorporation requirement: DO/Workflows/R2 introduction slices scheduled as work orders immediately after the spine (user requires demo incorporation) (SPINE:241; MEMLOG:9)."
+    }
+  ]
+}

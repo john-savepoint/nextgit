@@ -5,7 +5,7 @@
 // Zero npm deps: bun:sqlite + node builtins only. Safe across concurrent bun
 // processes: WAL + busy_timeout=5000, and every write runs in BEGIN IMMEDIATE.
 //
-// Commands: init | import <path> | add | set | claim | release | next | list | view | query
+// Commands: init | import <path> | add | upsert | set | claim | release | next | list | view | query | epic-upsert | epic-list | activate
 // Exit codes: 0 ok · 1 no unblocked pending / generic error · 2 usage/validation/unknown id/duplicate id/rejected query · 3 claim conflict / release without claim
 
 import { Database } from "bun:sqlite";
@@ -68,11 +68,23 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status, priority, created_at);
+CREATE TABLE IF NOT EXISTS epics (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  goal TEXT,
+  milestone TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  source TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
  // idempotent additive migration for stores created before a column existed
  const cols = new Set(db.query("PRAGMA table_info(tasks)").all().map((c) => c.name));
  if (!cols.has("layer")) db.exec("ALTER TABLE tasks ADD COLUMN layer TEXT");
  if (!cols.has("source")) db.exec("ALTER TABLE tasks ADD COLUMN source TEXT");
+ if (!cols.has("epic_id")) db.exec("ALTER TABLE tasks ADD COLUMN epic_id TEXT");
+ if (!cols.has("fr_refs")) db.exec("ALTER TABLE tasks ADD COLUMN fr_refs TEXT");
 }
 
 export function openDb(p, { readonly = false } = {}) {
@@ -229,6 +241,75 @@ function cmdAdd(dbPath, { id, title, priority, scope, acceptance, check, deps, l
  console.log(id);
 }
 
+// Full-field content upsert (idempotent re-compile): content fields update in place;
+// status/evidence/owner are PRESERVED on conflict — re-compiles never clobber progress or proof.
+function cmdUpsert(dbPath, f) {
+ const normDeps = f.deps ? f.deps.split(",").map((s) => s.trim()).filter(Boolean).join(",") : null;
+ const normRefs = f.frRefs ? f.frRefs.split(",").map((s) => s.trim()).filter(Boolean).join(",") : null;
+ const db = openDb(dbPath);
+ const status = f.status ?? "pending";
+ if (!STATUSES.includes(status)) throw new CliError(2, `invalid status: ${status}`);
+ writeTx(db, () => {
+  const isNew = !db.query("SELECT id FROM tasks WHERE id = ?").get(f.id);
+  db.prepare(
+   `INSERT INTO tasks (id, title, status, priority, scope, acceptance, check_cmd, deps, layer, source, epic_id, fr_refs)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        priority = excluded.priority,
+        scope = excluded.scope,
+        acceptance = excluded.acceptance,
+        check_cmd = excluded.check_cmd,
+        deps = excluded.deps,
+        layer = excluded.layer,
+        source = excluded.source,
+        epic_id = excluded.epic_id,
+        fr_refs = excluded.fr_refs,
+        updated_at = datetime('now')`
+  ).run(f.id, f.title, status, f.priority ?? null, f.scope ?? null, f.acceptance ?? null, f.check ?? null, normDeps, f.layer ?? null, f.source ?? null, f.epicId ?? null, normRefs);
+  event(db, isNew ? "upsert-new" : "upsert-update", f.id, isNew ? `inserted (${status})` : "content updated; status/evidence preserved");
+ });
+ console.log(f.id);
+}
+
+function cmdEpicUpsert(dbPath, f) {
+ const db = openDb(dbPath);
+ writeTx(db, () => {
+  const isNew = !db.query("SELECT id FROM epics WHERE id = ?").get(f.id);
+  db.prepare(
+   `INSERT INTO epics (id, title, goal, milestone, status, source)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        goal = excluded.goal,
+        milestone = excluded.milestone,
+        source = excluded.source,
+        updated_at = datetime('now')`
+  ).run(f.id, f.title, f.goal ?? null, f.milestone ?? null, f.status ?? "active", f.source ?? null);
+  event(db, isNew ? "epic-new" : "epic-update", f.id, isNew ? "inserted" : "updated");
+ });
+ console.log(f.id);
+}
+
+function cmdEpicList(dbPath, json) {
+ const db = openDb(dbPath);
+ const rows = db.query("SELECT * FROM epics ORDER BY milestone, id").all();
+ if (json) { console.log(JSON.stringify(rows, null, 2)); return; }
+ for (const r of rows) console.log(`${r.milestone ?? "-"}  ${r.status}  ${r.id}  ${r.title}`);
+}
+
+// Flip staged rows runnable: blocked -> pending for a source prefix (explicit activation gate).
+function cmdActivate(dbPath, prefix) {
+ const db = openDb(dbPath);
+ let n = 0;
+ writeTx(db, () => {
+  const r = db.prepare("UPDATE tasks SET status = 'pending', updated_at = datetime('now') WHERE status = 'blocked' AND source LIKE ? || '%'").run(prefix);
+  n = r.changes;
+  event(db, "activate", null, `${n} rows activated (source like ${prefix}%)`);
+ });
+ console.log(`activated ${n}`);
+}
+
 function cmdSet(dbPath, id, status, evidence, owner) {
  const db = openDb(dbPath);
  let effective;
@@ -380,6 +461,34 @@ async function main() {
    cmdAdd(dbPath, { id, title, priority, scope: str(flags.scope), acceptance: str(flags.acceptance), check: str(flags.check), deps: str(flags.deps), layer: str(flags.layer), source: str(flags.source) });
    break;
   }
+  case "upsert": {
+   const id = str(flags.id);
+   const title = str(flags.title);
+   if (!id || !title) throw new CliError(2, "usage: tasks.mjs upsert --id ID --title T [--status S] [--priority P0-P3] [--scope s] [--acceptance a] [--check cmd] [--deps a,b] [--layer l] [--source s] [--epic-id e] [--fr-refs FR-1,FR-2]");
+   let priority = null;
+   if (flags.priority !== undefined) {
+    if (typeof flags.priority !== "string" || !PRIORITIES.includes(flags.priority)) throw new CliError(2, `invalid --priority: ${flags.priority}`);
+    priority = flags.priority;
+   }
+   cmdUpsert(dbPath, { id, title, status: str(flags.status), priority, scope: str(flags.scope), acceptance: str(flags.acceptance), check: str(flags.check), deps: str(flags.deps), layer: str(flags.layer), source: str(flags.source), epicId: str(flags["epic-id"]), frRefs: str(flags["fr-refs"]) });
+   break;
+  }
+  case "epic-upsert": {
+   const id = str(flags.id);
+   const title = str(flags.title);
+   if (!id || !title) throw new CliError(2, "usage: tasks.mjs epic-upsert --id ID --title T [--goal g] [--milestone M1] [--status s] [--source s]");
+   cmdEpicUpsert(dbPath, { id, title, goal: str(flags.goal), milestone: str(flags.milestone), status: str(flags.status), source: str(flags.source) });
+   break;
+  }
+  case "epic-list":
+   cmdEpicList(dbPath, flags.json === true);
+   break;
+  case "activate": {
+   const prefix = pos[0];
+   if (!prefix) throw new CliError(2, "usage: tasks.mjs activate <source-prefix>");
+   cmdActivate(dbPath, prefix);
+   break;
+  }
   case "set": {
    const id = pos[0];
    const status = str(flags.status);
@@ -412,7 +521,7 @@ async function main() {
    cmdQuery(dbPath, pos[0]);
    break;
   default:
-   throw new CliError(2, `usage: tasks.mjs <init|import|add|set|claim|release|next|list|view|query>${cmd ? ` (unknown command: ${cmd})` : ""}`);
+   throw new CliError(2, `usage: tasks.mjs <init|import|add|upsert|set|claim|release|next|list|view|query|epic-upsert|epic-list|activate>${cmd ? ` (unknown command: ${cmd})` : ""}`);
  }
 }
 
