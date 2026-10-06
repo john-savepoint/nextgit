@@ -27,7 +27,7 @@ const extractCheck = (scope) => { const m = scope.match(/check:\s*(.+)$/i); retu
 // Queue source for runBatch: the DB is authoritative when it exists (even when empty —
 // an empty store returns NO PENDING ROWS, never a silent stale-md re-read); the md parser
 // is the fallback only when the store is absent or the CLI read throws.
-export function readQueueRows(root = process.cwd()) {
+export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
   const dbPath = process.env.TASKS_DB ?? `${root}/porting/tasks.db`;
   if (existsSync(dbPath)) {
     try {
@@ -35,12 +35,29 @@ export function readQueueRows(root = process.cwd()) {
       // Live-claimed rows are skipped: another session owns them (claims are the collision guard).
       const out = execFileSync("bun", [`${root}/porting/tasks.mjs`, "list", "--status", "pending", "--json"],
         { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } });
-      const rows = out.trim()
+      // Dep-aware scheduling (mirrors `tasks.mjs next`): a row whose deps are not all done is
+      // NOT runnable yet — skipped, never picked, and reported in `gated`. If the done-set read
+      // fails, every dep-carrying row is gated (fail closed; never run a dependent early).
+      let done = new Set();
+      try {
+        const dq = execFileSync("bun", [`${root}/porting/tasks.mjs`, "query", "SELECT id FROM tasks WHERE status IN ('done','remediated')"],
+          { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } });
+        done = new Set(JSON.parse(dq).map((r) => r.id));
+      } catch { }
+      let mapped = out.trim()
         ? JSON.parse(out)
           .filter((r) => r.claimed_by == null)
-          .map((r) => ({ id: r.id, priority: r.priority ?? "P3", title: r.title, scope: r.scope ?? "", check: r.check_cmd }))
+          .map((r) => ({ id: r.id, priority: r.priority ?? "P3", title: r.title, scope: r.scope ?? "", acceptance: r.acceptance ?? null, check: r.check_cmd, deps: r.deps ?? null, source: r.source ?? null, epic: r.epic_id ?? null }))
         : [];
-      return { source: "db", rows };
+      if (sourceLike) mapped = mapped.filter((r) => (r.source ?? "").startsWith(sourceLike));
+      const gated = [];
+      const rows = mapped.filter((r) => {
+        const deps = (r.deps ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        const unmet = deps.filter((d) => !done.has(d));
+        if (unmet.length) { gated.push({ id: r.id, unmet }); return false; }
+        return true;
+      });
+      return { source: "db", rows, gated };
     } catch (e) {
       console.error(`wf-batch: DB queue read failed (${e.message}); falling back to docs/NEXT-ACTIONS.md`);
     }
@@ -59,7 +76,7 @@ export function readQueueRows(root = process.cwd()) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike } = {}) {
   const { runWorkOrder, normalizeVerdict, SKILL_HINTS } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -70,7 +87,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
   try { preBatchCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", timeout: 10000 }).trim(); } catch { }
 
   // --- queue (DB preferred; md fallback on a store fault) --------------------
-  const { source: queueSource, rows } = readQueueRows(root);
+  const { source: queueSource, rows, gated = [] } = readQueueRows(root, { sourceLike });
 
   // --- claim the picks (contended rows are skipped; released after running) --
   // Two sessions running batches must never pick the same row: claims are the guard.
@@ -91,7 +108,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       console.error(`wf-batch: ${row.id} contended — skipping`);
     }
   }
-  if (!picked.length) return { orders: [], gate: null, next: "NO PENDING ROWS (or all picks contended)" };
+  if (!picked.length) return { orders: [], gate: null, gated, next: "NO PENDING ROWS (or all picks contended/dep-gated)" };
 
   // --- base reds (what was already red before this batch) --------------------
   const stateText = readFileSync(`${root}/docs/STATE.md`, "utf8");
@@ -106,7 +123,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       id: row.id ?? slug(row.title),
       title: row.title,
       scope: row.scope,
-      acceptance: row.scope,
+      acceptance: row.acceptance ?? row.scope,
       corpus: DEFAULT_CORPUS.map((p) => `${root}/${p}`),
       testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
     };
@@ -153,7 +170,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
 
   const parityBlocked = parity !== null && parity.verdict !== "SHIP";
   const next = results.some((r) => r.verdict !== "GREEN") || merged.verdict !== "SHIP" || parityBlocked ? "BLOCKED — see per-order results + gate-merged.md + gate-parity.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
-  const report = { batch: ts, queueSource, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, parity, next };
+  const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, parity, next };
   writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
   log(`batch ${ts}: ${next}`);
   return report;

@@ -46,7 +46,7 @@ const defaultReply = (label) => {
 globalThis.phase = () => { };
 globalThis.log = () => { };
 globalThis.agent = (_prompt, opts = {}) => {
-  calls.push({ label: opts.label ?? "?", spawn: opts.agent });
+  calls.push({ label: opts.label ?? "?", spawn: opts.agent, prompt: String(_prompt) });
   return { wait: async () => reply(opts.label ?? "") };
 };
 globalThis.wait = async (handles) => Promise.all(handles.map((h) => Promise.resolve(h.wait()).catch((e) => e)));
@@ -71,7 +71,14 @@ function fixture(rows = [], preclaimed = []) {
   const env = { ...process.env, TASKS_DB: store };
   const cli = (args) => spawnSync("bun", [TASKS, ...args], { cwd: ROOT, env, encoding: "utf8" });
   cli(["init"]);
-  for (const id of rows) cli(["add", "--id", id, "--title", `row ${id}`, "--priority", "P1", "--scope", `do ${id}`, "--check", "true"]);
+  for (const row of rows) {
+    const r = typeof row === "string" ? { id: row } : row;
+    const args = ["add", "--id", r.id, "--title", `row ${r.id}`, "--priority", "P1", "--scope", `do ${r.id}`, "--check", "true"];
+    if (r.acceptance) args.push("--acceptance", r.acceptance);
+    if (r.deps) args.push("--deps", r.deps);
+    if (r.source) args.push("--source", r.source);
+    cli(args);
+  }
   for (const id of preclaimed) cli(["claim", id, "--agent", "other-session", "--ttl", "600"]);
   const q = (sql) => JSON.parse(cli(["query", sql]).stdout);
   return { tmp, root, store, cli, q };
@@ -80,14 +87,15 @@ function fixture(rows = [], preclaimed = []) {
 const { runBatch } = await import(new URL("../wf-batch.ddw.js", import.meta.url).href);
 const gateFile = (o, name) => JSON.parse(readFileSync(join(o.batchDir, name), "utf8"));
 
-async function scenario(rows, { preclaimed = [], limit = 2, mode } = {}) {
+async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before } = {}) {
   const fx = fixture(rows, preclaimed);
   calls = [];
   reply = (label) => (mode ? mode(label, defaultReply) : defaultReply(label));
   const prevDB = process.env.TASKS_DB;
   process.env.TASKS_DB = fx.store;
   const out = { fx };
-  try { out.report = await runBatch({ limit, root: fx.root }); } catch (e) { out.error = e; }
+  if (before) before(fx);
+  try { out.report = await runBatch({ limit, root: fx.root, sourceLike }); } catch (e) { out.error = e; }
   finally { if (prevDB === undefined) delete process.env.TASKS_DB; else process.env.TASKS_DB = prevDB; }
   out.calls = calls;
   const bDirName = readdirSync(join(fx.root, "porting/runs")).find((f) => f.startsWith("batch-"));
@@ -173,20 +181,49 @@ try {
   else check("5 empty store → NO PENDING ROWS, no gates", o.report.orders.length === 0 && o.report.gate === null && o.report.next.startsWith("NO PENDING ROWS") && o.calls.length === 0, `${o.report.next} / calls=${o.calls.length}`);
 } catch (e) { check("5 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
-// --- 6. live-store isolation + cleanup ---------------------------------------
+// --- 6. consumer contract: acceptance passthrough, dep-gating, source filter ---
+try {
+  // 6a: dependent row gated until its dep is done; acceptance text flows into the order
+  const a6 = `${ID_PREFIX}s6-a`, b6 = `${ID_PREFIX}s6-b`;
+  const oA = await scenario([{ id: a6, acceptance: `ACCEPT-${a6}` }, { id: b6, deps: a6 }], { limit: 2 });
+  if (oA.error) check("6a dep-gating scenario completes", false, String(oA.error.message).slice(0, 200));
+  else {
+    const rA = oA.report;
+    check("6a dependent row gated (only the dep runs)", rA.orders.length === 1 && rA.orders[0].order === a6, JSON.stringify(rA.orders.map((x) => x.order)));
+    check("6a gated row reported with unmet dep", (rA.gated ?? []).length === 1 && rA.gated[0].id === b6 && rA.gated[0].unmet.includes(a6), JSON.stringify(rA.gated));
+    check("6a gated row never ran and stays pending", !existsSync(join(oA.fx.root, "porting/runs", b6)) && oA.fx.q(`SELECT status FROM tasks WHERE id='${b6}'`)[0].status === "pending");
+    const planCall = oA.calls.find((c) => c.label === `plan:${a6}`);
+    check("6a acceptance text passes through to the order", !!planCall && planCall.prompt.includes(`ACCEPT-${a6}`) && planCall.prompt.includes(`do ${a6}`), planCall ? "acceptance text missing from plan prompt" : "no plan call captured");
+  }
+  // 6b: once the dep is done, the dependent becomes runnable
+  const c6 = `${ID_PREFIX}s6-c`, d6 = `${ID_PREFIX}s6-d`;
+  const oB = await scenario([{ id: c6 }, { id: d6, deps: c6 }], { limit: 2, before: (fx) => fx.cli(["set", c6, "--status", "done", "--evidence", "seeded done"]) });
+  if (oB.error) check("6b satisfied-dep scenario completes", false, String(oB.error.message).slice(0, 200));
+  else check("6b satisfied dep runs; gating clears", oB.report.orders.length === 1 && oB.report.orders[0].order === d6 && (oB.report.gated ?? []).length === 0, JSON.stringify(oB.report.orders.map((x) => x.order)));
+  // 6c: sourceLike filter restricts the pick set
+  const e6 = `${ID_PREFIX}s6-e`, f6 = `${ID_PREFIX}s6-f`;
+  const oC = await scenario([{ id: e6, source: "compile:selftest" }, { id: f6, source: "harvest:x" }], { limit: 2, sourceLike: "compile:" });
+  if (oC.error) check("6c source-filter scenario completes", false, String(oC.error.message).slice(0, 200));
+  else {
+    check("6c only source-matching rows picked", oC.report.orders.length === 1 && oC.report.orders[0].order === e6, JSON.stringify(oC.report.orders.map((x) => x.order)));
+    check("6c filtered-out row untouched (no run dir, stays pending)", !existsSync(join(oC.fx.root, "porting/runs", f6)) && oC.fx.q(`SELECT status FROM tasks WHERE id='${f6}'`)[0].status === "pending");
+  }
+} catch (e) { check("6 consumer-contract case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 7. live-store isolation + cleanup ---------------------------------------
 try {
   if (existsSync(LIVE_DB)) {
     const env = { ...process.env, TASKS_DB: LIVE_DB };
     const q = (sql) => JSON.parse(spawnSync("bun", [TASKS, "query", sql], { cwd: ROOT, env, encoding: "utf8" }).stdout);
     const t = q(`SELECT COUNT(*) AS n FROM tasks WHERE id LIKE '${ID_PREFIX}%'`)[0].n;
     const c = q(`SELECT COUNT(*) AS n FROM claims WHERE task_id LIKE '${ID_PREFIX}%'`)[0].n;
-    check("6 live store untouched (no selftest rows/claims)", t === 0 && c === 0, JSON.stringify({ rows: t, claims: c }));
+    check("7 live store untouched (no selftest rows/claims)", t === 0 && c === 0, JSON.stringify({ rows: t, claims: c }));
   } else {
-    check("6 live-store isolation (no live store present — check skipped)", true);
+    check("7 live-store isolation (no live store present — check skipped)", true);
   }
-} catch (e) { check("6 live-store check threw", false, String(e?.message ?? e)); }
+} catch (e) { check("7 live-store check threw", false, String(e?.message ?? e)); }
 for (const t of tmps) rmSync(t, { recursive: true, force: true });
-check("6 all temp state cleaned", tmps.every((t) => !existsSync(t)));
+check("7 all temp state cleaned", tmps.every((t) => !existsSync(t)));
 
 // teardown: the DDW runtime stubs are this suite's only globals — leave none behind
 for (const k of ["agent", "wait", "phase", "log"]) delete globalThis[k];
