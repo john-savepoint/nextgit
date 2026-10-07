@@ -218,9 +218,34 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         const s = settled[si++];
         byId.set(u.id, s.status === "fulfilled" ? s.value : { order: u.id, title: u.row.title, verdict: `ERROR: ${String(s.reason?.message ?? s.reason).slice(0, 200)}`, heals: 0 });
       }
+      // --- commit each order's work onto its branch (the merge-back contract) ---
+      // Orders run in worktrees and never commit (workers never commit — by design).
+      // The DRIVER commits here, before merge-back: without this step `git merge` is a
+      // no-op ("Already up to date") and the worktree removal destroys the work — the
+      // phantom-merge defect the parity gate caught 2026-10-07 (records said merged=3
+      // while the build gained nothing). --no-verify: runner bookkeeping must not
+      // re-enter repo hooks from the worktree context. A failed commit marks the unit
+      // ERROR and its worktree is KEPT (never removed uncommitted).
+      const commitFailed = new Set();
+      for (const u of units) {
+        if (u.failed) continue;
+        try {
+          const dirty = execFileSync("git", ["-C", u.wt, "status", "--porcelain"], { encoding: "utf8", timeout: 30000 }).trim();
+          if (dirty) {
+            const who = ["-c", "user.email=nextgit-runner@local", "-c", "user.name=nextgit-runner"];
+            execFileSync("git", ["-C", u.wt, ...who, "add", "-A"], { encoding: "utf8", timeout: 60000 });
+            execFileSync("git", ["-C", u.wt, ...who, "commit", "-q", "--no-verify", "-m", `order ${u.id}: ${u.row.title} (batch ${ts})`], { encoding: "utf8", timeout: 60000 });
+          }
+        } catch (e) {
+          commitFailed.add(u.id);
+          byId.set(u.id, { order: u.id, title: u.row.title, verdict: `ERROR: worktree commit failed — ${String(e.stderr ?? e.message).slice(0, 160)}`, heals: 0 });
+          console.error(`wf-batch: worktree commit failed for ${u.id} — worktree kept: ${u.wt}`);
+        }
+      }
       const merged = [], conflicts = [], kept = [];
       for (const u of units) {
         const r = byId.get(u.id) ?? {};
+        if (commitFailed.has(u.id)) { kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt, note: "commit failed — worktree kept" }); if (u.row.claimed && u.row.id) releaseRow(u.row.id); continue; }
         if (r.verdict === "GREEN") {
           try {
             git(["merge", "--no-ff", `order/${u.id}`, "-m", `order ${u.id}: ${u.row.title} (batch ${ts})`]);
@@ -234,13 +259,15 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
             console.error(`wf-batch: merge conflict for ${u.id} — branch kept for reconciliation`);
           }
         } else {
+          // red/errored: the branch now HOLDS the work (committed above); removing the
+          // worktree loses nothing — the branch is the reconciliation surface.
           try { git(["worktree", "remove", "--force", u.wt]); } catch { }
           kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
           // red/errored rows are safe to release now; green rows keep claims for the caller tick
           if (u.row.claimed && u.row.id) releaseRow(u.row.id);
         }
       }
-      mergeBack = { mode: "parallel", parallel, merged, conflicts, kept };
+      mergeBack = { mode: "parallel", parallel, merged, conflicts, kept, commitFailed: [...commitFailed] };
       writeFileSync(`${batchDir}/merge-back.json`, JSON.stringify(mergeBack, null, 2));
       results = units.map((u) => byId.get(u.id));
       log(`batch ${ts}: parallel x${parallel} — GREEN ${results.filter((r) => r.verdict === "GREEN").length}, merged ${merged.length}, conflicts ${conflicts.length}, kept ${kept.length}`);

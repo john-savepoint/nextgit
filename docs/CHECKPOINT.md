@@ -2,6 +2,14 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-08 — Fix: parallel merge-back now commits (phantom-merge defect)
+**Caught by:** the batch parity gate — `merge-back.json` recorded `merged=3, conflicts=0` while `git diff <base>` was EMPTY and no commits existed anywhere since the base (mechanism reproduced in a scratch repo).
+**Root cause:** orders run in worktrees and never commit (workers-never-commit, by design); the merge-back loop had **no driver commit**, so `git merge order/<id>` exited 0 "Already up to date" and the subsequent `worktree remove --force` + `branch -D` destroyed the uncommitted work. The old scenario-8 test was vacuous (stub orders changed nothing).
+**Fix (`9260f48`→ this commit):** driver commits each worktree's diff onto its branch (`add -A` + `commit --no-verify`; failed commit ⇒ unit ERROR + worktree KEPT); red orders keep their branch (it now holds the work); `merge-back.json` records `commitFailed`.
+**Tests:** scenarios 8/9 now have stub orders that WRITE files; assert content lands in main (green) and survives on the kept branch (red) — **48/48 ALL PASS**.
+**Salvaged:** three pre-fix leftover worktrees — `e3-verify-card-confirm-in-flight` (untracked land-confirm-two-step suite → `e85bb56`) and `e3-verify-server-side-land-one-commit` (probe edit → `cc56912`) committed onto their branches; reclaimable on re-run (reuse-first).
+**Consequence:** the 3 E1 orders (contrast-register, empty-state, focus-visible) must be RE-RUN — their phantom GREEN deliverables were unrecoverable (their run evidence survives in `porting/runs/<id>/` for reference; re-run must be FRESH, not resume — resume would skip implement on an empty worktree).
+
 ## 2026-10-08 — Store migration: SQLite → bd (beads/Dolt) + orchestration swap
 **Goal (John):** migrate the orchestration layer to beads/Dolt — DB-authoritative, hundreds-to-thousands of work orders, parallel-safe.
 **Shipped:**

@@ -12,7 +12,7 @@
 // writes — is the real machinery. NOTE: each bd CLI call costs ~1-3s (embedded Dolt
 // startup); the suite trades runtime for fidelity — expect a few minutes.
 
-import { mkdtempSync, mkdirSync, symlinkSync, readdirSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, symlinkSync, readdirSync, readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -226,12 +226,28 @@ try {
 // --- 8. worktree-parallel: N orders in flight, serial merge-back --------------
 try {
   const a8 = `${ID_PREFIX}s8-a`, b8 = `${ID_PREFIX}s8-b`;
-  const o = await scenario([a8, b8], { limit: 2, parallel: 2 });
+  let fx8;
+  const o = await scenario([a8, b8], {
+    limit: 2, parallel: 2,
+    before: (fx) => { fx8 = fx; },
+    mode: (label, dflt) => {
+      // The driver-commit contract: orders change the worktree; the DRIVER commits and
+      // merges. Stub "real work" by writing a file into each worktree during IMPLEMENT.
+      for (const id of [a8, b8]) {
+        if (label === `impl:${CID(id)}`) writeFileSync(join(fx8.root, ".worktrees", CID(id), `order-work-${id}.md`), `work for ${id}\n`);
+      }
+      return dflt(label);
+    },
+  });
   if (o.error) check("8 parallel scenario completes", false, String(o.error.message).slice(0, 200));
   else {
     const r = o.report;
     check("8 both orders GREEN under parallel x2", r.parallel === 2 && r.orders.length === 2 && r.orders.every((x) => x.verdict === "GREEN"), JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
     check("8 both branches merged back (merge-back.json)", r.mergeBack?.mode === "parallel" && r.mergeBack.merged.length === 2 && r.mergeBack.conflicts.length === 0, JSON.stringify(r.mergeBack));
+    check("8 CONTENT LANDS: order work exists in main after merge-back", readFileSync(join(o.fx.root, `order-work-${a8}.md`), "utf8") === `work for ${a8}\n` && readFileSync(join(o.fx.root, `order-work-${b8}.md`), "utf8") === `work for ${b8}\n`);
+    const log8 = execFileSync("git", ["log", "--oneline"], { cwd: o.fx.root, encoding: "utf8" });
+    check("8 driver committed each order's work onto its branch", log8.includes(`order ${CID(a8)}`) && log8.includes(`order ${CID(b8)}`));
+    check("8 merge commits present (--no-ff)", execFileSync("git", ["log", "--merges", "--oneline"], { cwd: o.fx.root, encoding: "utf8" }).split("\n").some((l) => l.includes(`order ${CID(a8)}:`)));
     check("8 worktrees removed after merge", !existsSync(join(o.fx.root, ".worktrees", CID(a8))) && !existsSync(join(o.fx.root, ".worktrees", CID(b8))));
     check("8 order branches deleted after merge", execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).trim() === "");
     check("8 evidence landed in the main tree, not the worktree", ["plan.md", "verify.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", CID(a8), f))) && ["plan.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", CID(b8), f))));
@@ -242,12 +258,18 @@ try {
 // --- 9. parallel with one BLOCKED: merge only green, keep the red branch ------
 try {
   const c9 = `${ID_PREFIX}s9-a`, d9 = `${ID_PREFIX}s9-b`;
+  let fx9;
   const o = await scenario([c9, d9], {
     limit: 2, parallel: 2,
-    mode: (label, dflt) =>
-      label.startsWith("gate:") && !label.startsWith("gate:parity:") && !label.startsWith("gate:merged:") && label.endsWith(`:${CID(d9)}`)
+    before: (fx) => { fx9 = fx; },
+    mode: (label, dflt) => {
+      for (const id of [c9, d9]) {
+        if (label === `impl:${CID(id)}`) writeFileSync(join(fx9.root, ".worktrees", CID(id), `order-work-${id}.md`), `work for ${id}\n`);
+      }
+      return label.startsWith("gate:") && !label.startsWith("gate:parity:") && !label.startsWith("gate:merged:") && label.endsWith(`:${CID(d9)}`)
         ? { lens: label.split(":")[1], verdict: "BLOCK", shipBlockers: ["stub: red lens"], highs: [], mediums: [], notes: [] }
-        : dflt(label),
+        : dflt(label);
+    },
   });
   if (o.error) check("9 parallel-blocked scenario completes", false, String(o.error.message).slice(0, 200));
   else {
@@ -255,6 +277,8 @@ try {
     const byId = Object.fromEntries(r.orders.map((x) => [x.order, x.verdict]));
     check("9 one GREEN + one BLOCKED under parallel x2", byId[CID(c9)] === "GREEN" && String(byId[CID(d9)]).startsWith("BLOCKED"), JSON.stringify(byId));
     check("9 only the green branch merged", r.mergeBack?.merged.length === 1 && r.mergeBack.merged[0] === CID(c9), JSON.stringify(r.mergeBack));
+    check("9 green order's work landed in main", readFileSync(join(o.fx.root, `order-work-${c9}.md`), "utf8") === `work for ${c9}\n`);
+    check("9 red order's work PRESERVED on its kept branch (not in main)", execFileSync("git", ["show", `order/${CID(d9)}:order-work-${d9}.md`], { cwd: o.fx.root, encoding: "utf8" }) === `work for ${d9}\n` && !existsSync(join(o.fx.root, `order-work-${d9}.md`)));
     check("9 red branch kept for reconciliation", r.mergeBack?.kept.some((k) => k.id === CID(d9) && k.branch === `order/${CID(d9)}`), JSON.stringify(r.mergeBack?.kept));
     check("9 red worktree removed, red branch retained", !existsSync(join(o.fx.root, ".worktrees", CID(d9))) && execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).includes(`order/${CID(d9)}`));
     const claims = o.fx.claimsOf();

@@ -19,7 +19,8 @@
 - `git worktree add -b order/<id> .worktrees/<id> HEAD` per pick — same repo, isolated working dirs, shared `.git`.
 - Run all N `runWorkOrder`s **concurrently** with `root = <worktree>`; per-order gates diff inside their own worktree (clean attribution, no cross-order noise in diffs).
 - `evidenceDir` option → run evidence lands in the MAIN tree's `porting/runs/<id>/` so it survives worktree removal.
-- Settle → **serial merge-back** in the main tree: `git merge --no-ff order/<id>` per green order (conflicts pause the merge, reported, never auto-resolved); then remove worktree + delete branch; tick row; release claim.
+- Settle → **driver commit** then **serial merge-back**: the DRIVER commits each worktree's work onto its branch (`git -C wt add -A && commit --no-verify -m "order <id>: …"`; a failed commit ⇒ unit ERROR, worktree kept) — orders themselves never commit. Then `git merge --no-ff order/<id>` per green order (conflicts pause the merge, reported, never auto-resolved); green → remove worktree + delete branch; red → remove worktree, **keep the branch (it now holds the work)**. Tick row; release claim.
+- **Why the driver commit is load-bearing:** without it `git merge` reports "Already up to date" and the worktree removal destroys the work — the phantom-merge defect (records said merged=3, build gained nothing; parity gate caught it 2026-10-07). Regression-pinned in batch.test.mjs scenarios 8/9 (stub orders write files; content-landing asserted).
 - Batch-level merged/parity gates run after merge-back, exactly as today.
 - Default N=3 (bounds concurrent agent count ≈ 3 × active-phase agents ≈ 6–9); configurable.
 
@@ -38,8 +39,9 @@
 2. **Green rows keep claims until ticked** (duplicate-run window — fixed).
 3. **One writer per file per wave** — worktrees make this structural rather than hoped-for.
 4. **Probes take a per-run scratch suffix** (`LAND_PROBE_SUFFIX`) when two pipelines can run the same live check concurrently.
-5. **Workers never deploy, never touch the live namespace, never commit outside their root.**
-6. **Merge-back is serial and conflict=pause** (never auto-resolve across pipelines).
+5. **Workers never deploy, never touch the live namespace, never commit outside their root.** The DRIVER commits worktree work before merge-back (see L1) — that is the only commit path.
+6. **Merge-back is serial and conflict=pause** (never auto-resolve across pipelines). Verify content actually landed (`git diff <base>` non-empty for green orders) — records lie when the commit step is missing.
+7. **Never force-remove a worktree with uncommitted changes** — commit (or salvage) first; the e3 leftovers proved this twice (salvage commits e85bb56, cc56912).
 
 ## Resource budget
 
