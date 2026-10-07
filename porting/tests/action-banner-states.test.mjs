@@ -94,14 +94,22 @@ const parseScenario = (dom) => {
 // The fixture payload: two proposals, exactly one landable (agent-1) and one already
 // landed (agent-2) — the landed card lets the contract prove the reset is SCOPED to the
 // acted card. The live leg swaps in the real capture.
+// Reviewed-state anchors (FR-16): the real /proposals carries base.head and every
+// readable row's head; the canvas binds each land to those values, so the fixture
+// carries them too (a heads-less payload is refused by the canvas by design).
+const BASE_HEAD = "1a".repeat(20);
+const AGENT1_HEAD = "2b".repeat(20);
+const AGENT2_HEAD = "3c".repeat(20);
+
 const FIXTURE = {
   ok: true,
-  base: { repo: "demo", ref: "main" },
+  base: { repo: "demo", ref: "main", head: BASE_HEAD },
   ref: "main",
   summary: { proposals: 2, sharedFiles: 0, conflictingPairs: 0, changedFiles: 1, cleanPairs: 0 },
   proposals: [
     {
       repo: "agent-1",
+      head: AGENT1_HEAD,
       intent: "harden the auth flow",
       landing: { status: "ready" },
       stats: { files: 1, additions: 3, deletions: 1 },
@@ -109,6 +117,7 @@ const FIXTURE = {
     },
     {
       repo: "agent-2",
+      head: AGENT2_HEAD,
       intent: "document the baseline",
       landing: { status: "landed" },
       stats: { files: 1, additions: 1, deletions: 0 },
@@ -539,9 +548,17 @@ try {
       const landable = props.filter((p) => (p?.landing?.status ?? "ready") !== "landed");
       check("4 live capture carries >= 1 landable proposal", landable.length >= 1, `landable=${landable.length}`);
       check("4 live capture carries base.repo + base.ref", typeof live?.base?.repo === "string" && live.base.repo.length > 0 && typeof live?.base?.ref === "string" && live.base.ref.length > 0, JSON.stringify(live?.base));
-      resetServer({ mode: "core", payload: live });
-      const dom = await dumpDom(url);
-      coreContract("4", dom, parseScenario(dom), live);
+      // The FR-16 anchors are deploy-gated (the read surface ships with the wave
+      // deploy): without them the canvas refuses every land by design, so the
+      // banner battery can only run against a capture that carries them.
+      const anchorsPresent = typeof live?.base?.head === "string" && landable.some((p) => typeof p?.head === "string");
+      if (!anchorsPresent) {
+        console.log("SKIP  4 live capture lacks the reviewed anchors (base.head / row heads) - deploy-gated");
+      } else {
+        resetServer({ mode: "core", payload: live });
+        const dom = await dumpDom(url);
+        coreContract("4", dom, parseScenario(dom), live);
+      }
     } catch (e) {
       check("4 live-capture case threw", false, String(e?.stack ?? e));
     }

@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-07T09:19:38.924Z",
-  "head": "4cfae54",
+  "generatedAt": "2026-10-07T10:56:00.105Z",
+  "head": "f4333d6",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-07 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 582,
-      "done": 78,
+      "pending": 581,
+      "done": 79,
       "partial": 1
     },
     "items": [
@@ -291,11 +291,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Registry harvest wave: itemize every source into harvest JSONs"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Expose base and proposal head SHAs on the read surfaces"
       },
       {
         "status": "pending",

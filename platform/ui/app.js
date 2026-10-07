@@ -888,7 +888,29 @@ async function handlePreviewMerge(repo) {
  * Action: Land proposal into baseline
  */
 async function handleLandProposal(repo) {
-  const baseRepo = state.proposalsData?.base?.repo || "demo";
+  const data = state.proposalsData;
+  const baseRepo = data?.base?.repo || "demo";
+  const baseHead = typeof data?.base?.head === "string" ? data.base.head : "";
+  const row = (data?.proposals || []).find((p) => p.repo === repo) || null;
+  const rowHead = typeof row?.head === "string" ? row.head : "";
+
+  // FR-16 fail-closed guard: a land may only leave the canvas bound to the
+  // revision the reviewer saw — both anchors present. Without them, refuse
+  // (never fall back to an unbound land) and refresh the set so the anchors
+  // can appear before the reviewer retries.
+  if (!baseHead || !rowHead) {
+    state.landingRepo = null;
+    state.confirmingRepo = null;
+    renderProposals();
+    showActionBanner(
+      "error",
+      "failed",
+      `Failed to land <strong>${escapeHtml(repo)}</strong>: reviewed heads unavailable — refresh and re-review.`
+    );
+    await loadProposals();
+    return;
+  }
+
   state.landingRepo = repo;
   state.confirmingRepo = null;
   renderProposals();
@@ -903,8 +925,9 @@ async function handleLandProposal(repo) {
     const payload = {
       base: baseRepo,
       repos: [repo],
-      baseRef: state.proposalsData?.base?.ref || "main",
-      ref: state.proposalsData?.ref || "main",
+      baseRef: data?.base?.ref || "main",
+      ref: data?.ref || "main",
+      reviewed: { baseHead, heads: { [repo]: rowHead } },
     };
 
     const res = await fetchJson("/land", {
@@ -952,6 +975,10 @@ async function handleLandProposal(repo) {
       showActionBanner("error", "no-changes", "Nothing to land — fold produced zero changes.");
     } else if (err.status === 409 && errorCode === "stale") {
       showActionBanner("error", "stale", "This proposal is stale — rebase and re-push to land.");
+      // The set the reviewer saw no longer describes the repo: refresh it so the
+      // next confirm carries exactly the anchors the refreshed canvas renders.
+      state.landingRepo = null;
+      await loadProposals();
     } else if (err.status === 409 && errorCode === "base-moved") {
       showActionBanner("error", "base-moved", "Nothing to land — the baseline moved since this proposal was made.");
     } else {

@@ -4,9 +4,12 @@
 //  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash}
 //      and the base remote's ref equals evidence.commit; (b) re-land with
 //      refreshed reviewed heads -> 409 no-changes; (c) stale reviewed heads ->
-//      409 stale (proposal-head + base-head variants); (d) concurrent
-//      double-land, same reviewed heads -> exactly one 200 + one 409
-//      base-moved; (e) both scratch repos deleted on exit; (f)-(j) the
+//      409 stale (proposal-head + base-head variants); (d) four-way concurrent
+//      land, identical reviewed heads -> exactly one 200, every loser 409
+//      (base-moved | stale) with no success payload, and the base ref advances
+//      exactly once to the winner's evidence.commit (fetched parent = the
+//      reviewed head) and never regresses — no silent overwrite; (e) both
+//      scratch repos deleted on exit; (f)-(j) the
 //      fork-point ancestor proof: the proposal edits a baseline file, a third
 //      party advances the base on the same file, then GET /merge and POST
 //      /land must fold with the FORK POINT as the 3-way ancestor — evidence
@@ -231,20 +234,51 @@ try {
   check("(c) stale base head -> 409 stale", c2.status === 409 && c2.json?.error === "stale", JSON.stringify(c2.json));
   check("(c) base unmoved by refusals", (await lsBase()) === C2);
 
-  // (d) concurrent double-land: same reviewed heads, two requests in flight.
+  // (d) four-way land race: identical reviewed heads, four requests in flight.
+  // Exactly one push may win; every loser must be refused with a 409
+  // (base-moved — the pre-push re-read / push witness; or stale — the
+  // reviewed-heads gate, when a request reads the base after the winner's
+  // push) and must carry no success payload. The base ref advances exactly
+  // once — to the winner's evidence.commit, one commit on top of the reviewed
+  // head — and never regresses: no silent overwrite (FR-17).
   writeFileSync(join(dir, "lh-probe-2.txt"), `land-hardening probe 2 ${new Date().toISOString()}\n`);
   git("add", "-A"); git("commit", "-m", "probe: edit 2"); git("push", "origin", "HEAD:refs/heads/main");
   const C1b = git("rev-parse", "HEAD");
-  console.log(`C1b ${C1b}\n(d) concurrent double-land`);
+  console.log(`C1b ${C1b}\n(d) four-way land race`);
   const raceBody = { base: BASE_REPO, repos: [PROPOSAL_REPO], reviewed: { baseHead: C2, heads: { [PROPOSAL_REPO]: C1b } } };
-  const [d1, d2] = await Promise.all([land(raceBody), land(raceBody)]);
-  const winners = [d1, d2].filter((r) => r.status === 200 && r.json?.ok === true);
-  const losers = [d1, d2].filter((r) => !(r.status === 200 && r.json?.ok === true));
-  check("(d) exactly one 200", winners.length === 1, JSON.stringify([d1.status, d2.status]));
-  check("(d) exactly one loser", losers.length === 1, JSON.stringify([d1.status, d2.status]));
-  check("(d) loser is 409 base-moved", losers[0]?.status === 409 && losers[0]?.json?.error === "base-moved", JSON.stringify(losers[0]?.json));
+  const racers = await Promise.all([land(raceBody), land(raceBody), land(raceBody), land(raceBody)]);
+  const isWinner = (r) => r.status === 200 && r.json?.ok === true;
+  const winners = racers.filter(isWinner);
+  const losers = racers.filter((r) => !isWinner(r));
+  check("(d) exactly one 200", winners.length === 1, JSON.stringify(racers.map((r) => r.status)));
+  check(
+    "(d) every loser 409 base-moved|stale, no success payload",
+    losers.length === 3 &&
+      losers.every(
+        (r) =>
+          r.status === 409 &&
+          (r.json?.error === "base-moved" || r.json?.error === "stale") &&
+          r.json?.ok !== true &&
+          r.json?.landed === undefined &&
+          r.json?.evidence === undefined,
+      ),
+    JSON.stringify(losers.map((r) => [r.status, r.json?.error])),
+  );
   const C3 = winners[0]?.json?.evidence?.commit;
-  check("(d) base advanced to the winner", !!C3 && C3 !== C2 && (await lsBase()) === C3);
+  check("(d) winner evidence.commit is a new sha", /^[0-9a-f]{40}$/.test(String(C3)) && C3 !== C2 && C3 === winners[0]?.json?.landed?.commit, String(C3));
+  const refAfterRace = await lsBase();
+  check("(d) base ref === winner evidence.commit (advanced exactly once)", refAfterRace === C3, `ref ${refAfterRace}`);
+  // Exactly-once witness: the base tip's parent is the reviewed head C2 — the
+  // winner's single commit sits directly on the state all four racers
+  // reviewed; no loser commit interleaves and nothing was overwritten.
+  execFileSync("git", ["fetch", `${gitBase}/${BASE_REPO}.git`, "main"], { cwd: dir, env: baseEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const tip = execFileSync("git", ["rev-parse", "FETCH_HEAD"], { cwd: dir, encoding: "utf8" }).trim();
+  const tipParent = execFileSync("git", ["rev-parse", "FETCH_HEAD^"], { cwd: dir, encoding: "utf8" }).trim();
+  check("(d) fetched tip = winner commit, parent = reviewed head", tip === C3 && tipParent === C2, `tip ${tip} parent ${tipParent}`);
+  // Never regresses: once every racer's response has settled, a delayed loser
+  // push (the silent-overwrite class) would move the ref off the winner.
+  await sleep(1200);
+  check("(d) base ref never regresses (late loser push would move it)", (await lsBase()) === C3);
   const dEv = winners[0]?.json?.evidence ?? {};
   check("(d) winner ancestor = fork point, heads.base = moved head", dEv.ancestor?.[PROPOSAL_REPO] === H0 && dEv.heads?.base === C2 && C2 !== H0, JSON.stringify({ ancestor: dEv.ancestor, heads: dEv.heads }));
 
