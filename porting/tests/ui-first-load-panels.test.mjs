@@ -35,6 +35,13 @@ const EM_DASH = "\u2014";
 const LOADER_TEXT = "Loading the set from /proposals...";
 const PANELS = ["conflicts-list", "proposals-grid"];
 
+// Empty-state copy contract (order e1-impl-empty-state-awaited-copy): exact
+// title + description per panel, both rendered only after an observed payload.
+const EMPTY_COPY = [
+  { id: "conflicts-list", title: "No convergence conflicts", desc: "Waiting for concurrent proposals to compare on shared files." },
+  { id: "proposals-grid", title: "No active proposals", desc: "Waiting for agent branches to propose changes against base." },
+];
+
 // Distinct counts so a wrong panel/meta mapping fails loudly.
 const FIXTURE = {
   ok: true,
@@ -122,6 +129,14 @@ const panelShowsLoader = (dom, id) => {
   const region = panelRegion(dom, id);
   return region !== null && region.includes(LOADER_TEXT);
 };
+// The ordering law (FR-7, prd.md:181-182): before the first observed payload a
+// panel holds the loading treatment and NOTHING else — an empty state here
+// would dress "not loaded yet" as "nothing to see".
+const panelHasNoEmptyState = (dom) =>
+  PANELS.every((id) => {
+    const region = panelRegion(dom, id);
+    return region !== null && !region.includes("empty-state");
+  });
 const bannerVisible = (dom) => !/<div id="connection-banner"[^>]*\shidden(=|\s|>)/.test(dom);
 
 // Loopback worker surface: mode selects what /proposals (and app.js) do.
@@ -182,6 +197,7 @@ try {
     );
     check("1 cold document metas read em-dash", metasOf(dom).every((v) => v === EM_DASH), JSON.stringify(metasOf(dom)));
     check("1 no script ran yet (banner still hidden)", !bannerVisible(dom));
+    check("1 neither empty state renders in the cold document", panelHasNoEmptyState(dom));
   } catch (e) {
     check("1 cold-document case threw", false, String(e?.message ?? e));
   }
@@ -198,6 +214,7 @@ try {
     check("2 failed fetch surfaced (connection banner visible, app.js ran)", bannerVisible(dom));
     check("2 banner offers Retry now", domValue(dom, "connection-banner-retry") === "Retry now", String(domValue(dom, "connection-banner-retry")));
     check("2 metas stay em-dash (never a false 0 detected / 0 active)", metasOf(dom).every((v) => v === EM_DASH), JSON.stringify(metasOf(dom)));
+    check("2 neither empty state renders through the failed first fetch", panelHasNoEmptyState(dom));
   } catch (e) {
     check("2 failed-first-fetch case threw", false, String(e?.message ?? e));
   }
@@ -227,8 +244,19 @@ try {
       domValue(dom, "conflicts-meta") === "0 detected" && domValue(dom, "proposals-meta") === "0 active",
       JSON.stringify(metasOf(dom)),
     );
-    check("4 conflicts empty state shown", (panelRegion(dom, "conflicts-list") || "").includes("No convergence conflicts"));
-    check("4 proposals empty state shown", (panelRegion(dom, "proposals-grid") || "").includes("No active proposals"));
+    for (const { id, title, desc } of EMPTY_COPY) {
+      const region = panelRegion(dom, id) || "";
+      check(
+        `4 ${id} empty-state title exactly "${title}"`,
+        region.includes(`<div class="empty-state-title">${title}</div>`),
+        region.slice(0, 240),
+      );
+      check(
+        `4 ${id} empty-state desc states what is awaited`,
+        region.includes(`<div class="empty-state-desc">${desc}</div>`),
+        region.slice(0, 240),
+      );
+    }
   } catch (e) {
     check("4 first-empty-payload case threw", false, String(e?.message ?? e));
   }
