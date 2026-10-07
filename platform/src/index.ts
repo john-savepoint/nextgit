@@ -40,6 +40,13 @@ const NOTES_REF = "refs/notes/commits"; // git-notes for commit intent
 const EVENTS_KEY = "recent"; // KV key: recent event feed
 const MAX_EVENTS = 50; // event feed cap
 
+// FR-18 validation evidence bounds (POST /land `validation` request field).
+const MAX_VALIDATION_CHECKS = 32;
+const MAX_VALIDATION_TEXT = 256;
+const MAX_ARTIFACT_REF = 512;
+const MERGED_SHA_CHECK = "merged-sha-equals-tested-sha"; // reserved ledger check name
+const LANDING_KEY_PREFIX = "landing:"; // KV LIVE: landing record keyed by commit
+
 type FileMap = Map<string, string>; // path -> blob hash
 
 interface ChangeFile {
@@ -777,7 +784,10 @@ async function repoHead(env: Env, name: string, ref: string): Promise<string> {
 /** Stable SHA-256 (hex) over the folded result: action + path + content, path-sorted. */
 async function foldHashOf(files: LandFile[]): Promise<string> {
   const canonical = [...files]
-    .sort((a, b) => a.path.localeCompare(b.path))
+    // Code-unit order (not localeCompare): the contract publishes this
+    // serialization (CONTRACT.md POST /land) and clients recompute it from a
+    // /merge preview — ICU collation must never enter the digest.
+    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
     .map((f) => `${f.action}\n${f.path}\n${f.action === "write" ? f.merged ?? "" : ""}\n\x00`)
     .join("");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
@@ -794,6 +804,7 @@ interface LandRequestBody {
   baseRef?: unknown;
   ref?: unknown;
   reviewed?: unknown;
+  validation?: unknown;
 }
 
 /** Reviewed-state precondition (AD-3): heads as the caller saw them. */
@@ -802,7 +813,15 @@ interface ReviewedHeads {
   heads?: Record<string, string>;
 }
 
-function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string; reviewed?: ReviewedHeads } | Response {
+/** FR-18 recorded validation evidence: the caller's checks/results and the fold hash they ran against. Self-attested; handleLand verifies content identity, not execution. */
+interface LandValidation {
+  checks: string[];
+  results: string[];
+  testedSha: string;
+  artifactRef?: string;
+}
+
+function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string; reviewed?: ReviewedHeads; validation?: LandValidation } | Response {
   if (!raw || typeof raw !== "object") return badRequest("JSON body required");
   const body = raw as LandRequestBody;
   const base = typeof body.base === "string" && body.base ? body.base : "demo";
@@ -853,13 +872,41 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
       reviewed.heads = heads;
     }
   }
-  return { base, repos, baseRef, ref, reviewed };
+  // Optional recorded validation evidence (FR-18). Shape violations are 400;
+  // the testedSha↔fold relation is checked and recorded in handleLand — never
+  // silently dropped and never a refusal of the fold.
+  let validation: LandValidation | undefined;
+  if (body.validation !== undefined) {
+    const rawValidation = body.validation;
+    if (!rawValidation || typeof rawValidation !== "object" || Array.isArray(rawValidation)) {
+      return badRequest("validation must be an object");
+    }
+    const v = rawValidation as { checks?: unknown; results?: unknown; testedSha?: unknown; artifactRef?: unknown };
+    const isText = (s: unknown, max: number): s is string => typeof s === "string" && s.length > 0 && s.length <= max;
+    if (!Array.isArray(v.checks) || !v.checks.length || v.checks.length > MAX_VALIDATION_CHECKS) {
+      return badRequest(`validation.checks must be a non-empty array of at most ${MAX_VALIDATION_CHECKS} entries`);
+    }
+    if (!v.checks.every((c) => isText(c, MAX_VALIDATION_TEXT))) return badRequest("validation.checks entries must be non-empty strings ≤256 chars");
+    // The server's own equality check is appended to the ledger; the name is reserved.
+    if (v.checks.includes(MERGED_SHA_CHECK)) return badRequest(`validation.checks must not use the reserved check name ${MERGED_SHA_CHECK}`);
+    if (!Array.isArray(v.results) || v.results.length !== v.checks.length) return badRequest("validation.results must pair one-to-one with validation.checks");
+    if (!v.results.every((r) => isText(r, MAX_VALIDATION_TEXT))) return badRequest("validation.results entries must be non-empty strings ≤256 chars");
+    if (typeof v.testedSha !== "string" || !/^[0-9a-f]{64}$/.test(v.testedSha)) return badRequest("validation.testedSha must be a sha256 hex string");
+    if (v.artifactRef !== undefined && !isText(v.artifactRef, MAX_ARTIFACT_REF)) return badRequest("validation.artifactRef must be a non-empty string ≤512 chars");
+    validation = {
+      checks: v.checks as string[],
+      results: v.results as string[],
+      testedSha: v.testedSha,
+      artifactRef: v.artifactRef as string | undefined,
+    };
+  }
+  return { base, repos, baseRef, ref, reviewed, validation };
 }
 
 async function handleLand(request: Request, env: Env): Promise<Response> {
   const parsed = parseLandBody(await request.json().catch(() => null));
   if (parsed instanceof Response) return parsed;
-  const { base, repos, baseRef, ref, reviewed } = parsed;
+  const { base, repos, baseRef, ref, reviewed, validation } = parsed;
 
   const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
   if (!landRateAllow(caller)) return Response.json({ ok: false, error: "rate-limited" }, { status: 429 });
@@ -959,20 +1006,43 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
         expectedBaseHead: baseHeadNow,
         readBaseHead: () => repoHead(env, base, baseRef),
       });
+      const at = new Date().toISOString();
       const landed = {
         repos,
         commit,
         files: writeable.map((f) => f.path).sort(),
-        at: new Date().toISOString(),
+        at,
       };
-      // The evidence record (AD-3): the commit is the evidence reference.
+      // The evidence record (AD-3/FR-18): the commit is the evidence reference.
+      // `mergedSha` is the fold hash of exactly what this landing pushed (the
+      // same digest as `foldHash`, under FR-18's name); `testedSha` is the fold
+      // hash the caller's recorded validation ran against. Their relation is
+      // checked here, against the fold that actually landed: a mismatch — or no
+      // recorded validation — is RECORDED in the ledger, never claimed as
+      // validation, never silently dropped, never a refusal of the fold.
+      const equalityResult = !validation ? "not-recorded" : validation.testedSha === foldHash ? "pass" : "mismatch";
       const evidence = {
         repos,
         commit,
         ancestor: ancestors,
         heads: { base: baseHeadNow, repos: proposalHeads },
         foldHash,
+        checks: [...(validation?.checks ?? []), MERGED_SHA_CHECK],
+        results: [...(validation?.results ?? []), equalityResult],
+        mergedSha: foldHash,
+        testedSha: validation?.testedSha ?? null,
+        artifactRef: validation?.artifactRef ?? null,
+        at,
       };
+      // The landing record (FR-18) persists keyed by the returned commit — the
+      // address the read surface serves. KV `LIVE` stays single-writer: this is
+      // its only landing-record writer. The push already happened, so a storage
+      // failure is logged and degraded, never reported as a failed land.
+      try {
+        await env.LIVE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
+      } catch (e) {
+        console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
+      }
       // The queue consumer records the real repo.pushed event; this keeps the
       // feed useful even if queue delivery lags behind the push response.
       // Best-effort: fire AFTER the 200 is built so a KV write failure degrades

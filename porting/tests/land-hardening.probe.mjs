@@ -21,6 +21,7 @@
 // Run: node porting/tests/land-hardening.probe.mjs
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +33,12 @@ const UA = "nextgit-land-hardening-probe/1.0";
 const BASE_REPO = "demo-lh-base";
 const PROPOSAL_REPO = "agent-lh-1";
 const SHA_ZERO = "0".repeat(40);
+
+// KV LIVE namespace id for the landing-record read-back: env override, else the
+// binding id in platform/wrangler.jsonc (single source of truth).
+const LIVE_KV_ID = process.env.NEXTGIT_LIVE_KV_ID
+  ?? JSON.parse(readFileSync(new URL("../../platform/wrangler.jsonc", import.meta.url), "utf8")).kv_namespaces.find((b) => b.binding === "LIVE")?.id;
+const ARTIFACT_REF = "porting/runs/e3-impl-land-record-evidence";
 
 // (f)-(j): the baseline file both sides advance, and the markers that make
 // the moved-base fold outcome visible (a wrong ancestor drops the baseline
@@ -254,14 +261,14 @@ try {
   check(
     "(d) every loser 409 base-moved|stale, no success payload",
     losers.length === 3 &&
-      losers.every(
-        (r) =>
-          r.status === 409 &&
-          (r.json?.error === "base-moved" || r.json?.error === "stale") &&
-          r.json?.ok !== true &&
-          r.json?.landed === undefined &&
-          r.json?.evidence === undefined,
-      ),
+    losers.every(
+      (r) =>
+        r.status === 409 &&
+        (r.json?.error === "base-moved" || r.json?.error === "stale") &&
+        r.json?.ok !== true &&
+        r.json?.landed === undefined &&
+        r.json?.evidence === undefined,
+    ),
     JSON.stringify(losers.map((r) => [r.status, r.json?.error])),
   );
   const C3 = winners[0]?.json?.evidence?.commit;

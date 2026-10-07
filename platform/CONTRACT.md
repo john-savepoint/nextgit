@@ -92,17 +92,38 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 
   - `reviewed.baseHead` — optional base head sha; must equal the current head of `baseRef`, else `409 {ok:false, error:"stale", detail}` (nothing is folded or pushed).
   - `reviewed.heads` — optional map of proposal repo → head sha; must cover exactly the requested `repos` (unknown or missing key → `400 {ok:false,error:"bad-request"}`); every value must equal that repo's current head at `ref`, else `409 {ok:false, error:"stale", detail}`. Values are opaque sha strings (non-empty, ≤128 chars) compared by exact equality.
+- `validation` — **optional** recorded validation evidence (FR-18); absent ⇒ the ledger records the server's content-identity check as `not-recorded`. When present:
+
+  ```json
+  { "validation": { "checks": ["node --check", "bun test"], "results": ["pass", "pass"],
+                    "testedSha": "<sha256 hex>", "artifactRef": "porting/runs/<order>" } }
+  ```
+
+  - `checks` — 1..32 non-empty strings (≤256 chars): the checks that ran.
+  - `results` — same length as `checks`, position-paired, non-empty strings (≤256 chars): their recorded outcomes.
+  - `testedSha` — 64 lowercase hex chars: the SHA-256 of the fold the validation ran against (compute it from a `GET /merge` preview with the `foldHash` rule below).
+  - `artifactRef` — optional non-empty string (≤512 chars): the evidence-artifact reference.
+  - Self-attested: the server verifies content identity (`testedSha` vs the fold that lands), not execution.
+  - Shape violations → `400 {ok:false, error:"bad-request"}` (same bucket and precedence as `reviewed`). The reserved check name `merged-sha-equals-tested-sha` must not appear in `checks`.
 - Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (the concurrent double-land loser path; a push rejected because the ref moved is reported as `base-moved` too). Nothing is pushed.
-- `200` carries `evidence` in addition to `landed` — the landing record (AD-3); the returned `commit` is the evidence reference:
+- `200` carries `evidence` in addition to `landed` — the landing record (AD-3/FR-18); the returned `commit` is the evidence reference:
 
   ```json
   { "evidence": { "repos": ["agent-3"], "commit": "<sha>",
                   "ancestor": { "agent-3": "<sha>" },
                   "heads": { "base": "<sha>", "repos": { "agent-3": "<sha>" } },
-                  "foldHash": "<sha256 hex>" } }
+                  "foldHash": "<sha256 hex>",
+                  "checks": ["<check>", "..."], "results": ["<outcome>", "..."],
+                  "mergedSha": "<sha256 hex>", "testedSha": "<sha256 hex> | null",
+                  "artifactRef": "<string> | null", "at": "<iso>" } }
   ```
 
-  `ancestor` maps each landed repo to the fork-point commit used as its 3-way ancestor; `heads` are the base and proposal heads the fold was computed against; `foldHash` is a stable SHA-256 over the folded content (files path-sorted; action, path, content).
+  - `ancestor` maps each landed repo to the fork-point commit used as its 3-way ancestor; `heads` are the base and proposal heads the fold was computed against.
+  - `foldHash` and `mergedSha` are the same digest under two pinned names (fold identity / FR-18's merged-SHA): SHA-256 over the writeable folded set — the files the landing pushes (action `write` entries carrying `merged` text, plus action `delete` entries) — ordered by path (JavaScript string order, `<` — code-unit, deterministic across runtimes; byte order for ASCII paths) and serialized per file as `` `${action}\n${path}\n${action === "write" ? merged : ""}\n\0` ``, concatenated, UTF-8, hex lowercase. `foldHash === mergedSha` always.
+  - `checks`/`results` are the landing's validation ledger, position-paired (equal lengths): the recorded validation entries, then the server's content-identity check — reserved name `merged-sha-equals-tested-sha`, last in both arrays, with result `pass` (`testedSha === mergedSha`), `mismatch` (a validation was recorded but its testedSha does not equal the fold hash — a fold that changed after validation cannot claim validation), or `not-recorded` (no `validation` supplied). A mismatch never refuses the fold and never silently passes; it is visible in `results`.
+  - `testedSha` — the fold hash the recorded validation ran against, or `null` when none was recorded. `artifactRef` — the caller's evidence-artifact reference, or `null`.
+  - `at` — the landing time; identical to `landed.at`.
+  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller caps → `429 {ok:false, error:"rate-limited"}`.
 - Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
