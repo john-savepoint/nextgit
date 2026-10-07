@@ -78,7 +78,7 @@ export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1 } = {}) {
   const { runWorkOrder, normalizeVerdict, SKILL_HINTS } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -117,28 +117,90 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
   const standing = stateText.split("\n").filter((l) => /^\|\s/.test(l) && !/^\|\s*(Red|---)/.test(l));
   writeFileSync(`${root}/porting/runs/base-red.json`, JSON.stringify({ capturedAt: new Date().toISOString(), note: "v1: standing reds parsed from docs/STATE.md; per-batch testCmd baseline is captured by the first order's VERIFY phase", standingReds: standing }, null, 2));
 
-  // --- run orders (sequential; stop stacking on a red) -----------------------
-  const results = [];
-  const ranIds = new Set();
-  for (const row of picked) {
-    const order = {
-      id: row.id ?? slug(row.title),
-      title: row.title,
-      scope: row.scope,
-      acceptance: row.acceptance ?? row.scope,
-      corpus: DEFAULT_CORPUS.map((p) => `${root}/${p}`),
-      testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
-    };
-    const r = await runWorkOrder(order, { root, lenses, agent: agentOpt, agents, resume });
-    results.push(r);
-    ranIds.add(row.id);
-    // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
-    // Releasing here opens a duplicate-run window — observed live: two sessions ran the
-    // same row between this release and the caller's tick.
-    if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id); break; }
+  // --- run orders: worktree-parallel (L1) or sequential ----------------------
+  const makeOrder = (row, base) => ({
+    id: row.id ?? slug(row.title),
+    title: row.title,
+    scope: row.scope,
+    acceptance: row.acceptance ?? row.scope,
+    corpus: DEFAULT_CORPUS.map((p) => `${base}/${p}`),
+    testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
+  });
+  let results = [];
+  let mergeBack = null;
+  if (parallel > 1) {
+    // L1 parallelism: one git worktree per pick, N orders in flight, serial merge-back.
+    // Worktrees share this repo's .git; evidence is redirected to the main tree
+    // (evidenceRoot) so it survives worktree removal. Green rows merge into `root`
+    // (merge commits land HERE — the caller still owns tick/commit of the batch).
+    const git = (args, cwd = root) => execFileSync("git", args, { cwd, encoding: "utf8", timeout: 60000 }).trim();
+    const wtRoot = `${root}/.worktrees`;
+    mkdirSync(wtRoot, { recursive: true });
+    const units = [];
+    for (const row of picked) {
+      const id = row.id ?? slug(row.title);
+      const wt = `${wtRoot}/${id}`;
+      try {
+        try { git(["worktree", "add", "-b", `order/${id}`, wt, "HEAD"]); }
+        catch { git(["worktree", "add", wt, `order/${id}`]); } // leftover branch from a blocked run
+        units.push({ row, id, wt });
+      } catch (e) {
+        console.error(`wf-batch: worktree add failed for ${id}: ${e.message}`);
+        units.push({ row, id, wt, failed: true });
+        if (row.claimed && row.id) releaseRow(row.id);
+      }
+    }
+    const runnable = units.filter((u) => !u.failed);
+    const settled = await Promise.allSettled(
+      runnable.map((u) => runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot: root, lenses, agent: agentOpt, agents, resume })),
+    );
+    const byId = new Map();
+    let si = 0;
+    for (const u of units) {
+      if (u.failed) { byId.set(u.id, { order: u.id, title: u.row.title, verdict: "ERROR: worktree creation failed", heals: 0 }); continue; }
+      const s = settled[si++];
+      byId.set(u.id, s.status === "fulfilled" ? s.value : { order: u.id, title: u.row.title, verdict: `ERROR: ${String(s.reason?.message ?? s.reason).slice(0, 200)}`, heals: 0 });
+    }
+    const merged = [], conflicts = [], kept = [];
+    for (const u of units) {
+      const r = byId.get(u.id) ?? {};
+      if (r.verdict === "GREEN") {
+        try {
+          git(["merge", "--no-ff", `order/${u.id}`, "-m", `order ${u.id}: ${u.row.title} (batch ${ts})`]);
+          merged.push(u.id);
+          try { git(["worktree", "remove", "--force", u.wt]); } catch { }
+          try { git(["branch", "-D", `order/${u.id}`]); } catch { }
+        } catch (e) {
+          try { git(["merge", "--abort"]); } catch { }
+          conflicts.push(u.id);
+          kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
+          console.error(`wf-batch: merge conflict for ${u.id} — branch kept for reconciliation`);
+        }
+      } else {
+        try { git(["worktree", "remove", "--force", u.wt]); } catch { }
+        kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
+        // red/errored rows are safe to release now; green rows keep claims for the caller tick
+        if (u.row.claimed && u.row.id) releaseRow(u.row.id);
+      }
+    }
+    mergeBack = { mode: "parallel", parallel, merged, conflicts, kept };
+    writeFileSync(`${batchDir}/merge-back.json`, JSON.stringify(mergeBack, null, 2));
+    results = units.map((u) => byId.get(u.id));
+    log(`batch ${ts}: parallel x${parallel} — GREEN ${results.filter((r) => r.verdict === "GREEN").length}, merged ${merged.length}, conflicts ${conflicts.length}, kept ${kept.length}`);
+  } else {
+    const ranIds = new Set();
+    for (const row of picked) {
+      const r = await runWorkOrder(makeOrder(row, root), { root, lenses, agent: agentOpt, agents, resume });
+      results.push(r);
+      ranIds.add(row.id);
+      // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
+      // Releasing here opens a duplicate-run window — observed live: two sessions ran the
+      // same row between this release and the caller's tick.
+      if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id); break; }
+    }
+    // picks that never ran (batch stopped early) must not hold leases
+    for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
   }
-  // picks that never ran (batch stopped early) must not hold leases
-  for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
 
   // --- PARITY GATE (almost last): did this batch LOSE anything vs the pre-batch state? -----
   // Principle (John, 2026-10-06): every build must do MORE than the one before, never less.
@@ -174,7 +236,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
 
   const parityBlocked = parity !== null && parity.verdict !== "SHIP";
   const next = results.some((r) => r.verdict !== "GREEN") || merged.verdict !== "SHIP" || parityBlocked ? "BLOCKED — see per-order results + gate-merged.md + gate-parity.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
-  const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, orders: results, merge: "v1 sequential (no worktrees)", gate: merged, parity, next };
+  const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, parallel: parallel > 1 ? parallel : 1, mergeBack, orders: results, merge: parallel > 1 ? `worktree-parallel x${parallel} (serial merge-back)` : "v1 sequential (no worktrees)", gate: merged, parity, next };
   writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
   log(`batch ${ts}: ${next}`);
   return report;

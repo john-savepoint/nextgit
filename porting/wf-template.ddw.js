@@ -174,13 +174,15 @@ export async function runWorkOrder(order, opts = {}) {
   // Legacy blunt mode: opts.agent forces ONE type for every phase.
   if (opts.agent) { for (const k of ["plan", "implement", "verify", "healResearch", "healApply"]) ag[k] = opts.agent; ag.fallback = opts.agent; }
   const lensAgent = (lens) => ag.lens[lens] ?? ag.fallback;
-  const runDir = `${root}/porting/runs/${order.id}`;
+  const evidenceRoot = opts.evidenceRoot ?? root;
+  const runDir = `${evidenceRoot}/porting/runs/${order.id}`;
   mkdirSync(runDir, { recursive: true });
 
   if (!order.id || !order.title || !order.testCmd || !order.acceptance) {
     throw new Error("work order incomplete: id, title, testCmd and acceptance are required (no order ships without a check)");
   }
   const corpus = (order.corpus ?? [`${root}/docs/STATE.md`, `${root}/platform/CONTRACT.md`]).join(", ");
+  const SCOPE_LAW = `WORKSPACE LAW: your workspace root is ${root}; ALL file reads and writes MUST stay under it. NEVER write outside it — especially never into /home/johnzealanddoyle/projects/cloudflare-git-comp unless that IS your workspace root (a parallel run may own that tree). Run evidence lives at ${runDir}.\n`;
   const resumed = opts.resume === true;
   const skip = (artifact) => resumed && existsSync(`${runDir}/${artifact}`);
   // IMPLEMENT also counts a completed heal round as its record: a healed run must not
@@ -201,6 +203,7 @@ export async function runWorkOrder(order, opts = {}) {
   // ---- PLAN (plan-agent: read-only → returns; runner persists) --------------
   if (!skip("plan.md")) {
     const p = await agent(
+      `${SCOPE_LAW}` +
       `PLAN phase for work order "${order.id}" — ${order.title}.\n` +
       `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
       `Corpus (read first): ${corpus}. Repo root: ${root}.\n` +
@@ -216,6 +219,7 @@ export async function runWorkOrder(order, opts = {}) {
 
   // ---- IMPLEMENT (wf-implementer: has write; writes implement.md itself) ----
   if (!implDone()) await agent(
+    `${SCOPE_LAW}` +
     `IMPLEMENT phase of ${order.id} per ${runDir}/plan.md.\n` +
     `Smallest correct diffs; respect existing patterns. Skills: ${SKILL_HINTS.implement}. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
     `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
@@ -229,6 +233,7 @@ export async function runWorkOrder(order, opts = {}) {
   // ---- VERIFY (wf-verifier: mechanical; runner persists) --------------------
   const runVerify = async (label) => {
     const v = await agent(
+      `${SCOPE_LAW}` +
       `VERIFY phase of ${order.id} (${label}). You are a FRESH verifier: do not fix anything.\n` +
       `Run ${order.testCmd} (cwd ${root}) and return {verdict: "PASS"|"FAIL", evidence: "<the VERBATIM output>", notes: [...]}. ` +
       `Per ${SKILL_HINTS.verify}: evidence is the executed command + raw output, nothing paraphrased. ` +
@@ -251,6 +256,7 @@ export async function runWorkOrder(order, opts = {}) {
     writeState(`gate:${round}`);
     const handles = lensList.map((lens) =>
       agent(
+        `${SCOPE_LAW}` +
         `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
         `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).` +
         (SKILL_HINTS.lens[lens] ? ` Apply: ${SKILL_HINTS.lens[lens]}.` : "") +
@@ -288,6 +294,7 @@ export async function runWorkOrder(order, opts = {}) {
       .flatMap((v) => [...(v.shipBlockers ?? []), ...(v.highs ?? [])])
       .filter(Boolean);
     const hr = await agent(
+      `${SCOPE_LAW}` +
       `HEAL research round ${heals} for ${order.id} (skills: ${SKILL_HINTS.healResearch} — root cause before fix).\n` +
       `The AUTHORITATIVE findings are the gate reports in ${runDir}/gate-*.md — read them first; the inline list below may be partial.\n` +
       `Inline (extracted, may be empty): ${blockers.length ? blockers.join(" | ") : "(none extracted — use the gate reports)"}\n` +
@@ -299,6 +306,7 @@ export async function runWorkOrder(order, opts = {}) {
 
     writeState("heal", { healRound: heals });
     await agent(
+      `${SCOPE_LAW}` +
       `HEAL apply round ${heals} for ${order.id}. Read ${runDir}/heal-${heals}-research.md and the gate reports; apply the minimal fixes. Skills: ${SKILL_HINTS.healApply}.\n` +
       `Group by file; ONE writer per file per wave; <=10 files; fix only what the findings name. Run ${order.testCmd} after the wave.\n` +
       `Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,

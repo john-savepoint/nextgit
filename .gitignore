@@ -5,3 +5,4 @@ porting/harvest/*
 !porting/harvest/manual-skips.json
 *.tsbuildinfo
 porting/tasks.db*
+.worktrees/

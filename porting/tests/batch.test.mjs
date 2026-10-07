@@ -87,7 +87,7 @@ function fixture(rows = [], preclaimed = []) {
 const { runBatch } = await import(new URL("../wf-batch.ddw.js", import.meta.url).href);
 const gateFile = (o, name) => JSON.parse(readFileSync(join(o.batchDir, name), "utf8"));
 
-async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before } = {}) {
+async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before, parallel } = {}) {
   const fx = fixture(rows, preclaimed);
   calls = [];
   reply = (label) => (mode ? mode(label, defaultReply) : defaultReply(label));
@@ -95,7 +95,7 @@ async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, be
   process.env.TASKS_DB = fx.store;
   const out = { fx };
   if (before) before(fx);
-  try { out.report = await runBatch({ limit, root: fx.root, sourceLike }); } catch (e) { out.error = e; }
+  try { out.report = await runBatch({ limit, root: fx.root, sourceLike, parallel }); } catch (e) { out.error = e; }
   finally { if (prevDB === undefined) delete process.env.TASKS_DB; else process.env.TASKS_DB = prevDB; }
   out.calls = calls;
   const bDirName = readdirSync(join(fx.root, "porting/runs")).find((f) => f.startsWith("batch-"));
@@ -210,20 +210,60 @@ try {
   }
 } catch (e) { check("6 consumer-contract case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
-// --- 7. live-store isolation + cleanup ---------------------------------------
+// --- 8. worktree-parallel: N orders in flight, serial merge-back --------------
+try {
+  const a8 = `${ID_PREFIX}s8-a`, b8 = `${ID_PREFIX}s8-b`;
+  const o = await scenario([a8, b8], { limit: 2, parallel: 2 });
+  if (o.error) check("8 parallel scenario completes", false, String(o.error.message).slice(0, 200));
+  else {
+    const r = o.report;
+    check("8 both orders GREEN under parallel x2", r.parallel === 2 && r.orders.length === 2 && r.orders.every((x) => x.verdict === "GREEN"), JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
+    check("8 both branches merged back (merge-back.json)", r.mergeBack?.mode === "parallel" && r.mergeBack.merged.length === 2 && r.mergeBack.conflicts.length === 0, JSON.stringify(r.mergeBack));
+    check("8 worktrees removed after merge", !existsSync(join(o.fx.root, ".worktrees", a8)) && !existsSync(join(o.fx.root, ".worktrees", b8)));
+    check("8 order branches deleted after merge", execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).trim() === "");
+    check("8 evidence landed in the main tree, not the worktree", ["plan.md", "verify.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", a8, f))) && ["plan.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", b8, f))));
+    check("8 green parallel rows keep claims for the caller tick", o.fx.q("SELECT task_id FROM claims").length === 2, JSON.stringify(o.fx.q("SELECT task_id FROM claims")));
+  }
+} catch (e) { check("8 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 9. parallel with one BLOCKED: merge only green, keep the red branch ------
+try {
+  const c9 = `${ID_PREFIX}s9-a`, d9 = `${ID_PREFIX}s9-b`;
+  const o = await scenario([c9, d9], {
+    limit: 2, parallel: 2,
+    mode: (label, dflt) =>
+      label.startsWith("gate:") && !label.startsWith("gate:parity:") && !label.startsWith("gate:merged:") && label.endsWith(`:${d9}`)
+        ? { lens: label.split(":")[1], verdict: "BLOCK", shipBlockers: ["stub: red lens"], highs: [], mediums: [], notes: [] }
+        : dflt(label),
+  });
+  if (o.error) check("9 parallel-blocked scenario completes", false, String(o.error.message).slice(0, 200));
+  else {
+    const r = o.report;
+    const byId = Object.fromEntries(r.orders.map((x) => [x.order, x.verdict]));
+    check("9 one GREEN + one BLOCKED under parallel x2", byId[c9] === "GREEN" && String(byId[d9]).startsWith("BLOCKED"), JSON.stringify(byId));
+    check("9 only the green branch merged", r.mergeBack?.merged.length === 1 && r.mergeBack.merged[0] === c9, JSON.stringify(r.mergeBack));
+    check("9 red branch kept for reconciliation", r.mergeBack?.kept.some((k) => k.id === d9 && k.branch === `order/${d9}`), JSON.stringify(r.mergeBack?.kept));
+    check("9 red worktree removed, red branch retained", !existsSync(join(o.fx.root, ".worktrees", d9)) && execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).includes(`order/${d9}`));
+    const claims = o.fx.q("SELECT task_id FROM claims");
+    check("9 blocked row released; green row keeps its claim", claims.length === 1 && claims[0].task_id === c9, JSON.stringify(claims));
+    check("9 batch reports BLOCKED", r.next.startsWith("BLOCKED"), r.next.slice(0, 60));
+  }
+} catch (e) { check("9 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 10. live-store isolation + cleanup ---------------------------------------
 try {
   if (existsSync(LIVE_DB)) {
     const env = { ...process.env, TASKS_DB: LIVE_DB };
     const q = (sql) => JSON.parse(spawnSync("bun", [TASKS, "query", sql], { cwd: ROOT, env, encoding: "utf8" }).stdout);
     const t = q(`SELECT COUNT(*) AS n FROM tasks WHERE id LIKE '${ID_PREFIX}%'`)[0].n;
     const c = q(`SELECT COUNT(*) AS n FROM claims WHERE task_id LIKE '${ID_PREFIX}%'`)[0].n;
-    check("7 live store untouched (no selftest rows/claims)", t === 0 && c === 0, JSON.stringify({ rows: t, claims: c }));
+    check("10 live store untouched (no selftest rows/claims)", t === 0 && c === 0, JSON.stringify({ rows: t, claims: c }));
   } else {
-    check("7 live-store isolation (no live store present — check skipped)", true);
+    check("10 live-store isolation (no live store present — check skipped)", true);
   }
-} catch (e) { check("7 live-store check threw", false, String(e?.message ?? e)); }
+} catch (e) { check("10 live-store check threw", false, String(e?.message ?? e)); }
 for (const t of tmps) rmSync(t, { recursive: true, force: true });
-check("7 all temp state cleaned", tmps.every((t) => !existsSync(t)));
+check("10 all temp state cleaned", tmps.every((t) => !existsSync(t)));
 
 // teardown: the DDW runtime stubs are this suite's only globals — leave none behind
 for (const k of ["agent", "wait", "phase", "log"]) delete globalThis[k];
