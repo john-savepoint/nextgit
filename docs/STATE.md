@@ -1,7 +1,7 @@
 # State — NextGit
 
-**Last updated:** 2026-10-06 (SESSION CLOSE-OUT — demo reset to recording-ready: fresh fleet + secret-skip live, demo-verify 25/25; judge + land waves shipped and closed; corruption repaired; models restored to deepseek; PRD shipped by the parallel agent (`1e58c50`); remaining work queued for handoff: record video (after John's script review), poll-beat, fleet-scale, submission package)
-**Branch:** `main` · **Last commit:** `2cb2864` (brief finalize + eligibility resolution; v3 machinery in `1619073`)
+**Last updated:** 2026-10-07 (EPICS EXECUTION WAVE 1 — story compiler shipped (13 epics / 21 slices / 148 stories staged, all verified); E1–E3 batches green: 10 stories done with contract suites; verification found + fixed the fork-point old-side read (`fork.ref`→`fork.sha`) + computeMerge pin + land witness; claim window closed; deploy of the server fixes + demo-verify is the in-flight close-out step)
+**Branch:** `main` · **Last commit:** `f18de88` (epics wave 1 — see `docs/CHECKPOINT.md` top entry; prior `31c9ff9`)
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `bun porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (ALL PASS) · `bun porting/tests/batch.test.mjs` (24 checks — batch composition path incl. parity gate) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: repo-local `core.hooksPath=.git/hooks` (re-armed 2026-10-06; proven by a blocked stale-index commit)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `docs/HANDOFF-PLATFORM.md` — **authoritative platform handoff** (inventory, endpoints, invariants, production gaps, verification recipes, lessons) — for anyone building on the platform
