@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "nextgit",
+  "project_id": "f3ccd499-a517-4c07-874a-24ae8cb37412"
+}
