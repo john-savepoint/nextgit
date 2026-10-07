@@ -1,12 +1,12 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-07T21:41:39.662Z",
-  "head": "5945d46",
+  "generatedAt": "2026-10-07T21:41:55.651Z",
+  "head": "9260f48",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-07 ",
+    "lastUpdated": "2026-10-08 ",
     "branch": "main",
-    "lastCommit": "f18de88",
+    "lastCommit": "9260f48",
     "standingRedSet": null
   },
   "queue": {
