@@ -146,7 +146,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         // branch loops forever). Order: existing worktree → existing branch → fresh.
         let ready = false;
         const wtList = git(["worktree", "list", "--porcelain"]);
-        if (wtList.includes(`worktree ${wt}\n`)) {
+        if (wtList.split("\n").some((l) => l === `worktree ${wt}`)) {
           if (existsSync(`${wt}/.git`)) ready = true; // reuse as-is
           else { git(["worktree", "remove", "--force", wt]); }
         }
