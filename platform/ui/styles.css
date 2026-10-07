@@ -1007,3 +1007,19 @@ html, body {
   color: var(--text-dim);
   font-size: 0.6875rem;
 }
+
+/* Focus visibility — keyboard focus indicator on every interactive control
+   (EXPERIENCE.md Accessibility Floor 'To build': the border-strong {colors.border-focus} lift) */
+.btn-refresh:focus-visible,
+.btn-tour-header:focus-visible,
+.btn-tour-help:focus-visible,
+.toggle-input:focus-visible,
+.btn-card-action:focus-visible,
+.btn-file-diff:focus-visible,
+.btn-close-modal:focus-visible,
+.connection-banner-action:focus-visible,
+.action-banner-close:focus-visible,
+.merge-file-tab:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
