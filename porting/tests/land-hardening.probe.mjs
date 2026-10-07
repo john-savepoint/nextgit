@@ -6,8 +6,15 @@
 //      refreshed reviewed heads -> 409 no-changes; (c) stale reviewed heads ->
 //      409 stale (proposal-head + base-head variants); (d) concurrent
 //      double-land, same reviewed heads -> exactly one 200 + one 409
-//      base-moved; (e) both scratch repos deleted on exit. Never lands into
-//      `demo`; never touches agent-1..4. Exit 0 = all green.
+//      base-moved; (e) both scratch repos deleted on exit; (f)-(j) the
+//      fork-point ancestor proof: the proposal edits a baseline file, a third
+//      party advances the base on the same file, then GET /merge and POST
+//      /land must fold with the FORK POINT as the 3-way ancestor — evidence
+//      .ancestor[repo] stays the fork point while evidence.heads.base is the
+//      moved head, and the landed text keeps BOTH the baseline-side and the
+//      proposal-side change (a moved-base-anchored fold silently drops the
+//      baseline-side change). Never lands into `demo`; never touches
+//      agent-1..5. Exit 0 = all green.
 // Run: node porting/tests/land-hardening.probe.mjs
 
 import { execFileSync } from "node:child_process";
@@ -23,6 +30,13 @@ const BASE_REPO = "demo-lh-base";
 const PROPOSAL_REPO = "agent-lh-1";
 const SHA_ZERO = "0".repeat(40);
 
+// (f)-(j): the baseline file both sides advance, and the markers that make
+// the moved-base fold outcome visible (a wrong ancestor drops the baseline
+// marker while keeping the proposal marker).
+const ANCESTOR_FILE = "src/server.ts";
+const BASE_MARKER = "// e2-verify-fork-point-ancestor: baseline-side change";
+const PROP_MARKER = "// e2-verify-fork-point-ancestor: proposal-side change";
+
 // Scratch-only guard: the probe must never operate outside its lh-* chain.
 if (!BASE_REPO.startsWith("demo-lh-") || !PROPOSAL_REPO.startsWith("agent-lh-")) {
   throw new Error(`scratch-only probe: refusing ${BASE_REPO} / ${PROPOSAL_REPO}`);
@@ -33,9 +47,13 @@ const check = (n, ok, d = "") => { if (!ok) fails++; console.log(`${ok ? "PASS" 
 const exactKeys = (o, ks) => { const a = Object.keys(o ?? {}).sort(); const w = [...ks].sort(); return a.length === w.length && a.every((k, i) => k === w[i]); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// apiToken(): copy fanout.mjs:24-37 (CLOUDFLARE_API_TOKEN env, else wrangler OAuth toml).
+// apiToken(): copy fanout.mjs:24-37 + real-agents.mjs:45-67 (CLOUDFLARE_API_TOKEN env,
+// else wrangler OAuth toml) — cached so api() can drop it after a 401 and re-read the
+// toml `wrangler whoami` refreshes in place.
+let cachedToken = null;
 function apiToken() {
   if (process.env.CLOUDFLARE_API_TOKEN) return process.env.CLOUDFLARE_API_TOKEN;
+  if (cachedToken) return cachedToken;
   const candidates = [
     join(homedir(), ".config/.wrangler/config/default.toml"),
     join(homedir(), ".wrangler/config/default.toml"),
@@ -43,25 +61,40 @@ function apiToken() {
   for (const p of candidates) {
     if (existsSync(p)) {
       const m = readFileSync(p, "utf8").match(/oauth_token\s*=\s*"([^"]+)"/);
-      if (m) return m[1];
+      if (m) return (cachedToken = m[1]);
     }
   }
   throw new Error("No API token: set CLOUDFLARE_API_TOKEN or run `wrangler login`.");
 }
 
 // api(method, path, body): fetch against `${apiBase}` with 3 transport retries, 30s timeout;
-// returns { status, success: data.success===true, result, raw }. Never retried on HTTP status.
+// returns { status, success: data.success===true, result, raw }. A 401 refreshes the wrangler
+// OAuth token in place (`wrangler whoami`, real-agents.mjs:83-94) and retries once — a mid-run
+// token expiry must not false-RED the probe (verify.md @ 2026-10-07).
 async function api(method, path, body) {
   let last;
+  let refreshed = false;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const res = await fetch(`${apiBase}${path}`, {
         method,
-        headers: apiHeaders,
+        headers: apiHeaders(),
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(30_000),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && !refreshed && !process.env.CLOUDFLARE_API_TOKEN) {
+        refreshed = true;
+        cachedToken = null;
+        console.log(`  auth 401 on ${method} ${path} -> wrangler whoami refresh, retrying`);
+        try {
+          execFileSync("wrangler", ["whoami"], { stdio: "ignore", timeout: 60_000 });
+        } catch (refreshErr) {
+          last = new Error(`api ${method} ${path} -> 401 and 'wrangler whoami' could not refresh the OAuth token: ${refreshErr?.message ?? refreshErr}`);
+          break;
+        }
+        continue;
+      }
       return { status: res.status, success: data.success === true, result: data.result, raw: data };
     } catch (err) {
       last = err; // transport failure only — HTTP statuses are never retried
@@ -72,14 +105,17 @@ async function api(method, path, body) {
 }
 
 // fork(src, name): POST `/repos/${src}/fork` { name, default_branch_only: true }; 5 attempts
-// with 1.5s*attempt backoff on "already exists"; other errors throw.
+// with 1.5s*attempt backoff on the transient creation lag: "already exists" (10201) right
+// after an async DELETE, 404 10200 "Repository not found" / 5xx while a just-forked repo
+// settles, and the plan-recorded transient 403; other errors throw.
 async function fork(src, name) {
   let last;
   for (let attempt = 1; attempt <= 5; attempt++) {
     const r = await api("POST", `/repos/${src}/fork`, { name, default_branch_only: true });
     if (r.success) return r.result;
     last = new Error(`fork ${src} -> ${name} -> HTTP ${r.status} ${JSON.stringify(r.raw?.errors ?? r.raw)}`);
-    if (!/already exists/i.test(last.message)) throw last;
+    const transient = /already exists/i.test(last.message) || r.status === 403 || r.status === 404 || r.status >= 500;
+    if (!transient) throw last;
     await sleep(1500 * attempt);
   }
   throw last;
@@ -92,8 +128,22 @@ async function mint(repo) {
   return r.result.plaintext;
 }
 
+// deleteRepo(name): DELETE with bounded retry on 5xx — the post-delete lag class the siblings
+// absorb (real-agents.mjs:293-297, secret-fixture.mjs:93-98): 200/202 = accepted, 404 = already
+// gone; every other status returns as-is and the caller fails closed on it.
+async function deleteRepo(name) {
+  let last;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const r = await api("DELETE", `/repos/${name}`);
+    if (r.status < 500) return r;
+    last = r;
+    await sleep(1500 * attempt);
+  }
+  return last;
+}
+
 const apiBase = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/artifacts/namespaces/${NAMESPACE}`;
-const apiHeaders = { Authorization: `Bearer ${apiToken()}`, "Content-Type": "application/json" };
+const apiHeaders = () => ({ Authorization: `Bearer ${apiToken()}`, "Content-Type": "application/json" });
 const gitBase = `https://${ACCOUNT_ID}.artifacts.cloudflare.net/git/${NAMESPACE}`;
 const gitAuthEnv = (token) => ({ ...process.env, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "http.extraheader", GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token}` });
 
@@ -109,13 +159,31 @@ async function land(body) {
   return { status: res.status, json };
 }
 
+// getJson(path): read-only GET against the platform (the /merge arm).
+async function getJson(path) {
+  const res = await fetch(`${PLATFORM}${path}`, {
+    headers: { "user-agent": UA },
+    signal: AbortSignal.timeout(120_000),
+  });
+  const json = await res.json().catch(() => null);
+  console.log(`  GET ${path} -> HTTP ${res.status}`);
+  return { status: res.status, json };
+}
+
 let dir;
+let baseDir;
 try {
   console.log(`platform ${PLATFORM}\nscratch  ${BASE_REPO} (base) / ${PROPOSAL_REPO} (proposal)\n`);
+  let cleaned = false;
   for (const name of [PROPOSAL_REPO, BASE_REPO]) {
-    const r = await api("DELETE", `/repos/${name}`);
+    const r = await deleteRepo(name);
     console.log(`pre-clean DELETE ${name}: HTTP ${r.status}`);
+    if (r.status === 200 || r.status === 202) cleaned = true;
   }
+  // Deletes are eventually consistent (real-agents.mjs:295-296, secret-fixture.mjs:97):
+  // forking right after an accepted DELETE can 500/404 while the namespace settles. fork()
+  // retries the residual lag; the sleep applies only when something was actually deleted.
+  if (cleaned) await sleep(1200);
   await fork("demo", BASE_REPO);
   await fork(BASE_REPO, PROPOSAL_REPO);
 
@@ -148,6 +216,7 @@ try {
   check("(a) landed.files has lh-probe-1.txt", Array.isArray(a.json?.landed?.files) && a.json.landed.files.includes("lh-probe-1.txt"));
   const C2 = ev.commit;
   check("(a) base remote ref === evidence.commit", (await lsBase()) === C2);
+  check("(a) landed commit is a new sha (≠ fork point)", !!C2 && C2 !== H0);
 
   // (b) re-land same proposal, refreshed reviewed heads -> no-changes.
   console.log("(b) re-land (refreshed reviewed heads)");
@@ -176,13 +245,66 @@ try {
   check("(d) loser is 409 base-moved", losers[0]?.status === 409 && losers[0]?.json?.error === "base-moved", JSON.stringify(losers[0]?.json));
   const C3 = winners[0]?.json?.evidence?.commit;
   check("(d) base advanced to the winner", !!C3 && C3 !== C2 && (await lsBase()) === C3);
+  const dEv = winners[0]?.json?.evidence ?? {};
+  check("(d) winner ancestor = fork point, heads.base = moved head", dEv.ancestor?.[PROPOSAL_REPO] === H0 && dEv.heads?.base === C2 && C2 !== H0, JSON.stringify({ ancestor: dEv.ancestor, heads: dEv.heads }));
+
+  // (f)-(j) Fork-point ancestor proof. The proposal edits a baseline file;
+  // a third party then advances the base on the same file. A fold anchored
+  // at the moved base head would silently DISCARD the baseline-side change
+  // (diff3 treats the base's own text as the ancestor); anchored at the fork
+  // point it merges both sides. /merge and /land must agree — same fold.
+  console.log("(f) proposal-side edit of a baseline file");
+  const X0 = readFileSync(join(dir, ANCESTOR_FILE), "utf8");
+  writeFileSync(join(dir, ANCESTOR_FILE), X0 + PROP_MARKER + "\n");
+  git("add", "-A"); git("commit", "-m", `probe: edit ${ANCESTOR_FILE} (proposal side)`); git("push", "origin", "HEAD:refs/heads/main");
+  const C_F = git("rev-parse", "HEAD");
+  check("(f) proposal head advanced", C_F !== C1b);
+
+  console.log("(g) base-side advance on the same file (third party)");
+  baseDir = mkdtempSync(join(tmpdir(), "nextgit-lh-base-"));
+  const gitBaseRepo = (...args) => execFileSync("git", args, { cwd: baseDir, env: baseEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  gitBaseRepo("clone", `${gitBase}/${BASE_REPO}.git`, baseDir);
+  gitBaseRepo("config", "user.name", "land-hardening-probe");
+  gitBaseRepo("config", "user.email", "probe@nextgit.dev");
+  const X1 = readFileSync(join(baseDir, ANCESTOR_FILE), "utf8");
+  writeFileSync(join(baseDir, ANCESTOR_FILE), BASE_MARKER + "\n" + X1);
+  gitBaseRepo("add", "-A"); gitBaseRepo("commit", "-m", `probe: edit ${ANCESTOR_FILE} (baseline side)`); gitBaseRepo("push", "origin", "HEAD:refs/heads/main");
+  const C_B = gitBaseRepo("rev-parse", "HEAD");
+  check("(g) base advanced by the baseline-side commit", C_B !== C3 && (await lsBase()) === C_B);
+
+  console.log("(h) GET /merge folds with the fork point (same computeMerge)");
+  const h = await getJson(`/merge?base=${BASE_REPO}&repos=${PROPOSAL_REPO}&ref=main&baseRef=main`);
+  const hm = h.json?.merge ?? {};
+  const hFiles = Array.isArray(hm.files) ? hm.files : [];
+  const hRow = hFiles.find((f) => f.path === ANCESTOR_FILE);
+  check("(h) 200 ok / clean", h.status === 200 && h.json?.ok === true && hm.status === "clean", JSON.stringify(hm.status));
+  check("(h) file set is exactly the modified file", hFiles.length === 1 && hRow?.action === "write" && hRow?.result === "merged", JSON.stringify(hFiles.map((f) => f.path)));
+  check("(h) merged keeps the baseline-side change", typeof hRow?.merged === "string" && hRow.merged.includes(BASE_MARKER), JSON.stringify(hRow?.merged ?? null).slice(0, 120));
+  check("(h) merged keeps the proposal-side change", typeof hRow?.merged === "string" && hRow.merged.includes(PROP_MARKER));
+
+  console.log("(i) POST /land folds with the fork point as the ancestor");
+  const i = await land({ base: BASE_REPO, repos: [PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: C_B, heads: { [PROPOSAL_REPO]: C_F } } });
+  const iev = i.json?.evidence ?? {};
+  const C_L = iev.commit;
+  check("(i) 200 ok", i.status === 200 && i.json?.ok === true);
+  check("(i) ancestor = fork point while the base head moved", iev.ancestor?.[PROPOSAL_REPO] === H0 && iev.heads?.base === C_B && H0 !== C_B, JSON.stringify({ ancestor: iev.ancestor, heads: iev.heads }));
+  check("(i) landed commit is a new sha", !!C_L && C_L !== H0 && C_L !== C_B && C_L === i.json?.landed?.commit);
+  check("(i) landed files include the modified file", Array.isArray(i.json?.landed?.files) && i.json.landed.files.includes(ANCESTOR_FILE));
+  check("(i) base remote ref === evidence.commit", !!C_L && (await lsBase()) === C_L);
+
+  console.log("(j) read-back: the landed text keeps both changes");
+  execFileSync("git", ["fetch", "origin", "main"], { cwd: baseDir, env: baseEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const landedX = execFileSync("git", ["show", `${C_L}:${ANCESTOR_FILE}`], { cwd: baseDir, env: baseEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  check("(j) landed file keeps the baseline-side change", landedX.includes(BASE_MARKER), landedX.slice(0, 120));
+  check("(j) landed file keeps the proposal-side change", landedX.includes(PROP_MARKER));
+  check("(j) landed text === /merge merged text (one fold)", hRow?.merged === landedX);
 } catch (err) {
   fails++;
   console.error(`PROBE ERROR — ${err?.stack ?? err}`);
 } finally {
   for (const name of [PROPOSAL_REPO, BASE_REPO]) {
     try {
-      const r = await api("DELETE", `/repos/${name}`);
+      const r = await deleteRepo(name);
       console.log(`cleanup DELETE ${name}: HTTP ${r.status}`);
       // 202 = deletion accepted (the Artifacts API answers 202 async); 404 = already gone.
       check(`(e) deleted ${name}`, r.status === 200 || r.status === 202 || r.status === 404, `HTTP ${r.status}`);
@@ -191,6 +313,7 @@ try {
     }
   }
   if (dir) rmSync(dir, { recursive: true, force: true });
+  if (baseDir) rmSync(baseDir, { recursive: true, force: true });
 }
 
 console.log(fails === 0 ? "\nPASS — land-hardening probe green" : `\nFAIL — ${fails} assertion(s) failed`);

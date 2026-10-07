@@ -409,7 +409,7 @@ async function computeChangeSet(
   baseRef: string,
   headName: string,
   ref: string,
-  opts: { includeTexts?: boolean } = {},
+  opts: { includeTexts?: boolean; headShas?: Record<string, string> } = {},
 ) {
   using baseRepo = await env.ARTIFACTS.get(baseName);
   using headRepo = await env.ARTIFACTS.get(headName);
@@ -419,6 +419,11 @@ async function computeChangeSet(
   const fork = await forkPoint(baseRepo, baseRef, headRepo, ref);
   const base = { treeHash: fork.treeHash, files: fork.files };
   const head = await snapshot(headRepo, ref);
+  // The head of the revision this change-set describes — the reviewed-state
+  // anchor GET /proposals publishes (CONTRACT.md §GET /proposals). An out-param
+  // (same pattern as computeMerge's ancestorOut) leaves the change-set shape
+  // unchanged for every other caller.
+  if (opts.headShas) opts.headShas[headName] = head.headSha;
   const intent = await readIntent(headRepo, ref, head.headSha);
 
   const files: ChangeFile[] = [];
@@ -571,8 +576,17 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
     const list = await env.ARTIFACTS.list({ limit: 200 });
     repos = list.repos.filter((r) => r.name.startsWith("agent-") && r.status === "ready").map((r) => r.name).sort();
   }
+  // Reviewed-state anchors (CONTRACT.md §GET /proposals, FR-16). base.head is
+  // read BEFORE the per-proposal folds: it is the reviewer's frame of reference,
+  // and reading it first means a base that moves mid-response yields a head older
+  // than every fold — a client echoing it then gets 409 stale / base-moved from
+  // POST /land instead of landing content the reviewer never saw. Same read /land
+  // compares reviewed.baseHead against (repoHead).
+  const baseHead = await repoHead(env, baseName, baseRef);
+  const headShas: Record<string, string> = {};
   const proposals: Array<{
     repo: string;
+    head?: string; // the change-set head; absent on error rows
     intent?: string;
     stats?: unknown;
     landing?: { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number };
@@ -593,7 +607,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
 
   for (const name of repos) {
     try {
-      const cs = await computeChangeSet(env, baseName, baseRef, name, ref, { includeTexts: true });
+      const cs = await computeChangeSet(env, baseName, baseRef, name, ref, { includeTexts: true, headShas });
       // `landing` folds THIS proposal alone onto the CURRENT base head — exactly
       // the operation POST /land would perform. The verdict the UI shows is
       // therefore computed by the same fold the landing uses, not a guess:
@@ -610,6 +624,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
             : ({ status: "ready", files: fold.files.length } as const);
       proposals.push({
         repo: name,
+        head: headShas[name],
         intent: cs.files.find((f) => f.intent)?.intent,
         stats: cs.stats,
         files: cs.files.map((f) => ({
@@ -666,7 +681,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
     cleanPairs: allPairs.filter((p) => p.conflict === false).length,
   };
 
-  return { base: { repo: baseName, ref: baseRef }, ref, proposals, conflicts, summary };
+  return { base: { repo: baseName, ref: baseRef, head: baseHead }, ref, proposals, conflicts, summary };
 }
 
 interface LiveEvent {
@@ -726,6 +741,29 @@ function landRateAllow(key: string, now = Date.now()): boolean {
   if (window.count >= LAND_RATE_LIMIT) return false;
   window.count++;
   return true;
+}
+
+// Concurrency posture for POST /land (BF-1): one clone+push at a time per
+// isolate. isomorphic-git funnels every operation through one module-wide
+// AsyncLock keyed by path and ref; with a single LAND_WORKDIR all concurrent
+// /land calls in this isolate share those keys, and a waiter left with no I/O
+// can be cancelled by the runtime as hung. Serializing the critical section
+// removes that promise intermingling; cross-isolate races keep AD-3's
+// correctness (reviewed-heads 409 stale, pre-push re-read, push-rejection
+// conversion) — no contract or response shape changes.
+let landInFlight: Promise<void> = Promise.resolve();
+
+/** Queue fn behind any in-flight land: one /land critical section per isolate. */
+async function withLandGate<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = landInFlight;
+  const { promise: next, resolve: release } = Promise.withResolvers<void>();
+  landInFlight = next;
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
 }
 
 /** The head commit sha a repo's ref resolves to (throws when unresolvable). */
@@ -878,8 +916,19 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
   }
   // Nothing to land. The fold produced no files at all, so a commit would be an
   // empty change on the base. This is the same condition /proposals reads as
-  // "landed", so the button and the endpoint can never disagree.
+  // "landed", so the button and the endpoint can never disagree. The fold reads
+  // the base at fold time, so an empty fold can also mean a concurrent land
+  // already applied this change: re-read the head and report the AD-3 loser
+  // outcome (base-moved), never no-changes, when the base moved since the
+  // reviewed-heads check — the same conversion the push path applies.
   if (merge.files.length === 0) {
+    const afterFold = await repoHead(env, base, baseRef).catch(() => null);
+    if (afterFold !== null && afterFold !== baseHeadNow) {
+      return Response.json(
+        { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+        { status: 409 },
+      );
+    }
     return Response.json(
       { ok: false, error: "no-changes", detail: `fold of ${repos.join(",")} onto ${base}:${baseRef} changes nothing` },
       { status: 409 },
@@ -894,89 +943,92 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
   }
   const foldHash = await foldHashOf(writeable);
 
-  using baseRepo = await env.ARTIFACTS.get(base);
-  const info = await baseRepo.info();
-  const token = await mintWriteToken(baseRepo);
+  // Per-isolate single-flight around the clone+push critical section (withLandGate).
+  return await withLandGate(async () => {
+    using baseRepo = await env.ARTIFACTS.get(base);
+    const info = await baseRepo.info();
+    const token = await mintWriteToken(baseRepo);
 
-  try {
-    const { commit } = await pushLand({
-      remote: info.remote,
-      token,
-      baseRef,
-      repos,
-      files: writeable,
-      expectedBaseHead: baseHeadNow,
-      readBaseHead: () => repoHead(env, base, baseRef),
-    });
-    const landed = {
-      repos,
-      commit,
-      files: writeable.map((f) => f.path).sort(),
-      at: new Date().toISOString(),
-    };
-    // The evidence record (AD-3): the commit is the evidence reference.
-    const evidence = {
-      repos,
-      commit,
-      ancestor: ancestors,
-      heads: { base: baseHeadNow, repos: proposalHeads },
-      foldHash,
-    };
-    // The queue consumer records the real repo.pushed event; this keeps the
-    // feed useful even if queue delivery lags behind the push response.
-    // Best-effort: fire AFTER the 200 is built so a KV write failure degrades
-    // the feed, not the land (AD-6: the consumer is the sole recorder; this
-    // call is a best-effort duplicate). Mirrors the queue consumer at line ~1174
-    // where ack() commits progress.
-    recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at })
-      .catch((e) => console.log("feed-lag", String(e)));
-    return Response.json({ ok: true, landed, evidence });
-  } catch (err) {
-    if (err instanceof BaseMovedError) {
-      return Response.json(
-        { ok: false, error: "base-moved", detail: "base head moved between review and land" },
-        { status: 409 },
-      );
-    }
-    // A push rejected because a concurrent land advanced the ref is the
-    // base-moved loser path, not a server error: re-read and convert. Ref
-    // reads can briefly lag a git push — retry once before classifying.
-    let after = await repoHead(env, base, baseRef).catch(() => null);
-    if (after === baseHeadNow) {
-      const { promise, resolve } = Promise.withResolvers<void>();
-      setTimeout(resolve, 400);
-      await promise;
-      after = await repoHead(env, base, baseRef).catch(() => null);
-    }
-    if (after !== null && after !== baseHeadNow) {
-      return Response.json(
-        { ok: false, error: "base-moved", detail: "base head moved between review and land" },
-        { status: 409 },
-      );
-    }
-    const detail = String((err as Error)?.message ?? err);
-    // Credential-free failure: no token, no shell snippets. The caller may
-    // retry, preview again, or land through the sanctioned control plane —
-    // never via a handed-out write credential (spine AD-9).
-    return Response.json(
-      {
-        ok: false,
-        error: "push-failed",
-        detail,
-        repos,
-        branch: baseRef,
-        files: writeable,
-      },
-      { status: 500 },
-    );
-  } finally {
-    // Worker-minted tokens are single-use: revoke whether the push landed or failed.
     try {
-      await baseRepo.revokeToken(token);
-    } catch {
-      // Best-effort; the short TTL still bounds exposure.
+      const { commit } = await pushLand({
+        remote: info.remote,
+        token,
+        baseRef,
+        repos,
+        files: writeable,
+        expectedBaseHead: baseHeadNow,
+        readBaseHead: () => repoHead(env, base, baseRef),
+      });
+      const landed = {
+        repos,
+        commit,
+        files: writeable.map((f) => f.path).sort(),
+        at: new Date().toISOString(),
+      };
+      // The evidence record (AD-3): the commit is the evidence reference.
+      const evidence = {
+        repos,
+        commit,
+        ancestor: ancestors,
+        heads: { base: baseHeadNow, repos: proposalHeads },
+        foldHash,
+      };
+      // The queue consumer records the real repo.pushed event; this keeps the
+      // feed useful even if queue delivery lags behind the push response.
+      // Best-effort: fire AFTER the 200 is built so a KV write failure degrades
+      // the feed, not the land (AD-6: the consumer is the sole recorder; this
+      // call is a best-effort duplicate). Mirrors the queue consumer at line ~1174
+      // where ack() commits progress.
+      recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at })
+        .catch((e) => console.log("feed-lag", String(e)));
+      return Response.json({ ok: true, landed, evidence });
+    } catch (err) {
+      if (err instanceof BaseMovedError) {
+        return Response.json(
+          { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+          { status: 409 },
+        );
+      }
+      // A push rejected because a concurrent land advanced the ref is the
+      // base-moved loser path, not a server error: re-read and convert. Ref
+      // reads can briefly lag a git push — retry once before classifying.
+      let after = await repoHead(env, base, baseRef).catch(() => null);
+      if (after === baseHeadNow) {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, 400);
+        await promise;
+        after = await repoHead(env, base, baseRef).catch(() => null);
+      }
+      if (after !== null && after !== baseHeadNow) {
+        return Response.json(
+          { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+          { status: 409 },
+        );
+      }
+      const detail = String((err as Error)?.message ?? err);
+      // Credential-free failure: no token, no shell snippets. The caller may
+      // retry, preview again, or land through the sanctioned control plane —
+      // never via a handed-out write credential (spine AD-9).
+      return Response.json(
+        {
+          ok: false,
+          error: "push-failed",
+          detail,
+          repos,
+          branch: baseRef,
+          files: writeable,
+        },
+        { status: 500 },
+      );
+    } finally {
+      // Worker-minted tokens are single-use: revoke whether the push landed or failed.
+      try {
+        await baseRepo.revokeToken(token);
+      } catch {
+        // Best-effort; the short TTL still bounds exposure.
+      }
     }
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------

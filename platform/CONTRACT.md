@@ -37,13 +37,17 @@ Per-proposal change-set (server-side; no clones).
 The set view + conflict map.
 
 ```json
-{ "ok": true, "base": {...}, "ref": "main",
-  "proposals": [ {"repo","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","secret?","keys?"}]} ],
+{ "ok": true, "base": {"repo","ref","head"}, "ref": "main",
+  "proposals": [ {"repo","head","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","secret?","keys?"}]} ],
   "conflicts": [ {"file","repos":["agent-1","agent-2"],"kind":"text-conflict",
                   "pairs":[{"a":"agent-1","b":"agent-2","kind":"text-conflict","conflict":true,"region":{"baseLines","aLines","bLines"}}]} ],
   "summary": {"proposals":4,"changedFiles":4,"sharedFiles":1,"conflictingPairs":1,"cleanPairs":0}
 }
 ```
+
+- `base.head` — the base repo's current head SHA at `baseRef` (40-hex). A client echoes it to `POST /land` as `reviewed.baseHead`.
+- `proposals[].head` — that proposal repo's head SHA at `ref` (40-hex): the head of the revision the row's change-set describes. A client echoes it to `POST /land` as `reviewed.heads[repo]`; omitted on rows that carry `error` (the repo could not be read).
+- These are the values `POST /land` compares its optional `reviewed` fields against (§POST /land): a head that moves after this read makes a land carrying it answer `409 stale` — nothing is folded or pushed (FR-16). Distinct from `/changes`' `base.sha`, which is the fork point.
 
 `kind` ∈ `text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed`
 
