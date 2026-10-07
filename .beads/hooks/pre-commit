@@ -1,4 +1,8 @@
 #!/usr/bin/env sh
+# Keep docs/status-index.json fresh at every commit boundary.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+bun scripts/status-index.mjs --check || { echo "status-index.json is stale — run: bun scripts/status-index.mjs"; exit 1; }
+
 # --- BEGIN BEADS INTEGRATION v1.3.1 ---
 # This section is managed by beads. Do not remove these markers.
 if command -v bd >/dev/null 2>&1; then

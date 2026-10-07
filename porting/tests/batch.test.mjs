@@ -5,11 +5,12 @@
 //
 // Isolation: every scenario builds its own throwaway fixture root (a /tmp dir with
 // symlinks to the machinery + a scratch git repo holding one commit) and points
-// TASKS_DB at a temp store, so the real porting/tasks.db queue is never opened and
-// no artifact lands in the repo. The DDW agent runtime (globals agent/wait/phase/log)
+// BEADS_DIR at a copied bd template, so the real repo .beads queue is never written
+// and no artifact lands in the repo. The DDW agent runtime (globals agent/wait/phase/log)
 // is stubbed — agent returns are the composition's inputs. Everything else — runBatch,
-// runWorkOrder, normalizeVerdict, the tasks.mjs CLI, SQLite, the artifact writes — is
-// the real machinery.
+// runWorkOrder, normalizeVerdict, the tasks.mjs adapter, bd (beads/Dolt), the artifact
+// writes — is the real machinery. NOTE: each bd CLI call costs ~1-3s (embedded Dolt
+// startup); the suite trades runtime for fidelity — expect a few minutes.
 
 import { mkdtempSync, mkdirSync, symlinkSync, readdirSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,8 +20,12 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const TASKS = join(ROOT, "porting/tasks.mjs");
-const LIVE_DB = join(ROOT, "porting/tasks.db");
+const LIVE_BEADS = join(ROOT, ".beads");
 const ID_PREFIX = "selftest-batch-";
+// Canonical store id: every issue carries the `nextgit-` prefix; bd classifies a dep
+// target whose prefix differs from the source's as EXTERNAL (never blocks).
+const CID = (slug) => `nextgit-${slug}`;
+const BD_BIN = process.env.BD_BIN || (existsSync(`${process.env.HOME ?? ""}/.local/bin/bd`) ? `${process.env.HOME}/.local/bin/bd` : "bd");
 
 let fails = 0, checks = 0;
 const check = (name, ok, detail = "") => {
@@ -55,7 +60,13 @@ globalThis.wait = async (handles) => Promise.all(handles.map((h) => Promise.reso
 // runBatch(root) touches root only: porting/wf-template.ddw.js (import), porting/tasks.mjs
 // (spawn), docs/STATE.md (base-red capture), porting/runs/ (outputs), and `git rev-parse
 // HEAD` — the scratch repo guarantees a pre-batch commit so the parity gate is eligible.
+// The bd store is a copy of a once-initialized template (bd init is ~7s; copies are ms)
+// addressed via BEADS_DIR, so no fixture ever touches the live repo .beads.
 const tmps = [];
+const BD_TEMPLATE = mkdtempSync(join(tmpdir(), "bd-template-"));
+tmps.push(BD_TEMPLATE);
+execFileSync(BD_BIN, ["init", "--non-interactive", "--prefix", "selftest"], { cwd: BD_TEMPLATE, encoding: "utf8", timeout: 60000 });
+
 function fixture(rows = [], preclaimed = []) {
   const tmp = mkdtempSync(join(tmpdir(), "batch-selftest-"));
   tmps.push(tmp);
@@ -67,10 +78,10 @@ function fixture(rows = [], preclaimed = []) {
   const git = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8", timeout: 10000 });
   git(["init", "-q"]);
   git(["-c", "user.email=selftest@local", "-c", "user.name=selftest", "commit", "-q", "--allow-empty", "--no-verify", "-m", "base"]);
-  const store = join(tmp, "store.db");
-  const env = { ...process.env, TASKS_DB: store };
-  const cli = (args) => spawnSync("bun", [TASKS, ...args], { cwd: ROOT, env, encoding: "utf8" });
-  cli(["init"]);
+  const beadsDir = join(tmp, ".beads");
+  execFileSync("cp", ["-r", join(BD_TEMPLATE, ".beads"), beadsDir], { encoding: "utf8", timeout: 30000 });
+  const env = { ...process.env, BEADS_DIR: beadsDir };
+  const cli = (args) => spawnSync("bun", [TASKS, ...args], { cwd: ROOT, env, encoding: "utf8", timeout: 120000 });
   for (const row of rows) {
     const r = typeof row === "string" ? { id: row } : row;
     const args = ["add", "--id", r.id, "--title", `row ${r.id}`, "--priority", "P1", "--scope", `do ${r.id}`, "--check", "true"];
@@ -79,9 +90,13 @@ function fixture(rows = [], preclaimed = []) {
     if (r.source) args.push("--source", r.source);
     cli(args);
   }
-  for (const id of preclaimed) cli(["claim", id, "--agent", "other-session", "--ttl", "600"]);
-  const q = (sql) => JSON.parse(cli(["query", sql]).stdout);
-  return { tmp, root, store, cli, q };
+  for (const id of preclaimed) cli(["claim", id, "--agent", "other-session"]);
+  const listAll = () => JSON.parse(cli(["list", "--json"]).stdout);
+  return {
+    tmp, root, beadsDir, cli, listAll,
+    rowOf: (id) => listAll().find((r) => r.id === id),
+    claimsOf: () => listAll().filter((r) => r.claimed_by != null),
+  };
 }
 
 const { runBatch } = await import(new URL("../wf-batch.ddw.js", import.meta.url).href);
@@ -91,12 +106,12 @@ async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, be
   const fx = fixture(rows, preclaimed);
   calls = [];
   reply = (label) => (mode ? mode(label, defaultReply) : defaultReply(label));
-  const prevDB = process.env.TASKS_DB;
-  process.env.TASKS_DB = fx.store;
+  const prevBeads = process.env.BEADS_DIR;
+  process.env.BEADS_DIR = fx.beadsDir; // runBatch spawns inherit this — the store under test
   const out = { fx };
   if (before) before(fx);
   try { out.report = await runBatch({ limit, root: fx.root, sourceLike, parallel }); } catch (e) { out.error = e; }
-  finally { if (prevDB === undefined) delete process.env.TASKS_DB; else process.env.TASKS_DB = prevDB; }
+  finally { if (prevBeads === undefined) delete process.env.BEADS_DIR; else process.env.BEADS_DIR = prevBeads; }
   out.calls = calls;
   const bDirName = readdirSync(join(fx.root, "porting/runs")).find((f) => f.startsWith("batch-"));
   out.batchDir = bDirName ? join(fx.root, "porting/runs", bDirName) : null;
@@ -111,7 +126,7 @@ try {
   else {
     const r = o.report;
     check("1 next ALL GREEN", r.next.startsWith("ALL GREEN"), r.next.slice(0, 80));
-    check("1 both orders GREEN in pick order", r.orders.length === 2 && r.orders.every((x) => x.verdict === "GREEN") && r.orders.map((x) => x.order).join(",") === `${a},${b}`, JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
+    check("1 both orders GREEN in pick order", r.orders.length === 2 && r.orders.every((x) => x.verdict === "GREEN") && r.orders.map((x) => x.order).join(",") === `${CID(a)},${CID(b)}`, JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
     check("1 parity gate SHIPs and persists gate-parity.md", r.parity?.verdict === "SHIP" && gateFile(o, "gate-parity.md").verdict === "SHIP");
     check("1 merged gate SHIPs and report.json is written", r.gate.verdict === "SHIP" && existsSync(join(o.batchDir, "report.json")));
     const pIdx = o.calls.findIndex((c) => c.label.startsWith("gate:parity:"));
@@ -119,14 +134,12 @@ try {
     const lastOrder = Math.max(...o.calls.map((c, i) => (c.label.startsWith("gate:parity:") || c.label.startsWith("gate:merged:") ? -1 : i)));
     check("1 ordering: every order call < parity < merged", pIdx > lastOrder && mIdx > pIdx && lastOrder >= 0, `lastOrder=${lastOrder} parity=${pIdx} merged=${mIdx}`);
     check("1 batch gates spawn their specialists", o.calls[pIdx]?.spawn === "parity-auditor" && o.calls[mIdx]?.spawn === "senior-reviewer", JSON.stringify([o.calls[pIdx]?.spawn, o.calls[mIdx]?.spawn]));
-    check("1 order artifacts persisted by the runner", [a, b].every((id) => ["plan.md", "verify.md", "result.json", "run-state.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", id, f)))));
-    const claims = o.fx.q("SELECT task_id, agent FROM claims");
-    check("1 green rows KEEP claims for the caller tick (no release-tick window)", claims.length === 2 && claims.every((c) => String(c.agent ?? "").startsWith("batch:")), JSON.stringify(claims));
-    const ev = o.fx.q("SELECT kind FROM events WHERE kind IN ('claim','release')");
-    check("1 claim recorded per pick; no release on green", ev.filter((e) => e.kind === "claim").length === 2 && ev.filter((e) => e.kind === "release").length === 0, JSON.stringify(ev));
-    const pend = o.fx.q("SELECT id FROM tasks WHERE status='pending'");
-    check("1 rows stay pending (only the caller ticks)", pend.length === 2, JSON.stringify(pend));
-    check("1 queue + claims resolved through TASKS_DB (no fixture-default store created)", !existsSync(join(o.fx.root, "porting/tasks.db")));
+    check("1 order artifacts persisted by the runner", [a, b].every((id) => ["plan.md", "verify.md", "result.json", "run-state.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", CID(id), f)))));
+    const aRow = o.fx.rowOf(CID(a)), bRow = o.fx.rowOf(CID(b));
+    check("1 green rows auto-closed by the batch (CAS + batch evidence)", aRow?.status === "done" && bRow?.status === "done" && /COMPLETED: batch/.test(aRow?.evidence ?? ""), JSON.stringify([aRow?.status, bRow?.status, (aRow?.evidence ?? "").slice(0, 70)]));
+    check("1 report records the closed rows", Array.isArray(r.closed) && r.closed.length === 2 && r.closed.includes(CID(a)) && r.closed.includes(CID(b)), JSON.stringify(r.closed));
+    check("1 no claims left after the close (reclaim/re-run window closed)", o.fx.claimsOf().length === 0, JSON.stringify(o.fx.claimsOf().map((x) => x.id)));
+    check("1 fixture store isolation via BEADS_DIR (no SQLite store created)", existsSync(join(o.fx.beadsDir, "metadata.json")) && !existsSync(join(o.fx.root, "porting/tasks.db")));
   }
 } catch (e) { check("1 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
@@ -142,7 +155,7 @@ try {
     const pIdx = o.calls.findIndex((x) => x.label.startsWith("gate:parity:"));
     const mIdx = o.calls.findIndex((x) => x.label.startsWith("gate:merged:"));
     check("2 merged gate still runs after a parity block", mIdx > pIdx && r.gate.verdict === "SHIP");
-    check("2 green-but-batch-blocked: claim retained (caller must not tick; TTL re-picks)", o.fx.q("SELECT task_id FROM claims").length === 1, JSON.stringify(o.fx.q("SELECT task_id FROM claims")));
+    check("2 green-but-batch-blocked: claim retained, row NOT closed (caller reconciles)", o.fx.claimsOf().length === 1 && o.fx.rowOf(CID(c))?.status === "pending", JSON.stringify([o.fx.claimsOf().map((x) => x.id), o.fx.rowOf(CID(c))?.status]));
   }
 } catch (e) { check("2 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
@@ -165,10 +178,10 @@ try {
   if (o.error) check("4 stop-on-red scenario completes", false, String(o.error.message).slice(0, 200));
   else {
     const r = o.report;
-    check("4 pre-claimed row skipped; red order stops the batch", r.orders.length === 1 && r.orders[0].order === e2 && r.orders[0].verdict.startsWith("BLOCKED"), JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
-    const claims = o.fx.q("SELECT task_id, agent FROM claims");
-    check("4 pre-claimed lease untouched; other picks released", claims.length === 1 && claims[0].task_id === e1 && claims[0].agent === "other-session", JSON.stringify(claims));
-    check("4 unpicked row never ran (no run dir)", !existsSync(join(o.fx.root, "porting/runs", e3)));
+    check("4 pre-claimed row skipped; red order stops the batch", r.orders.length === 1 && r.orders[0].order === CID(e2) && r.orders[0].verdict.startsWith("BLOCKED"), JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
+    const claims = o.fx.claimsOf();
+    check("4 pre-claimed lease untouched; other picks released", claims.length === 1 && claims[0].id === CID(e1) && claims[0].claimed_by === "other-session", JSON.stringify(claims.map((x) => [x.id, x.claimed_by])));
+    check("4 unpicked row never ran (no run dir)", !existsSync(join(o.fx.root, "porting/runs", CID(e3))));
     check("4 parity gate skipped when no order was GREEN", r.parity === null && !o.calls.some((x) => x.label.startsWith("gate:parity:")) && !existsSync(join(o.batchDir, "gate-parity.md")));
     check("4 merged gate still runs (sees the union)", o.calls.some((x) => x.label.startsWith("gate:merged:")) && r.gate !== null);
   }
@@ -189,24 +202,24 @@ try {
   if (oA.error) check("6a dep-gating scenario completes", false, String(oA.error.message).slice(0, 200));
   else {
     const rA = oA.report;
-    check("6a dependent row gated (only the dep runs)", rA.orders.length === 1 && rA.orders[0].order === a6, JSON.stringify(rA.orders.map((x) => x.order)));
-    check("6a gated row reported with unmet dep", (rA.gated ?? []).length === 1 && rA.gated[0].id === b6 && rA.gated[0].unmet.includes(a6), JSON.stringify(rA.gated));
-    check("6a gated row never ran and stays pending", !existsSync(join(oA.fx.root, "porting/runs", b6)) && oA.fx.q(`SELECT status FROM tasks WHERE id='${b6}'`)[0].status === "pending");
-    const planCall = oA.calls.find((c) => c.label === `plan:${a6}`);
+    check("6a dependent row gated (only the dep runs)", rA.orders.length === 1 && rA.orders[0].order === CID(a6), JSON.stringify(rA.orders.map((x) => x.order)));
+    check("6a gated row reported with unmet dep", (rA.gated ?? []).length === 1 && rA.gated[0].id === CID(b6) && rA.gated[0].unmet.includes(CID(a6)), JSON.stringify(rA.gated));
+    check("6a gated row never ran and stays pending", !existsSync(join(oA.fx.root, "porting/runs", CID(b6))) && oA.fx.rowOf(CID(b6))?.status === "pending");
+    const planCall = oA.calls.find((c) => c.label === `plan:${CID(a6)}`);
     check("6a acceptance text passes through to the order", !!planCall && planCall.prompt.includes(`ACCEPT-${a6}`) && planCall.prompt.includes(`do ${a6}`), planCall ? "acceptance text missing from plan prompt" : "no plan call captured");
   }
   // 6b: once the dep is done, the dependent becomes runnable
   const c6 = `${ID_PREFIX}s6-c`, d6 = `${ID_PREFIX}s6-d`;
   const oB = await scenario([{ id: c6 }, { id: d6, deps: c6 }], { limit: 2, before: (fx) => fx.cli(["set", c6, "--status", "done", "--evidence", "seeded done"]) });
   if (oB.error) check("6b satisfied-dep scenario completes", false, String(oB.error.message).slice(0, 200));
-  else check("6b satisfied dep runs; gating clears", oB.report.orders.length === 1 && oB.report.orders[0].order === d6 && (oB.report.gated ?? []).length === 0, JSON.stringify(oB.report.orders.map((x) => x.order)));
+  else check("6b satisfied dep runs; gating clears", oB.report.orders.length === 1 && oB.report.orders[0].order === CID(d6) && (oB.report.gated ?? []).length === 0, JSON.stringify(oB.report.orders.map((x) => x.order)));
   // 6c: sourceLike filter restricts the pick set
   const e6 = `${ID_PREFIX}s6-e`, f6 = `${ID_PREFIX}s6-f`;
   const oC = await scenario([{ id: e6, source: "compile:selftest" }, { id: f6, source: "harvest:x" }], { limit: 2, sourceLike: "compile:" });
   if (oC.error) check("6c source-filter scenario completes", false, String(oC.error.message).slice(0, 200));
   else {
-    check("6c only source-matching rows picked", oC.report.orders.length === 1 && oC.report.orders[0].order === e6, JSON.stringify(oC.report.orders.map((x) => x.order)));
-    check("6c filtered-out row untouched (no run dir, stays pending)", !existsSync(join(oC.fx.root, "porting/runs", f6)) && oC.fx.q(`SELECT status FROM tasks WHERE id='${f6}'`)[0].status === "pending");
+    check("6c only source-matching rows picked", oC.report.orders.length === 1 && oC.report.orders[0].order === CID(e6), JSON.stringify(oC.report.orders.map((x) => x.order)));
+    check("6c filtered-out row untouched (no run dir, stays pending)", !existsSync(join(oC.fx.root, "porting/runs", CID(f6))) && oC.fx.rowOf(CID(f6))?.status === "pending");
   }
 } catch (e) { check("6 consumer-contract case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
@@ -219,10 +232,10 @@ try {
     const r = o.report;
     check("8 both orders GREEN under parallel x2", r.parallel === 2 && r.orders.length === 2 && r.orders.every((x) => x.verdict === "GREEN"), JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
     check("8 both branches merged back (merge-back.json)", r.mergeBack?.mode === "parallel" && r.mergeBack.merged.length === 2 && r.mergeBack.conflicts.length === 0, JSON.stringify(r.mergeBack));
-    check("8 worktrees removed after merge", !existsSync(join(o.fx.root, ".worktrees", a8)) && !existsSync(join(o.fx.root, ".worktrees", b8)));
+    check("8 worktrees removed after merge", !existsSync(join(o.fx.root, ".worktrees", CID(a8))) && !existsSync(join(o.fx.root, ".worktrees", CID(b8))));
     check("8 order branches deleted after merge", execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).trim() === "");
-    check("8 evidence landed in the main tree, not the worktree", ["plan.md", "verify.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", a8, f))) && ["plan.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", b8, f))));
-    check("8 green parallel rows keep claims for the caller tick", o.fx.q("SELECT task_id FROM claims").length === 2, JSON.stringify(o.fx.q("SELECT task_id FROM claims")));
+    check("8 evidence landed in the main tree, not the worktree", ["plan.md", "verify.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", CID(a8), f))) && ["plan.md", "result.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", CID(b8), f))));
+    check("8 green parallel rows auto-closed (all-green batch)", [a8, b8].every((id) => o.fx.rowOf(CID(id))?.status === "done") && o.fx.claimsOf().length === 0, JSON.stringify([o.fx.rowOf(CID(a8))?.status, o.fx.rowOf(CID(b8))?.status]));
   }
 } catch (e) { check("8 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
@@ -232,7 +245,7 @@ try {
   const o = await scenario([c9, d9], {
     limit: 2, parallel: 2,
     mode: (label, dflt) =>
-      label.startsWith("gate:") && !label.startsWith("gate:parity:") && !label.startsWith("gate:merged:") && label.endsWith(`:${d9}`)
+      label.startsWith("gate:") && !label.startsWith("gate:parity:") && !label.startsWith("gate:merged:") && label.endsWith(`:${CID(d9)}`)
         ? { lens: label.split(":")[1], verdict: "BLOCK", shipBlockers: ["stub: red lens"], highs: [], mediums: [], notes: [] }
         : dflt(label),
   });
@@ -240,24 +253,25 @@ try {
   else {
     const r = o.report;
     const byId = Object.fromEntries(r.orders.map((x) => [x.order, x.verdict]));
-    check("9 one GREEN + one BLOCKED under parallel x2", byId[c9] === "GREEN" && String(byId[d9]).startsWith("BLOCKED"), JSON.stringify(byId));
-    check("9 only the green branch merged", r.mergeBack?.merged.length === 1 && r.mergeBack.merged[0] === c9, JSON.stringify(r.mergeBack));
-    check("9 red branch kept for reconciliation", r.mergeBack?.kept.some((k) => k.id === d9 && k.branch === `order/${d9}`), JSON.stringify(r.mergeBack?.kept));
-    check("9 red worktree removed, red branch retained", !existsSync(join(o.fx.root, ".worktrees", d9)) && execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).includes(`order/${d9}`));
-    const claims = o.fx.q("SELECT task_id FROM claims");
-    check("9 blocked row released; green row keeps its claim", claims.length === 1 && claims[0].task_id === c9, JSON.stringify(claims));
+    check("9 one GREEN + one BLOCKED under parallel x2", byId[CID(c9)] === "GREEN" && String(byId[CID(d9)]).startsWith("BLOCKED"), JSON.stringify(byId));
+    check("9 only the green branch merged", r.mergeBack?.merged.length === 1 && r.mergeBack.merged[0] === CID(c9), JSON.stringify(r.mergeBack));
+    check("9 red branch kept for reconciliation", r.mergeBack?.kept.some((k) => k.id === CID(d9) && k.branch === `order/${CID(d9)}`), JSON.stringify(r.mergeBack?.kept));
+    check("9 red worktree removed, red branch retained", !existsSync(join(o.fx.root, ".worktrees", CID(d9))) && execFileSync("git", ["branch", "--list", "order/*"], { cwd: o.fx.root, encoding: "utf8" }).includes(`order/${CID(d9)}`));
+    const claims = o.fx.claimsOf();
+    check("9 blocked row released; green row keeps its claim (batch not all-green)", claims.length === 1 && claims[0].id === CID(c9), JSON.stringify(claims.map((x) => x.id)));
     check("9 batch reports BLOCKED", r.next.startsWith("BLOCKED"), r.next.slice(0, 60));
   }
 } catch (e) { check("9 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {
-  if (existsSync(LIVE_DB)) {
-    const env = { ...process.env, TASKS_DB: LIVE_DB };
-    const q = (sql) => JSON.parse(spawnSync("bun", [TASKS, "query", sql], { cwd: ROOT, env, encoding: "utf8" }).stdout);
-    const t = q(`SELECT COUNT(*) AS n FROM tasks WHERE id LIKE '${ID_PREFIX}%'`)[0].n;
-    const c = q(`SELECT COUNT(*) AS n FROM claims WHERE task_id LIKE '${ID_PREFIX}%'`)[0].n;
-    check("10 live store untouched (no selftest rows/claims)", t === 0 && c === 0, JSON.stringify({ rows: t, claims: c }));
+  if (existsSync(LIVE_BEADS)) {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.BEADS_DIR; // resolve the repo's own store
+    const live = JSON.parse(execFileSync(BD_BIN, ["list", "--json", "--all", "--limit", "3000"], { cwd: ROOT, env: cleanEnv, encoding: "utf8", timeout: 120000, maxBuffer: 64 * 1024 * 1024 }));
+    const leaked = live.filter((r) => String(r.id).includes(ID_PREFIX));
+    const leakedClaims = live.filter((r) => r.assignee && String(r.id).includes(ID_PREFIX));
+    check("10 live store untouched (no selftest rows/claims)", leaked.length === 0 && leakedClaims.length === 0, JSON.stringify({ rows: leaked.map((r) => r.id).slice(0, 4), claims: leakedClaims.map((r) => r.id).slice(0, 4) }));
   } else {
     check("10 live-store isolation (no live store present — check skipped)", true);
   }

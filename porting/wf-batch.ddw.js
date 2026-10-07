@@ -3,17 +3,18 @@
 // RUN VIA ONE-LINER IMPORT — never transcribe this file:
 //   const { runBatch } = await import("./porting/wf-batch.ddw.js"); await runBatch({ limit: 1 });
 //
-// Picks the first N `pending` rows from the task store (porting/tasks.db; md fallback
+// Picks the first N `pending` rows from the bd task store (beads/Dolt; md fallback
 // docs/NEXT-ACTIONS.md), runs each through runWorkOrder
 // (direct composition — the sub-driver returns a result promise, wait() is not involved),
 // then a MERGED gate over the union. The CALLER ticks rows + commits — this driver never does.
-// Claim discipline: GREEN rows keep their claim until the caller ticks them (a release here
-// opens a duplicate-run window); red/stopped/unpicked rows are released immediately.
-// v1 note: orders run SEQUENTIALLY in one workspace; per-order worktree isolation + parallel
-// orders are a recorded carry (see docs/STATE.md).
+// Claim discipline: batches claim rows before running (collision guard) and heartbeat
+// long orders (bd leases ~5m). An ALL-GREEN batch CAS-closes its rows itself; red/stopped
+// rows are released for the caller to reconcile. bd leases are ~5m; a per-batch heartbeat loop
+// keeps claims alive while orders run (10–25m); a dead batch's claims lapse and are reclaimable.
+// Worktree-parallel mode (parallel>1) runs orders concurrently; merge-back is serial.
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 
 const DEFAULT_TEST = "node --check platform/ui/app.js && node --check platform/ui/tour.js";
 const DEFAULT_CORPUS = [
@@ -26,25 +27,27 @@ const DEFAULT_CORPUS = [
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 const extractCheck = (scope) => { const m = scope.match(/check:\s*(.+)$/i); return m ? m[1].trim().replace(/[.]$/, "") : null; };
 
-// Queue source for runBatch: the DB is authoritative when it exists (even when empty —
+// Queue source for runBatch: the bd store is authoritative when it exists (even when empty —
 // an empty store returns NO PENDING ROWS, never a silent stale-md re-read); the md parser
 // is the fallback only when the store is absent or the CLI read throws.
 export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
-  const dbPath = process.env.TASKS_DB ?? `${root}/porting/tasks.db`;
-  if (existsSync(dbPath)) {
+  const beadsDir = process.env.BEADS_DIR ?? `${root}/.beads`;
+  if (existsSync(beadsDir)) {
     try {
       // execFileSync (no shell interpolation — space/metachar-safe) + a bounded wait.
       // Live-claimed rows are skipped: another session owns them (claims are the collision guard).
       const out = execFileSync("bun", [`${root}/porting/tasks.mjs`, "list", "--status", "pending", "--json"],
-        { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } });
+        { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
       // Dep-aware scheduling (mirrors `tasks.mjs next`): a row whose deps are not all done is
       // NOT runnable yet — skipped, never picked, and reported in `gated`. If the done-set read
       // fails, every dep-carrying row is gated (fail closed; never run a dependent early).
+      // NB: bd itself also blocks dependent picks (native blocks edges); this mirror keeps the
+      // report's `gated` view truthful and fail-closed if the adapter read is limited.
       let done = new Set();
       try {
-        const dq = execFileSync("bun", [`${root}/porting/tasks.mjs`, "query", "SELECT id FROM tasks WHERE status IN ('done','remediated')"],
-          { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } });
-        done = new Set(JSON.parse(dq).map((r) => r.id));
+        const dq = execFileSync("bun", [`${root}/porting/tasks.mjs`, "done-ids"],
+          { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
+        done = new Set(JSON.parse(dq));
       } catch { }
       let mapped = out.trim()
         ? JSON.parse(out)
@@ -88,23 +91,31 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
   let preBatchCommit = "";
   try { preBatchCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", timeout: 10000 }).trim(); } catch { }
 
-  // --- queue (DB preferred; md fallback on a store fault) --------------------
+  // --- reclaim sweep (return dead sessions' claimed rows BEFORE picking) ------
+  // bd reclaim releases claims whose lease expired (dead/crashed workers). Running it
+  // at wave start means a crashed session's rows become pickable on the next batch.
+  // NOTE: bd's own reap window applies; --older-than is a grace on top of expiry.
+  try {
+    execFileSync("bun", [`${root}/porting/tasks.mjs`, "reclaim", "--older-than", "10m"], { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
+  } catch { }
+
+  // --- queue (bd preferred; md fallback on a store fault) --------------------
   const { source: queueSource, rows, gated = [] } = readQueueRows(root, { sourceLike });
 
   // --- claim the picks (contended rows are skipped; released after running) --
   // Two sessions running batches must never pick the same row: claims are the guard.
-  const dbPath = process.env.TASKS_DB ?? `${root}/porting/tasks.db`;
+  // bd leases are ~5m; the heartbeat loop below keeps them alive while orders run.
   const batchAgent = `batch:${ts}`;
   const releaseRow = (id) => {
-    try { execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id], { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } }); } catch { /* lease expires on its own */ }
+    try { execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id], { cwd: root, encoding: "utf8", timeout: 20000, env: process.env }); } catch { /* lease expires on its own */ }
   };
   const picked = [];
   for (const row of rows) {
     if (picked.length >= limit) break;
     if (!row.id) { picked.push({ ...row, claimed: false }); continue; } // md-fallback rows carry no ids
     try {
-      execFileSync("bun", [`${root}/porting/tasks.mjs`, "claim", row.id, "--agent", batchAgent, "--ttl", "7200"],
-        { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, TASKS_DB: dbPath } });
+      execFileSync("bun", [`${root}/porting/tasks.mjs`, "claim", row.id, "--agent", batchAgent],
+        { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
       picked.push({ ...row, claimed: true });
     } catch {
       console.error(`wf-batch: ${row.id} contended — skipping`);
@@ -112,149 +123,202 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
   }
   if (!picked.length) return { orders: [], gate: null, gated, next: "NO PENDING ROWS (or all picks contended/dep-gated)" };
 
-  // --- base reds (what was already red before this batch) --------------------
-  const stateText = readFileSync(`${root}/docs/STATE.md`, "utf8");
-  const standing = stateText.split("\n").filter((l) => /^\|\s/.test(l) && !/^\|\s*(Red|---)/.test(l));
-  writeFileSync(`${root}/porting/runs/base-red.json`, JSON.stringify({ capturedAt: new Date().toISOString(), note: "v1: standing reds parsed from docs/STATE.md; per-batch testCmd baseline is captured by the first order's VERIFY phase", standingReds: standing }, null, 2));
+  // --- claim heartbeat (bd leases expire ~5m; orders run 10–25m) --------------
+  // A loop heartbeats every claimed id while THIS process is alive (parent-pid guard:
+  // if the batch dies, the loop exits within one interval, the lease lapses in ~5m and
+  // the next reclaim returns the row — no zombie claims). Failures are tolerated
+  // (heartbeating a released/closed row is a no-op error).
+  const claimedIds = picked.filter((r) => r.claimed && r.id).map((r) => r.id);
+  let hbProc = null;
+  if (claimedIds.length) {
+    const ids = claimedIds.map((id) => `'${id}'`).join(" ");
+    const script = `parent=${process.pid}; while kill -0 $parent 2>/dev/null; do for id in ${ids}; do bun ${root}/porting/tasks.mjs heartbeat "$id" --agent '${batchAgent}' >/dev/null 2>&1 || true; done; sleep 120; done`;
+    try {
+      hbProc = spawn("bash", ["-c", script], { cwd: root, detached: false, stdio: "ignore", env: process.env });
+      hbProc.unref?.();
+    } catch (e) {
+      console.error(`wf-batch: heartbeat loop failed to start (${e.message}); relying on lease expiry`);
+    }
+  }
+  const stopHeartbeat = () => { try { hbProc?.kill("SIGTERM"); } catch { } };
 
-  // --- run orders: worktree-parallel (L1) or sequential ----------------------
-  const makeOrder = (row, base) => ({
-    id: row.id ?? slug(row.title),
-    title: row.title,
-    scope: row.scope,
-    acceptance: row.acceptance ?? row.scope,
-    corpus: DEFAULT_CORPUS.map((p) => `${base}/${p}`),
-    testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
-  });
-  let results = [];
-  let mergeBack = null;
-  if (parallel > 1) {
-    // L1 parallelism: one git worktree per pick, N orders in flight, serial merge-back.
-    // Worktrees share this repo's .git; evidence is redirected to the main tree
-    // (evidenceRoot) so it survives worktree removal. Green rows merge into `root`
-    // (merge commits land HERE — the caller still owns tick/commit of the batch).
-    const git = (args, cwd = root) => execFileSync("git", args, { cwd, encoding: "utf8", timeout: 60000 }).trim();
-    const wtRoot = `${root}/.worktrees`;
-    mkdirSync(wtRoot, { recursive: true });
-    const units = [];
-    for (const row of picked) {
-      const id = row.id ?? slug(row.title);
-      const wt = `${wtRoot}/${id}`;
-      try {
-        // Reuse-first: a leftover worktree from a crashed run IS our resume point —
-        // never hard-fail on it (the crash-loop class: `worktree add` on an existing
-        // branch loops forever). Order: existing worktree → existing branch → fresh.
-        let ready = false;
-        const wtList = git(["worktree", "list", "--porcelain"]);
-        if (wtList.split("\n").some((l) => l === `worktree ${wt}`)) {
-          if (existsSync(`${wt}/.git`)) ready = true; // reuse as-is
-          else { git(["worktree", "remove", "--force", wt]); }
-        }
-        if (!ready) {
-          try { git(["worktree", "add", wt, `order/${id}`]); ready = true; }
-          catch {
-            try { git(["branch", "-D", `order/${id}`]); } catch { }
-            git(["worktree", "add", "-b", `order/${id}`, wt, "HEAD"]);
+  try {
+
+    // --- base reds (what was already red before this batch) --------------------
+    const stateText = readFileSync(`${root}/docs/STATE.md`, "utf8");
+    const standing = stateText.split("\n").filter((l) => /^\|\s/.test(l) && !/^\|\s*(Red|---)/.test(l));
+    writeFileSync(`${root}/porting/runs/base-red.json`, JSON.stringify({ capturedAt: new Date().toISOString(), note: "v1: standing reds parsed from docs/STATE.md; per-batch testCmd baseline is captured by the first order's VERIFY phase", standingReds: standing }, null, 2));
+
+    // --- run orders: worktree-parallel (L1) or sequential ----------------------
+    const makeOrder = (row, base) => ({
+      id: row.id ?? slug(row.title),
+      title: row.title,
+      scope: row.scope,
+      acceptance: row.acceptance ?? row.scope,
+      corpus: DEFAULT_CORPUS.map((p) => `${base}/${p}`),
+      testCmd: row.check ?? extractCheck(row.scope) ?? DEFAULT_TEST,
+    });
+    let results = [];
+    let mergeBack = null;
+    if (parallel > 1) {
+      // L1 parallelism: one git worktree per pick, N orders in flight, serial merge-back.
+      // Worktrees share this repo's .git; evidence is redirected to the main tree
+      // (evidenceRoot) so it survives worktree removal. Green rows merge into `root`
+      // (merge commits land HERE — the caller still owns tick/commit of the batch).
+      const git = (args, cwd = root) => execFileSync("git", args, { cwd, encoding: "utf8", timeout: 60000 }).trim();
+      const wtRoot = `${root}/.worktrees`;
+      mkdirSync(wtRoot, { recursive: true });
+      const units = [];
+      for (const row of picked) {
+        const id = row.id ?? slug(row.title);
+        const wt = `${wtRoot}/${id}`;
+        try {
+          // Reuse-first: a leftover worktree from a crashed run IS our resume point —
+          // never hard-fail on it (the crash-loop class: `worktree add` on an existing
+          // branch loops forever). Order: existing worktree → existing branch → fresh.
+          let ready = false;
+          const wtList = git(["worktree", "list", "--porcelain"]);
+          if (wtList.split("\n").some((l) => l === `worktree ${wt}`)) {
+            if (existsSync(`${wt}/.git`)) ready = true; // reuse as-is
+            else { git(["worktree", "remove", "--force", wt]); }
+          }
+          if (!ready) {
+            // Reuse an existing leftover branch (crash resume); otherwise create fresh.
+            // Probe with show-ref (quiet, exit-code only) — the old try/catch cascade
+            // printed fatal-noise on every fresh batch.
+            let branchExists = false;
+            try {
+              git(["show-ref", "--verify", "--quiet", `refs/heads/order/${id}`]);
+              branchExists = true;
+            } catch { }
+            if (branchExists) {
+              git(["worktree", "add", wt, `order/${id}`]);
+            } else {
+              git(["worktree", "add", "-b", `order/${id}`, wt, "HEAD"]);
+            }
             ready = true;
           }
-        }
-        units.push({ row, id, wt });
-      } catch (e) {
-        console.error(`wf-batch: worktree add failed for ${id}: ${e.message}`);
-        units.push({ row, id, wt, failed: true });
-        if (row.claimed && row.id) releaseRow(row.id);
-      }
-    }
-    const runnable = units.filter((u) => !u.failed);
-    const settled = await Promise.allSettled(
-      runnable.map((u) =>
-        runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot: root, lenses, agent: agentOpt, agents, resume }),
-      ),
-    );
-    const byId = new Map();
-    let si = 0;
-    for (const u of units) {
-      if (u.failed) { byId.set(u.id, { order: u.id, title: u.row.title, verdict: "ERROR: worktree creation failed", heals: 0 }); continue; }
-      const s = settled[si++];
-      byId.set(u.id, s.status === "fulfilled" ? s.value : { order: u.id, title: u.row.title, verdict: `ERROR: ${String(s.reason?.message ?? s.reason).slice(0, 200)}`, heals: 0 });
-    }
-    const merged = [], conflicts = [], kept = [];
-    for (const u of units) {
-      const r = byId.get(u.id) ?? {};
-      if (r.verdict === "GREEN") {
-        try {
-          git(["merge", "--no-ff", `order/${u.id}`, "-m", `order ${u.id}: ${u.row.title} (batch ${ts})`]);
-          merged.push(u.id);
-          try { git(["worktree", "remove", "--force", u.wt]); } catch { }
-          try { git(["branch", "-D", `order/${u.id}`]); } catch { }
+          units.push({ row, id, wt });
         } catch (e) {
-          try { git(["merge", "--abort"]); } catch { }
-          conflicts.push(u.id);
-          kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
-          console.error(`wf-batch: merge conflict for ${u.id} — branch kept for reconciliation`);
+          console.error(`wf-batch: worktree add failed for ${id}: ${e.message}`);
+          units.push({ row, id, wt, failed: true });
+          if (row.claimed && row.id) releaseRow(row.id);
         }
-      } else {
-        try { git(["worktree", "remove", "--force", u.wt]); } catch { }
-        kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
-        // red/errored rows are safe to release now; green rows keep claims for the caller tick
-        if (u.row.claimed && u.row.id) releaseRow(u.row.id);
+      }
+      const runnable = units.filter((u) => !u.failed);
+      const settled = await Promise.allSettled(
+        runnable.map((u) =>
+          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot: root, lenses, agent: agentOpt, agents, resume }),
+        ),
+      );
+      const byId = new Map();
+      let si = 0;
+      for (const u of units) {
+        if (u.failed) { byId.set(u.id, { order: u.id, title: u.row.title, verdict: "ERROR: worktree creation failed", heals: 0 }); continue; }
+        const s = settled[si++];
+        byId.set(u.id, s.status === "fulfilled" ? s.value : { order: u.id, title: u.row.title, verdict: `ERROR: ${String(s.reason?.message ?? s.reason).slice(0, 200)}`, heals: 0 });
+      }
+      const merged = [], conflicts = [], kept = [];
+      for (const u of units) {
+        const r = byId.get(u.id) ?? {};
+        if (r.verdict === "GREEN") {
+          try {
+            git(["merge", "--no-ff", `order/${u.id}`, "-m", `order ${u.id}: ${u.row.title} (batch ${ts})`]);
+            merged.push(u.id);
+            try { git(["worktree", "remove", "--force", u.wt]); } catch { }
+            try { git(["branch", "-D", `order/${u.id}`]); } catch { }
+          } catch (e) {
+            try { git(["merge", "--abort"]); } catch { }
+            conflicts.push(u.id);
+            kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
+            console.error(`wf-batch: merge conflict for ${u.id} — branch kept for reconciliation`);
+          }
+        } else {
+          try { git(["worktree", "remove", "--force", u.wt]); } catch { }
+          kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
+          // red/errored rows are safe to release now; green rows keep claims for the caller tick
+          if (u.row.claimed && u.row.id) releaseRow(u.row.id);
+        }
+      }
+      mergeBack = { mode: "parallel", parallel, merged, conflicts, kept };
+      writeFileSync(`${batchDir}/merge-back.json`, JSON.stringify(mergeBack, null, 2));
+      results = units.map((u) => byId.get(u.id));
+      log(`batch ${ts}: parallel x${parallel} — GREEN ${results.filter((r) => r.verdict === "GREEN").length}, merged ${merged.length}, conflicts ${conflicts.length}, kept ${kept.length}`);
+    } else {
+      const ranIds = new Set();
+      for (const row of picked) {
+        const r = await runWorkOrder(makeOrder(row, root), { root, lenses, agent: agentOpt, agents, resume });
+        results.push(r);
+        ranIds.add(row.id);
+        // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
+        // Releasing here opens a duplicate-run window — observed live: two sessions ran the
+        // same row between this release and the caller's tick.
+        if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id); break; }
+      }
+      // picks that never ran (batch stopped early) must not hold leases
+      for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
+    }
+
+    // --- PARITY GATE (almost last): did this batch LOSE anything vs the pre-batch state? -----
+    // Principle (John, 2026-10-06): every build must do MORE than the one before, never less.
+    // Declared removals pass; adequate tests substitute for manual comparison; else it blocks.
+    const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
+    let parity = null;
+    if (preBatchCommit && results.some((r) => r.verdict === "GREEN")) {
+      const pRaw = await agent(
+        `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
+        `Pre-batch commit: ${preBatchCommit}. Run \`git diff --stat ${preBatchCommit}\` and \`git diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
+        `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
+        `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
+        `Return ONLY {verdict, shipBlockers, highs, notes}.`,
+        { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
+      ).wait();
+      parity = normalizeVerdict("parity", pRaw);
+      writeFileSync(`${batchDir}/gate-parity.md`, JSON.stringify(parity, null, 2));
+    }
+
+    // --- merged gate (v1: sequential workspace; this gate sees the union) ------
+    // Fail-closed like every per-order gate: a merged return is RAW INPUT, not a verdict —
+    // an incoherent {verdict:"SHIP", shipBlockers:[…]} must not read ALL GREEN (v3.2).
+    const mergedRaw = await agent(
+      `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
+      `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
+      `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
+      `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
+      `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
+      { agent: agents?.mergedGate ?? agentOpt ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
+    ).wait();
+    const merged = normalizeVerdict("merged", mergedRaw);
+    writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
+
+    const parityBlocked = parity !== null && parity.verdict !== "SHIP";
+    const allGreen = results.every((r) => r.verdict === "GREEN") && merged.verdict === "SHIP" && !parityBlocked;
+    // Close contract: an ALL-GREEN batch CAS-closes its rows itself (evidence = batch dir),
+    // so no claim can lapse into a reclaim/re-run window after the batch ends. The caller's
+    // tick becomes verification; re-closing is a no-op (adapter + bd).
+    const closed = [];
+    if (allGreen) {
+      for (const row of picked) {
+        if (!row.claimed || !row.id) continue;
+        try {
+          execFileSync("bun", [`${root}/porting/tasks.mjs`, "set", row.id, "--status", "done", "--evidence", `batch ${ts} GREEN; report: ${batchDir}/report.json`], { cwd: root, encoding: "utf8", timeout: 30000, env: process.env });
+          closed.push(row.id);
+        } catch (e) {
+          console.error(`wf-batch: close failed for ${row.id}: ${String(e.stderr ?? e.message).slice(0, 160)}`);
+        }
       }
     }
-    mergeBack = { mode: "parallel", parallel, merged, conflicts, kept };
-    writeFileSync(`${batchDir}/merge-back.json`, JSON.stringify(mergeBack, null, 2));
-    results = units.map((u) => byId.get(u.id));
-    log(`batch ${ts}: parallel x${parallel} — GREEN ${results.filter((r) => r.verdict === "GREEN").length}, merged ${merged.length}, conflicts ${conflicts.length}, kept ${kept.length}`);
-  } else {
-    const ranIds = new Set();
-    for (const row of picked) {
-      const r = await runWorkOrder(makeOrder(row, root), { root, lenses, agent: agentOpt, agents, resume });
-      results.push(r);
-      ranIds.add(row.id);
-      // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
-      // Releasing here opens a duplicate-run window — observed live: two sessions ran the
-      // same row between this release and the caller's tick.
-      if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id); break; }
-    }
-    // picks that never ran (batch stopped early) must not hold leases
-    for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
+    const next = !allGreen
+      ? "BLOCKED — see per-order results + gate-merged.md + gate-parity.md"
+      : `ALL GREEN — ${closed.length} row(s) auto-closed; update the spine, regenerate the status index, commit`;
+    const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, parallel: parallel > 1 ? parallel : 1, mergeBack, orders: results, merge: parallel > 1 ? `worktree-parallel x${parallel} (serial merge-back)` : "v1 sequential (no worktrees)", gate: merged, parity, closed, next };
+    writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
+    log(`batch ${ts}: ${next}`);
+    return report;
+
+  } finally {
+    // any mid-batch throw (order/gate errors) must kill the heartbeat loop — a leaked
+    // loop keeps refreshing claims forever (reclaim cannot touch a live lease).
+    stopHeartbeat();
   }
-
-  // --- PARITY GATE (almost last): did this batch LOSE anything vs the pre-batch state? -----
-  // Principle (John, 2026-10-06): every build must do MORE than the one before, never less.
-  // Declared removals pass; adequate tests substitute for manual comparison; else it blocks.
-  const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
-  let parity = null;
-  if (preBatchCommit && results.some((r) => r.verdict === "GREEN")) {
-    const pRaw = await agent(
-      `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
-      `Pre-batch commit: ${preBatchCommit}. Run \`git diff --stat ${preBatchCommit}\` and \`git diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
-      `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
-      `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
-      `Return ONLY {verdict, shipBlockers, highs, notes}.`,
-      { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
-    ).wait();
-    parity = normalizeVerdict("parity", pRaw);
-    writeFileSync(`${batchDir}/gate-parity.md`, JSON.stringify(parity, null, 2));
-  }
-
-  // --- merged gate (v1: sequential workspace; this gate sees the union) ------
-  // Fail-closed like every per-order gate: a merged return is RAW INPUT, not a verdict —
-  // an incoherent {verdict:"SHIP", shipBlockers:[…]} must not read ALL GREEN (v3.2).
-  const mergedRaw = await agent(
-    `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
-    `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
-    `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
-    `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
-    `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
-    { agent: agents?.mergedGate ?? agentOpt ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
-  ).wait();
-  const merged = normalizeVerdict("merged", mergedRaw);
-  writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
-
-  const parityBlocked = parity !== null && parity.verdict !== "SHIP";
-  const next = results.some((r) => r.verdict !== "GREEN") || merged.verdict !== "SHIP" || parityBlocked ? "BLOCKED — see per-order results + gate-merged.md + gate-parity.md" : "ALL GREEN — tick the queue rows, update the spine, regenerate the status index, commit";
-  const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, parallel: parallel > 1 ? parallel : 1, mergeBack, orders: results, merge: parallel > 1 ? `worktree-parallel x${parallel} (serial merge-back)` : "v1 sequential (no worktrees)", gate: merged, parity, next };
-  writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
-  log(`batch ${ts}: ${next}`);
-  return report;
 }

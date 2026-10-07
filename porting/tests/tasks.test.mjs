@@ -1,38 +1,174 @@
 #!/usr/bin/env bun
-// Regression suite for the SQLite task backbone (porting/tasks.mjs).
+// Regression suite for the bd-backed task adapter (porting/tasks.mjs → beads/Dolt).
 // Run: bun porting/tests/tasks.test.mjs   (exit 0 = pass)
 //
-// Every case runs against its own temp DB via TASKS_DB; the real
-// porting/tasks.db is never opened and docs/NEXT-ACTIONS.md is only read.
+// Each case copies a once-initialized bd template into a temp BEADS_DIR, so the real
+// repo .beads is never written. Every assertion goes through the adapter CLI surface —
+// the same surface the runners and commands use. NOTE: bd is a real Dolt process per
+// call (~1-3s); the suite trades runtime for fidelity.
 
-import { spawnSync, spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { execFileSync, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const TASKS = join(ROOT, "porting/tasks.mjs");
-const tmp = mkdtempSync(join(tmpdir(), "tasks-test-"));
-const tmpDb = join(tmp, "tasks.db");
-const dbFor = (name) => join(tmp, `${name}.db`);
+const LIVE_BEADS = join(ROOT, ".beads");
+const ID_PREFIX = "selftest-";
+const CID = (slug) => `nextgit-${slug}`;
+const BD_BIN = process.env.BD_BIN || (existsSync(`${process.env.HOME ?? ""}/.local/bin/bd`) ? `${process.env.HOME}/.local/bin/bd` : "bd");
 
-let fails = 0;
+let fails = 0, checks = 0;
 const check = (name, ok, detail = "") => {
+  checks++;
   if (!ok) fails++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok || !detail ? "" : ` — ${detail}`}`);
 };
-const run = (args, env = {}) =>
-  spawnSync("bun", [TASKS, ...args], { cwd: ROOT, env: { ...process.env, TASKS_DB: tmpDb, ...env }, encoding: "utf8" });
 const jparse = (s) => { try { return JSON.parse(s); } catch { return null; } };
 const idOf = (out) => (out.match(/^id: (.+)$/m) ?? [])[1];
 
-const { openDb } = await import(pathToFileURL(TASKS).href);
+const tmps = [];
+const TEMPLATE = mkdtempSync(join(tmpdir(), "tasks-bd-template-"));
+tmps.push(TEMPLATE);
+execFileSync(BD_BIN, ["init", "--non-interactive", "--prefix", "nextgit"], { cwd: TEMPLATE, encoding: "utf8", timeout: 60000 });
 
-// --- 1. init + import idempotency -------------------------------------------
-const db1 = dbFor("case1");
+// per-case fixture: throwaway BEADS_DIR + a run() bound to it
+function fixture(name) {
+  const dir = mkdtempSync(join(tmpdir(), `tasks-bd-${name}-`));
+  tmps.push(dir);
+  const beadsDir = join(dir, ".beads");
+  execFileSync("cp", ["-r", join(TEMPLATE, ".beads"), beadsDir], { encoding: "utf8", timeout: 30000 });
+  const env = { ...process.env, BEADS_DIR: beadsDir };
+  const run = (args) => spawnSync("bun", [TASKS, ...args], { cwd: ROOT, env, encoding: "utf8", timeout: 120000 });
+  const list = () => jparse(run(["list", "--json"]).stdout) ?? [];
+  return { dir, beadsDir, env, run, list, rowOf: (id) => list().find((r) => r.id === id) };
+}
+
+// --- 1. add / list round-trip + canonical ids --------------------------------
 try {
-  const fix = join(tmp, "fix.md");
+  const fx = fixture("case1");
+  check("1 add t-a", fx.run(["add", "--id", `${ID_PREFIX}t-a`, "--title", "Alpha", "--priority", "P1", "--scope", "s", "--deps", `${ID_PREFIX}t-b`]).status === 0);
+  check("1 add t-b", fx.run(["add", "--id", `${ID_PREFIX}t-b`, "--title", "Beta"]).status === 0);
+  const all = fx.list();
+  const tA = fx.rowOf(CID(`${ID_PREFIX}t-a`));
+  check("1 list contains both (canonical ids)", !!tA && !!fx.rowOf(CID(`${ID_PREFIX}t-b`)), JSON.stringify(all.map((r) => r.id)));
+  check("1 deps stored canonical", tA?.deps === CID(`${ID_PREFIX}t-b`), tA?.deps);
+  const filtered = jparse(fx.run(["list", "--status", "pending", "--priority", "P1", "--json"]).stdout) ?? [];
+  check("1 status+priority filter", filtered.length === 1 && filtered[0].id === CID(`${ID_PREFIX}t-a`), JSON.stringify(filtered.map((r) => r.id)));
+  check("1 duplicate id exits 2", fx.run(["add", "--id", `${ID_PREFIX}t-a`, "--title", "Dup"]).status === 2);
+  check("1 bare id accepted (canonicalized on write)", fx.rowOf(CID(`${ID_PREFIX}t-b`))?.status === "pending");
+} catch (e) { check("1 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 2. set semantics ---------------------------------------------------------
+try {
+  const fx = fixture("case2");
+  fx.run(["add", "--id", `${ID_PREFIX}s-a`, "--title", "S alpha", "--priority", "P1"]);
+  const s1 = fx.run(["set", `${ID_PREFIX}s-a`, "--status", "done", "--evidence", "ran x"]);
+  let t = fx.rowOf(CID(`${ID_PREFIX}s-a`));
+  check("2 set done + evidence (COMPLETED note)", s1.status === 0 && t?.status === "done" && /COMPLETED: ran x/.test(t?.evidence ?? ""), `${s1.status} ${s1.stderr}`);
+  fx.run(["set", `${ID_PREFIX}s-a`, "--status", "partial", "--owner", "alice"]);
+  t = fx.rowOf(CID(`${ID_PREFIX}s-a`));
+  check("2 evidence preserved + owner set on partial", t?.status === "partial" && /ran x/.test(t?.evidence ?? "") && t?.owner === "alice", JSON.stringify([t?.status, t?.evidence, t?.owner]));
+  check("2 set unknown id exits 2", fx.run(["set", "nope", "--status", "done"]).status === 2);
+  fx.run(["add", "--id", `${ID_PREFIX}s-b`, "--title", "S beta"]);
+  const s4 = fx.run(["set", `${ID_PREFIX}s-b`, "--status", "done"]);
+  check("2 done without evidence: exit 0 + WARN", s4.status === 0 && /WARN.*evidence/.test(s4.stderr), `exit ${s4.status} stderr=${JSON.stringify(s4.stderr)}`);
+  const s5 = fx.run(["set", `${ID_PREFIX}s-b`, "--status", "done", "--evidence", "e"]);
+  check("2 done with evidence: no WARN", s5.status === 0 && !/WARN/.test(s5.stderr), s5.stderr);
+} catch (e) { check("2 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 3. next: deps + live claims ----------------------------------------------
+try {
+  const fx = fixture("case3");
+  for (const a of [
+    ["add", "--id", `${ID_PREFIX}n1`, "--title", "N one", "--priority", "P0"],
+    ["add", "--id", `${ID_PREFIX}n2`, "--title", "N two", "--priority", "P0", "--deps", `${ID_PREFIX}n1`],
+    ["add", "--id", `${ID_PREFIX}n3`, "--title", "N three", "--priority", "P1"],
+    ["add", "--id", `${ID_PREFIX}n4`, "--title", "N four", "--priority", "P0"],
+  ]) check(`3 seed ${a[2]}`, fx.run(a).status === 0);
+  fx.run(["set", `${ID_PREFIX}n4`, "--status", "done", "--evidence", "seed"]);
+  const n1 = fx.run(["next"]);
+  check("3 next → n1", n1.status === 0 && idOf(n1.stdout) === CID(`${ID_PREFIX}n1`), n1.stdout.trim());
+  check("3 claim n1 by other", fx.run(["claim", `${ID_PREFIX}n1`, "--agent", "other"]).status === 0);
+  const n2 = fx.run(["next"]);
+  check("3 live claim + pending dep → n3", idOf(n2.stdout) === CID(`${ID_PREFIX}n3`), n2.stdout.trim());
+  fx.run(["set", `${ID_PREFIX}n1`, "--status", "done", "--evidence", "e"]);
+  const n3 = fx.run(["next"]);
+  check("3 dep satisfied → n2", idOf(n3.stdout) === CID(`${ID_PREFIX}n2`), n3.stdout.trim());
+  fx.run(["set", `${ID_PREFIX}n2`, "--status", "done", "--evidence", "e"]);
+  fx.run(["set", `${ID_PREFIX}n3`, "--status", "done", "--evidence", "e"]);
+  const n5 = fx.run(["next"]);
+  check("3 nothing eligible → exit 1 + stderr", n5.status === 1 && n5.stderr.trim().length > 0 && n5.stdout.trim() === "", `exit ${n5.status} stdout=${JSON.stringify(n5.stdout)}`);
+} catch (e) { check("3 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 4. claim semantics -------------------------------------------------------
+try {
+  const fx = fixture("case4");
+  fx.run(["add", "--id", `${ID_PREFIX}c-a`, "--title", "C alpha", "--priority", "P1"]);
+  const k1 = fx.run(["claim", `${ID_PREFIX}c-a`, "--agent", "A"]);
+  check("4 claim exits 0 (lease noted)", k1.status === 0 && /claimed by A/.test(k1.stdout), k1.stderr.trim());
+  const k2 = fx.run(["claim", `${ID_PREFIX}c-a`, "--agent", "A"]);
+  check("4 same-agent refresh exits 0", k2.status === 0, k2.stderr.trim());
+  check("4 rival → exit 3", fx.run(["claim", `${ID_PREFIX}c-a`, "--agent", "rival"]).status === 3);
+  check("4 heartbeat owner → 0", fx.run(["heartbeat", `${ID_PREFIX}c-a`, "--agent", "A"]).status === 0);
+  check("4 heartbeat non-owner → 3", fx.run(["heartbeat", `${ID_PREFIX}c-a`, "--agent", "rival"]).status === 3);
+  check("4 release → 0", fx.run(["release", `${ID_PREFIX}c-a`]).status === 0);
+  check("4 release again → 3", fx.run(["release", `${ID_PREFIX}c-a`]).status === 3);
+  check("4 claim unknown → 2", fx.run(["claim", "ghost", "--agent", "A"]).status === 2);
+  const cRow = fx.rowOf(CID(`${ID_PREFIX}c-a`));
+  check("4 row back to pending, unclaimed", cRow?.status === "pending" && cRow?.claimed_by == null, JSON.stringify([cRow?.status, cRow?.claimed_by]));
+} catch (e) { check("4 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 5. upsert: create + content-update preserves status/claim ----------------
+try {
+  const fx = fixture("case5");
+  check("5 upsert creates", fx.run(["upsert", "--id", `${ID_PREFIX}u-a`, "--title", "U alpha", "--priority", "P1", "--scope", "s1", "--check", "true", "--source", "compile:selftest"]).status === 0);
+  fx.run(["claim", `${ID_PREFIX}u-a`, "--agent", "U1"]);
+  fx.run(["upsert", "--id", `${ID_PREFIX}u-a`, "--title", "U alpha v2", "--scope", "s2"]);
+  let row = fx.rowOf(CID(`${ID_PREFIX}u-a`));
+  check("5 content update preserves claim + status", row?.title === "U alpha v2" && row?.scope === "s2" && row?.claimed_by === "U1" && row?.status === "pending", JSON.stringify([row?.title, row?.scope, row?.claimed_by, row?.status]));
+  fx.run(["set", `${ID_PREFIX}u-a`, "--status", "done", "--evidence", "u proof"]);
+  fx.run(["upsert", "--id", `${ID_PREFIX}u-a`, "--title", "U alpha v3"]);
+  row = fx.rowOf(CID(`${ID_PREFIX}u-a`));
+  check("5 update preserves done + evidence", row?.status === "done" && /u proof/.test(row?.evidence ?? "") && row?.title === "U alpha v3", JSON.stringify([row?.status, row?.title]));
+  fx.run(["add", "--id", `${ID_PREFIX}u-b`, "--title", "U beta"]);
+  fx.run(["upsert", "--id", `${ID_PREFIX}u-a`, "--title", "U alpha v4", "--deps", `${ID_PREFIX}u-b`]);
+  row = fx.rowOf(CID(`${ID_PREFIX}u-a`));
+  check("5 deps add via upsert (canonical)", row?.deps === CID(`${ID_PREFIX}u-b`), row?.deps);
+  fx.run(["upsert", "--id", `${ID_PREFIX}u-a`, "--title", "U alpha v5", "--deps", ""]);
+  row = fx.rowOf(CID(`${ID_PREFIX}u-a`));
+  check("5 deps clear via upsert", !row?.deps || row?.deps === "", JSON.stringify(row?.deps));
+} catch (e) { check("5 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 6. activate (staged → runnable) ------------------------------------------
+try {
+  const fx = fixture("case6");
+  fx.run(["add", "--id", `${ID_PREFIX}a-a`, "--title", "Act one", "--source", "blocker:x"]);
+  fx.run(["add", "--id", `${ID_PREFIX}a-b`, "--title", "Act two", "--source", "other:y"]);
+  fx.run(["set", `${ID_PREFIX}a-a`, "--status", "blocked"]);
+  fx.run(["set", `${ID_PREFIX}a-b`, "--status", "blocked"]);
+  const act = fx.run(["activate", "blocker:"]);
+  check("6 activate flips only the source prefix", act.status === 0 && /activated 1/.test(act.stdout), act.stdout + act.stderr);
+  check("6 flipped row pending; other stays blocked", fx.rowOf(CID(`${ID_PREFIX}a-a`))?.status === "pending" && fx.rowOf(CID(`${ID_PREFIX}a-b`))?.status === "blocked", JSON.stringify([fx.rowOf(CID(`${ID_PREFIX}a-a`))?.status, fx.rowOf(CID(`${ID_PREFIX}a-b`))?.status]));
+} catch (e) { check("6 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 7. epics ----------------------------------------------------------------
+try {
+  const fx = fixture("case7");
+  check("7 epic-upsert creates", fx.run(["epic-upsert", "--id", "E9", "--title", "Epic nine", "--goal", "g", "--milestone", "M1"]).status === 0);
+  fx.run(["epic-upsert", "--id", "E9", "--title", "Epic nine", "--goal", "g2", "--milestone", "M1"]);
+  const epics = jparse(fx.run(["epic-list", "--json"]).stdout) ?? [];
+  check("7 epic idempotent + goal updated (canonical id)", epics.length === 1 && epics[0].id === CID("E9") && epics[0].goal === "g2" && epics[0].milestone === "M1", JSON.stringify(epics));
+  const taskRows = fx.list();
+  check("7 task list excludes epics", taskRows.length === 0, JSON.stringify(taskRows.map((r) => r.id)));
+} catch (e) { check("7 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 8. view (derived) + import (md grammar) ----------------------------------
+try {
+  const fx = fixture("case8");
+  const fix = join(fx.dir, "fix.md");
   writeFileSync(fix, [
     "# fixture",
     "",
@@ -41,232 +177,41 @@ try {
     "- [done] P2 — Other row — scope three",
     "",
   ].join("\n"));
-  const c1 = { TASKS_DB: db1 };
-  const i1 = run(["init"], c1), i2 = run(["init"], c1);
-  check("1 init twice exits 0", i1.status === 0 && i2.status === 0, i1.stderr || i2.stderr);
-  const p1 = run(["import", fix], c1), p2 = run(["import", fix], c1);
-  check("1 import twice exits 0", p1.status === 0 && p2.status === 0, p1.stderr || p2.stderr);
-  const rows = jparse(run(["list", "--json"], c1).stdout) ?? [];
-  check("1 row count stable at 3", rows.length === 3, `got ${rows.length}`);
-  check("1 ids stable (dup suffix)", JSON.stringify(rows.map((r) => r.id).sort()) === JSON.stringify(["dup-title", "dup-title-2", "other-row"]), JSON.stringify(rows.map((r) => r.id)));
-  const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
-  check("1 statuses/priorities/titles match fixture",
-    byId["dup-title"]?.status === "pending" && byId["dup-title"]?.priority === "P0" && byId["dup-title"]?.title === "Dup title" &&
-    byId["dup-title-2"]?.status === "pending" && byId["dup-title-2"]?.priority === "P1" &&
-    byId["other-row"]?.status === "done" && byId["other-row"]?.priority === "P2" && byId["other-row"]?.title === "Other row",
-    JSON.stringify(rows.map((r) => [r.id, r.status, r.priority, r.title])));
-  const ev = jparse(run(["query", "SELECT task_id, COUNT(*) AS n FROM events WHERE kind='import' GROUP BY task_id"], c1).stdout) ?? [];
-  check("1 import event per row", ev.length === 3 && ev.every((e) => e.n >= 1), JSON.stringify(ev));
-} catch (e) { check("1 case threw", false, String(e?.stack ?? e)); }
+  const p1 = fx.run(["import", fix]), p2 = fx.run(["import", fix]);
+  check("8 import twice exits 0", p1.status === 0 && p2.status === 0, p1.stderr || p2.stderr);
+  const rows = fx.list();
+  check("8 import row count stable at 3 (stable slugs)", rows.length === 3, JSON.stringify(rows.map((r) => r.id)));
+  check("8 ids stable (dup suffix) + canonical", JSON.stringify(rows.map((r) => r.id).sort()) === JSON.stringify([CID("dup-title"), CID("dup-title-2"), CID("other-row")]), JSON.stringify(rows.map((r) => r.id)));
+  const out = join(fx.dir, "NEXT-ACTIONS.md");
+  const v = fx.run(["view", "--out", out]);
+  const text = existsSync(out) ? readFileSync(out, "utf8") : "";
+  check("8 view writes derived md with legacy grammar", v.status === 0 && /- \[pending\] P0 — Dup title/.test(text) && /Grammar:/.test(text), text.slice(0, 120));
+} catch (e) { check("8 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
-// --- 2. add/set/list round-trip ---------------------------------------------
-const db2 = dbFor("case2");
+// --- 9. reclaim no-op safety --------------------------------------------------
 try {
-  const c2 = { TASKS_DB: db2 };
-  check("2 add t-a", run(["add", "--id", "t-a", "--title", "Alpha", "--priority", "P1", "--scope", "s", "--deps", "t-b"], c2).status === 0);
-  check("2 add t-b", run(["add", "--id", "t-b", "--title", "Beta"], c2).status === 0);
-  const all = jparse(run(["list", "--json"], c2).stdout) ?? [];
-  const tA = all.find((r) => r.id === "t-a");
-  check("2 list contains both", !!tA && !!all.find((r) => r.id === "t-b"));
-  check("2 deps normalized", tA?.deps === "t-b", tA?.deps);
-  const filtered = jparse(run(["list", "--status", "pending", "--priority", "P1", "--json"], c2).stdout) ?? [];
-  check("2 status+priority filter", filtered.length === 1 && filtered[0].id === "t-a" && filtered.every((r) => r.status === "pending" && r.priority === "P1"), JSON.stringify(filtered.map((r) => r.id)));
-  const s1 = run(["set", "t-a", "--status", "done", "--evidence", "ran x"], c2);
-  let t = (jparse(run(["list", "--json"], c2).stdout) ?? []).find((r) => r.id === "t-a");
-  check("2 set done + evidence", s1.status === 0 && t?.status === "done" && t?.evidence === "ran x", `${s1.status} ${s1.stderr}`);
-  run(["set", "t-a", "--status", "partial", "--owner", "alice"], c2);
-  t = (jparse(run(["list", "--json"], c2).stdout) ?? []).find((r) => r.id === "t-a");
-  check("2 evidence preserved + owner set", t?.status === "partial" && t?.evidence === "ran x" && t?.owner === "alice", JSON.stringify([t?.status, t?.evidence, t?.owner]));
-  check("2 set unknown id exits 2", run(["set", "nope", "--status", "done"], c2).status === 2);
-  const s4 = run(["set", "t-b", "--status", "done"], c2);
-  check("2 done without evidence: exit 0 + WARN", s4.status === 0 && /WARN.*evidence/.test(s4.stderr), `exit ${s4.status} stderr=${JSON.stringify(s4.stderr)}`);
-  const s5 = run(["set", "t-b", "--status", "done", "--evidence", "e"], c2);
-  check("2 done with evidence: no WARN", s5.status === 0 && !/WARN/.test(s5.stderr), s5.stderr);
-} catch (e) { check("2 case threw", false, String(e?.stack ?? e)); }
+  const fx = fixture("case9");
+  fx.run(["add", "--id", `${ID_PREFIX}r-a`, "--title", "R alpha"]);
+  fx.run(["claim", `${ID_PREFIX}r-a`, "--agent", "R1"]);
+  const rc = fx.run(["reclaim", "--older-than", "0m"]);
+  check("9 reclaim exits 0 (live lease untouched)", rc.status === 0 && fx.rowOf(CID(`${ID_PREFIX}r-a`))?.claimed_by === "R1", rc.stdout + rc.stderr);
+} catch (e) { check("9 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
-// --- 3. next: deps + live claims + lease expiry -----------------------------
-const db3 = dbFor("case3");
+// --- 10. live-store isolation + cleanup ---------------------------------------
 try {
-  const c3 = { TASKS_DB: db3 };
-  for (const a of [
-    ["add", "--id", "n1", "--title", "N one", "--priority", "P0"],
-    ["add", "--id", "n2", "--title", "N two", "--priority", "P0", "--deps", "n1"],
-    ["add", "--id", "n3", "--title", "N three", "--priority", "P1"],
-    ["add", "--id", "n4", "--title", "N four", "--priority", "P0"],
-  ]) check(`3 seed ${a[2]}`, run(a, c3).status === 0);
-  run(["set", "n4", "--status", "done", "--evidence", "seed"], c3);
-  const n1 = run(["next"], c3);
-  check("3 next → n1", n1.status === 0 && idOf(n1.stdout) === "n1", n1.stdout.trim());
-  check("3 claim n1 by other", run(["claim", "n1", "--agent", "other"], c3).status === 0);
-  const n2 = run(["next"], c3);
-  check("3 live claim + pending dep → n3", idOf(n2.stdout) === "n3", n2.stdout.trim());
-  const db = openDb(db3);
-  db.exec("UPDATE claims SET lease_until = datetime('now', '-1 hour') WHERE task_id = 'n1'");
-  db.close();
-  const n3 = run(["next"], c3);
-  check("3 expired lease → n1 again", idOf(n3.stdout) === "n1", n3.stdout.trim());
-  run(["set", "n1", "--status", "done", "--evidence", "e"], c3);
-  const n4 = run(["next"], c3);
-  check("3 dep satisfied → n2", idOf(n4.stdout) === "n2", n4.stdout.trim());
-  run(["set", "n2", "--status", "done", "--evidence", "e"], c3);
-  run(["set", "n3", "--status", "done", "--evidence", "e"], c3);
-  const n5 = run(["next"], c3);
-  check("3 nothing eligible → exit 1 + stderr", n5.status === 1 && n5.stderr.trim().length > 0 && n5.stdout.trim() === "", `exit ${n5.status} stdout=${JSON.stringify(n5.stdout)} stderr=${JSON.stringify(n5.stderr)}`);
-} catch (e) { check("3 case threw", false, String(e?.stack ?? e)); }
-
-// --- 4. claim semantics ------------------------------------------------------
-const db4 = dbFor("case4");
-try {
-  const c4 = { TASKS_DB: db4 };
-  run(["add", "--id", "n3", "--title", "N three", "--priority", "P1"], c4);
-  const k1 = run(["claim", "n3", "--agent", "A", "--ttl", "60"], c4);
-  check("4 claim exits 0", k1.status === 0, k1.stderr.trim());
-  const lease1 = (jparse(run(["query", "SELECT agent, lease_until FROM claims WHERE task_id='n3'"], c4).stdout) ?? [])[0];
-  const k2 = run(["claim", "n3", "--agent", "A", "--ttl", "60"], c4);
-  const claims = jparse(run(["query", "SELECT agent, lease_until FROM claims WHERE task_id='n3'"], c4).stdout) ?? [];
-  check("4 same-agent refresh: 1 row, lease not decreased", k2.status === 0 && claims.length === 1 && claims[0].agent === "A" && claims[0].lease_until >= lease1.lease_until, JSON.stringify(claims));
-  check("4 rival → exit 3", run(["claim", "n3", "--agent", "rival"], c4).status === 3);
-  check("4 release → 0", run(["release", "n3"], c4).status === 0);
-  check("4 release again → 3", run(["release", "n3"], c4).status === 3);
-  check("4 claim unknown → 2", run(["claim", "ghost", "--agent", "A"], c4).status === 2);
-} catch (e) { check("4 case threw", false, String(e?.stack ?? e)); }
-
-// --- 5. CONCURRENT CLAIM (two processes) -------------------------------------
-const db5 = dbFor("case5");
-try {
-  const c5 = { TASKS_DB: db5 };
-  run(["add", "--id", "race", "--title", "Race task", "--priority", "P0"], c5);
-  const agents = ["A", "B"];
-  const results = await new Promise((resolvePromise) => {
-    const env = { ...process.env, TASKS_DB: db5 };
-    const procs = agents.map((agent) => spawn("bun", [TASKS, "claim", "race", "--agent", agent], { cwd: ROOT, env }));
-    let left = procs.length;
-    const res = [];
-    procs.forEach((p, i) => {
-      let err = "";
-      p.stderr.on("data", (d) => { err += d; });
-      p.on("close", (code) => {
-        res[i] = { agent: agents[i], code, err };
-        if (--left === 0) resolvePromise(res);
-      });
-    });
-  });
-  const codes = results.map((r) => r.code).sort();
-  check("5 two-process contention → [0,3]", JSON.stringify(codes) === "[0,3]", JSON.stringify(codes));
-  const winner = results.find((r) => r.code === 0) ?? {};
-  const raceClaims = jparse(run(["query", "SELECT agent FROM claims WHERE task_id='race'"], c5).stdout) ?? [];
-  check("5 one winner claim owned by winner", raceClaims.length === 1 && raceClaims[0].agent === winner.agent, JSON.stringify(raceClaims));
-  const loser = results.find((r) => r.code === 3) ?? {};
-  check("5 loser stderr non-empty", String(loser.err ?? "").trim().length > 0, JSON.stringify(String(loser.err ?? "")));
-  run(["release", "race"], c5);
-} catch (e) { check("5 case threw", false, String(e?.stack ?? e)); }
-
-// --- 6. query rejects writes --------------------------------------------------
-const db6 = dbFor("case6");
-try {
-  const c6 = { TASKS_DB: db6 };
-  run(["init"], c6);
-  const okQ = run(["query", "SELECT id, status FROM tasks"], c6);
-  check("6 SELECT ok", okQ.status === 0 && Array.isArray(jparse(okQ.stdout)), `exit ${okQ.status} ${okQ.stderr}`);
-  for (const bad of ["UPDATE tasks SET status='done'", "DELETE FROM tasks", "SELECT 1; DROP TABLE tasks", "PRAGMA journal_mode=DELETE"]) {
-    const r = run(["query", bad], c6);
-    check(`6 rejects ${JSON.stringify(bad)}`, r.status === 2, `exit ${r.status}`);
+  if (existsSync(LIVE_BEADS)) {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.BEADS_DIR;
+    const live = JSON.parse(execFileSync(BD_BIN, ["list", "--json", "--all", "--limit", "3000"], { cwd: ROOT, env: cleanEnv, encoding: "utf8", timeout: 120000, maxBuffer: 64 * 1024 * 1024 }));
+    const leaked = live.filter((r) => String(r.id).includes(ID_PREFIX));
+    check("10 live store untouched (no selftest rows)", leaked.length === 0, JSON.stringify(leaked.map((r) => r.id).slice(0, 4)));
+  } else {
+    check("10 live-store isolation (no live store present — check skipped)", true);
   }
-  const pragma = run(["query", "PRAGMA table_info(tasks)"], c6);
-  check("6 PRAGMA table_info ok", pragma.status === 0 && Array.isArray(jparse(pragma.stdout)), `exit ${pragma.status} ${pragma.stderr}`);
-} catch (e) { check("6 case threw", false, String(e?.stack ?? e)); }
+} catch (e) { check("10 live-store check threw", false, String(e?.message ?? e)); }
 
-// --- 7. view round-trip + determinism ----------------------------------------
-const db7a = dbFor("case7a"), db7b = dbFor("case7b");
-try {
-  const c7a = { TASKS_DB: db7a }, c7b = { TASKS_DB: db7b };
-  const real = join(ROOT, "docs/NEXT-ACTIONS.md");
-  const original = readFileSync(real, "utf8");
-  const originalRows = [];
-  for (const line of original.split("\n")) {
-    const m = line.match(/^- \[(pending|done|blocked|remediated|partial)\]\s+(?:(P[0-3])\s+—\s+)?(.+)$/);
-    if (!m) continue;
-    const rest = m[3];
-    const cut = rest.indexOf(" — ");
-    originalRows.push({ status: m[1], priority: m[2] ?? null, title: (cut === -1 ? rest : rest.slice(0, cut)).trim(), scope: cut === -1 ? null : rest.slice(cut + 3).trim() });
-  }
-  check("7 init + import real queue", run(["init"], c7a).status === 0 && run(["import", real], c7a).status === 0);
-  const v1 = join(tmp, "view1.md"), v2 = join(tmp, "view2.md");
-  run(["view", "--out", v1], c7a);
-  run(["view", "--out", v2], c7a);
-  check("7 view byte-identical across runs", readFileSync(v1, "utf8") === readFileSync(v2, "utf8"));
-  const rows = jparse(run(["list", "--json"], c7a).stdout) ?? [];
-  check("7 row count == original row count", rows.length === originalRows.length && originalRows.length > 0, `${rows.length} vs ${originalRows.length}`);
-  const keyOf = (r) => JSON.stringify([r.status, r.priority ?? null, r.title, r.scope ?? null]);
-  const have = new Set(rows.map(keyOf));
-  const missing = originalRows.filter((r) => !have.has(keyOf(r)));
-  check("7 every original row present", missing.length === 0, JSON.stringify(missing.slice(0, 2)));
-  check("7 init + import view output", run(["init"], c7b).status === 0 && run(["import", v1], c7b).status === 0);
-  const q = "SELECT status, priority, title, scope FROM tasks ORDER BY title, scope";
-  const qa = run(["query", q], c7a).stdout, qb = run(["query", q], c7b).stdout;
-  check("7 round-trip semantic equality", qa === qb && qa.trim().length > 0, "query outputs differ");
-} catch (e) { check("7 case threw", false, String(e?.stack ?? e)); }
+for (const t of tmps) rmSync(t, { recursive: true, force: true });
+check(`10+ all temp state cleaned (${tmps.length} dirs)`, tmps.every((t) => !existsSync(t)));
 
-// --- 8. wf-batch queue reads (DB preferred, md fallback) ----------------------
-try {
-  const { readQueueRows } = await import(new URL("../wf-batch.ddw.js", import.meta.url).href);
-  const fbRoot = join(tmp, "fb-root");
-  mkdirSync(join(fbRoot, "docs"), { recursive: true });
-  writeFileSync(join(fbRoot, "docs/NEXT-ACTIONS.md"), "# f\n\n- [pending] P0 — Fallback row — scope here\n");
-  const fb = readQueueRows(fbRoot);
-  check("8 md fallback (no db)", fb.source === "md" && fb.rows.length === 1 && fb.rows[0].title === "Fallback row", JSON.stringify(fb));
-  const prefRoot = join(tmp, "pref-root");
-  mkdirSync(join(prefRoot, "porting"), { recursive: true });
-  mkdirSync(join(prefRoot, "docs"), { recursive: true });
-  copyFileSync(TASKS, join(prefRoot, "porting/tasks.mjs"));
-  writeFileSync(join(prefRoot, "docs/NEXT-ACTIONS.md"), "# f\n\n- [pending] P0 — Md row — should lose\n");
-  const prefDb = join(prefRoot, "porting/tasks.db");
-  const dbf = join(prefRoot, "db-fixture.md");
-  writeFileSync(dbf, "- [pending] P0 — Db row — should win\n");
-  const envP = { ...process.env, TASKS_DB: prefDb };
-  const pi = spawnSync("bun", [join(prefRoot, "porting/tasks.mjs"), "init"], { cwd: prefRoot, env: envP, encoding: "utf8" });
-  const pim = spawnSync("bun", [join(prefRoot, "porting/tasks.mjs"), "import", dbf], { cwd: prefRoot, env: envP, encoding: "utf8" });
-  check("8 pref db seeded", pi.status === 0 && pim.status === 0, pi.stderr + pim.stderr);
-  const pr = readQueueRows(prefRoot);
-  check("8 db preferred over md", pr.source === "db" && pr.rows.length === 1 && pr.rows[0].id === "db-row" && pr.rows[0].title === "Db row", JSON.stringify(pr));
-} catch (e) { check("8 case threw", false, String(e?.stack ?? e)); }
-
-// --- 9. upsert / epic-upsert / activate (epics compiler consumer contract) ----
-try {
-  const db9 = dbFor("case9");
-  const c9 = { TASKS_DB: db9 };
-  check("9 init", run(["init"], c9).status === 0);
-  const u1 = run(["upsert", "--id", "cv-1", "--title", "First", "--status", "blocked", "--priority", "P1", "--scope", "s1", "--acceptance", "a1", "--check", "true", "--epic-id", "e1", "--fr-refs", "FR-1,FR-2", "--source", "compile:test"], c9);
-  check("9 upsert inserts", u1.status === 0 && u1.stdout.trim() === "cv-1", u1.stderr || u1.stdout);
-  const u2 = run(["upsert", "--id", "cv-1", "--title", "First renamed", "--priority", "P2", "--scope", "s1b", "--acceptance", "a1b", "--check", "true", "--epic-id", "e1", "--fr-refs", "FR-1", "--source", "compile:test"], c9);
-  check("9 upsert idempotent", u2.status === 0);
-  let rows9 = jparse(run(["list", "--json"], c9).stdout) ?? [];
-  let row9 = rows9.find((r) => r.id === "cv-1");
-  check("9 upsert updates content, preserves status", row9 && row9.title === "First renamed" && row9.priority === "P2" && row9.scope === "s1b" && row9.status === "blocked" && row9.epic_id === "e1", JSON.stringify(row9));
-  check("9 fr_refs stored", row9 && row9.fr_refs === "FR-1", JSON.stringify(row9?.fr_refs));
-  check("9 set done", run(["set", "cv-1", "--status", "done", "--evidence", "proof"], c9).status === 0);
-  run(["upsert", "--id", "cv-1", "--title", "First renamed again", "--scope", "s1c", "--source", "compile:test"], c9);
-  row9 = (jparse(run(["list", "--json"], c9).stdout) ?? []).find((r) => r.id === "cv-1");
-  check("9 upsert preserves done + evidence", row9 && row9.status === "done" && row9.evidence === "proof" && row9.title === "First renamed again", JSON.stringify(row9));
-  check("9 upsert requires id+title", run(["upsert", "--id", "x"], c9).status === 2);
-  const e1 = run(["epic-upsert", "--id", "e1", "--title", "Epic one", "--goal", "g1", "--milestone", "M1", "--source", "compile:test"], c9);
-  const e2 = run(["epic-upsert", "--id", "e1", "--title", "Epic one", "--goal", "g1b", "--milestone", "M1"], c9);
-  check("9 epic-upsert x2 exits 0", e1.status === 0 && e2.status === 0, e1.stderr + e2.stderr);
-  const epics = jparse(run(["epic-list", "--json"], c9).stdout) ?? [];
-  check("9 epic idempotent + goal updated", epics.length === 1 && epics[0].id === "e1" && epics[0].goal === "g1b" && epics[0].milestone === "M1", JSON.stringify(epics));
-  run(["upsert", "--id", "cv-2", "--title", "Second", "--status", "blocked", "--source", "compile:test"], c9);
-  run(["upsert", "--id", "cv-3", "--title", "Third", "--status", "blocked", "--source", "other"], c9);
-  const act = run(["activate", "compile:test"], c9);
-  check("9 activate count (only matching blocked)", act.status === 0 && act.stdout.trim() === "activated 1", act.stderr || act.stdout);
-  rows9 = jparse(run(["list", "--json"], c9).stdout) ?? [];
-  const st = Object.fromEntries(rows9.map((r) => [r.id, r.status]));
-  check("9 activate flips only prefix (done stays done)", st["cv-2"] === "pending" && st["cv-3"] === "blocked" && st["cv-1"] === "done", JSON.stringify(st));
-} catch (e) { check("9 case threw", false, String(e?.stack ?? e)); }
-
-// --- 10. cleanup + summary ----------------------------------------------------
-rmSync(tmp, { recursive: true, force: true });
-check("10 all temp state cleaned", !existsSync(tmp));
-console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES`);
+console.log(fails === 0 ? `ALL PASS (checks=${checks})` : `${fails} FAILURES (checks=${checks})`);
 process.exit(fails === 0 ? 0 : 1);
-
-

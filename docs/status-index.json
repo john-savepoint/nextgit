@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-07T11:02:53.309Z",
-  "head": "0085941",
+  "generatedAt": "2026-10-07T21:41:39.662Z",
+  "head": "5945d46",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-07 ",
@@ -12,11 +12,41 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 581,
-      "done": 79,
-      "partial": 1
+      "pending": 579,
+      "partial": 1,
+      "done": 81
     },
     "items": [
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Auto-land gate live"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Corpus copies"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Fleet-scale demo"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Game-industry story page"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Performance: cache `/proposals`"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Post-submission roadmap"
+      },
       {
         "status": "pending",
         "priority": "P0",
@@ -26,6 +56,86 @@
         "status": "pending",
         "priority": "P0",
         "title": "Submission package"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Tour v2"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Trust beat: content-based secret detection"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "tsc hygiene"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Unlock marquee agents"
+      },
+      {
+        "status": "partial",
+        "priority": "P0",
+        "title": "UX spec for the triage surface"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Auth seam v1: AUTH_MODE default-deny + authorize"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Contract smoke in platform verify gates"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "DO lease serializes lands"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Event consumer: sole recorder + dedupe + payload validation"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "R2 asset tier + first-slice manifest/pointer format"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Secret-class widening + free-text scrub"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Token lifecycle: account-scoped control-plane token + 0600 storage + audit"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Workflows provisioning: token minting moves worker-side"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Build specialist judge scoring proposals for arbitration"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Complete unified proposal card"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Deliver events to canvas via true push"
       },
       {
         "status": "pending",
@@ -40,77 +150,12 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Submission: repo location + single entry registered by Oct 14"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Live-only E2E verification gate before submission"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Deliver events to canvas via true push"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Complete unified proposal card"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Build specialist judge scoring proposals for arbitration"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Enforce server-side exclusive file locks"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Store multi-GB binaries natively without LFS pointer rewriting"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Build CDC chunk store for game assets in R2"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Write chunk manifests and Merkle integrity into repo"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Serve blobs via presigned direct-to-R2 transfers"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Implement lazy hydrated checkout for huge repos"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Split storage: source in Artifacts, big binaries in R2"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Orchestrate multi-tenant CI on Workflows and @cloudflare/ci"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Validate every proposal with speculative execution"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Fan out untrusted jobs into isolated sandboxes"
+        "title": "Submission: repo location + single entry registered by Oct 14"
       },
       {
         "status": "pending",
@@ -120,52 +165,12 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Provision isolated workspaces with full lifecycle"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Provide worktree-as-a-service for parallel agent tasks"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Run coding agents in sandboxes with event wakeups"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Ship pre/post-commit review with tracked approvals"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Ship set-level triage of N concurrent agent change-sets as hero flow"
+        "title": "Build CDC chunk store for game assets in R2"
       },
       {
         "status": "pending",
         "priority": "P0",
         "title": "Build three-tier architecture: substrate, judge, triage UI"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Win on triage/context layer, not merge mechanics"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Differentiate explicitly vs Whiteboard: set semantics + multiplayer"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Implement entity-level 3-way merge as pure function over base/ours/theirs"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Implement claim->work->done lock queue for contested symbols"
       },
       {
         "status": "pending",
@@ -180,62 +185,92 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Issue per-review authoring lease and command receipts"
+        "title": "Differentiate explicitly vs Whiteboard: set semantics + multiplayer"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Give changes durable logical identity independent of branches"
+        "title": "Enforce server-side exclusive file locks"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Scale Cloudflare's coordinator->specialists->arbitration judge to sets"
+        "title": "Fan out untrusted jobs into isolated sandboxes"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Risk-tiered specialist review over shared cached context"
+        "title": "Implement claim->work->done lock queue for contested symbols"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Post-merge behavioral verification"
+        "title": "Implement entity-level 3-way merge as pure function over base/ours/theirs"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Build predictive validation so merged SHA equals tested SHA"
+        "title": "Implement lazy hydrated checkout for huge repos"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Do binding-side diffing; no clones in review paths"
+        "title": "Orchestrate multi-tenant CI on Workflows and @cloudflare/ci"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "One Durable Object per repo as realtime hub"
+        "title": "Provide worktree-as-a-service for parallel agent tasks"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Workflows durable job per agent task with human-approval wait"
+        "title": "Provision isolated workspaces with full lifecycle"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Fan out Artifacts repo events through Queues"
+        "title": "Run coding agents in sandboxes with event wakeups"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Repo-per-agent + fork-from-baseline isolation"
+        "title": "Serve blobs via presigned direct-to-R2 transfers"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Downscope agent tokens to least privilege per repo"
+        "title": "Ship pre/post-commit review with tracked approvals"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Ship set-level triage of N concurrent agent change-sets as hero flow"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Split storage: source in Artifacts, big binaries in R2"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Store multi-GB binaries natively without LFS pointer rewriting"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Validate every proposal with speculative execution"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Win on triage/context layer, not merge mechanics"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Write chunk manifests and Merkle integrity into repo"
       },
       {
         "status": "pending",
@@ -245,22 +280,7 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Visualize the cross-change conflict map on the canvas"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Multiplayer review rooms as the platform-multiplayer differentiator"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Keep pushes small and incremental under the ~64 MiB cap"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Pin isomorphic-git 1"
+        "title": "Build predictive validation so merged SHA equals tested SHA"
       },
       {
         "status": "pending",
@@ -270,7 +290,22 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Pin competition milestone calendar"
+        "title": "Do binding-side diffing; no clones in review paths"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Downscope agent tokens to least privilege per repo"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Fan out Artifacts repo events through Queues"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Give changes durable logical identity independent of branches"
       },
       {
         "status": "pending",
@@ -280,7 +315,17 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Production build chain: PRD → epics → registry → systematic build"
+        "title": "Issue per-review authoring lease and command receipts"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Keep pushes small and incremental under the ~64 MiB cap"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Multiplayer review rooms as the platform-multiplayer differentiator"
       },
       {
         "status": "pending",
@@ -290,237 +335,62 @@
       {
         "status": "pending",
         "priority": "P0",
+        "title": "One Durable Object per repo as realtime hub"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Pin competition milestone calendar"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Pin isomorphic-git 1"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Post-merge behavioral verification"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Production build chain: PRD → epics → registry → systematic build"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
         "title": "Registry harvest wave: itemize every source into harvest JSONs"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Send the reviewed heads from the canvas on land and surface stale"
+        "title": "Repo-per-agent + fork-from-baseline isolation"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Extend the land regression probe to 4 concurrent lands"
+        "title": "Risk-tiered specialist review over shared cached context"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Extend the landing record: checks, results, merged/tested hashes, artifact ref"
+        "title": "Scale Cloudflare's coordinator->specialists->arbitration judge to sets"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Serve the landing record at GET /landings/{commit}"
+        "title": "Visualize the cross-change conflict map on the canvas"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Prove /land folds and pushes one commit server-side, no caller git"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove card confirm → landing… two-step and the in-flight banner copy"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Stream platform events over an SSE Durable Object hub"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Consume the event stream in the UI; keep polling as the degraded fallback"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove a new top event debounces a /proposals refresh at 500ms"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the fallback cadence: /events 2s, /proposals 8s behind a default-on toggle"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove /judge v1 emits typed risk, intent, and collision signals"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove callers cannot inject judge state, questions, or model"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove judge state assembly, secret masking, and skip reasons"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove pinned-model fail-closed 503s and silent UI degradation"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove advisory judge chips render, stay amber, and block nothing"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove secret-class rows serve schema-only on /proposals and /changes"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove secret-class values never enter judge state, logs, or free-text scrub output"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove merge previews render withheld-secret rows with no text"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove /land refuses secret-class folds with 409 withheld-secret and pushes nothing"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the N≥4 concurrent real-agent demo floor live"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove omp/codex routes push real proposals to the baseline"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Make the end-to-end demo reproducible from the committed scripts"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Cross-link the operator runbook from the root README"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Complete the submission license surface: package"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Record and gate the 5-10 minute single-take submission video"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify a clean reset from committed scripts reproduces the full demo set live"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the one-click landing beat lands server-side with a receipt"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the demo path is the live Cloudflare Worker + Artifacts namespace"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the colliding-land refusal: 409 conflict, files named, preview-merge guidance"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the secret-touching land refusal: 409 withheld-secret, files named, values held back"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify all seven documented routes live, with documented error shapes"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify /judge pin, repo/ref caps, and the per-caller rate limit"
+        "title": "Workflows durable job per agent task with human-approval wait"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Auto-land gate live"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Fleet-scale demo"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Unlock marquee agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Trust beat: content-based secret detection"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Game-industry story page"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Auth seam v1: AUTH_MODE default-deny + authorize"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Token lifecycle: account-scoped control-plane token + 0600 storage + audit"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Secret-class widening + free-text scrub"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Event consumer: sole recorder + dedupe + payload validation"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "DO lease serializes lands"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "R2 asset tier + first-slice manifest/pointer format"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Workflows provisioning: token minting moves worker-side"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Worktree-as-a-service: platform provisioning API"
+        "title": "Automate competition pre-submission eligibility checks"
       },
       {
         "status": "pending",
@@ -530,12 +400,27 @@
       {
         "status": "pending",
         "priority": "P1",
+        "title": "Classify every file by language, role, and sensitivity"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
         "title": "CPU-budget hardening: large change-sets within the 30s Worker envelope"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Proposal card signal set: risk + provenance fields on every card"
+        "title": "Entity API: Proposal detail"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Entity API: Pull / Proposal client entity"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Events: normalized platform event bus across all families"
       },
       {
         "status": "pending",
@@ -545,7 +430,42 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Surgical authoring leases: scoped, expiring, advisory-first"
+        "title": "Landing evidence receipt: tested SHA equals merged SHA, recorded"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Law 2: two-tier intelligence - System-1 sees every file first"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Law 3: self-describing platform - tool manifest + structure map in workspaces"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Per-worker traces + git-notes records"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Pre-fill conflict resolution strategy per conflicted pair"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Proposal card signal set: risk + provenance fields on every card"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "QA demo-video frames for readability and key moments"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Route work to the best-fit harness per task"
       },
       {
         "status": "pending",
@@ -560,22 +480,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Landing evidence receipt: tested SHA equals merged SHA, recorded"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Per-worker traces + git-notes records"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Law 2: two-tier intelligence - System-1 sees every file first"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Law 3: self-describing platform - tool manifest + structure map in workspaces"
+        "title": "Surgical authoring leases: scoped, expiring, advisory-first"
       },
       {
         "status": "pending",
@@ -600,17 +505,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Entity API: Pull / Proposal client entity"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Entity API: Proposal detail"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Events: normalized platform event bus across all families"
+        "title": "Version judge question sets in code with the platform"
       },
       {
         "status": "pending",
@@ -620,147 +515,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Pre-fill conflict resolution strategy per conflicted pair"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Classify every file by language, role, and sensitivity"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Automate competition pre-submission eligibility checks"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Route work to the best-fit harness per task"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "QA demo-video frames for readability and key moments"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Version judge question sets in code with the platform"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Tune judge thresholds on our own labeled proposals"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Store arbitration decision record as git notes on landed change"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Introduce first-class change-set identity"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Implement authoring lease per change-set"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Run speculative validation on proposals"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Issue receipts when agents complete work"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Classify every file with System-1 models at ingest"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Route expensive reasoning only to files needing judgment"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Build semantic index and context maps for repos"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Keep durable work/state tier"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Implement surgical expiring advisory locks"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Ship tool manifest and structure map into workspaces"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Enforce denied paths: deny, close, redirect, escalate"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Write claims, status, receipts onto the shared artifact"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Require declare-before-touch and completion receipts"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Standardize agent output: summary, detail, affordances"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Implement join-don't-restart with merge/refactor"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Declare intent: router pings before work starts"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Return matcher verdicts: merge, context, or ignore"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Run background matcher against the fork ecosystem"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Render fork cards with six signal clusters"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Surface active-fork radar in context"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Weave workspaces through the whole experience"
+        "title": "Worktree-as-a-service: platform provisioning API"
       },
       {
         "status": "pending",
@@ -775,17 +530,22 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Provide partial sync via workspace views and sparse streams"
+        "title": "Build semantic index and context maps for repos"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Support atomic changelist commits and server-side shelves"
+        "title": "Classify every file with System-1 models at ingest"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Review art assets visually: preview, annotate, approve/reject"
+        "title": "Declare intent: router pings before work starts"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Enforce denied paths: deny, close, redirect, escalate"
       },
       {
         "status": "pending",
@@ -795,57 +555,112 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Build transaction hooks for policy gating and notifications"
+        "title": "Implement authoring lease per change-set"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Treat binaries as never-merge; keep 3-way text merge"
+        "title": "Implement join-don't-restart with merge/refactor"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Offer artist mode: download, lock, edit, check-in"
+        "title": "Implement surgical expiring advisory locks"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Deduplicate chunks across files and versions"
+        "title": "Introduce first-class change-set identity"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Support film-scale blobs via R2 multipart storage"
+        "title": "Issue receipts when agents complete work"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Harden transfers: resumable uploads, 413/429 backoff"
+        "title": "Keep durable work/state tier"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Federate Windows/GPU/macOS runners via queue bridge"
+        "title": "Provide partial sync via workspace views and sparse streams"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Define pipelines as code: triggers, matrices, reuse"
+        "title": "Render fork cards with six signal clusters"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Run batch merge queues on speculative groups"
+        "title": "Require declare-before-touch and completion receipts"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Inject secrets via OIDC with short-lived credentials"
+        "title": "Return matcher verdicts: merge, context, or ignore"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Publish preview deployments per proposal branch"
+        "title": "Review art assets visually: preview, annotate, approve/reject"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Route expensive reasoning only to files needing judgment"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Run background matcher against the fork ecosystem"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Run speculative validation on proposals"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Ship tool manifest and structure map into workspaces"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Standardize agent output: summary, detail, affordances"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Store arbitration decision record as git notes on landed change"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Support atomic changelist commits and server-side shelves"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Surface active-fork radar in context"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Tune judge thresholds on our own labeled proposals"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Weave workspaces through the whole experience"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Write claims, status, receipts onto the shared artifact"
       },
       {
         "status": "pending",
@@ -855,47 +670,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Fan out event subscriptions to CI and agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Implement repo lifecycle over binding, REST and Git"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Expose content read APIs"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Issue least-privilege repo-scoped git and API tokens"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Stream sandbox terminal output to the web UI"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Enforce sandbox isolation tiers by trust level"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Federate GPU/Windows/macOS workspaces to providers"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Enable human-agent co-presence and takeover"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Sync local and platform sides over standard git"
+        "title": "Attribute costs per tenant, task and resource"
       },
       {
         "status": "pending",
@@ -905,12 +680,137 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Attribute costs per tenant, task and resource"
+        "title": "Build transaction hooks for policy gating and notifications"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Deduplicate chunks across files and versions"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Define pipelines as code: triggers, matrices, reuse"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Enable human-agent co-presence and takeover"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Enforce sandbox isolation tiers by trust level"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Expose content read APIs"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Fan out event subscriptions to CI and agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Federate GPU/Windows/macOS workspaces to providers"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Federate Windows/GPU/macOS runners via queue bridge"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Harden transfers: resumable uploads, 413/429 backoff"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Implement repo lifecycle over binding, REST and Git"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Inject secrets via OIDC with short-lived credentials"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Issue least-privilege repo-scoped git and API tokens"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Offer artist mode: download, lock, edit, check-in"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Publish preview deployments per proposal branch"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Run batch merge queues on speculative groups"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Stream sandbox terminal output to the web UI"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Support film-scale blobs via R2 multipart storage"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Sync local and platform sides over standard git"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Treat binaries as never-merge; keep 3-way text merge"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Unify code and art review in one surface"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add file-level read blocking and per-path grants for secrets"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add team-configurable risk-score gating and auto-approve"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Attach a team-readable evidence trail per change"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Attach mandatory per-write provenance via Git Notes"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Build fail-closed deterministic gates"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Choose canvas tech without license traps"
       },
       {
         "status": "pending",
@@ -925,32 +825,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Support race-agents-on-one-task comparison"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Provide coordination signals: change maps + task records"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Match/beat incumbent conflict resolution at set level"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Build fail-closed deterministic gates"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add team-configurable risk-score gating and auto-approve"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Keep merge batches shallow"
+        "title": "DO-room per review: throttled presence, snapshot sync, soft locks"
       },
       {
         "status": "pending",
@@ -960,72 +835,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Never equate passed CI with safe-to-merge"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Use Agents SDK fibers for session recovery"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Preserve full agent session as a first-class artifact"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Make Workflows steps idempotent; design ordering explicitly"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "DO-room per review: throttled presence, snapshot sync, soft locks"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Use CRDTs for review state only, never code text"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Route models and cache through AI Gateway"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Limit Sandboxes to Linux-necessary work under account ceiling"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Read/write AGENTS"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Enforce typed secret files: ciphertext + policy + schema-only view"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add file-level read blocking and per-path grants for secrets"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Mint signed agent identity per instance"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Attach mandatory per-write provenance via Git Notes"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Scrub secret leaks at commit time"
       },
       {
         "status": "pending",
@@ -1035,12 +845,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Choose canvas tech without license traps"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Attach a team-readable evidence trail per change"
+        "title": "Keep merge batches shallow"
       },
       {
         "status": "pending",
@@ -1050,7 +855,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Respect Artifacts limits in design"
+        "title": "Limit Sandboxes to Linux-necessary work under account ceiling"
       },
       {
         "status": "pending",
@@ -1060,22 +865,72 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Finals readiness: Oct 21 live 10-min stage presentation"
+        "title": "Make Workflows steps idempotent; design ordering explicitly"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Human-facing architecture walkthrough"
+        "title": "Match/beat incumbent conflict resolution at set level"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Unauthenticated demo, auth-ready seams; Save Point SSO future"
+        "title": "Mint signed agent identity per instance"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "DO / Workflows / R2 are in-scope for the demo"
+        "title": "Never equate passed CI with safe-to-merge"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Preserve full agent session as a first-class artifact"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Provide coordination signals: change maps + task records"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Read/write AGENTS"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Respect Artifacts limits in design"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Route models and cache through AI Gateway"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Scrub secret leaks at commit time"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Support race-agents-on-one-task comparison"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Use Agents SDK fibers for session recovery"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Use CRDTs for review state only, never code text"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Approvability score and check-run auto-approval of low-risk PRs"
       },
       {
         "status": "pending",
@@ -1084,18 +939,8 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Speculative validation on predicted edits"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Secret-typed file primitives"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Schema-only decoupled views for secret files"
+        "priority": "P2",
+        "title": "Commit-time scrub of secrets leaked into non-secret paths"
       },
       {
         "status": "pending",
@@ -1110,12 +955,1317 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Approvability score and check-run auto-approval of low-risk PRs"
+        "title": "DO / Workflows / R2 are in-scope for the demo"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Elevated reveal for authorized viewers"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Finals readiness: Oct 21 live 10-min stage presentation"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Human-facing architecture walkthrough"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Per-line AI attribution surviving rebase, squash and cherry-pick"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Per-worker secret API"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Schema-only decoupled views for secret files"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Secret-typed file primitives"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Speculative validation on predicted edits"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Structural conflict detection: entity/AST-level, not just textual"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Unauthenticated demo, auth-ready seams; Save Point SSO future"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Client adapter parity: platform API replaces GitHub as the client store"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Communication contract: summary + structured detail + affordances"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Cost attribution + budget enforcement"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Entity API: Floor / Project"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Entity API: Issue"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Entity API: Presence / Peer"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Entity API: Settings"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Entity API: Task / Queue"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Entity API: Worker"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Events: floor lifecycle"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Events: issue/pull lifecycle"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Events: peer presence"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Events: queue state"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Events: terminal streaming"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Events: worker lifecycle + worktree"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Fork-card six-cluster signals"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "GitHub-semantics synthesis: reviewDecision / mergeStateStatus / mergeable"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Intent router: declare intent first, match before building"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Landing policy engine: branch protection and merge policy"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Law 12: merge/workspace transparency woven through the experience"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Law 4: repo answers for itself - index, preview, demos, provenance"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Law 5: agents inspect just enough - context maps over total reads"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Law 7: contribution standard as a service"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Law 9: work-item to change-set linkage on one review surface"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Provider-agnostic agent launch: unify 8 harness formats"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Swarm R1: communicate through the work"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Swarm R4: join-don't-restart as a platform reflex"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Tier 1: codebase vector index + semantic traversal"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Check active claims before agents start tasks"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Check changes against design tokens and palette"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Check new dependencies against the stated task"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Classify landed commits for changelog generation"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Detect duplicated behavior across proposals and forks"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Detect stale proposals against moved bases"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Enable interactive output pages with action buttons"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Escalate proposals whose diffs exceed stated scope"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Estimate review effort to order the human queue"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Evaluate release-readiness checklist with nouls"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Flag breaking changes with semver signal"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Flag public API changes missing docs updates"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Gate behavior changes without matching tests"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Make stashing simple and safe"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Monitor and block sandbox-escape attempts"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Persist provenance/artifact tier"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Review UI diffs visually from before/after screenshots"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Route proposals to reviewers by expertise match"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Scan intent and notes text for secrets and PII leaks"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Score landing-subset risk for proposal combinations"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Screen public contributions before human triage"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Sign agent identities for proposals"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Sniff new dependencies and CI edits for supply-chain risk"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Suggest reviewable splits for mega-proposals"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Triage CI failures and recommend retry policy"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Triage issues by type, priority, and component"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Verify post-merge behavior against expectations"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Answer for the repo without cloning"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Attribute worker cost and enforce budgets"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Auto-generate changelogs as a platform feature"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Auto-tag and classify issues with fast models"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Build one continuous surface, no tab explosion"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Cluster feature types and tag commits via System-1"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Collect liveness and automation evidence signals"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Enable agent-to-agent cross-fork conversations"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Expose per-worker secrets API"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Expose worktree-as-a-service API"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Facilitate merge-back to upstream"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Improve releases and tags navigation"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Link work items and change-sets bidirectionally"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Lint commits as a platform feature"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Make historical version checkout painless"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Model milestones and epics as first-class timeline objects"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Normalize worker events across provider hook formats"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Publish global presence roster API"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Reach GitLens-class parity, contextually woven"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Resolve and implement partial-fit handling policy"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Score fork people/trust signals"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Serve contribution standards platform-side"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Show unique fork-vs-fork diffs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Stream terminals: snapshot, row diffs, scrollback"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Support BYO models and harnesses via launch abstraction"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Track push provenance"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Unify README and file-view repo navigation"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add asset metadata, tagging and search"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add binary delta encoding for archive-like assets"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add content-addressed registry for build outputs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add observability for repo and agent event streams"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add poisoning-resistant remote build cache"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Attach editors: devcontainers, VS Code Remote, web IDE"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Autoscale warm runner pools to kill cold starts"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Capture per-worker trace provenance"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Engineer around Artifacts size and rate limits"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Ensure hermetic, reproducible builds with pinned images"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Expose 3D-renderable entities: floors, workers, queues"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Fork stateful sandboxes for parallel what-ifs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Harden CI supply chain: pinning, egress control, scoped creds"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Hit big-repo performance envelope"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Import Git/LFS/Perforce/SVN with transitional sync"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Invalidate edge caches on mutable ref updates"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Manage workspace sizing, snapshots and capacity"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Measure System-1 cost/accuracy vs expensive reads"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Model policy-driven stream branches with derived views"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Replicate content to regional edges with central write authority"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Select affected tests with AST-aware analysis"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Ship lock-aware Unreal/Unity/Godot editor plugins"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Support host git or native proposal model"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Wire remaining Cloudflare substrate"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add agent computer-use verification artifacts"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add AI-restricted repository mode"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add code-linked diagrams with click-through to source"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add cognitive-debt reduction: fold tests and boilerplate"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add copy-for-agent handoff from triage"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Add flaky quarantine and bisect-on-failure"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Adopt task-dependent fan-out; do not chase max agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Budget for Artifacts billing start 2026-10-14"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Design review for acceptance, not raw detection"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Document boundaries and federation story for judges"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Echo stacked-diffs/patch-series landing workflow"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Instrument and export engineering-analytics metrics"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Match review-UX table stakes per proposal"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "MCP server exposing set context to external agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Offer Dynamic Workers tier for short jobs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Prove Workers + Artifacts compliance for judges"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Route agent LLM traffic through AI Gateway"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Run execution-backed review in sandboxes"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Scope replication per agent with predicate shapes"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Ship a pre-write conflict-check hook for agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Show cost-per-review transparency"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Sign landed commits and set attestations keylessly"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Support multi-repo workspaces for agent reasoning"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Surface decision logs per change"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Bind identity to SSH/GPG keypairs with signed profile repos"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Collapsible modules: expand inline or shrink to capsules"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Contextual clustering: trace affected code from an issue card"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "CRDT-backed concurrent review and comment merging"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "DAG-scheduled CI: run independent build tasks concurrently"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Fleet-scale performance budget + capacity model"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Immutable content-addressable ledger of platform actions"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Infinite spatial canvas for code, issues, diagrams and logs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Interactive dependency-graph impact view per commit"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Layered feature planes: branches as floating canvas layers"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Logic-aware AST diffs: moves and renames shown as moves"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Native Git-hook WebAssembly micro-runners at pack arrival"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Per-task attempt/retry accounting in the task store"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Self-healing agents: analyse, patch, test and open PRs"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Semantic zoom: continuous macro-to-micro through containers"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Store platform state as Git repos"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Tour v2: fold judge chips + auto-land language in"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Agent-first plain-file conventions for config and context"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "AST-granular delta pipeline: test only impacted nodes"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Branchless smartlog: manipulate commits directly in the DAG"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Chained incremental PR stacking engine with auto-restack"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Click-to-code interactive diagrams for agent change review"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Cognitive-debt filters: fold noise, summarise boilerplate"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Community-governed self-hosted AI PR review agent"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Contextual MFA elevation to reveal or inject secret values"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Diff topography: merge ripples and conflict intersections"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Durable Objects as localised graph coordinates and consensus"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Edge prompt caching for agent context and AST blueprints"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Git+AST graph database feeds the canvas layout engine"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Git-native agent passports with cryptographically signed actions"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Inline streaming leak deflectors on every canvas and doc write"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Local-first MCP privacy: no telemetry or hosted traces"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Machine-readable repo context capsule"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Plain-English review rules with BYOK and self-hosting"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Repo-wide semantic review beyond the active diff"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Rules-driven PR automation and review engine"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Run artefacts as commit sub-trees"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Trace archaeology: blame a line back to the agent session"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Tree-sitter AST graph as the repository read model"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Two-way linked canvas nodes and immutable commit hashes"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Zero-cold-start Wasm CI fan-out across edge Workers"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Active-fork radar: in-context relevant forks + unique diff"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Auto-changelog generation"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Background comparison sub-agent: continuous fork-vs-goal diff"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Batch merge bot: temp branch, full CI, push only if green"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Classify commit messages as conventional, vague, or misleading"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Classify game assets by type and lock/preview needs"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Entity API: Chat / Notifications"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Entity API: Services"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Entity API: Whiteboard"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Estimate cost-to-adopt vs regenerate for forks"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Events: chat + toast"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Law 10: PM inspection via milestones as timeline objects"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Law 11: always-on System-1 decision layer primed for agents and CI/CD"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Law 8: ambient capability + GitLens-class parity"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Merge queue with atomic batch validation and stacking"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Partial-fit policy: use-as-context branch mechanics"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Pod/container visualization"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Rank candidate forks against a declared intent"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Stacked-branch sync and ship automation"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Support fork-off-fork collaboration"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Swarm R2: denial is a wall - count, close, force alternative, escalate"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Agent Office 3D client"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Agent Office adapter plan: 5 first integration changes"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Build toward Agent Office as flagship 3D client"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Design account-level macro-merging"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Evaluate structured merge"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Evaluate WASI-based hermetic CI steps"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Expose CI/CD interaction visibility"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Implement binary asset locking"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Instrument fork-reuse decisions for merge policy"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Integrate Linear-class PM via common API"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Interop: act as a layer above GitHub/GitLab"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Let decision agents drive CI/CD directly"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Match 11-entity contract; offer GitHub drop-in adapter"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Mitigate single-product sunset risk via composability"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Per-repo actor-model event loops"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Position in market with seatless storage-based pricing"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Prototype rung-2 echoes: agent memory, routing"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Queue changes offline and sync on reconnect"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Route landings by build-graph blast radius"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Run always-on System-1 decision agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Signed social graph: follows, stars, permissions as commits"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Support us/eu jurisdictional data residency"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Synthesize reviewDecision/mergeState for clients"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Visualize containers/pods and running apps if authorized"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Write competitive differentiation positioning"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "3D volumetric commit history: helix with orbital branches"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Autonomous optimization swarms acting on live telemetry"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Avatar-based walkthroughs with spatial audio and comments"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Commit spheres: zoom from macro history into the snapshot"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "CRDT consensus with priority rules for overlapping agents"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Cryptographic intention binding between dependent services"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Drag-and-drop merging of modified block clusters"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Dynamic clustering of failing services on the canvas"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Embed 3D node widgets inside 2D flow nodes"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Federated mirror nodes"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Git as immutable ledger of intention for enterprise state"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Inter-component portals synchronise linked views"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Kinetic pipeline trees: animated CI state on limbs"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Live pipeline heatmap for parallel test execution"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Live telemetry overlays: thermal code and traffic currents"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Micro-state repositories: each infra element its own Git tree"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Nested infinite canvas on a WebGL engine"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Russian-doll nesting mirrors the import tree spatially"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Semantic zoom of the enterprise matrix"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Service mesh compiled to edge KV within milliseconds"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Spatial codebase map: 3D volumes from code metrics"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Structural 3D diff: fissures across dependent downstream models"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "True 3D graph navigation via force-directed layout"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Visual merge blending with conflict glow at intersections"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Volumetric call-graph traces with request-lifecycle pulses"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "WebGPU render loop: thousands of fluid cards at 120 FPS"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Account mesh: millions of Durable Object coordinate nodes"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Ephemeral regional secret injection via authorization tree"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Revision-centric VCS with effortless stacking and rewriting"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Spatial sharding: run state nearest the active entity"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Unified distributed DAG of cryptographically signed nodes"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Close agent-skill gaps"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Capability parity harness vs GitHub baseline"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Runner: standing-red highs must not force heals"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Confine below-AA text registers to meta and ambient chrome"
       },
       {
         "status": "pending",
@@ -1130,12 +2280,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Trap modal focus and return it to the trigger"
+        "title": "Stop the proposals grid overflowing below 424px"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Honor prefers-reduced-motion across the triage app"
+        "title": "Trap modal focus and return it to the trigger"
       },
       {
         "status": "pending",
@@ -1145,22 +2295,22 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Confine below-AA text registers to meta and ambient chrome"
+        "title": "Honor prefers-reduced-motion across the triage app"
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Stop the proposals grid overflowing below 424px"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the five summary chips are exact, tinted, and labeled"
+        "priority": "P2",
+        "title": "Verify click-first, hover parity, and document-order tab order"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Prove the default 8s refresh cycle and manual refresh"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Verify degrade-never-fake: banner, sticky panels, silent ticker, honest landing"
       },
       {
         "status": "pending",
@@ -1171,6 +2321,16 @@
         "status": "pending",
         "priority": "P1",
         "title": "Prove modal dismissal paths and one-level modal depth"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the five summary chips are exact, tinted, and labeled"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime"
       },
       {
         "status": "pending",
@@ -1200,17 +2360,22 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Add per-fork commit list to /changes"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Render withheld-secret and conflict card states with Land disabled"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Serialize lands with a Durable Object lease"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Extend the landing record: checks, results, merged/tested hashes, artifact ref"
       },
       {
         "status": "pending",
@@ -1224,18 +2389,13 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Prove the single gated write path"
+        "priority": "P0",
+        "title": "Serve the landing record at GET /landings/{commit}"
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Prove /land needs no caller credentials and leaks no token"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove success banner sha8 + tooltip and immediate proposals/events refresh"
+        "priority": "P0",
+        "title": "Prove card confirm → landing… two-step and the in-flight banner copy"
       },
       {
         "status": "pending",
@@ -1245,7 +2405,32 @@
       {
         "status": "pending",
         "priority": "P1",
+        "title": "Prove /land needs no caller credentials and leaks no token"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
         "title": "Prove landed card dims 0"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the single gated write path"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /land folds and pushes one commit server-side, no caller git"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove success banner sha8 + tooltip and immediate proposals/events refresh"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Stream platform events over an SSE Durable Object hub"
       },
       {
         "status": "pending",
@@ -1254,23 +2439,18 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Prove the feed's single-writer, single-consumer, hint-only posture"
+        "priority": "P0",
+        "title": "Consume the event stream in the UI; keep polling as the degraded fallback"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove the polling cadence fallback contract and the set view"
+        "title": "Prove the live demo serves the verified UI source byte-for-byte"
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Prove the events ticker renders the newest 8 events with type, repo and time"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove /events failure goes stale without breaking the proposals surface"
+        "priority": "P0",
+        "title": "Prove a new top event debounces a /proposals refresh at 500ms"
       },
       {
         "status": "pending",
@@ -1280,7 +2460,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove exactly one queue consumer and one KV LIVE writer, feed non-authoritative"
+        "title": "Prove /events failure goes stale without breaking the proposals surface"
       },
       {
         "status": "pending",
@@ -1290,12 +2470,37 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove the live demo serves the verified UI source byte-for-byte"
+        "title": "Prove the polling cadence fallback contract and the set view"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the fallback cadence: /events 2s, /proposals 8s behind a default-on toggle"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Build the judge-v1 labeled proposal set"
+        "title": "Prove exactly one queue consumer and one KV LIVE writer, feed non-authoritative"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the feed's single-writer, single-consumer, hint-only posture"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the events ticker renders the newest 8 events with type, repo and time"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Enforce the auto-land engagement interlock"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Tune judge-v1 thresholds and commit the calibration record"
       },
       {
         "status": "pending",
@@ -1310,12 +2515,17 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Tune judge-v1 thresholds and commit the calibration record"
+        "title": "Build the judge-v1 labeled proposal set"
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Prove judge set versioning rejects unknown sets"
+        "priority": "P3",
+        "title": "Render auto-land verdicts behind the Land button"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove callers cannot inject judge state, questions, or model"
       },
       {
         "status": "pending",
@@ -1324,8 +2534,28 @@
       },
       {
         "status": "pending",
+        "priority": "P0",
+        "title": "Prove pinned-model fail-closed 503s and silent UI degradation"
+      },
+      {
+        "status": "pending",
         "priority": "P1",
-        "title": "Adjudicate content-detected secret arrival in CONTRACT"
+        "title": "Prove judge set versioning rejects unknown sets"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove judge state assembly, secret masking, and skip reasons"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /judge v1 emits typed risk, intent, and collision signals"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove advisory judge chips render, stay amber, and block nothing"
       },
       {
         "status": "pending",
@@ -1335,22 +2565,12 @@
       {
         "status": "pending",
         "priority": "P1",
+        "title": "Adjudicate content-detected secret arrival in CONTRACT"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
         "title": "Prove the secret-egress law across every channel with an offline canary gate"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the path-driven masking posture and its documented v1 limit"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove intent readers resolve from the nextgit-notes mirror, with the fallback carrier"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the single three-refspec intent push and durability across branch movement"
       },
       {
         "status": "pending",
@@ -1360,12 +2580,42 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove a landing records its baseline move in the live feed"
+        "title": "Prove the single three-refspec intent push and durability across branch movement"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove secret-class values never enter judge state, logs, or free-text scrub output"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove /land refuses secret-class folds with 409 withheld-secret and pushes nothing"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove merge previews render withheld-secret rows with no text"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Load harness routes from a declarative registry"
+        "title": "Prove intent readers resolve from the nextgit-notes mirror, with the fallback carrier"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the path-driven masking posture and its documented v1 limit"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove a landing records its baseline move in the live feed"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove secret-class rows serve schema-only on /proposals and /changes"
       },
       {
         "status": "pending",
@@ -1375,22 +2625,12 @@
       {
         "status": "pending",
         "priority": "P1",
+        "title": "Load harness routes from a declarative registry"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
         "title": "Ship workspace manifest and structure map into every workspace"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove one command provisions N workspaces with scoped tokens"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove every workspace push emits a platform event"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove agent-* workspaces self-discover before token handoff"
       },
       {
         "status": "pending",
@@ -1400,7 +2640,72 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Build the authorize"
+        "title": "Prove one command provisions N workspaces with scoped tokens"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the N≥4 concurrent real-agent demo floor live"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove every workspace push emits a platform event"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove omp/codex routes push real proposals to the baseline"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove agent-* workspaces self-discover before token handoff"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Make the end-to-end demo reproducible from the committed scripts"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Machine-check the twelve-law carrier map"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add the mechanical runtime-pin guard and reconcile pinned surfaces"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Add the concerns-floor guard"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Complete the submission license surface: package"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Cross-link the operator runbook from the root README"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Record and gate the 5-10 minute single-take submission video"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify a clean reset from committed scripts reproduces the full demo set live"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Prove the four demo scripts are committed and parse from the repo root"
       },
       {
         "status": "pending",
@@ -1410,7 +2715,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Rate-limit /land, /merge, /proposals and /judge"
+        "title": "Build the authorize"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Guard every response path against token and credential egress"
       },
       {
         "status": "pending",
@@ -1425,12 +2735,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Write token manifests 0600 and keep tokens out of logs and argv"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Audit token mint/use/revoke in Worker logs and Artifacts token events"
+        "title": "Render the CAP-8 elevated-reveal beat with the withheld fallback"
       },
       {
         "status": "pending",
@@ -1440,12 +2745,37 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Render the CAP-8 elevated-reveal beat with the withheld fallback"
+        "title": "Rate-limit /land, /merge, /proposals and /judge"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Guard every response path against token and credential egress"
+        "title": "Audit token mint/use/revoke in Worker logs and Artifacts token events"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Write token manifests 0600 and keep tokens out of logs and argv"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify tour degradation: fetch failure falls back and the tour continues"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify <=720px single-column stacking and <=640px grid collapse"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify step 6 fetches and annotates the real proposal grid"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Verify step 7 grades quiz answers over the real proposal set"
       },
       {
         "status": "pending",
@@ -1465,52 +2795,37 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Verify step 6 fetches and annotates the real proposal grid"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify step 7 grades quiz answers over the real proposal set"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Verify steps 8-9 state non-goals and frame the operator with the CTA"
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Verify tour degradation: fetch failure falls back and the tour continues"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify <=720px single-column stacking and <=640px grid collapse"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add the mechanical runtime-pin guard and reconcile pinned surfaces"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add the concerns-floor guard"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Machine-check the twelve-law carrier map"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the four demo scripts are committed and parse from the repo root"
+        "priority": "P0",
+        "title": "Verify the colliding-land refusal: 409 conflict, files named, preview-merge guidance"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Verify failure UI states: exact banner copy, card back to default, dismiss-only persistence"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the one-click landing beat lands server-side with a receipt"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Prove the demo path is the live Cloudflare Worker + Artifacts namespace"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Verify the secret-touching land refusal: 409 withheld-secret, files named, values held back"
       },
       {
         "status": "pending",
@@ -1521,6 +2836,16 @@
         "status": "pending",
         "priority": "P1",
         "title": "Resolve base/ref/baseRef defaults in one place and pin them in CONTRACT"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Serve the platform-backed client protocol entities with platform-native fields"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Pin the 11-entity client protocol and push-event vocabulary in CONTRACT"
       },
       {
         "status": "pending",
@@ -1535,7 +2860,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Verify wrong-method requests are answered by the API routes with a JSON error"
+        "title": "Verify frozen enums, ISO-8601 UTC timestamps, and the land"
       },
       {
         "status": "pending",
@@ -1544,953 +2869,18 @@
       },
       {
         "status": "pending",
+        "priority": "P0",
+        "title": "Verify /judge pin, repo/ref caps, and the per-caller rate limit"
+      },
+      {
+        "status": "pending",
         "priority": "P1",
-        "title": "Verify frozen enums, ISO-8601 UTC timestamps, and the land"
+        "title": "Verify wrong-method requests are answered by the API routes with a JSON error"
       },
       {
         "status": "pending",
-        "priority": "P2",
-        "title": "Tour v2"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Performance: cache `/proposals`"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Corpus copies"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "tsc hygiene"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Contract smoke in platform verify gates"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Structural conflict detection: entity/AST-level, not just textual"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Elevated reveal for authorized viewers"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Commit-time scrub of secrets leaked into non-secret paths"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Per-worker secret API"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Client adapter parity: platform API replaces GitHub as the client store"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "GitHub-semantics synthesis: reviewDecision / mergeStateStatus / mergeable"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Law 4: repo answers for itself - index, preview, demos, provenance"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Law 5: agents inspect just enough - context maps over total reads"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Law 7: contribution standard as a service"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Law 9: work-item to change-set linkage on one review surface"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Law 12: merge/workspace transparency woven through the experience"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Swarm R1: communicate through the work"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Swarm R4: join-don't-restart as a platform reflex"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Communication contract: summary + structured detail + affordances"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Tier 1: codebase vector index + semantic traversal"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Entity API: Floor / Project"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Entity API: Worker"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Entity API: Task / Queue"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Entity API: Issue"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Entity API: Presence / Peer"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Entity API: Settings"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Events: worker lifecycle + worktree"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Events: terminal streaming"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Events: floor lifecycle"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Events: issue/pull lifecycle"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Events: queue state"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Events: peer presence"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Provider-agnostic agent launch: unify 8 harness formats"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Cost attribution + budget enforcement"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Landing policy engine: branch protection and merge policy"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Intent router: declare intent first, match before building"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Fork-card six-cluster signals"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Score landing-subset risk for proposal combinations"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Detect duplicated behavior across proposals and forks"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Detect stale proposals against moved bases"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Verify post-merge behavior against expectations"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Sniff new dependencies and CI edits for supply-chain risk"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Screen public contributions before human triage"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Scan intent and notes text for secrets and PII leaks"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Flag breaking changes with semver signal"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Escalate proposals whose diffs exceed stated scope"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Estimate review effort to order the human queue"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Route proposals to reviewers by expertise match"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Gate behavior changes without matching tests"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Flag public API changes missing docs updates"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Check new dependencies against the stated task"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Suggest reviewable splits for mega-proposals"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Triage issues by type, priority, and component"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Classify landed commits for changelog generation"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Triage CI failures and recommend retry policy"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Evaluate release-readiness checklist with nouls"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Check active claims before agents start tasks"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Review UI diffs visually from before/after screenshots"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Check changes against design tokens and palette"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Sign agent identities for proposals"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Persist provenance/artifact tier"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Make stashing simple and safe"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Enable interactive output pages with action buttons"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Monitor and block sandbox-escape attempts"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Support BYO models and harnesses via launch abstraction"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Show unique fork-vs-fork diffs"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Enable agent-to-agent cross-fork conversations"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Facilitate merge-back to upstream"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Score fork people/trust signals"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Collect liveness and automation evidence signals"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Cluster feature types and tag commits via System-1"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Resolve and implement partial-fit handling policy"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Auto-tag and classify issues with fast models"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Model milestones and epics as first-class timeline objects"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Make historical version checkout painless"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Link work items and change-sets bidirectionally"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Serve contribution standards platform-side"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Auto-generate changelogs as a platform feature"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Lint commits as a platform feature"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Unify README and file-view repo navigation"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Improve releases and tags navigation"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Reach GitLens-class parity, contextually woven"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Build one continuous surface, no tab explosion"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Answer for the repo without cloning"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Track push provenance"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Expose worktree-as-a-service API"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Normalize worker events across provider hook formats"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Stream terminals: snapshot, row diffs, scrollback"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Attribute worker cost and enforce budgets"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Publish global presence roster API"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Expose per-worker secrets API"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Capture per-worker trace provenance"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Support host git or native proposal model"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Expose 3D-renderable entities: floors, workers, queues"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Wire remaining Cloudflare substrate"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Measure System-1 cost/accuracy vs expensive reads"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Replicate content to regional edges with central write authority"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Hit big-repo performance envelope"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Ship lock-aware Unreal/Unity/Godot editor plugins"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Model policy-driven stream branches with derived views"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add asset metadata, tagging and search"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Import Git/LFS/Perforce/SVN with transitional sync"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add binary delta encoding for archive-like assets"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Invalidate edge caches on mutable ref updates"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add content-addressed registry for build outputs"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Harden CI supply chain: pinning, egress control, scoped creds"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add poisoning-resistant remote build cache"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Autoscale warm runner pools to kill cold starts"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Select affected tests with AST-aware analysis"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Ensure hermetic, reproducible builds with pinned images"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Engineer around Artifacts size and rate limits"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add observability for repo and agent event streams"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Attach editors: devcontainers, VS Code Remote, web IDE"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Manage workspace sizing, snapshots and capacity"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Fork stateful sandboxes for parallel what-ifs"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Support multi-repo workspaces for agent reasoning"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add agent computer-use verification artifacts"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Route agent LLM traffic through AI Gateway"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Offer Dynamic Workers tier for short jobs"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Document boundaries and federation story for judges"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Prove Workers + Artifacts compliance for judges"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Adopt task-dependent fan-out; do not chase max agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Ship a pre-write conflict-check hook for agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Design review for acceptance, not raw detection"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Run execution-backed review in sandboxes"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Match review-UX table stakes per proposal"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add flaky quarantine and bisect-on-failure"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Echo stacked-diffs/patch-series landing workflow"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Scope replication per agent with predicate shapes"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "MCP server exposing set context to external agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Sign landed commits and set attestations keylessly"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add AI-restricted repository mode"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add code-linked diagrams with click-through to source"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Surface decision logs per change"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add cognitive-debt reduction: fold tests and boilerplate"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Show cost-per-review transparency"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Add copy-for-agent handoff from triage"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Budget for Artifacts billing start 2026-10-14"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Instrument and export engineering-analytics metrics"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Tour v2: fold judge chips + auto-land language in"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Per-task attempt/retry accounting in the task store"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Fleet-scale performance budget + capacity model"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Store platform state as Git repos"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Bind identity to SSH/GPG keypairs with signed profile repos"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "CRDT-backed concurrent review and comment merging"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "DAG-scheduled CI: run independent build tasks concurrently"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Self-healing agents: analyse, patch, test and open PRs"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Native Git-hook WebAssembly micro-runners at pack arrival"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Immutable content-addressable ledger of platform actions"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Logic-aware AST diffs: moves and renames shown as moves"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Interactive dependency-graph impact view per commit"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Infinite spatial canvas for code, issues, diagrams and logs"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Semantic zoom: continuous macro-to-micro through containers"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Collapsible modules: expand inline or shrink to capsules"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Contextual clustering: trace affected code from an issue card"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Layered feature planes: branches as floating canvas layers"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Diff topography: merge ripples and conflict intersections"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Git+AST graph database feeds the canvas layout engine"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Zero-cold-start Wasm CI fan-out across edge Workers"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Run artefacts as commit sub-trees"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Git-native agent passports with cryptographically signed actions"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Durable Objects as localised graph coordinates and consensus"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Edge prompt caching for agent context and AST blueprints"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "AST-granular delta pipeline: test only impacted nodes"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Contextual MFA elevation to reveal or inject secret values"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Inline streaming leak deflectors on every canvas and doc write"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Tree-sitter AST graph as the repository read model"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Machine-readable repo context capsule"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Trace archaeology: blame a line back to the agent session"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Click-to-code interactive diagrams for agent change review"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Cognitive-debt filters: fold noise, summarise boilerplate"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Two-way linked canvas nodes and immutable commit hashes"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Local-first MCP privacy: no telemetry or hosted traces"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Agent-first plain-file conventions for config and context"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Plain-English review rules with BYOK and self-hosting"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Community-governed self-hosted AI PR review agent"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Rules-driven PR automation and review engine"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Repo-wide semantic review beyond the active diff"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Branchless smartlog: manipulate commits directly in the DAG"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Chained incremental PR stacking engine with auto-restack"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Stacked-branch sync and ship automation"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Merge queue with atomic batch validation and stacking"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Batch merge bot: temp branch, full CI, push only if green"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Capability parity harness vs GitHub baseline"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Runner: standing-red highs must not force heals"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Verify click-first, hover parity, and document-order tab order"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Verify degrade-never-fake: banner, sticky panels, silent ticker, honest landing"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Fail closed on blob integrity checks at every materialization path"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
+        "priority": "P0",
+        "title": "Verify all seven documented routes live, with documented error shapes"
       },
       {
         "status": "pending",
@@ -2500,412 +2890,17 @@
       {
         "status": "pending",
         "priority": "P2",
+        "title": "Fail closed on blob integrity checks at every materialization path"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
         "title": "Prove landing, masking, and fork-point contracts unchanged with asset pointers"
       },
       {
         "status": "pending",
-        "priority": "P3",
-        "title": "Post-submission roadmap"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Law 8: ambient capability + GitLens-class parity"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Law 10: PM inspection via milestones as timeline objects"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Law 11: always-on System-1 decision layer primed for agents and CI/CD"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Swarm R2: denial is a wall - count, close, force alternative, escalate"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Entity API: Whiteboard"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Entity API: Services"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Entity API: Chat / Notifications"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Events: chat + toast"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Active-fork radar: in-context relevant forks + unique diff"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Background comparison sub-agent: continuous fork-vs-goal diff"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Partial-fit policy: use-as-context branch mechanics"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Auto-changelog generation"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Pod/container visualization"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Classify commit messages as conventional, vague, or misleading"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Rank candidate forks against a declared intent"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Classify game assets by type and lock/preview needs"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Support fork-off-fork collaboration"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Estimate cost-to-adopt vs regenerate for forks"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Integrate Linear-class PM via common API"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Expose CI/CD interaction visibility"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Visualize containers/pods and running apps if authorized"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Synthesize reviewDecision/mergeState for clients"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Match 11-entity contract; offer GitHub drop-in adapter"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Build toward Agent Office as flagship 3D client"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Run always-on System-1 decision agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Let decision agents drive CI/CD directly"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Prototype rung-2 echoes: agent memory, routing"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Design account-level macro-merging"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Write competitive differentiation positioning"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Instrument fork-reuse decisions for merge policy"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Implement binary asset locking"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Position in market with seatless storage-based pricing"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Evaluate WASI-based hermetic CI steps"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Support us/eu jurisdictional data residency"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Queue changes offline and sync on reconnect"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Mitigate single-product sunset risk via composability"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Interop: act as a layer above GitHub/GitLab"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Evaluate structured merge"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Route landings by build-graph blast radius"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Agent Office 3D client"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Agent Office adapter plan: 5 first integration changes"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Signed social graph: follows, stars, permissions as commits"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Per-repo actor-model event loops"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Federated mirror nodes"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Live pipeline heatmap for parallel test execution"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Spatial codebase map: 3D volumes from code metrics"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Volumetric call-graph traces with request-lifecycle pulses"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Structural 3D diff: fissures across dependent downstream models"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "3D volumetric commit history: helix with orbital branches"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Commit spheres: zoom from macro history into the snapshot"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Visual merge blending with conflict glow at intersections"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Kinetic pipeline trees: animated CI state on limbs"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Live telemetry overlays: thermal code and traffic currents"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Avatar-based walkthroughs with spatial audio and comments"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Russian-doll nesting mirrors the import tree spatially"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Inter-component portals synchronise linked views"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Drag-and-drop merging of modified block clusters"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "WebGPU render loop: thousands of fluid cards at 120 FPS"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Embed 3D node widgets inside 2D flow nodes"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "True 3D graph navigation via force-directed layout"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Nested infinite canvas on a WebGL engine"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Git as immutable ledger of intention for enterprise state"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Micro-state repositories: each infra element its own Git tree"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Cryptographic intention binding between dependent services"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Service mesh compiled to edge KV within milliseconds"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Semantic zoom of the enterprise matrix"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Dynamic clustering of failing services on the canvas"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Autonomous optimization swarms acting on live telemetry"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "CRDT consensus with priority rules for overlapping agents"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Unified distributed DAG of cryptographically signed nodes"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Account mesh: millions of Durable Object coordinate nodes"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Spatial sharding: run state nearest the active entity"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Ephemeral regional secret injection via authorization tree"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Revision-centric VCS with effortless stacking and rewriting"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Close agent-skill gaps"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Serialize lands with a Durable Object lease"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Enforce the auto-land engagement interlock"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Render auto-land verdicts behind the Land button"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Pin the 11-entity client protocol and push-event vocabulary in CONTRACT"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Serve the platform-backed client protocol entities with platform-native fields"
+        "priority": "P2",
+        "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
       },
       {
         "status": "pending",
@@ -2915,17 +2910,12 @@
       {
         "status": "pending",
         "priority": "P3",
-        "title": "Compute six-cluster fork signals and feed matcher verdicts"
+        "title": "Route a fork's work back to its upstream with lineage and evidence"
       },
       {
         "status": "pending",
         "priority": "P3",
-        "title": "Route a fork's work back to its upstream with lineage and evidence"
-      },
-      {
-        "status": "partial",
-        "priority": "P0",
-        "title": "UX spec for the triage surface"
+        "title": "Compute six-cluster fork signals and feed matcher verdicts"
       }
     ]
   },
