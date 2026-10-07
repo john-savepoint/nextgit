@@ -141,8 +141,23 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       const id = row.id ?? slug(row.title);
       const wt = `${wtRoot}/${id}`;
       try {
-        try { git(["worktree", "add", "-b", `order/${id}`, wt, "HEAD"]); }
-        catch { git(["worktree", "add", wt, `order/${id}`]); } // leftover branch from a blocked run
+        // Reuse-first: a leftover worktree from a crashed run IS our resume point —
+        // never hard-fail on it (the crash-loop class: `worktree add` on an existing
+        // branch loops forever). Order: existing worktree → existing branch → fresh.
+        let ready = false;
+        const wtList = git(["worktree", "list", "--porcelain"]);
+        if (wtList.includes(`worktree ${wt}\n`)) {
+          if (existsSync(`${wt}/.git`)) ready = true; // reuse as-is
+          else { git(["worktree", "remove", "--force", wt]); }
+        }
+        if (!ready) {
+          try { git(["worktree", "add", wt, `order/${id}`]); ready = true; }
+          catch {
+            try { git(["branch", "-D", `order/${id}`]); } catch { }
+            git(["worktree", "add", "-b", `order/${id}`, wt, "HEAD"]);
+            ready = true;
+          }
+        }
         units.push({ row, id, wt });
       } catch (e) {
         console.error(`wf-batch: worktree add failed for ${id}: ${e.message}`);
@@ -152,7 +167,9 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     }
     const runnable = units.filter((u) => !u.failed);
     const settled = await Promise.allSettled(
-      runnable.map((u) => runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot: root, lenses, agent: agentOpt, agents, resume })),
+      runnable.map((u) =>
+        runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot: root, lenses, agent: agentOpt, agents, resume }),
+      ),
     );
     const byId = new Map();
     let si = 0;
