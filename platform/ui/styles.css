@@ -15,6 +15,15 @@
   --border-default: #253346;
   --border-focus: #3e5473;
   
+  /* Text ramp — contrast floor (PRD NFR-9 / DESIGN.md "Contrast notes").
+     --text-primary and --text-secondary are AA-safe for small text on every
+     surface (≈16.4–6.3:1). --text-muted (≈3.3:1 on app) and --text-dim (≈2.1:1)
+     are BELOW the 4.5:1 floor: confined to meta and ambient chrome only — chip
+     labels, section meta, timestamps, pair regions, diff meta rows, the footer,
+     and the ticker pulse/empty registers. Never use them for body copy or state
+     and content messaging (empty states, loading text, diff placeholders, the
+     landed banner). Raising the two values is a pending decision — do not edit
+     the token values to work around this. */
   --text-primary: #e6edf3;
   --text-secondary: #8b9bb0;
   --text-muted: #57657a;
@@ -729,7 +738,7 @@ html, body {
   padding: 0.75rem 1rem;
   background-color: var(--bg-inset);
   border: 1px dashed var(--border-subtle);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   text-align: center;
   display: flex;
@@ -925,7 +934,7 @@ html, body {
 .diff-placeholder {
   padding: 2rem;
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -979,7 +988,7 @@ html, body {
   text-align: center;
   border: 1px dashed var(--border-subtle);
   background-color: var(--bg-surface);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 .empty-state-title {
   color: var(--text-secondary);
@@ -993,7 +1002,7 @@ html, body {
 /* Loading indicator */
 .loading-indicator {
   display: inline-block;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.75rem;
 }
 
