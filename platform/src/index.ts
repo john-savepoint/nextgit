@@ -328,7 +328,7 @@ async function computeMerge(
         // from its repo: the base repo for a removal, the proposal for anything
         // else — the same text /proposals derives its keys from.
         const repo = f.status === "removed" ? baseRepo : headRepo;
-        const at = f.status === "removed" ? baseRef : ref;
+        const at = f.status === "removed" ? cs.base.sha : ref;
         fold.secretKeys = secretKeys((await readContent(repo, at, f.path))?.text ?? "");
         continue;
       }
@@ -447,7 +447,7 @@ async function computeChangeSet(
   let patchBudget = MAX_FILES_WITH_PATCH;
   for (const f of files) {
     const [oldSide, newSide] = await Promise.all([
-      f.status !== "added" ? readContent(baseRepo, fork.ref, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
+      f.status !== "added" ? readContent(baseRepo, fork.sha, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
       f.status !== "removed" ? readContent(headRepo, ref, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
     ]);
 

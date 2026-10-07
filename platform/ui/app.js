@@ -948,6 +948,12 @@ async function handleLandProposal(repo) {
         "conflict",
         `Conflicted files: <strong>${conflictList}</strong>. <span class="action-hint">(preview merge first)</span>`
       );
+    } else if (err.status === 409 && errorCode === "no-changes") {
+      showActionBanner("error", "no-changes", "Nothing to land — fold produced zero changes.");
+    } else if (err.status === 409 && errorCode === "stale") {
+      showActionBanner("error", "stale", "This proposal is stale — rebase and re-push to land.");
+    } else if (err.status === 409 && errorCode === "base-moved") {
+      showActionBanner("error", "base-moved", "Nothing to land — the baseline moved since this proposal was made.");
     } else {
       const msg = err.message || resp.error || "Unexpected landing failure";
       showActionBanner(

@@ -97,12 +97,27 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
   if (currentHead !== input.expectedBaseHead) throw new BaseMovedError(currentHead);
  }
 
+ let remoteTipAtPush: string | null = null;
  const result = (await git.push({
   fs: fs as never,
   http: http as never,
   dir: LAND_WORKDIR,
   ref: input.baseRef,
+  // AD-3 witness: the ref the push is actually based on, straight from the
+  // push's server discovery (no binding read lag). Must return true — a falsy
+  // return cancels the push with UserCanceledError.
+  onPrePush: (info: { remoteRef: { oid: string } }) => {
+   remoteTipAtPush = info.remoteRef.oid;
+   return true;
+  },
  })) as unknown as { refs: Record<string, { ok: boolean; error?: string }> };
+
+ // The ref moved between the fold and the push: the exact loser path this
+ // guard exists for (same 409 as :95-98) — including a duplicate land that
+ // built this byte-identical commit and won inside the same second.
+ if (remoteTipAtPush !== null && input.expectedBaseHead !== undefined && remoteTipAtPush !== input.expectedBaseHead) {
+  throw new BaseMovedError(remoteTipAtPush);
+ }
 
  const refResult = result.refs[`refs/heads/${input.baseRef}`];
  if (!refResult?.ok) {

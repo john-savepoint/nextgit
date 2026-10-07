@@ -20,7 +20,11 @@
 //   2. error vocabulary on the single element: a conflict 409 → banner-error/badge
 //      'conflict'; a withheld-secret 409 → banner-error/badge 'blocked', each naming its
 //      evidence, each returning the acted card to default.
-//   3. live capture (PROPS_FIXTURE): leg 1's battery verbatim over the live payload; unset
+//   3. FR-15 outcomes 6/8/9: three sequential failed lands on the one banner element —
+//      409 no-changes / stale / base-moved each render banner-error with the exact dedicated
+//      copy and its badge, each returns the acted card to default; an unmapped 409 keeps the
+//      generic 'Failed to land {repo}: {msg}' fallback + badge 'failed'.
+//   4. live capture (PROPS_FIXTURE): leg 1's battery verbatim over the live payload; unset
 //      -> one SKIP line. The live set must carry >= 1 landable proposal (this order's
 //      acceptance predicate) plus base.repo and base.ref.
 // A box without a Chrome binary skips the suite (precedent: conflict-map-render /
@@ -181,6 +185,28 @@ document.addEventListener("DOMContentLoaded", async () => {
           R.c.blockedDefault = readDefault(R.repo);
         }
       }
+    } else if (MODE === "outcomes") {
+      const first = qs(SEL_START);
+      if (!first) { R.c.noStart = true; } else {
+        R.repo = first.getAttribute("data-repo");
+        banner().__probe = 1;
+        const cycle = async (key) => {
+          if (!startLand(R.repo)) return;
+          confirmLand(R.repo);
+          await sleep(1200);
+          R.c[key + "Shown"] = bannerHidden() === false;
+          R.c[key + "Class"] = banner().className;
+          R.c[key + "Badge"] = q("action-banner-badge").textContent.trim();
+          R.c[key + "Msg"] = q("action-banner-msg").textContent.trim();
+          R.c[key + "SameEl"] = banner().__probe === 1;
+          R.c[key + "Count"] = document.querySelectorAll("#action-banner").length;
+          R.c[key + "Default"] = readDefault(R.repo);
+        };
+        await cycle("noChanges");
+        await cycle("stale");
+        await cycle("baseMoved");
+        await cycle("unknown");
+      }
     } else {
       const first = qs(SEL_START);
       if (!first) { R.c.noStart = true; } else {
@@ -340,10 +366,46 @@ function errorVocabularyContract(label, dom, obs) {
   check(`${runner}dom dump holds exactly one action-banner element`, (dom.match(/id="action-banner"/g) || []).length === 1);
 }
 
+// The dedicated FR-15 outcome copies (PRD FR-15 consequences 6/8/9) — exact strings.
+const OUTCOME_COPY = {
+  noChanges: "Nothing to land — fold produced zero changes.",
+  stale: "This proposal is stale — rebase and re-push to land.",
+  baseMoved: "Nothing to land — the baseline moved since this proposal was made.",
+};
+
+function outcomeVocabularyContract(label, dom, obs) {
+  if (!obs) {
+    check(`${label} scenario output present (chrome + observer ran)`, false, "no #test-out in DOM");
+    return;
+  }
+  if (obs.err) {
+    check(`${label} scenario threw`, false, obs.err);
+    return;
+  }
+  const c = obs.c || {};
+  const runner = `${label} `;
+  check(`${runner}driver found a landable card`, c.noStart !== true && typeof obs.repo === "string", `repo=${obs.repo}`);
+  check(`${runner}every land was reachable (no control went missing)`, c.actionMissing !== true);
+  for (const [key, code] of [["noChanges", "no-changes"], ["stale", "stale"], ["baseMoved", "base-moved"]]) {
+    check(`${runner}${code}: banner visible`, c[key + "Shown"] === true);
+    check(`${runner}${code}: banner-error class`, String(c[key + "Class"] || "").includes("banner-error"), `class=${c[key + "Class"]}`);
+    check(`${runner}${code}: badge`, c[key + "Badge"] === code, String(c[key + "Badge"]));
+    check(`${runner}${code}: exact dedicated copy`, c[key + "Msg"] === OUTCOME_COPY[key], JSON.stringify(c[key + "Msg"]));
+    check(`${runner}${code}: never the generic copy`, !String(c[key + "Msg"] || "").includes("Failed to land"));
+    check(`${runner}${code}: same single element`, c[key + "SameEl"] === true && c[key + "Count"] === 1, `same=${c[key + "SameEl"]} count=${c[key + "Count"]}`);
+    check(`${runner}${code}: card returned to default`, defaultShape(c[key + "Default"]), JSON.stringify(c[key + "Default"]));
+  }
+  check(`${runner}unknown 409: banner-error class`, String(c.unknownClass || "").includes("banner-error"), `class=${c.unknownClass}`);
+  check(`${runner}unknown 409 keeps the generic fallback`, c.unknownMsg === `Failed to land ${obs.repo}: unknown-refusal`, JSON.stringify(c.unknownMsg));
+  check(`${runner}unknown 409 keeps badge 'failed'`, c.unknownBadge === "failed", String(c.unknownBadge));
+  check(`${runner}unknown 409: card returned to default`, defaultShape(c.unknownDefault), JSON.stringify(c.unknownDefault));
+  check(`${runner}dom dump holds exactly one action-banner element`, (dom.match(/id="action-banner"/g) || []).length === 1);
+}
+
 // ---------------------------------------------------------------------------
 // Loopback worker surface: mode selects how /land answers.
 // ---------------------------------------------------------------------------
-let mode = "core"; // core | errors
+let mode = "core"; // core | errors | outcomes
 let payload = FIXTURE;
 let landServed = 0;
 
@@ -362,7 +424,19 @@ const server = createServer((req, res) => {
   }
   if (pathname === "/land") {
     landServed++;
-    if (mode === "errors") {
+    if (mode === "outcomes") {
+      const outcome = {
+        1: { status: 409, body: { ok: false, error: "no-changes", detail: "fold of agent-1 onto demo:main changes nothing" } },
+        2: { status: 409, body: { ok: false, error: "stale", detail: "reviewed base head does not match the current base head" } },
+        3: { status: 409, body: { ok: false, error: "base-moved", detail: "base head moved between review and land" } },
+        4: { status: 409, body: { ok: false, error: "unknown-refusal", detail: "an unmapped 409 the dedicated arms must not swallow" } },
+      }[landServed];
+      if (outcome) {
+        res.writeHead(outcome.status, { "content-type": "application/json" });
+        res.end(JSON.stringify(outcome.body));
+        return;
+      }
+    } else if (mode === "errors") {
       if (landServed === 1) {
         res.writeHead(409, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: "conflict", conflicted: [{ file: "src/auth.ts", kind: "text-conflict" }] }));
@@ -445,22 +519,31 @@ try {
     check("2 error-vocabulary case threw", false, String(e?.stack ?? e));
   }
 
-  // --- 3. live capture: the order's check_cmd writes /proposals to a file -------------
+  // --- 3. FR-15 outcomes 6/8/9: dedicated no-changes / stale / base-moved banners ---
+  try {
+    resetServer({ mode: "outcomes" });
+    const dom = await dumpDom(url);
+    outcomeVocabularyContract("3", dom, parseScenario(dom));
+  } catch (e) {
+    check("3 outcome-vocabulary case threw", false, String(e?.stack ?? e));
+  }
+
+  // --- 4. live capture: the order's check_cmd writes /proposals to a file -------------
   const fixturePath = process.env.PROPS_FIXTURE;
   if (!fixturePath) {
-    console.log("SKIP  3 live capture - PROPS_FIXTURE unset (the order's check_cmd owns the live fetch)");
+    console.log("SKIP  4 live capture - PROPS_FIXTURE unset (the order's check_cmd owns the live fetch)");
   } else {
     try {
       const live = JSON.parse(readFileSync(fixturePath, "utf8"));
       const props = Array.isArray(live?.proposals) ? live.proposals : [];
       const landable = props.filter((p) => (p?.landing?.status ?? "ready") !== "landed");
-      check("3 live capture carries >= 1 landable proposal", landable.length >= 1, `landable=${landable.length}`);
-      check("3 live capture carries base.repo + base.ref", typeof live?.base?.repo === "string" && live.base.repo.length > 0 && typeof live?.base?.ref === "string" && live.base.ref.length > 0, JSON.stringify(live?.base));
+      check("4 live capture carries >= 1 landable proposal", landable.length >= 1, `landable=${landable.length}`);
+      check("4 live capture carries base.repo + base.ref", typeof live?.base?.repo === "string" && live.base.repo.length > 0 && typeof live?.base?.ref === "string" && live.base.ref.length > 0, JSON.stringify(live?.base));
       resetServer({ mode: "core", payload: live });
       const dom = await dumpDom(url);
-      coreContract("3", dom, parseScenario(dom), live);
+      coreContract("4", dom, parseScenario(dom), live);
     } catch (e) {
-      check("3 live-capture case threw", false, String(e?.stack ?? e));
+      check("4 live-capture case threw", false, String(e?.stack ?? e));
     }
   }
 } finally {

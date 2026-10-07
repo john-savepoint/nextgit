@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-07T00:11:35.433Z",
-  "head": "2758517",
+  "generatedAt": "2026-10-07T03:25:39.092Z",
+  "head": "31c9ff9",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-06 ",
@@ -12,8 +12,8 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 585,
-      "done": 75,
+      "pending": 583,
+      "done": 77,
       "partial": 1
     },
     "items": [
@@ -295,17 +295,7 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Prove change-sets are diffed against the fork point with the bounded first-parent walk"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Prove /land folds with the fork point as the 3-way ancestor"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Render dedicated banners for no-changes, stale, and base-moved landing outcomes"
       },
       {
         "status": "pending",
