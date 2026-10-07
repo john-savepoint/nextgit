@@ -268,9 +268,14 @@ function emptyContract(label, dom) {
     "title",
   );
   check(
-    `${label} empty-state explanation copy rendered`,
-    dom.includes("All concurrent proposals merge cleanly or target orthogonal files."),
+    `${label} empty-state desc states what is awaited`,
+    dom.includes("Waiting for concurrent proposals to compare on shared files."),
     "desc",
+  );
+  check(
+    `${label} retired empty-state copy is gone`,
+    !dom.includes("All concurrent proposals merge cleanly"),
+    "old explanation still rendered",
   );
   check(`${label} no conflict card in the empty set`, !/class="conflict-card /.test(dom), "card found");
   const region = conflictsRegion(dom);

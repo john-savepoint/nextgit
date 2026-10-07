@@ -401,7 +401,7 @@ function renderConflicts() {
     el.conflictsList.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-title">No convergence conflicts</div>
-        <div class="empty-state-desc">All concurrent proposals merge cleanly or target orthogonal files.</div>
+        <div class="empty-state-desc">Waiting for concurrent proposals to compare on shared files.</div>
       </div>
     `;
     return;
