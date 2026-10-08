@@ -148,13 +148,44 @@ export async function runFleet({
       }
     }
 
+  // ---- UX lens (John, 2026-10-08): every wave gets a UX/UI pass on the LIVE page ----
+  // Objective breakage is already covered by the live-render probe; this lens reviews
+  // consistency + product feel against the UX spines. Runs on the main tree's evidence.
+  const uxReportPath = `${mainRoot}/porting/runs/fleet-${ts}-ux.md`;
+  try {
+    const liveProbe = (() => {
+      try {
+        execFileSync("node", [`${mainRoot}/porting/tests/live-render.probe.mjs`], { cwd: mainRoot, encoding: "utf8", timeout: 150000, env: process.env });
+        return "live-render probe: LIVE PAGE OK";
+      } catch (e) {
+        return `live-render probe: BROKEN — ${String(e.stdout ?? e.message).slice(-400)}`;
+      }
+    })();
+    const ux = await agent(
+      `UX LENS for fleet wave ${ts} — review the LIVE deployment as a product designer would.\n` +
+      `1. Read the objective gate first: ${liveProbe}\n` +
+      `2. Read the design spines: _bmad-output/planning-artifacts/ux-designs/ux-cloudflare-git-comp-2026-10-05/DESIGN.md and EXPERIENCE.md.\n` +
+      `3. Inspect the live page evidence under ${mainRoot}/porting/runs/live-render-*/ (dom.html + summary.json — the freshest dir) and the deployed CSS/JS (curl ${process.env.PLATFORM ?? "https://nextgit-platform.john-b7d.workers.dev"}/styles.css, /app.js).\n` +
+      `4. Apply the UI/UX skills: frontend-design, accessibility-pro, high-end-visual-design (load by trigger; read frontmatter first if unsure).\n` +
+      `5. Write ${uxReportPath}: what the page looks like state-by-state (cards/chips/banner/empty), inconsistencies vs DESIGN.md/EXPERIENCE.md, concrete fixes (file:line where possible), and a verdict {verdict: "OK"|"ISSUES", findings: [...]}.\n` +
+      `Do NOT edit files. Keep it honest and specific — this report drives the next wave's UI orders.`,
+      { agent: "designer", label: `ux-lens:${ts}`, schema: { type: "object", required: ["verdict", "findings"], properties: { verdict: { enum: ["OK", "ISSUES"] }, findings: { type: "array", items: { type: "string" } } } } },
+    ).wait();
+    writeFileSync(uxReportPath, `# UX lens — fleet ${ts}\n\n${liveProbe}\n\n## Verdict: ${ux.verdict}\n\n${(ux.findings ?? []).map((f) => `- ${f}`).join("\n")}\n`);
+    log(`ux lens: ${ux.verdict} (${(ux.findings ?? []).length} findings) -> ${uxReportPath}`);
+  } catch (e) {
+    try { writeFileSync(uxReportPath, `# UX lens — fleet ${ts}\n\nFAILED: ${String(e?.message ?? e).slice(0, 300)}\n`); } catch { }
+    console.error(`fleet: ux lens failed (${String(e?.message ?? e).slice(0, 160)}) — recorded`);
+  }
+
   const out = {
     ts,
     beadsDir,
     lanes: prep,
     runs,
     integration,
-    next: "review integration[]; reconcile CONFLICT lanes; regenerate the spine views; commit",
+    uxReport: uxReportPath,
+    next: "review integration[]; reconcile CONFLICT lanes; read the UX report; regenerate the spine views; commit",
   };
   writeFileSync(`${mainRoot}/porting/runs/fleet-${ts}.json`, JSON.stringify(out, null, 2));
   const merged = integration.filter((i) => i.state === "merged").length;
