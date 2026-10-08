@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2 (2026-10-03). Additive changes only; if you change a shape, bump this file first.
+Version: v2.1 (2026-10-08). Additive changes only; if you change a shape, bump this file first.
 Dev base URL: `https://nextgit-platform.john-b7d.workers.dev`
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
@@ -16,8 +16,9 @@ Per-proposal change-set (server-side; no clones).
 
 ```json
 { "ok": true, "changeSet": {
-  "base": {"repo","ref","treeHash"}, "head": {"repo","ref","treeHash"},
+  "base": {"repo","ref","treeHash","sha"}, "head": {"repo","ref","treeHash"},
   "stats": {"files","added","modified","removed","additions","deletions"},
+  "commits": [{"hash","message","author","timestamp"}],
   "files": [{
     "path": "src/auth.ts", "status": "added|modified|removed",
     "additions": 4, "deletions": 0,
@@ -31,6 +32,7 @@ Per-proposal change-set (server-side; no clones).
 - `intent` — git-notes text of the head commit, when present.
 - `secret`, `keys` — secret-class files only; `patch` omitted for them.
 - `patch` — absent for secret/binary/oversized files.
+- `commits` — newest-first list of the proposal's first-parent commits from HEAD down to (and including) the fork point (`base.sha`). Each entry: `hash` (40-hex SHA-1), `message` (commit subject string), `author` (string, rendered as `Name <email>`), and `timestamp` (Unix seconds of the author date). Bounded by the fork-point walk (`limit: 200`); empty when the walk yields no commits. Never includes commits past the fork point.
 
 ## GET /proposals?base=demo&repos=a,b (repos optional → auto-discover `agent-*`)
 
