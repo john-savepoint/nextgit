@@ -1,7 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.1 (2026-10-08). Additive changes only; if you change a shape, bump this file first.
-Dev base URL: `https://nextgit-platform.john-b7d.workers.dev`
+Version: v2.2 (2026-10-08). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -94,6 +93,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 
   - `reviewed.baseHead` — optional base head sha; must equal the current head of `baseRef`, else `409 {ok:false, error:"stale", detail}` (nothing is folded or pushed).
   - `reviewed.heads` — optional map of proposal repo → head sha; must cover exactly the requested `repos` (unknown or missing key → `400 {ok:false,error:"bad-request"}`); every value must equal that repo's current head at `ref`, else `409 {ok:false, error:"stale", detail}`. Values are opaque sha strings (non-empty, ≤128 chars) compared by exact equality.
+- `base-moved` — optional **advisory-only** DO lease note (FR-17): when cross-isolate contention is detected, a loser may be refused with the same `409 {ok:false, error:"base-moved", detail:"..."}` shape as AD-3; the response carries no new fields and the lease is purely internal coordination.
 - `validation` — **optional** recorded validation evidence (FR-18); absent ⇒ the ledger records the server's content-identity check as `not-recorded`. When present:
 
   ```json
@@ -204,3 +204,8 @@ Path matches: basename `.env*`, `*.pem`, `*.key`, `*.p12`, `credentials.json`, `
 **Secret file values must never appear in any response body** — no patch, no merged text; only key names (`keys[]`).
 
 Masking is **path-driven by design** in this version: a secret value placed in a non-secret-class path is not redacted — values must live in secret-class paths. Secret-class rows carry no `intent` and no patch; `keys[]` is the complete schema surface for them.
+
+## Land lease (DO coordination)
+
+`POST /land` uses a Durable Object lease (`LAND_LEASE` binding, `LandLeaseDO` class) to serialize concurrent lands per base repo across Workers isolates. The lease is advisory-first and internal: `acquire` returns `{ acquired: boolean, leaseId: string | null }`; on `!acquired`, the caller is refused with the existing `409 {ok:false, error:"base-moved", detail:"..."}` shape (no new response fields). The lease key is `lease:<base>` — single key per base — with a 30-second TTL and lazy expiry (plus native DO hibernation). When `env.LAND_LEASE` is undefined (e.g. local dev), `acquireLandLease` returns `null` and the route falls back to AD-3's push-rejection conversion. The winner acquires the lease, lands, and releases on completion; losers are refused deterministically rather than relying on push-rejection timing. The `lease` evidence field (additive-optional) records `{ provider: "do", leaseId }` on the winning land only.
+

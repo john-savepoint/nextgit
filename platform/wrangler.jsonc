@@ -31,5 +31,18 @@
   "assets": {
     "directory": "./ui",
     "binding": "ASSETS"
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "LAND_LEASE", "class_name": "LandLeaseDO" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "LandLeaseDO"
+      ]
+    }
+  ]
 }

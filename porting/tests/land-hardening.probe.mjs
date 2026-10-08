@@ -8,7 +8,10 @@
 //      land, identical reviewed heads -> exactly one 200, every loser 409
 //      (base-moved | stale) with no success payload, and the base ref advances
 //      exactly once to the winner's evidence.commit (fetched parent = the
-//      reviewed head) and never regresses — no silent overwrite; (e) both
+//      reviewed head) and never regresses — no silent overwrite; (d-lease) the
+//      winner's evidence carries the DO lease record (provider=do, leaseId=uuid),
+//      losers carry no success payload, and a second land after the winner
+//      succeeds (lease released); (e) both
 //      scratch repos deleted on exit; (f)-(j) the
 //      fork-point ancestor proof: the proposal edits a baseline file, a third
 //      party advances the base on the same file, then GET /merge and POST
@@ -217,7 +220,7 @@ try {
   const a = await land({ base: BASE_REPO, repos: [PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: H0, heads: { [PROPOSAL_REPO]: C1 } } });
   const ev = a.json?.evidence ?? {};
   check("(a) 200 ok", a.status === 200 && a.json?.ok === true);
-  check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash"]), JSON.stringify(Object.keys(ev)));
+  check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash", "checks", "results", "mergedSha", "testedSha", "artifactRef", "at", "lease"]), JSON.stringify(Object.keys(ev)));
   check("(a) evidence.repos", JSON.stringify(ev.repos) === JSON.stringify([PROPOSAL_REPO]));
   check("(a) evidence.commit === landed.commit", !!ev.commit && ev.commit === a.json?.landed?.commit);
   check("(a) ancestor = fork point H0", ev.ancestor?.[PROPOSAL_REPO] === H0, JSON.stringify(ev.ancestor));
@@ -288,6 +291,27 @@ try {
   check("(d) base ref never regresses (late loser push would move it)", (await lsBase()) === C3);
   const dEv = winners[0]?.json?.evidence ?? {};
   check("(d) winner ancestor = fork point, heads.base = moved head", dEv.ancestor?.[PROPOSAL_REPO] === H0 && dEv.heads?.base === C2 && C2 !== H0, JSON.stringify({ ancestor: dEv.ancestor, heads: dEv.heads }));
+
+  // Lease hardening (FR-17): the winner's evidence carries the DO lease record;
+  // losers carry no success payload. (Section (d) is forward-compatible — the
+  // 4-way race already asserts all losers 409 with no success payload.)
+  check("(d) winner evidence.lease.provider = do", dEv.lease?.provider === "do", JSON.stringify(dEv.lease));
+  check("(d) winner evidence.lease.leaseId is a uuid", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(dEv.lease?.leaseId)), String(dEv.lease?.leaseId));
+  check("(d) losers have no evidence.lease field", losers.every((r) => r.json?.evidence === undefined), JSON.stringify(losers.map((r) => r.json?.evidence)));
+
+  // Lease-release-on-winner: after the winner released the lease, a fresh land
+  // on the same base should succeed (the lease did not leak). Reuses the
+  // scratch repos: fresh proposal edit + refreshed reviewed heads.
+  console.log("(d-lease) second land on winner's base succeeds (lease released)");
+  writeFileSync(join(dir, "lh-probe-3.txt"), `land-hardening probe 3 ${new Date().toISOString()}\n`);
+  git("add", "-A"); git("commit", "-m", "probe: edit 3 (lease release check)"); git("push", "origin", "HEAD:refs/heads/main");
+  const C4 = git("rev-parse", "HEAD");
+  const releaseBody = { base: BASE_REPO, repos: [PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: C3, heads: { [PROPOSAL_REPO]: C4 } } };
+  const releaseRes = await land(releaseBody);
+  check("(d-lease) second land 200 ok (lease released by winner)", releaseRes.status === 200 && releaseRes.json?.ok === true, JSON.stringify(releaseRes.json));
+  check("(d-lease) second land evidence.lease.provider = do", releaseRes.json?.evidence?.lease?.provider === "do", JSON.stringify(releaseRes.json?.evidence?.lease));
+  const C5 = releaseRes.json?.evidence?.commit;
+  check("(d-lease) second land advanced base to new commit", !!C5 && C5 !== C3 && (await lsBase()) === C5, `C5 ${C5}`);
 
   // (f)-(j) Fork-point ancestor proof. The proposal edits a baseline file;
   // a third party then advances the base on the same file. A fold anchored

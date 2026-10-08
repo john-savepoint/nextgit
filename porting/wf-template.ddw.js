@@ -31,6 +31,7 @@
 // v1 note: sequential, single workspace; per-order worktree isolation remains a recorded carry.
 
 import { mkdirSync, writeFileSync, appendFileSync, existsSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 // Full gate battery (reference: security · quality+architecture · spec-fit · compliance ·
 // resilience ×2 · + project extras parity/ux). Default = scaled-down 4 (never zero).
