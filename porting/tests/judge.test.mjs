@@ -493,6 +493,13 @@ try {
     if (status !== 429) non429++;
   }
   check("10 first 30 allowed", non429 === 30, `${non429} non-429`);
+  // Per-caller isolation: a different caller is still allowed while 10.9.9.9 is blocked.
+  const differentCaller = await judge(
+    { setId: "v1", target: { repos: ["agent-1"] } },
+    { ip: "10.9.9.10" },
+  );
+  check("10 different caller still 200", differentCaller.status === 200, `${differentCaller.status}`);
+  check("10 different caller still judged", aiCalls.length >= 1, `${aiCalls.length} ai calls`);
   check("10 31st rate-limited", lastStatus === 429 && JSON.stringify(lastBody) === JSON.stringify({ ok: false, error: "rate-limited" }), `${lastStatus} ${JSON.stringify(lastBody)}`);
 } catch (e) {
   check("10 case threw", false, String(e?.stack ?? e));
