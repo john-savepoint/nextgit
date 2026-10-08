@@ -12,5 +12,6 @@ porting/tasks.db*
 .dolt/
 *.db
 .beads-credential-key
+.gate-scratch*/
 .beads/proxieddb/
 *.gate.lock*
