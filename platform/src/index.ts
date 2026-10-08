@@ -937,7 +937,7 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
   return { base, repos, baseRef, ref, reviewed, validation };
 }
 
-async function handleLand(request: Request, env: Env): Promise<Response> {
+async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const parsed = parseLandBody(await request.json().catch(() => null));
   if (parsed instanceof Response) return parsed;
   const { base, repos, baseRef, ref, reviewed, validation } = parsed;
@@ -1099,9 +1099,18 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
       // Best-effort: fire AFTER the 200 is built so a KV write failure degrades
       // the feed, not the land (AD-6: the consumer is the sole recorder; this
       // call is a best-effort duplicate). Mirrors the queue consumer at line ~1174
-      // where ack() commits progress.
-      recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at })
-        .catch((e) => console.log("feed-lag", String(e)));
+      // ctx.waitUntil keeps the cache:gen bump alive past the Response boundary
+      // (cache-invalidation-fireforget HIGH finding). Matches the scheduled
+      // handler idiom at L1360-1373.
+      ctx.waitUntil(
+        (async () => {
+          try {
+            await recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at });
+          } catch (e) {
+            console.log("feed-lag", String(e));
+          }
+        })(),
+      );
       return Response.json({ ok: true, landed, evidence });
     } catch (err) {
       if (err instanceof BaseMovedError) {
@@ -1287,7 +1296,7 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     try {
       if (url.pathname === "/health") {
@@ -1310,11 +1319,31 @@ export default {
         const baseRef = url.searchParams.get("baseRef") ?? "main";
         const reposParam = url.searchParams.get("repos");
         const repoList = reposParam ? reposParam.split(",").map((s) => s.trim()).filter(Boolean) : null;
+        // Validate every cacheKey segment against the same charset guards used by
+        // POST /land (parseLandBody L869-878) and POST /judge (parseJudgeBody L1211-1231).
+        // Without this, raw query params could inject key-segment metacharacters or
+        // craft cache-key collisions (cache-key-cachepoison HIGH finding).
+        if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+          return Response.json({ ok: false, error: "invalid base repo" }, { status: 400 });
+        }
+        if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+          return Response.json({ ok: false, error: "invalid ref" }, { status: 400 });
+        }
+        if (typeof baseRef !== "string" || !REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
+          return Response.json({ ok: false, error: "invalid baseRef" }, { status: 400 });
+        }
+        if (repoList) {
+          for (const r of repoList) {
+            if (!REPO_NAME_RE.test(r)) {
+              return Response.json({ ok: false, error: "invalid repo name" }, { status: 400 });
+            }
+          }
+        }
         // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
         // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
         // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
         // cached set by key change; TTL bounds staleness if invalidation is ever missed.
-        const gen = (await env.LIVE.get("cache:gen")) ?? "0";
+        const gen = (await env.LIVE.get("cache:gen").catch(() => null)) ?? "0";
         const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
         try {
           const hit = await env.LIVE.get(cacheKey);
@@ -1325,6 +1354,7 @@ export default {
         try { await env.LIVE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
         return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
       }
+
 
       if (url.pathname === "/merge" && request.method === "GET") {
         const base = url.searchParams.get("base") ?? "demo";
@@ -1338,7 +1368,7 @@ export default {
       }
 
       if (url.pathname === "/land" && request.method === "POST") {
-        return await handleLand(request, env);
+        return await handleLand(request, env, ctx);
       }
 
       if (url.pathname === "/judge" && request.method === "POST") {
@@ -1362,7 +1392,7 @@ export default {
       (async () => {
         try {
           const gen = (await env.LIVE.get("cache:gen")) ?? "0";
-          const cacheKey = `cache:proposals:${gen}:demo:main:main:*`;
+          const cacheKey = `cache: proposals:${gen}: demo: main: main:* `;
           const result = await computeProposals(env, "demo", "main", "main", null);
           await env.LIVE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
           console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
