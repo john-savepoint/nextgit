@@ -182,7 +182,7 @@ export async function runWorkOrder(order, opts = {}) {
     throw new Error("work order incomplete: id, title, testCmd and acceptance are required (no order ships without a check)");
   }
   const corpus = (order.corpus ?? [`${root}/docs/STATE.md`, `${root}/platform/CONTRACT.md`]).join(", ");
-  const SCOPE_LAW = `WORKSPACE LAW: your workspace root is ${root}; ALL file reads and writes MUST stay under it. NEVER write outside it — especially never into /home/johnzealanddoyle/projects/cloudflare-git-comp unless that IS your workspace root (a parallel run may own that tree). Run evidence lives at ${runDir}.\n`;
+  const SCOPE_LAW = `WORKSPACE LAW: your workspace root is ${root}; ALL code/file reads and writes MUST stay under it. NEVER write code outside it — especially never into /home/johnzealanddoyle/projects/cloudflare-git-comp unless that IS your workspace root (a parallel run may own that tree). Exception (required): write YOUR phase reports/verdicts to the run-evidence directory ${runDir} — that is the only permitted path outside your workspace root.\n`;
   const resumed = opts.resume === true;
   const skip = (artifact) => resumed && existsSync(`${runDir}/${artifact}`);
   // IMPLEMENT also counts a completed heal round as its record: a healed run must not

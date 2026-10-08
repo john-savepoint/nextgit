@@ -13,7 +13,8 @@ Take the top task from the store. Run it through the loop:
    await runBatch({ limit: 1 });
    ```
 4. Read `porting/runs/<id>/result.json`.
-   - **Green:** `bun porting/tasks.mjs set <id> --status done --evidence "<check + verbatim result>"`, `bun porting/tasks.mjs release <id>`, `bun porting/tasks.mjs view`, append CHECKPOINT + BUILD-LOG + LOG lines, update STATE's header, regenerate `bun scripts/status-index.mjs`, commit (orchestrator only).
-   - **Recorded block:** `bun porting/tasks.mjs set <id> --status blocked --evidence "<blocker + owner>"` + `release`, stop. Never loop past a recorded block.
+   - **Green:** all-green batches **CAS-close their own rows** (evidence = batch dir); verify the row shows `done` (`bun porting/tasks.mjs list --json`) — do **not** call `release` on a closed row (it exits 3, and scripted sessions abort). Then `bun porting/tasks.mjs view`, append CHECKPOINT + BUILD-LOG + LOG lines, update STATE's header, regenerate `bun scripts/status-index.mjs`, commit (orchestrator only).
+   - **Recorded block:** release the claim first if the batch left one (`bun porting/tasks.mjs release <id>`), then `bun porting/tasks.mjs set <id> --status blocked --evidence "<blocker + owner>"`; stop. Never loop past a recorded block.
+   - Soft-recovery: a dead session's claims lapse (bd lease ~5m) and are swept by the next batch's `reclaim` — resume from `porting/runs/<id>/` evidence, never from memory.
 
 Rules: heals are file-partitioned (one writer per file); heal budget 3 rounds; workers never commit; nothing starts a batch it cannot reconstruct from disk.

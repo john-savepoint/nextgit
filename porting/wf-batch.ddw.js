@@ -81,11 +81,15 @@ export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1 } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt } = {}) {
+  // evidenceRoot: where run evidence + batch reports land (defaults to root). Fleet lanes
+  // pass the MAIN tree so all audit evidence lands in one place while the lane works in
+  // its own clone.
+  const evidenceRoot = evidenceRootOpt ?? root;
   const { runWorkOrder, normalizeVerdict, SKILL_HINTS } = await import(`${root}/porting/wf-template.ddw.js`);
   mkdirSync(`${root}/porting/runs`, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const batchDir = `${root}/porting/runs/batch-${ts}`;
+  const batchDir = `${evidenceRoot}/porting/runs/batch-${ts}`;
   mkdirSync(batchDir, { recursive: true });
   // Parity baseline: the commit BEFORE the batch ran. The almost-last gate compares against it.
   let preBatchCommit = "";
@@ -208,7 +212,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       const runnable = units.filter((u) => !u.failed);
       const settled = await Promise.allSettled(
         runnable.map((u) =>
-          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot: root, lenses, agent: agentOpt, agents, resume }),
+          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot, lenses, agent: agentOpt, agents, resume }),
         ),
       );
       const byId = new Map();
@@ -290,6 +294,8 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     // Both lenses read the same post-merge tree; they run CONCURRENTLY (John, 2026-10-08:
     // "gates can be run in parallel"). Spawn parity first, then merged — spawn order is
     // preserved in the call ledger (tests pin it), wall-clock overlaps.
+    // Unlanded work (red/kept branches + merge conflicts) must reach the merged gate.
+    const mergeConflicts = mergeBack?.conflicts ?? [];
     const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
     const parityHandle = preBatchCommit && results.some((r) => r.verdict === "GREEN")
       ? agent(
@@ -307,6 +313,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     // an incoherent {verdict:"SHIP", shipBlockers:[…]} must not read ALL GREEN (v3.2).
     const mergedHandle = agent(
       `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
+      `Unlanded work (kept branches — NOT in the build): ${(mergeBack?.kept ?? []).map((k) => k.id).join(", ") || "(none)"}. Merge conflicts: ${mergeConflicts.join(", ") || "(none)"}.\n` +
       `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
       `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
       `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
@@ -321,7 +328,10 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
 
     const parityBlocked = parity !== null && parity.verdict !== "SHIP";
-    const allGreen = results.every((r) => r.verdict === "GREEN") && merged.verdict === "SHIP" && !parityBlocked;
+    // A merge conflict keeps that unit's work on a branch UNlanded — the batch cannot be
+    // all-green while any order's content is not in the build (caught by the parity-gate
+    // class review 2026-10-08: conflicts previously fell through to ALL GREEN + auto-close).
+    const allGreen = results.every((r) => r.verdict === "GREEN") && merged.verdict === "SHIP" && !parityBlocked && mergeConflicts.length === 0;
     // Close contract: an ALL-GREEN batch CAS-closes its rows itself (evidence = batch dir),
     // so no claim can lapse into a reclaim/re-run window after the batch ends. The caller's
     // tick becomes verification; re-closing is a no-op (adapter + bd).
@@ -337,8 +347,9 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         }
       }
     }
+    const conflictNote = mergeConflicts.length ? ` — merge conflicts kept as branches: ${mergeConflicts.join(", ")}` : "";
     const next = !allGreen
-      ? "BLOCKED — see per-order results + gate-merged.md + gate-parity.md"
+      ? `BLOCKED — see per-order results + gate-merged.md + gate-parity.md${conflictNote}`
       : `ALL GREEN — ${closed.length} row(s) auto-closed; update the spine, regenerate the status index, commit`;
     const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, parallel: parallel > 1 ? parallel : 1, mergeBack, orders: results, merge: parallel > 1 ? `worktree-parallel x${parallel} (serial merge-back)` : "v1 sequential (no worktrees)", gate: merged, parity, closed, next };
     writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));

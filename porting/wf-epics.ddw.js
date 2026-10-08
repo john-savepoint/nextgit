@@ -418,15 +418,19 @@ export function lint({ root = process.cwd(), compileId } = {}) {
     if (f.needs.verification && !refOfKind(f.id, "verification")) gaps.push({ type: "coverage", req: f.id, detail: "no verification story" });
   }
   for (const x of [...req.nfrs, ...req.ux_drs]) if (!allStories.some((st) => (st.fr_refs ?? []).includes(x.id))) gaps.push({ type: "coverage", req: x.id, detail: "no story" });
-  // deps validity (compile set ∪ store rows)
+  // deps validity (compile set ∪ store rows) — CANON: store ids are `nextgit-<slug>`,
+  // slice ids are bare slugs; compare canonicalized on both sides (the bd migration made
+  // store reads canonical — bare-vs-canonical comparisons silently matched nothing).
   let storeIds = new Set();
   try { storeIds = new Set(JSON.parse(spawnTasks(root, ["list", "--json"])).map((r) => r.id)); } catch { }
-  for (const st of allStories) for (const dep of st.deps ?? []) if (!ids.has(dep) && !storeIds.has(dep)) gaps.push({ type: "bad-dep", id: st.id, detail: dep });
+  const cid = (x) => (String(x).startsWith("nextgit-") ? String(x) : `nextgit-${x}`);
+  const bid = (x) => (String(x).startsWith("nextgit-") ? String(x).slice(8) : String(x));
+  for (const st of allStories) for (const dep of st.deps ?? []) if (!ids.has(dep) && !ids.has(bid(dep)) && !storeIds.has(cid(dep))) gaps.push({ type: "bad-dep", id: st.id, detail: dep });
   // id collision vs foreign store rows
   try {
     const foreign = JSON.parse(spawnTasks(root, ["list", "--json"])).filter((r) => !(r.source ?? "").startsWith("compile:"));
     const foreignIds = new Set(foreign.map((r) => r.id));
-    for (const st of allStories) if (foreignIds.has(st.id)) gaps.push({ type: "id-collision", id: st.id, detail: "existing store row with a different source" });
+    for (const st of allStories) if (foreignIds.has(cid(st.id))) gaps.push({ type: "id-collision", id: st.id, detail: "existing store row with a different source" });
   } catch { }
   // warnings (non-blocking): known check_cmd hazards
   const warnings = [];

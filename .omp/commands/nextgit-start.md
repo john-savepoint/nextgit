@@ -1,6 +1,6 @@
 # nextgit-start — cold start
 
-Read, in order: `docs/STATE.md`, `docs/CHECKPOINT.md`, `docs/NEXT-ACTIONS.md` (the derived view of `porting/tasks.db`), and the corpus spine files listed in STATE.
+Read, in order: `docs/STATE.md`, `docs/CHECKPOINT.md`, `docs/NEXT-ACTIONS.md` (the derived view of the **bd store** — `.beads/`, regenerate with `bun porting/tasks.mjs view`), and the corpus spine files listed in STATE.
 
 Then report, **without doing any work yet**:
 1. where the project is (one paragraph, from STATE);

@@ -24,9 +24,11 @@
 - Batch-level merged/parity gates run after merge-back, exactly as today.
 - Default N=3 (bounds concurrent agent count ≈ 3 × active-phase agents ≈ 6–9); configurable.
 
-### L2: Multiple pipeline processes
-- Each additional pipeline = a headless `omp -p` worker (the w1/w2 pattern, now safe): own clone as its root, shared store via `TASKS_DB`, `sourceLike` scoping, pull-before-batch (`git pull --rebase` after every merge-back so its base stays fresh), tick + release after each batch.
-- With L1, each pipeline carries N parallel orders → M pipelines × N orders in flight (2 × 3 = 6 initially; scale M after resource measurement).
+### L2: Multiple pipeline processes — the fleet (`porting/wf-fleet.ddw.js`)
+- `runFleet({ root, lanes: 5, limit: 2, parallel: 2, sourceLike })` runs **N lanes CONCURRENTLY in one DDW cell**: each lane = an isolated git clone under `<main>/.fleet/lane-N` that runs its own worktree-parallel batch against the **shared bd store** (`BEADS_DIR=<main>/.beads`; `TASKS_DB` is RETIRED). Claims, heartbeats, and ALL-GREEN auto-close are global — no row can run twice; per-order evidence + batch reports land in the MAIN tree (`evidenceRoot`).
+- After lanes settle, the fleet merges lane→main **serially** (conflict ⇒ merge aborted, lane HELD, reported — nothing auto-resolved). Held lanes are skipped on later waves until reconciled; their commits stay on the lane's own `main`.
+- **Recovery:** lane state = its clone + commits; a dead session's claims lapse (bd lease ~5m) and are swept by the next wave's `reclaim`; per-order errors re-queue normally; `porting/runs/fleet-<ts>.json` is the wave record.
+- **Concurrency budget:** embedded dolt probed clean at 8 parallel reads + 4 parallel claims; keep lanes ≤5 on embedded mode (server mode — `bd dolt start` — is the scale path if contention appears).
 
 ### L3: Integration lane (orchestrator, serialized)
 - Main tree = integration point only. After each batch: merge-back (L1 does it), full suite battery, live probes, deploy gates, commit.
