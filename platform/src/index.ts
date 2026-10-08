@@ -63,6 +63,12 @@ interface ChangeFile {
   note?: string;
   patch?: string;
 }
+interface CommitMeta {
+  hash: string;
+  message: string;
+  author: string;
+  timestamp: number;
+}
 
 
 interface FileTexts {
@@ -116,6 +122,7 @@ interface CommitHead {
   files: FileMap;
   sha: string;
   ref: string;
+  proposalLog: ArtifactsCommitMetadata[];
 }
 
 async function commitHead(repo: ArtifactsRepo, sha: string, ref: string): Promise<CommitHead> {
@@ -124,7 +131,7 @@ async function commitHead(repo: ArtifactsRepo, sha: string, ref: string): Promis
   if (!commit || commit.hash !== sha) throw new Error(`cannot resolve commit "${sha}"`);
   const files: FileMap = new Map();
   await walkTree(repo, commit.treeHash, "", files);
-  return { hash: commit.hash, treeHash: commit.treeHash, files, sha, ref };
+  return { hash: commit.hash, treeHash: commit.treeHash, files, sha, ref, proposalLog: [] };
 }
 
 async function forkPoint(
@@ -142,11 +149,15 @@ async function forkPoint(
     const baseShas = new Set(baseLog.map((c) => c.hash));
     // Newest-first in the proposal's own log, so the first hit is the fork point.
     const shared = proposalLog.find((c) => baseShas.has(c.hash));
-    if (shared) return await commitHead(proposalRepo, shared.hash, proposalRef);
+    if (shared) {
+      const head = await commitHead(proposalRepo, shared.hash, proposalRef);
+      head.proposalLog = proposalLog;
+      return head;
+    }
   } catch {
     // Fall through to the base head — the legacy behaviour.
   }
-  return { hash: baseHead.headSha, treeHash: baseHead.treeHash, files: baseHead.files, sha: baseHead.headSha, ref: baseRef };
+  return { hash: baseHead.headSha, treeHash: baseHead.treeHash, files: baseHead.files, sha: baseHead.headSha, ref: baseRef, proposalLog: [] };
 }
 
 
@@ -425,6 +436,21 @@ async function computeChangeSet(
   // head: "what the agent changed" stays stable as the baseline moves.
   const fork = await forkPoint(baseRepo, baseRef, headRepo, ref);
   const base = { treeHash: fork.treeHash, files: fork.files };
+  // The commits that make up "what the agent changed" — the proposal's first-parent
+  // log from HEAD down to (and including) the fork point. Reuses the SAME
+  // `limit: FORK_LOG_LIMIT` walk forkPoint already performed (returned via
+  // fork.proposalLog), so the response body costs no extra bounded log call.
+  // Walk newest-first, stopping at (and including) the fork point.
+  const commits: CommitMeta[] = [];
+  for (const c of fork.proposalLog) {
+    commits.push({
+      hash: c.hash,
+      message: c.message,
+      author: `${c.author.name} <${c.author.email}>`,
+      timestamp: c.authoredAt,
+    });
+    if (c.hash === fork.sha) break;
+  }
   const head = await snapshot(headRepo, ref);
   // The head of the revision this change-set describes — the reviewed-state
   // anchor GET /proposals publishes (CONTRACT.md §GET /proposals). An out-param
@@ -516,6 +542,7 @@ async function computeChangeSet(
     stats,
     files,
     texts,
+    commits,
   };
 }
 
