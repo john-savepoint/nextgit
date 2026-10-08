@@ -29,12 +29,16 @@
 //      order's check_cmd writes one), the payload + DOM contracts run against
 //      it verbatim; unset -> one SKIP line (the ceremony owns the live fetch;
 //      this leg makes the same proof re-runnable off the capture).
+//   5. route-contract leg: the /proposals payload carries a landing object on
+//      every proposal with status ∈ {ready, conflict, landed, withheld-secret}
+//      and a numeric files count — jq -ec validated against the real worker
+//      module response (no chrome dependency, server-side surface only).
 // A box without a Chrome binary skips the suite (precedent: batch.test.mjs's
-// live-store guard; the order's acceptance gate hard-requires Chrome).
+// live-store guard; the order's acceptance gate hard-requires chrome).
 
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -167,7 +171,7 @@ function makeFakeArtifacts() {
       async revokeToken() {
         return true;
       },
-      [Symbol.dispose]() {},
+      [Symbol.dispose]() { },
     };
   }
 
@@ -184,6 +188,23 @@ function makeFakeArtifacts() {
     tree,
     commit,
     defineRepo,
+  };
+}
+
+// In-memory KVNamespace fake for env.LIVE — supports get/put used by the /proposals
+// and /land routes (cache:gen, cache:proposals, landing records). Best-effort.
+function makeKV() {
+  const store = new Map();
+  return {
+    async get(key, type) {
+      const v = store.get(key);
+      if (v === undefined) return null;
+      if (type === "json") return JSON.parse(v);
+      return v;
+    },
+    async put(key, value) {
+      store.set(key, value);
+    },
   };
 }
 
@@ -207,7 +228,7 @@ function makeEnvironment(agentCount) {
     fake.discovered.push({ name, status: "ready" });
   }
   const agentRepos = fake.discovered.filter((r) => r.name.startsWith("agent-")).map((r) => r.name).sort();
-  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null } };
+  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: makeKV(), ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null } };
   return { env, agentRepos };
 }
 
@@ -320,9 +341,9 @@ async function runDomContract(label, url, payload) {
   check(
     `${label} set view + conflict map visible at rest (sections present, neither hidden)`,
     tagFor(dom, "proposals-section") !== null &&
-      !isHidden(dom, "proposals-section") &&
-      tagFor(dom, "conflicts-section") !== null &&
-      !isHidden(dom, "conflicts-section"),
+    !isHidden(dom, "proposals-section") &&
+    tagFor(dom, "conflicts-section") !== null &&
+    !isHidden(dom, "conflicts-section"),
   );
   const mapOk = payload.conflicts.length > 0 ? conflictCards === payload.conflicts.length : /No convergence conflicts/.test(dom);
   check(
@@ -355,8 +376,8 @@ try {
   check(
     "1 summary.proposals == proposals.length",
     typeof body?.summary?.proposals === "number" &&
-      Array.isArray(body?.proposals) &&
-      body.summary.proposals === body.proposals.length,
+    Array.isArray(body?.proposals) &&
+    body.summary.proposals === body.proposals.length,
     `summary=${body?.summary?.proposals} proposals=${body?.proposals?.length}`,
   );
   check(
@@ -409,22 +430,62 @@ try {
       check(
         "4 live capture: ok:true, non-empty set, every repo ^agent-*",
         live?.ok === true &&
-          Array.isArray(live?.proposals) &&
-          live.proposals.length >= 1 &&
-          live.proposals.every((p) => /^agent-/.test(p.repo)),
+        Array.isArray(live?.proposals) &&
+        live.proposals.length >= 1 &&
+        live.proposals.every((p) => /^agent-/.test(p.repo)),
         `n=${live?.proposals?.length}`,
       );
       check(
         "4 live capture summary.proposals == proposals.length",
         typeof live?.summary?.proposals === "number" &&
-          Array.isArray(live?.proposals) &&
-          live.summary.proposals === live.proposals.length,
+        Array.isArray(live?.proposals) &&
+        live.summary.proposals === live.proposals.length,
         `summary=${live?.summary?.proposals} proposals=${live?.proposals?.length}`,
       );
       await runDomContract("4", url, live);
     } catch (e) {
       check("4 live-capture case threw", false, String(e?.stack ?? e));
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // 5. Route contract — /proposals carries a landing object per proposal with
+  //    a valid status enum {ready, conflict, landed, withheld-secret} and a
+  //    numeric files count (FR-19 server-side surface). Validated with jq -ec
+  //    against the REAL worker module response (no UI/chrome dependency).
+  // -------------------------------------------------------------------------
+  try {
+    const { status, body } = await proposalsThroughRoute(5);
+    check(
+      "5 /proposals: every proposal has a landing object",
+      status === 200 && Array.isArray(body?.proposals),
+      `status=${status} proposals=${body?.proposals?.length ?? "n/a"}`,
+    );
+    if (status === 200 && Array.isArray(body?.proposals)) {
+      const jqPayload = JSON.stringify(body);
+      const jqScript =
+        '[.proposals[] | {status: .landing.status, files: .landing.files, hasLanding: (.landing != null)}] | all(.hasLanding) ' +
+        'and ([.[] | .status] | all(. == "ready" or . == "conflict" or . == "landed" or . == "withheld-secret")) ' +
+        'and ([.[] | .files] | all((. | type) == "number"))';
+      const tmpJson = join(userDataDir, "proposals-leg5.json");
+      writeFileSync(tmpJson, jqPayload);
+      const jqResult = spawnSync("jq", ["-ec", jqScript, tmpJson], { encoding: "utf8" });
+      check(
+        "5 /proposals: landing.status enum ∈ {ready,conflict,landed,withheld-secret} on every proposal",
+        jqResult.status === 0,
+        `jq exit=${jqResult.status} stderr=${jqResult.stderr?.slice(0, 200) || "none"}`,
+      );
+      check(
+        "5 /proposals: landing.files is numeric on every proposal",
+        body.proposals.every((p) => p.landing && typeof p.landing.files === "number"),
+        `sample=${body.proposals[0]?.landing?.files ?? "n/a"}`,
+      );
+    } else {
+      check("5 /proposals: landing.status enum valid on every proposal", false, "skipped — route did not return proposals");
+      check("5 /proposals: landing.files is numeric on every proposal", false, "skipped — route did not return proposals");
+    }
+  } catch (e) {
+    check("5 route-contract landing-field case threw", false, String(e?.stack ?? e));
   }
 } finally {
   if (typeof server.closeAllConnections === "function") server.closeAllConnections();

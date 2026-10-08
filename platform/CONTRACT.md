@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.2 (2026-10-08). Additive changes only; if you change a shape, bump this file first.
+Version: v2.3 (2026-10-08). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -131,6 +131,16 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 - Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
+## GET /landings/{commit}
+
+Path parameter `commit` is a 40-character lowercase hex SHA-1 (required). Non-matching → `400 { ok: false, error: "bad-request" }`.
+
+Read back the landing record persisted by `POST /land`, served verbatim from KV keyed by `landing:<commit>` — the same JSON string the landing wrote (the `landed` and `evidence` sub-objects are byte-identical to what `POST /land` returned in its `200` body).
+
+- Known commit → `200` with the persisted record: `{ "ok": true, "landed": { "repos": [...], "commit": "<sha>", "files": [...], "at": "<iso>" }, "evidence": { "repos": [...], "commit": "<sha>", "ancestor": {...}, "heads": {...}, "foldHash": "<hex>", "checks": [...], "results": [...], "mergedSha": "<hex>", "testedSha": "<hex | null>", "artifactRef": "<string | null>", "at": "<iso>", "lease": {... | null} } }`. The response body is the KV value served with `content-type: application/json` — no transformation, so `landed` and `evidence` deep-equal the landing's `200` payload.
+- Unknown commit → `404 { ok: false, error: "not-found" }`.
+- Credential-free (NFR-6): the route takes no caller identity and returns no token. No secret-class content is persisted in the record (secret files are withheld at fold), so the response carries no credentials (NFR-5).
+- `400` bad input (`commit` not 40-hex); `500` unexpected.
 
 ## POST /judge
 

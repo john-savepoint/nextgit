@@ -2,7 +2,8 @@
 // land-hardening.probe.mjs — LIVE probe for the /land hardening (AD-3).
 // Scratch chain ONLY: REST-fork demo -> demo-lh-base -> agent-lh-1; asserts:
 //  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash,checks,results,mergedSha,testedSha,artifactRef,at}
-//      and the base remote's ref equals evidence.commit; (b) re-land with
+//      and the base remote's ref equals evidence.commit; (a-read) GET /landings/<evidence.commit> returns the record landed
+//      in that call and GET /landings/<zeros> -> 404 not-found; (b) re-land with
 //      refreshed reviewed heads -> 409 no-changes; (c) stale reviewed heads ->
 //      409 stale (proposal-head + base-head variants); (d) four-way concurrent
 //      land, identical reviewed heads -> exactly one 200, every loser 409
@@ -252,6 +253,22 @@ try {
   // field can hide inside landed even if the top-level regex sweep would pass it.
   check("(a) landed exact keys {repos,commit,files,at}", exactKeys(a.json?.landed, ["repos", "commit", "files", "at"]), JSON.stringify(a.json?.landed ?? null));
   check("(a) landed no credential field", !credRe.test(JSON.stringify(a.json?.landed ?? {})));
+  // (a-read) GET /landings/<evidence.commit> returns the record landed in that call.
+  console.log("(a-read) GET /landings/" + C2);
+  const r = await getJson(`/landings/${C2}`);
+  check("(a-read) 200 from /landings/<commit>", r.status === 200, String(r.status));
+  check("(a-read) exact keys {ok,landed,evidence}", exactKeys(r.json, ["ok", "landed", "evidence"]), JSON.stringify(r.json));
+  check("(a-read) landed deep-equals POST /land landed", JSON.stringify(r.json?.landed) === JSON.stringify(a.json?.landed));
+  check("(a-read) evidence deep-equals POST /land evidence", JSON.stringify(r.json?.evidence) === JSON.stringify(a.json?.evidence));
+  check("(a-read) no credential field in read-back", !credRe.test(JSON.stringify(r.json)));
+  // GET /landings/<zeros> -> 404 not-found (all-zeros is not a real landing).
+  const r404 = await getJson(`/landings/${SHA_ZERO}`);
+  check("(a-read) 404 from /landings/<zeros>", r404.status === 404, String(r404.status));
+  check("(a-read) 404 not-found body", r404.json?.ok === false && r404.json?.error === "not-found", JSON.stringify(r404.json));
+  // GET /landings/<bad-input> -> 400 bad-request (non-40-hex).
+  const r400 = await getJson(`/landings/not-a-sha`);
+  check("(a-read) 400 from /landings/<bad>", r400.status === 400, String(r400.status));
+  check("(a-read) 400 bad-request body", r400.json?.ok === false && r400.json?.error === "bad-request", JSON.stringify(r400.json));
 
   // (b) re-land same proposal, refreshed reviewed heads -> no-changes.
   console.log("(b) re-land (refreshed reviewed heads)");
