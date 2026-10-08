@@ -539,7 +539,10 @@ function renderProposals() {
       const stats = p.stats || { additions: 0, deletions: 0, files: 0 };
       const files = Array.isArray(p.files) ? p.files : [];
       const landing = p.landing || null;
-      const isLanded = landing ? landing.status === "landed" : stats.files === 0;
+      const landingStatus = landing ? landing.status : "ready";
+      const isLanded = landing ? landingStatus === "landed" : stats.files === 0;
+      const isWithheldSecret = landing?.status === "withheld-secret";
+      const isConflict = landing?.status === "conflict";
       const isLanding = state.landingRepo === p.repo;
       const isConfirming = state.confirmingRepo === p.repo;
 
@@ -601,6 +604,16 @@ function renderProposals() {
           <button class="btn-card-action btn-land is-confirming" type="button" data-action="confirm-land" data-repo="${repo}">confirm land?</button>
           <button class="btn-card-action btn-cancel-land" type="button" data-action="cancel-land" data-repo="${repo}">cancel</button>
         `;
+      } else if (isWithheldSecret) {
+        actionButtonsHtml = `
+          <span class="badge badge-amber">blocked</span>
+          <button class="btn-card-action btn-land" type="button" disabled>withheld-secret file — landing blocked</button>
+        `;
+      } else if (isConflict) {
+        actionButtonsHtml = `
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="${repo}">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" disabled>(preview merge first)</button>
+        `;
       } else {
         actionButtonsHtml = `
           <button class="btn-card-action btn-preview-merge" type="button" data-repo="${repo}">preview merge</button>
@@ -608,7 +621,7 @@ function renderProposals() {
         `;
       }
 
-      const cardClasses = ["proposal-card", isLanded ? "is-landed" : ""].filter(Boolean).join(" ");
+      const cardClasses = ["proposal-card", isLanded ? "is-landed" : "", isWithheldSecret ? "is-withheld-secret" : "", isConflict ? "is-conflict" : ""].filter(Boolean).join(" ");
 
       return `
         <div class="${cardClasses}" id="card-${repo}">

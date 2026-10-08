@@ -616,6 +616,14 @@ html, body {
 .proposal-card.is-landed:hover {
   opacity: 0.85;
 }
+.proposal-card.is-withheld-secret {
+  border-left: 4px solid var(--status-amber);
+  background: linear-gradient(90deg, rgba(210, 153, 34, 0.05) 0%, var(--bg-card) 120px);
+}
+.proposal-card.is-conflict {
+  border-left: 4px solid var(--status-red);
+  background: linear-gradient(90deg, rgba(248, 81, 73, 0.05) 0%, var(--bg-card) 120px);
+}
 .proposal-card-header {
   display: flex;
   align-items: center;
