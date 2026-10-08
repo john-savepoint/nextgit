@@ -19,6 +19,9 @@
 //   M9  sequential opens capture their own trigger; one dialog exists throughout
 //   M10 closed dialog — the trap is inert; Tab continues through the page
 //   M11 stale trigger — a re-render while open detaches it; close stays safe
+//   M12 merge preview title content — modal-title reads "Merge preview: {repo}", badge clean
+//   M13 in-place replacement / one-level depth — opening again while open swaps content
+//       in place (no second modal); Escape returns focus to the original diff trigger
 // A box without a Chrome binary skips the suite (precedent: ui-focus-visible); the order's
 // acceptance gate hard-requires Chrome separately.
 
@@ -679,6 +682,79 @@ try {
     );
   } catch (e) {
     check("M11 stale-trigger walk threw", false, String(e?.message ?? e));
+  }
+
+  // --- M12: merge preview title content -----------------------------------------
+  // The merge fixture renders two .merge-file-tab buttons; the modal title must read
+  // "Merge preview: {repo}" and the badge must carry the merge status — guarding the
+  // tampering seam (a regression swapping the wrong repo's preview into the title).
+  try {
+    await openPage();
+    await tabTo("#card-agent-1 .btn-preview-merge");
+    await pressEnter();
+    await waitFor(`document.querySelectorAll(".merge-file-tab").length === 2`);
+    const merged = await evl(`({
+      title: document.getElementById("modal-title").textContent,
+      badge: document.getElementById("modal-badge").textContent,
+      dialogs: document.querySelectorAll('[role="dialog"]').length,
+      modalCount: document.querySelectorAll("#inspector-modal").length,
+    })`);
+    check(
+      "M12 merge preview: modal-title reads 'Merge preview: agent-1', badge is clean, single modal",
+      merged.title === "Merge preview: agent-1" && merged.badge === "clean" && merged.dialogs === 1 && merged.modalCount === 1,
+      JSON.stringify(merged),
+    );
+  } catch (e) {
+    check("M12 merge-preview-title walk threw", false, String(e?.message ?? e));
+  }
+
+  // --- M13: in-place replacement / one-level depth --------------------------------
+  // Opening a second inspector while the first is still open must NOT stack a new modal:
+  // openModal's wasHidden guard (app.js:703) skips the return-focus capture on the second
+  // open and unconditionally overwrites title/badge/body, leaving the original modal open.
+  // The Tab trap stays active while the modal is open, so the second opener is reached
+  // via a programmatic .click() dispatch (the modal backdrop sits at z-index 1000 and
+  // would intercept a real mouse click at the button geometry).
+  try {
+    await openPage();
+    await stampProbe('#card-agent-1 [data-path="README.md"]', "opener-diff");
+    await tabTo('#card-agent-1 [data-path="README.md"]');
+    await pressEnter();
+    await waitFor(`document.querySelectorAll("#inspector-modal .diff-viewer").length === 1`);
+    const before = await evl(`({
+      title: document.getElementById("modal-title").textContent,
+      visible: document.getElementById("inspector-modal").hidden === false,
+      dialogs: document.querySelectorAll('[role="dialog"]').length,
+    })`);
+    check(
+      "M13 pre-replace: diff dialog title is 'agent-1 — README.md' and modal is visible",
+      before.title === "agent-1 — README.md" && before.visible === true && before.dialogs === 1,
+      JSON.stringify(before),
+    );
+    await evl(`document.querySelector("#card-agent-1 .btn-preview-merge").click()`);
+    await waitFor(`document.querySelectorAll(".merge-file-tab").length === 2`);
+    const after = await evl(`({
+      title: document.getElementById("modal-title").textContent,
+      badge: document.getElementById("modal-badge").textContent,
+      visible: document.getElementById("inspector-modal").hidden === false,
+      dialogs: document.querySelectorAll('[role="dialog"]').length,
+      modalCount: document.querySelectorAll("#inspector-modal").length,
+    })`);
+    check(
+      "M13 in-place: title switched to 'Merge preview: agent-1', badge clean, one modal still visible (no stacking)",
+      after.title === "Merge preview: agent-1" && after.badge === "clean" && after.visible === true && after.dialogs === 1 && after.modalCount === 1,
+      JSON.stringify(after),
+    );
+    await pressEscape();
+    const closed = await evl(`document.getElementById("inspector-modal").hidden === true`);
+    const back = await active();
+    check(
+      "M13 Escape: closes the in-place modal and returns focus outside the dialog to the original diff trigger",
+      closed === true && back.modalHidden === true && back.insideModal === false && back.probe === "opener-diff" && back.path === "README.md",
+      JSON.stringify({ closed, back }),
+    );
+  } catch (e) {
+    check("M13 in-place-replacement walk threw", false, String(e?.message ?? e));
   }
 } catch (e) {
   check("harness setup failed", false, String(e?.message ?? e));
