@@ -43,6 +43,41 @@ export async function runFleet({
   process.env.BEADS_DIR = beadsDir;
   mkdirSync(fleetRoot, { recursive: true });
   mkdirSync(`${mainRoot}/porting/runs`, { recursive: true });
+
+  // Chrome memory guard (John, 2026-10-08): at 30 concurrent workflows unbounded headless
+  // Chrome OOMs the box. Suites resolve Chrome PATH-FIRST (`which google-chrome` before the
+  // CHROME_BIN fallback), so the reliable injection is a PATH shim: `<fleet>/bin/google-chrome`
+  // -> chrome-slot.sh (flock, N slots). CHROME_BIN_REAL is pinned so the slot script cannot
+  // re-find the shim (exec-loop hazard); CHROME_BIN also points at the slot script for probes.
+  const slotScript = `${mainRoot}/porting/tests/chrome-slot.sh`;
+  if (!process.env.NEXTGIT_CHROME_GUARD && existsSync(slotScript)) {
+    try {
+      const real = (() => {
+        for (const c of ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
+          if (existsSync(c)) return c;
+        }
+        try {
+          return execFileSync("bash", ["-lc", "command -v google-chrome || command -v chromium || true"], { encoding: "utf8" }).trim().split("\n")[0] || null;
+        } catch { return null; }
+      })();
+      if (real) {
+        const shimDir = `${fleetRoot}/bin`;
+        mkdirSync(shimDir, { recursive: true });
+        const shim = `${shimDir}/google-chrome`;
+        writeFileSync(shim, `#!/usr/bin/env bash\nexec "${slotScript}" "$@"\n`);
+        execFileSync("chmod", ["+x", shim]);
+        process.env.CHROME_BIN_REAL = real; // pinned: slot script must never resolve the shim
+        process.env.CHROME_BIN = slotScript; // probe prefers this env var
+        process.env.PATH = `${shimDir}:${process.env.PATH}`;
+        process.env.NEXTGIT_CHROME_GUARD = "1";
+        log(`fleet: chrome guard on PATH (${shimDir}; real=${real}; slots=${process.env.CHROME_SLOTS ?? 4})`);
+      } else {
+        console.error("fleet: chrome guard skipped — no real Chrome binary found");
+      }
+    } catch (e) {
+      console.error(`fleet: chrome guard failed (${String(e?.message ?? e).slice(0, 120)})`);
+    }
+  }
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
 
   // ---- prepare lanes (clone / sync; held lanes are skipped) --------------------
