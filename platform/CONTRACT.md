@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.2 (2026-10-08). Additive changes only; if you change a shape, bump this file first.
+Version: v2.3 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -165,7 +165,7 @@ Body:
 
 - `setId` — echo of the set that was answered. `model` — the id the model response carried; on 200 it is always the pinned `@cf/cloudflare/clef`. A model response whose `model` differs or is absent ⇒ judge-unavailable ⇒ `503`, fail closed (no judgments).
 - `judgments[]` — one typed entry per judged proposal, in `target.repos` order: `repo` plus the three signals below. The model's raw answers are validated against this typed schema (kind whitelist, ranges; unknown answer fields rejected); any violation ⇒ `503 judge-unavailable`.
-- `skipped[]` — proposals not judged: `{repo, reason}` with `reason` ∈ `secret-class` (the change-set touches a secret-class path — its content cannot enter state, AD-4; the repo is listed by **name only** — no paths, no keys, no content) | `empty-change-set` (nothing to judge — the fold produces zero changes). Both arrays are always present.
+- `skipped[]` — proposals not judged: `{repo, reason}` with `reason` ∈ `secret-class` (the change-set touches a secret-class path — its content cannot enter state, AD-4; the repo is listed by **name only** — no paths, no keys, no content) | `empty-change-set` (nothing to judge — the fold produces zero changes) | `content-detected-secret` (a value-pattern was detected in non-secret-class file content — diff or intent/notes, regardless of file path — by the judge layer; the proposal is not judged and no value is emitted; see §Content-detected secrets). Both arrays are always present.
 - Errors: `400 {ok:false,error:"bad-request"}` malformed body/target; `400 {ok:false,error:"unknown-set"}` setId outside the whitelist; `503 {ok:false,error:"judge-unavailable"}` binding missing, model mismatch, or schema-invalid answers — fail closed; `429 {ok:false,error:"rate-limited"}` per-caller caps (AD-9); `500` unexpected, platform envelope.
 - The caller cannot name or choose a model — the pinned id lives in code. Judgments are advisory: the auto-land gate (when it exists) is evaluated inside `POST /land`, before fold and push (AD-11) — clients render verdicts, never decide them.
 
@@ -205,7 +205,17 @@ Path matches: basename `.env*`, `*.pem`, `*.key`, `*.p12`, `credentials.json`, `
 
 Masking is **path-driven by design** in this version: a secret value placed in a non-secret-class path is not redacted — values must live in secret-class paths. Secret-class rows carry no `intent` and no patch; `keys[]` is the complete schema surface for them.
 
+### Content-detected secrets
+
+**Decided (once):** content-detected secrets (a value-pattern found by the judge layer in non-secret-class file content — diff or intent/notes, *regardless of file path*) surface **only** as a **judge-gate skip reason** on `POST /judge`, never as an additive status value. This closes adversarial-review finding F11 (review-adversarial.md:91-95) and FR-30 consequence 3 (PRD:468): exactly one route, recorded here, never implicit.
+
+- **Detector:** judge idea 11 (`docs/judge-layer-ideas.md:54`) — a `noul` over diff + notes regardless of file path. The detector is judge-advisory under AD-11 and feeds the gate only.
+- **Arrives as:** a new `skipped[]` reason `content-detected-secret` on `POST /judge` (CONTRACT.md:168). The judge responds with the recorded skip reason and carries **no value** — no value enters judge state, no value enters any response body, no value enters logs. Fail-closed: if the judge cannot answer, the route returns `503 judge-unavailable` as already specified (CONTRACT.md:169).
+- **Landing consequence:** a proposal whose change-set was skipped by the `content-detected-secret` gate is treated as judged-against-landing — `POST /land` fails closed (409 / 503, no push) for any such repo, per AD-11's auto-land gate rule (CONTRACT.md:170). The judge advises; code decides.
+- **v1 path-driven limitation (unchanged):** the paragraph above states that a value in a non-secret-class *file path* is not redacted by path masking. Content-class secrets are a separate, judge-gated signal layered on top; they do not alter the path-driven masking behavior — secret-class paths continue to render `keys[]` only, and a content-detected secret in a non-secret-class path is caught by the judge gate, not by the path-masker. No value is ever emitted from a `content-detected-secret` skip.
+
+**The detection unit ships only after this record exists in CONTRACT.md and never implicitly.** No code, no fixtures, no UI ships in this slice — this CONTRACT decision is the deliverable.
+
 ## Land lease (DO coordination)
 
 `POST /land` uses a Durable Object lease (`LAND_LEASE` binding, `LandLeaseDO` class) to serialize concurrent lands per base repo across Workers isolates. The lease is advisory-first and internal: `acquire` returns `{ acquired: boolean, leaseId: string | null }`; on `!acquired`, the caller is refused with the existing `409 {ok:false, error:"base-moved", detail:"..."}` shape (no new response fields). The lease key is `lease:<base>` — single key per base — with a 30-second TTL and lazy expiry (plus native DO hibernation). When `env.LAND_LEASE` is undefined (e.g. local dev), `acquireLandLease` returns `null` and the route falls back to AD-3's push-rejection conversion. The winner acquires the lease, lands, and releases on completion; losers are refused deterministically rather than relying on push-rejection timing. The `lease` evidence field (additive-optional) records `{ provider: "do", leaseId }` on the winning land only.
-
