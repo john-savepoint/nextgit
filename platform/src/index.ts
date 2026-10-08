@@ -16,6 +16,8 @@
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
 import { BaseMovedError, mintWriteToken, pushLand, type LandFile } from "./land";
+import { LandLeaseDO, acquireLandLease, releaseLandLease } from "./landLeaseDO";
+export { LandLeaseDO };
 import {
   JUDGE_SET_ID,
   PINNED_MODEL_ID,
@@ -25,12 +27,12 @@ import {
   judgeRateAllow,
   type JudgeRepoInput,
 } from "./judge";
-
 interface Env {
   ARTIFACTS: Artifacts;
   LIVE: KVNamespace;
   ASSETS: Fetcher;
   AI: Ai;
+  LAND_LEASE: DurableObjectNamespace;
 }
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
@@ -970,11 +972,11 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
       { status: 409 },
     );
   }
-
   // One fold, identical semantics to GET /merge. `ancestors` records each
   // repo's fork point (the 3-way ancestor) for the evidence record.
   const ancestors: Record<string, string> = {};
   const merge = await computeMerge(env, base, baseRef, repos, ref, ancestors);
+
 
   const secretFiles = merge.files.filter((f) => f.result === "withheld-secret").map((f) => f.path);
   if (secretFiles.length) {
@@ -1018,12 +1020,28 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
   const foldHash = await foldHashOf(writeable);
 
   // Per-isolate single-flight around the clone+push critical section (withLandGate).
+  // Cross-isolate DO lease (FR-17) acquired inside withLandGate so the finally
+  // block always releases it — no leak on early-return paths (no-changes,
+  // conflicts, secrets) that sit between the reviewed-head gate and here.
+  let leaseId: string | null = null;
   return await withLandGate(async () => {
-    using baseRepo = await env.ARTIFACTS.get(base);
-    const info = await baseRepo.info();
-    const token = await mintWriteToken(baseRepo);
+    const lease = await acquireLandLease(env, base, 30);
+    if (lease && !lease.acquired) {
+      console.log("lease-denied", JSON.stringify({ base, by: caller }));
+      return Response.json(
+        { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+        { status: 409 },
+      );
+    }
+    if (lease?.leaseId) leaseId = lease.leaseId;
+
+    let baseRepo: ArtifactsRepo | null = null;
+    let token: string | null = null;
 
     try {
+      baseRepo = await env.ARTIFACTS.get(base);
+      const info = await baseRepo.info();
+      token = await mintWriteToken(baseRepo);
       const { commit } = await pushLand({
         remote: info.remote,
         token,
@@ -1060,6 +1078,7 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
         testedSha: validation?.testedSha ?? null,
         artifactRef: validation?.artifactRef ?? null,
         at,
+        lease: leaseId ? { provider: "do", leaseId } : null,
       };
       // The landing record (FR-18) persists keyed by the returned commit — the
       // address the read surface serves. KV `LIVE` stays single-writer: this is
@@ -1119,10 +1138,22 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
       );
     } finally {
       // Worker-minted tokens are single-use: revoke whether the push landed or failed.
-      try {
-        await baseRepo.revokeToken(token);
-      } catch {
-        // Best-effort; the short TTL still bounds exposure.
+      if (token) {
+        try {
+          if (baseRepo) { await baseRepo.revokeToken(token); }
+        } catch {
+          // Best-effort; the short TTL still bounds exposure.
+        }
+      }
+      // Release the per-base DO lease (FR-17): best-effort, only by owner.
+      // AWAITED so the lease is released before withLandGate resolves — a fire-
+      // and-forget release would let the next /land see a stale lease and 409.
+      if (leaseId) {
+        try {
+          await releaseLandLease(env, base, leaseId);
+        } catch {
+          // Best-effort; the 30s TTL still bounds exposure.
+        }
       }
     }
   });
