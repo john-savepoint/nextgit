@@ -1051,3 +1051,16 @@ html, body {
     min-width: 44px;
   }
 }
+
+/* ——— prefers-reduced-motion honoring ———
+   Scope: platform/ui/styles.css
+   When the user prefers reduced motion, kill every transition and animation
+   so no element in the triage app animates. The ticker pulse (.ticker-pulse)
+   is a static tint by design (background-color swap, no transition/animation),
+   so it is unaffected in either mode. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
