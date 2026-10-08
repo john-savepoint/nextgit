@@ -6,6 +6,7 @@ porting/harvest/*
 *.tsbuildinfo
 porting/tasks.db*
 .worktrees/
+.fleet/
 
 # Beads / Dolt files (added by bd init)
 .dolt/

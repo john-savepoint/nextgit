@@ -110,8 +110,10 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
   // Two sessions running batches must never pick the same row: claims are the guard.
   // bd leases are ~5m; the heartbeat loop below keeps them alive while orders run.
   const batchAgent = `batch:${ts}`;
-  const releaseRow = (id) => {
-    try { execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id], { cwd: root, encoding: "utf8", timeout: 20000, env: process.env }); } catch { /* lease expires on its own */ }
+  const releaseRow = (id, note) => {
+    try {
+      execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id, ...(note ? ["--note", note] : [])], { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
+    } catch { /* lease expires on its own */ }
   };
   const picked = [];
   for (const row of rows) {
@@ -206,7 +208,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         } catch (e) {
           console.error(`wf-batch: worktree add failed for ${id}: ${e.message}`);
           units.push({ row, id, wt, failed: true });
-          if (row.claimed && row.id) releaseRow(row.id);
+          if (row.claimed && row.id) releaseRow(row.id, `batch ${ts}: worktree creation failed`);
         }
       }
       const runnable = units.filter((u) => !u.failed);
@@ -249,7 +251,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       const merged = [], conflicts = [], kept = [];
       for (const u of units) {
         const r = byId.get(u.id) ?? {};
-        if (commitFailed.has(u.id)) { kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt, note: "commit failed — worktree kept" }); if (u.row.claimed && u.row.id) releaseRow(u.row.id); continue; }
+        if (commitFailed.has(u.id)) { kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt, note: "commit failed — worktree kept" }); if (u.row.claimed && u.row.id) releaseRow(u.row.id, `batch ${ts}: worktree commit failed — worktree kept ${u.wt}`); continue; }
         if (r.verdict === "GREEN") {
           try {
             git(["merge", "--no-ff", `order/${u.id}`, "-m", `order ${u.id}: ${u.row.title} (batch ${ts})`]);
@@ -268,7 +270,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
           try { git(["worktree", "remove", "--force", u.wt]); } catch { }
           kept.push({ id: u.id, branch: `order/${u.id}`, worktree: u.wt });
           // red/errored rows are safe to release now; green rows keep claims for the caller tick
-          if (u.row.claimed && u.row.id) releaseRow(u.row.id);
+          if (u.row.claimed && u.row.id) releaseRow(u.row.id, `batch ${ts}: ${r.verdict}`);
         }
       }
       mergeBack = { mode: "parallel", parallel, merged, conflicts, kept, commitFailed: [...commitFailed] };
@@ -284,10 +286,10 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
         // Releasing here opens a duplicate-run window — observed live: two sessions ran the
         // same row between this release and the caller's tick.
-        if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id); break; }
+        if (r.verdict !== "GREEN") { if (row.claimed) releaseRow(row.id, `batch ${ts}: ${r.verdict}`); break; }
       }
       // picks that never ran (batch stopped early) must not hold leases
-      for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
+      for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id, `batch ${ts}: not run (batch stopped early)`);
     }
 
     // --- BATCH GATES (parallel): parity + merged ------------------------------

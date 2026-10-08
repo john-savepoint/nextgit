@@ -508,8 +508,8 @@ function cmdReclaim(olderThan) {
   console.log(`reclaimed (older-than ${olderThan ?? "10m"})`);
 }
 
-function cmdRelease(id, agent) {
-  if (!id) throw new CliError(2, "usage: tasks.mjs release <id> [--agent A]");
+function cmdRelease(id, agent, note) {
+  if (!id) throw new CliError(2, "usage: tasks.mjs release <id> [--agent A] [--note n]");
   const cid = canonId(id);
   const rows = exportAll();
   const row = rows.find((r) => r.id === cid);
@@ -518,6 +518,8 @@ function cmdRelease(id, agent) {
   const actor = agent || row.assignee;
   const r = bd(["unclaim", cid], { actor, allowFail: true });
   if (r && typeof r === "object" && r.failed) throw new CliError(3, `release: ${r.stderr.trim().split("\n").pop()}`);
+  // Recovery trail: a released row should say WHY it left the runner (error class, run dir).
+  if (note) bd(["comment", cid, `RELEASED: ${note}`], { actor, allowFail: true });
   console.log(`released ${cid}`);
 }
 
@@ -656,8 +658,8 @@ async function main() {
       break;
     case "release": {
       const id = pos[0];
-      if (!id) throw new CliError(2, "usage: tasks.mjs release <id> [--agent A]");
-      cmdRelease(id, str(flags.agent));
+      if (!id) throw new CliError(2, "usage: tasks.mjs release <id> [--agent A] [--note n]");
+      cmdRelease(id, str(flags.agent), str(flags.note));
       break;
     }
     case "view":
