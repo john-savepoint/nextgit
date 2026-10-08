@@ -2,6 +2,14 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-08 — Epics wave 2: destroyed orders re-run + landed (phantom-fix proven); batch gates parallelized; deployed
+**Shipped:** the 3 E1 orders whose work the phantom merge destroyed were re-run FRESH on the fixed machinery — **ALL GREEN, merge-back truthful**: `git diff 6f8f797` = 7 files, +835/−10, 6 commits (worktree-commit + merge-commit per order), `merge-back.json merged=3 conflicts=[] commitFailed=[]`, parity SHIP. Deliverables: contrast-register confinement (styles + `ui-contrast-register` suite 69 checks), awaited empty-state copy (app.js:404 + both suites re-pinned + slice check healed), focus-visible register (styles + `ui-focus-visible` suite 16 checks). All four gates per order SHIP; the parity gate re-ran the full porting/tests battery (17/17 files exit 0).
+**Batch-gate parallelism (John):** batch-level `gate:parity` + `gate:merged` now run CONCURRENTLY (spawn-then-`Promise.all`; spawn order preserved for the call ledger) — per-order lens gates were already parallel since runner v3. Suite 48/48.
+**Integration:** deployed `3855d934` (includes the adopted FR-18 worker changes from `6688b67` + the three UI orders); post-deploy `demo-verify` **25/25**.
+**Salvage carried in:** `e85bb56` (land-confirm-two-step suite) + `cc56912` (probe edit) — pre-fix leftovers committed onto their order branches.
+**Progress:** E1 11/21 · totals 20 done / 128 pending. Next waves: keep grinding (each parallel-x3 wave ≈ 20–45 min).
+**Carries:** deploy lag for UI copies is cleared for this wave; ladder of declared mediums from the gates (contrast-register coverage boundaries, focus-ring token <3:1 AA — UX intake, merge-tab ring clipping — polish) — all recorded in the order gate files.
+
 ## 2026-10-08 — Fix: parallel merge-back now commits (phantom-merge defect)
 **Caught by:** the batch parity gate — `merge-back.json` recorded `merged=3, conflicts=0` while `git diff <base>` was EMPTY and no commits existed anywhere since the base (mechanism reproduced in a scratch repo).
 **Root cause:** orders run in worktrees and never commit (workers-never-commit, by design); the merge-back loop had **no driver commit**, so `git merge order/<id>` exited 0 "Already up to date" and the subsequent `worktree remove --force` + `branch -D` destroyed the uncommitted work. The old scenario-8 test was vacuous (stub orders changed nothing).

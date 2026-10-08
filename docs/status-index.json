@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-07T23:09:41.308Z",
-  "head": "6688b67",
+  "generatedAt": "2026-10-08T00:25:20.354Z",
+  "head": "0a65d3b",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-08 ",
     "branch": "main",
-    "lastCommit": "9260f48",
+    "lastCommit": "0a65d3b",
     "standingRedSet": null
   },
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 579,
+      "pending": 576,
       "partial": 1,
-      "done": 81
+      "done": 84
     },
     "items": [
       {
@@ -2261,21 +2261,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Runner: standing-red highs must not force heals"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Confine below-AA text registers to meta and ambient chrome"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Make both empty states explain what is awaited"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add visible focus styles to every interactive control"
       },
       {
         "status": "pending",

@@ -1,7 +1,7 @@
 # State — NextGit
 
-**Last updated:** 2026-10-08 (STORE MIGRATION + ORCHESTRATION SWAP — the task store moved from SQLite to **bd (beads/Dolt, `.beads/`)**; root cause fixed: bd silently un-blocked cross-prefix dep edges (`IsExternalDepTarget`) → canonical `nextgit-` ids everywhere; acceptance = ready-set diff vs legacy store 0 lines; adapter + batch swapped (heartbeat / reclaim sweep / ALL-GREEN auto-close); suites tasks 47/47 + batch 43/43; next: epics execution)
-**Branch:** `main` · **Last commit:** `9260f48` (store migration + swap — see `docs/CHECKPOINT.md` top entry; prior `5945d46` bd-init auto)
+**Last updated:** 2026-10-08 (EPICS WAVE 2 — the three phantom-destroyed E1 orders RE-RAN and landed on the fixed merge-back (7 files +835/−10, 6 commits, parity SHIP); batch-level parity+merged gates now run concurrently; deployed `3855d934` + demo-verify 25/25; progress 20/148 — next: keep waving)
+**Branch:** `main` · **Last commit:** `0a65d3b` (order merges from batch 23-10-14) — this record folds in next
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `bun porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (47/47 — bd adapter) · `bun porting/tests/batch.test.mjs` (43/43 — batch path, parity gate, parallel merge-back) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: pre-commit chain = status-index check + bd integration (`.beads/hooks`, core.hooksPath)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `docs/HANDOFF-PLATFORM.md` — **authoritative platform handoff** (inventory, endpoints, invariants, production gaps, verification recipes, lessons) — for anyone building on the platform

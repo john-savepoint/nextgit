@@ -286,35 +286,37 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id);
     }
 
-    // --- PARITY GATE (almost last): did this batch LOSE anything vs the pre-batch state? -----
-    // Principle (John, 2026-10-06): every build must do MORE than the one before, never less.
-    // Declared removals pass; adequate tests substitute for manual comparison; else it blocks.
+    // --- BATCH GATES (parallel): parity + merged ------------------------------
+    // Both lenses read the same post-merge tree; they run CONCURRENTLY (John, 2026-10-08:
+    // "gates can be run in parallel"). Spawn parity first, then merged — spawn order is
+    // preserved in the call ledger (tests pin it), wall-clock overlaps.
     const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
-    let parity = null;
-    if (preBatchCommit && results.some((r) => r.verdict === "GREEN")) {
-      const pRaw = await agent(
+    const parityHandle = preBatchCommit && results.some((r) => r.verdict === "GREEN")
+      ? agent(
         `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
         `Pre-batch commit: ${preBatchCommit}. Run \`git diff --stat ${preBatchCommit}\` and \`git diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
         `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
         `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
         `Return ONLY {verdict, shipBlockers, highs, notes}.`,
         { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
-      ).wait();
-      parity = normalizeVerdict("parity", pRaw);
-      writeFileSync(`${batchDir}/gate-parity.md`, JSON.stringify(parity, null, 2));
-    }
+      )
+      : null;
 
     // --- merged gate (v1: sequential workspace; this gate sees the union) ------
     // Fail-closed like every per-order gate: a merged return is RAW INPUT, not a verdict —
     // an incoherent {verdict:"SHIP", shipBlockers:[…]} must not read ALL GREEN (v3.2).
-    const mergedRaw = await agent(
+    const mergedHandle = agent(
       `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
       `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
       `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
       `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
       `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
       { agent: agents?.mergedGate ?? agentOpt ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
-    ).wait();
+    );
+
+    const [parityRaw, mergedRaw] = await Promise.all([parityHandle ? parityHandle.wait() : Promise.resolve(null), mergedHandle.wait()]);
+    const parity = parityHandle ? normalizeVerdict("parity", parityRaw) : null;
+    if (parity) writeFileSync(`${batchDir}/gate-parity.md`, JSON.stringify(parity, null, 2));
     const merged = normalizeVerdict("merged", mergedRaw);
     writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
 
