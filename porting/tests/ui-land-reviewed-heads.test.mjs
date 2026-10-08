@@ -127,6 +127,20 @@ const payloadWith = (baseHead, rowHead, additions) => ({
 });
 const FIXTURE_H1 = payloadWith(BASE_H1, A1_H1, 3);
 const FIXTURE_H2 = payloadWith(BASE_H2, A1_H2, 5);
+// Post-land variant: after a successful /land, the next /proposals fetch must
+// reflect landing.status === "landed" so renderProposals shows the landed-banner.
+// Immutable sibling to FIXTURE_H1 (mirrors event-debounce-land-reload.test.mjs:80-105).
+const POST_LAND = (() => {
+  const c = JSON.parse(JSON.stringify(FIXTURE_H1));
+  c.proposals[0].landing = { status: "landed", files: 1 };
+  return c;
+})();
+
+const POST_LAND_STALE = (() => {
+  const c = JSON.parse(JSON.stringify(FIXTURE_H2));
+  c.proposals[0].landing = { status: "landed", files: 1 };
+  return c;
+})();
 // The pre-deploy read-surface shape (recorded live 2026-10-07): no anchors anywhere.
 const FIXTURE_HEADLESS = {
   ok: true,
@@ -168,6 +182,14 @@ const readDefault = (repo) => {
     preview: !!c.querySelector(".btn-preview-merge"),
     confirm: !!c.querySelector(SEL_CONF),
     disabled: !!c.querySelector(".btn-land[disabled]"),
+  };
+};
+const readLanded = (repo) => {
+  const c = cardOf(repo);
+  if (!c) return null;
+  return {
+    isLanded: c.classList.contains("is-landed"),
+    banner: c.querySelector(".landed-banner") ? c.querySelector(".landed-banner").textContent : null,
   };
 };
 const readBanner = () => ({
@@ -216,7 +238,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const el = document.querySelector("#action-banner-msg code.commit-sha");
             return el ? { text: el.textContent.trim(), title: el.getAttribute("title") } : null;
           })();
-          R.c.finalDefault = readDefault(R.repo);
+          R.c.finalLanded = readLanded(R.repo);
+          R.c.landedCardFileCount = R.c.finalLanded?.banner ?? null;
         }
       } else if (MODE === "stale") {
         R.c.statsBefore = readStats(R.repo);
@@ -234,7 +257,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               const el = document.querySelector("#action-banner-msg code.commit-sha");
               return el ? el.textContent.trim() : null;
             })();
-            R.c.retryDefault = readDefault(R.repo);
+            R.c.retryLanded = readLanded(R.repo);
           }
         }
       } else if (MODE === "headless") {
@@ -291,8 +314,17 @@ const server = createServer((req, res) => {
         res.end(JSON.stringify({ ok: false, error: "stale", detail: "reviewed head of agent-1 does not match the current proposal head" }));
         return;
       }
+      // Retry success (happy mode) or stale-mode retry success: transition the
+      // served payload to its landed variant so the post-land /proposals fetch
+      // reflects landing.status === "landed" (mirrors the immutable
+      // PRE_LAND/POST_LAND pattern from event-debounce-land-reload.test.mjs).
+      if (mode === "stale") {
+        payload = POST_LAND_STALE;
+      } else {
+        payload = POST_LAND;
+      }
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, landed: { repos: ["agent-1"], commit: COMMIT } }));
+      res.end(JSON.stringify({ ok: true, landed: { repos: ["agent-1"], commit: COMMIT, files: ["src/auth.ts", "README.md"], at: "2026-10-08T12:00:00Z" } }));
     });
     return;
   }
@@ -362,8 +394,10 @@ function bindingContract(label, obs, expected) {
   check(`${runner}reviewed.heads[${repo}] === the rendered proposal head`, body?.reviewed?.heads?.[repo] === expected.rowHead, J({ got: body?.reviewed?.heads?.[repo], want: expected.rowHead }));
   check(`${runner}success banner is visible with badge 'landed'`, c.finalBanner?.shown === true && c.finalBanner?.badge === "landed", J(c.finalBanner));
   check(`${runner}success class is banner-success`, String(c.finalBanner?.cls || "").includes("banner-success"), c.finalBanner?.cls);
-  check(`${runner}success copy exact + commit chip`, c.finalBanner?.msg === `Successfully landed proposal ${repo} into ${expected.baseRepo}. Commit ${COMMIT.slice(0, 8)}` && c.commit?.text === COMMIT.slice(0, 8) && c.commit?.title === COMMIT, J({ msg: c.finalBanner?.msg, chip: c.commit }));
-  check(`${runner}card returned to default after the success`, defaultShape(c.finalDefault), J(c.finalDefault));
+  check(`${runner}success copy starts with commit chip + file count`, c.finalBanner?.msg.startsWith(`Successfully landed proposal ${repo} into ${expected.baseRepo}. Commit ${COMMIT.slice(0, 8)} · 2 files · `) && c.commit?.text === COMMIT.slice(0, 8) && c.commit?.title === COMMIT, J({ msg: c.finalBanner?.msg, chip: c.commit }));
+  check(`${runner}success banner shows file count in receipt`, c.finalBanner?.msg.includes(" · 2 files · "), J({ msg: c.finalBanner?.msg }));
+  check(`${runner}landed card shows landing.files count`, c.landedCardFileCount && c.landedCardFileCount.includes("files"), J({ landedCardFileCount: c.landedCardFileCount }));
+  check(`${runner}card shows landed-banner after the success`, c.finalLanded?.isLanded === true && c.finalLanded?.banner?.includes("files"), J(c.finalLanded));
   check(`${runner}exactly one action-banner element`, c.finalBanner?.count === 1, `count=${c.finalBanner?.count}`);
 }
 
@@ -391,7 +425,7 @@ function staleContract(obs) {
   check("2 the set was refetched exactly once after the stale (poll is off)", typeof c.propsBefore === "number" && c.propsAfterStale === c.propsBefore + 1, J({ before: c.propsBefore, after: c.propsAfterStale }));
   check("2 the refreshed set was re-rendered on the canvas (+3 -> +5)", c.statsBefore === "+3" && c.statsAfter === "+5", J({ before: c.statsBefore, after: c.statsAfter }));
   check("2 the retry carried the REFRESHED anchors (H2) — the reviewer re-reviewed", landBodies[1]?.reviewed?.baseHead === BASE_H2 && landBodies[1]?.reviewed?.heads?.[repo] === A1_H2, J(landBodies[1]?.reviewed));
-  check("2 the retry kept today's success path", c.retryBanner?.badge === "landed" && String(c.retryBanner?.cls || "").includes("banner-success") && c.retryCommit === COMMIT.slice(0, 8) && defaultShape(c.retryDefault), J({ banner: c.retryBanner, chip: c.retryCommit, def: c.retryDefault }));
+  check("2 the retry kept today's success path", c.retryBanner?.badge === "landed" && String(c.retryBanner?.cls || "").includes("banner-success") && c.retryCommit === COMMIT.slice(0, 8) && c.retryLanded?.isLanded === true, J({ banner: c.retryBanner, chip: c.retryCommit, landed: c.retryLanded }));
 }
 
 // ---------------------------------------------------------------------------
