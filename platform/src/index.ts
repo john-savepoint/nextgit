@@ -736,6 +736,11 @@ async function readEvents(env: Env): Promise<LiveEvent[]> {
 async function recordEvent(env: Env, event: LiveEvent): Promise<void> {
   const events = await readEvents(env);
   await env.LIVE.put(EVENTS_KEY, JSON.stringify([event, ...events].slice(0, MAX_EVENTS)));
+  // Invalidate the /proposals KV cache generation on push-shaped events: key change makes
+  // every cached set unreachable (perf fix 2026-10-08; see the /proposals handler).
+  if (event.type === "repo.pushed" || event.type === "repo.forked" || event.type === "repo.created") {
+    await env.LIVE.put("cache:gen", String(Date.now()));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1305,8 +1310,20 @@ export default {
         const baseRef = url.searchParams.get("baseRef") ?? "main";
         const reposParam = url.searchParams.get("repos");
         const repoList = reposParam ? reposParam.split(",").map((s) => s.trim()).filter(Boolean) : null;
+        // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
+        // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
+        // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
+        // cached set by key change; TTL bounds staleness if invalidation is ever missed.
+        const gen = (await env.LIVE.get("cache:gen")) ?? "0";
+        const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
+        try {
+          const hit = await env.LIVE.get(cacheKey);
+          if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+        } catch { /* cache read is best-effort — fall through to compute */ }
         const result = await computeProposals(env, base, baseRef, ref, repoList);
-        return Response.json({ ok: true, ...result });
+        const body = JSON.stringify({ ok: true, ...result });
+        try { await env.LIVE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
+        return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
       }
 
       if (url.pathname === "/merge" && request.method === "GET") {
@@ -1336,6 +1353,24 @@ export default {
     } catch (err) {
       return Response.json({ ok: false, error: String((err as Error)?.message ?? err) }, { status: 500 });
     }
+  },
+
+  // Cron warm-up (every 5 min): keeps the /proposals KV cache hot for the demo base so
+  // visitors get a <1s first paint instead of paying the 13–17s recompute (2026-10-08).
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const gen = (await env.LIVE.get("cache:gen")) ?? "0";
+          const cacheKey = `cache:proposals:${gen}:demo:main:main:*`;
+          const result = await computeProposals(env, "demo", "main", "main", null);
+          await env.LIVE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+          console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
+        } catch (e) {
+          console.log("warmup-failed", String(e));
+        }
+      })(),
+    );
   },
 
   async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {

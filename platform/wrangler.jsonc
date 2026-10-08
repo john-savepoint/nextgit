@@ -28,6 +28,9 @@
       "id": "9850d064f5bc43649125b9d8e9e130d2"
     }
   ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
   "assets": {
     "directory": "./ui",
     "binding": "ASSETS"
