@@ -152,6 +152,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await waitHits("/proposals", 2, 4000); // initial + debounced
     R.debouncePropTs = fetchTimes("/proposals")[1];
     R.debounced = true;
+    R.tickerEl = document.getElementById("ticker-events");
+    R.tickerHtml = R.tickerEl ? R.tickerEl.innerHTML : null;
     // Close the debounce observation window before touching land, so the landing
     // reload can never be mistaken for the debounced refresh.
     await waitMin((R.flipTs || 0) + 1500);
@@ -346,6 +348,14 @@ const contract = (obs) => {
   } else {
     check("A4 debounced /proposals timing (insufficient observations)", false, `flipTs=${obs.flipTs} debouncePropTs=${obs.debouncePropTs}`);
   }
+
+  // ---- Leg D: ticker adopted the new top event ----
+  check("D1 ticker renders the new top event repo (agent-3)",
+    obs.tickerHtml && obs.tickerHtml.includes("agent-3"),
+    `tickerHtml=${obs.tickerHtml}`);
+  check("D2 ticker is no longer in the empty state",
+    obs.tickerHtml && !obs.tickerHtml.includes("ticker-empty"),
+    `empty=${obs.tickerHtml ? obs.tickerHtml.includes("ticker-empty") : "n/a"}`);
 
   // ---- Leg B: land reloads both feeds (anchored, immediate-fetch predicate) ----
   check("B1 inline confirm appeared on the target card", obs.confirmShown === true);
