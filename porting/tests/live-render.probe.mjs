@@ -122,6 +122,9 @@ child.on("close", () => {
   check("not stuck in loading state", !isLoading);
   check("header chips populated (no placeholder dashes)", [chips.proposals, chips.shared, chips.conflicts].every((c) => c && c !== "—" && c !== "(missing)"), JSON.stringify(chips));
 
+  // Gap 4: structural absence of paginator + single #proposals-grid container
+  check("no paginator element in DOM", !/paginat|pagination|page-\w|per-page/i.test(visible));
+  check("single #proposals-grid container", (visible.match(/id="proposals-grid"/g) || []).length === 1);
   console.log(fails === 0 ? `LIVE PAGE OK (${checks} checks)` : `LIVE PAGE BROKEN — ${fails}/${checks} failed`);
   process.exit(fails === 0 ? 0 : 1);
 });
