@@ -11,11 +11,14 @@
 // replacing, window.fetch) and serializes observations into #test-out. No
 // module mocks, no source grep, no response-body tampering. Legs:
 //   L1 — default 8s cycle after initial load (>=2 polls in ~25s, 7000-9000ms
-//        gaps; #last-sync-time advances to "synced HH:MM:SS")
+//        gaps; #last-sync-time advances to "synced HH:MM:SS"); /events fires
+//        at ~2s cadence (>=5 fetches, gaps 1500-3000ms)
 //   L2 — toggle-off stops /proposals polls for 10s and the footer sync text
-//        is frozen (last payload retained)
+//        is frozen (last payload retained); /events continues at 2s cadence
 //   L3 — manual refresh fires exactly one /proposals fetch and advances the
 //        footer sync text, while auto-refresh stays off
+//   L4 — toggle off → 8s zero new /proposals → toggle on → 18s → re-arm (>=2
+//        /proposals fetches; /events continues throughout)
 // A box without a Chrome binary skips the suite (precedent: ui-focus-visible /
 // ui-first-load-panels); the order's acceptance gate hard-requires Chrome
 // separately.
@@ -78,7 +81,7 @@ const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "
 // Observer/driver module injected BEFORE app.js. It records each fetch URL with
 // a performance.now() timestamp into R.f, exposes hits()/fetchTimes()/syncText()
 // helpers, and serializes observations into #test-out on DOMContentLoaded.
-// MODE selects the leg so one harness + one server can drive all three.
+// MODE selects the leg so one harness + one server can drive all four.
 const clientScript = (mode) => `const MODE = ${JSON.stringify(mode)};
 const R = { f: [], c: {} };
 const of = window.fetch.bind(window);
@@ -100,11 +103,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.c.finalSync = syncText();
       R.c.cards = document.querySelectorAll("#proposals-grid .proposal-card").length;
       R.c.eventsFetches = hits("/events");
+      R.c.eventsTs = fetchTimes("/events");
     } else if (MODE === "leg2") {
       await sleep(3000); // settle initial load + first poll
       R.c.toggleBefore = toggleChecked();
       R.c.syncBefore = syncText();
       R.c.tsBefore = fetchTimes("/proposals").length;
+      R.c.eventsBeforeOff = fetchTimes("/events").length;
       q("auto-refresh-toggle").checked = false;
       q("auto-refresh-toggle").dispatchEvent(new Event("change", { bubbles: true }));
       await waitForToggleOff(2000);
@@ -114,6 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.c.tsAfter = fetchTimes("/proposals").length;
       R.c.syncAfter = syncText();
       R.c.cards = document.querySelectorAll("#proposals-grid .proposal-card").length;
+      R.c.eventsAfterOff = fetchTimes("/events");
     } else if (MODE === "leg3") {
       await sleep(3000); // settle initial load + first poll
       q("auto-refresh-toggle").checked = false;
@@ -127,6 +133,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.c.hitsAfter = hits("/proposals");
       R.c.syncAfter = syncText();
       R.c.cards = document.querySelectorAll("#proposals-grid .proposal-card").length;
+    } else if (MODE === "leg4") {
+      await sleep(3000); // settle initial load + first poll
+      R.c.toggleBefore = toggleChecked();
+      R.c.tsBefore = hits("/proposals");
+      q("auto-refresh-toggle").checked = false;
+      q("auto-refresh-toggle").dispatchEvent(new Event("change", { bubbles: true }));
+      await waitForToggleOff(2000);
+      R.c.toggleAfterOff = toggleChecked();
+      await sleep(8000); // toggle off — zero new /proposals, /events continues at 2s
+      R.c.tsAfterOff = hits("/proposals");
+      R.c.eventsDuringOff = fetchTimes("/events");
+      // Toggle back on — /proposals must re-arm
+      q("auto-refresh-toggle").checked = true;
+      q("auto-refresh-toggle").dispatchEvent(new Event("change", { bubbles: true }));
+      await waitForToggleOn(2000);
+      R.c.toggleRearmed = toggleChecked();
+      await sleep(18000); // let 8s poll re-arm (>=2 polls)
+      R.c.tsRearmed = hits("/proposals");
+      R.c.finalEvents = fetchTimes("/events");
+      R.c.cards = document.querySelectorAll("#proposals-grid .proposal-card").length;
     }
   } catch (e) { R.err = String((e && e.stack) || e); }
   const d = document.createElement("div");
@@ -136,6 +162,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 function waitForToggleOff(timeout) {
   return new Promise((res) => { const t = setInterval(() => { if (!toggleChecked()) { clearInterval(t); res(); } }, 50); setTimeout(() => { clearInterval(t); res(); }, timeout); });
+}
+function waitForToggleOn(timeout) {
+  return new Promise((res) => { const t = setInterval(() => { if (toggleChecked()) { clearInterval(t); res(); } }, 50); setTimeout(() => { clearInterval(t); res(); }, timeout); });
 }
 `;
 
@@ -216,14 +245,8 @@ const launchChrome = () =>
         resolve(m[1]);
       }
     });
-    chrome.on("error", (e) => {
-      clearTimeout(timer);
-      reject(e);
-    });
-    chrome.on("exit", (code) => {
-      clearTimeout(timer);
-      reject(new Error(`Chrome exited early with code ${code}`));
-    });
+    chrome.on("error", (e) => { clearTimeout(timer); reject(e); });
+    chrome.on("exit", (code) => { clearTimeout(timer); reject(new Error(`Chrome exited early with code ${code}`)); });
   });
 
 // Minimal CDP client: one browser websocket, flat sessions, command/response only.
@@ -342,6 +365,13 @@ const leg1Contract = (obs) => {
   check("L1 stable /proposals gaps in 7000-9000ms window (first gap may absorb Chrome warmup)", stable8s, `gaps=${JSON.stringify(gaps)}`);
   check("L1 footer advanced to synced HH:MM:SS", SYNC_OK.test(String(c.finalSync)) && c.finalSync !== c.initialSync, `initial=${c.initialSync} final=${c.finalSync}`);
   check("L1 at least one /events fetch (2s ticker)", c.eventsFetches >= 1, `events=${c.eventsFetches}`);
+  // Gap 1: /events cadence ~2s ±500ms
+  const evTs = c.eventsTs || [];
+  const evGaps = evTs.slice(1).map((t, i) => t - evTs[i]);
+  const stableEvGaps = evGaps.slice(1); // skip first gap (warmup jitter)
+  const stable2s = stableEvGaps.length >= 1 && stableEvGaps.every((g) => typeof g === "number" && g >= 1500 && g <= 3000);
+  check("L1 >=5 /events fetches in ~25s (2s cadence)", evTs.length >= 5, `n=${evTs.length}`);
+  check("L1 stable /events gaps in 1500-3000ms window (2s ±500ms)", stable2s, `gaps=${JSON.stringify(evGaps)}`);
   check("L1 surface rendered 1 proposal card", c.cards === 1, `cards=${c.cards}`);
 };
 
@@ -360,6 +390,19 @@ const leg2Contract = (obs) => {
   check("L2 zero new /proposals fetches in 10s after toggle-off", c.tsAfter === c.tsBefore, `before=${c.tsBefore} after=${c.tsAfter}`);
   check("L2 footer sync text frozen (last payload retained)", c.syncAfter === c.syncBeforeToggleOff, `before=${c.syncBeforeToggleOff} after=${c.syncAfter}`);
   check("L2 surface still renders the card (no wipe)", c.cards === 1, `cards=${c.cards}`);
+  // Gap 1: /events survives toggle-off at 2s cadence
+  const eventsBefore = c.eventsBeforeOff || 0;
+  const eventsAfter = c.eventsAfterOff || [];
+  const newEvents = eventsAfter.length - eventsBefore;
+  check("L2 /events continued at 2s after toggle-off", newEvents >= 3, `before=${eventsBefore} after=${eventsAfter.length} new=${newEvents}`);
+  if (eventsAfter.length >= eventsBefore + 2) {
+    const offGaps = eventsAfter.slice(eventsBefore + 1).map((t, i) => t - eventsAfter[eventsBefore + i]);
+    const stableOffGaps = offGaps.slice(1);
+    const stable2sOff = stableOffGaps.length >= 1 && stableOffGaps.every((g) => typeof g === "number" && g >= 1500 && g <= 3000);
+    check("L2 /events gaps ~2s ±500ms during toggle-off", stable2sOff, `gaps=${JSON.stringify(offGaps)}`);
+  } else {
+    check("L2 /events gaps ~2s ±500ms during toggle-off (insufficient observations)", false, `before=${eventsBefore} after=${eventsAfter.length}`);
+  }
 };
 
 const leg3Contract = (obs) => {
@@ -376,6 +419,28 @@ const leg3Contract = (obs) => {
   check("L3 manual refresh fires exactly one /proposals fetch", c.hitsAfter === c.hitsBefore + 1, `before=${c.hitsBefore} after=${c.hitsAfter}`);
   check("L3 footer sync text advances on manual refresh", c.syncAfter !== c.syncBefore && SYNC_OK.test(String(c.syncAfter)), `before=${c.syncBefore} after=${c.syncAfter}`);
   check("L3 surface still renders the card", c.cards === 1, `cards=${c.cards}`);
+};
+
+const leg4Contract = (obs) => {
+  if (!obs) {
+    check("L4 scenario output present (chrome + driver ran)", false, "no #test-out");
+    return;
+  }
+  if (obs.err) {
+    check("L4 scenario threw", false, obs.err);
+    return;
+  }
+  const c = obs.c || {};
+  check("L4 toggle was on before flip", c.toggleBefore === true, `before=${c.toggleBefore}`);
+  check("L4 toggle is off after flip", c.toggleAfterOff === false, `after=${c.toggleAfterOff}`);
+  check("L4 zero new /proposals fetches in 8s after toggle-off", c.tsAfterOff === c.tsBefore, `before=${c.tsBefore} after=${c.tsAfterOff}`);
+  // /events continues at 2s during toggle-off
+  const eventsDuringOff = c.eventsDuringOff || [];
+  check("L4 /events fired at least 3 times during 8s toggle-off", eventsDuringOff.length >= 3, `n=${eventsDuringOff.length}`);
+  check("L4 toggle re-armed (back on)", c.toggleRearmed === true, `rearmed=${c.toggleRearmed}`);
+  // Need at least 2 new /proposals fetches after re-arm (8s interval * 18s window)
+  check("L4 >=2 new /proposals fetches after re-arm", c.tsRearmed >= c.tsBefore + 2, `before=${c.tsBefore} after=${c.tsRearmed}`);
+  check("L4 surface still renders the card", c.cards === 1, `cards=${c.cards}`);
 };
 
 const cleanup = (dir) => {
@@ -396,6 +461,9 @@ try {
 
   const dom3 = await runLeg(port, "leg3");
   leg3Contract(parseScenario(dom3));
+
+  const dom4 = await runLeg(port, "leg4");
+  leg4Contract(parseScenario(dom4));
 } catch (e) {
   check("harness run", false, String((e && e.stack) || e));
 } finally {

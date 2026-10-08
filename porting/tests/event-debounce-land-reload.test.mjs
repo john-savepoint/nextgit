@@ -152,8 +152,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     await waitHits("/proposals", 2, 4000); // initial + debounced
     R.debouncePropTs = fetchTimes("/proposals")[1];
     R.debounced = true;
-    R.tickerEl = document.getElementById("ticker-events");
-    R.tickerHtml = R.tickerEl ? R.tickerEl.innerHTML : null;
+    // Gap 2: capture ticker HTML right after the debounced refresh to verify
+    // renderEventsTicker adopted the new top-event repo (agent-3).
+    R.tickerHtml = document.getElementById("ticker-events")?.innerHTML || "";
     // Close the debounce observation window before touching land, so the landing
     // reload can never be mistaken for the debounced refresh.
     await waitMin((R.flipTs || 0) + 1500);
@@ -170,9 +171,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       await waitHits("/land", 1, 5000);
       R.landTs = fetchTimes("/land")[0];
       await sleep(1500); // settle land-triggered reloads + at least one periodic tick
-    }
 
-    // Snapshot the converged card state.
+      // Phase 3 — manual refresh: click #btn-manual-refresh, assert both endpoints fire.
+      R.proposalsBeforeManual = hits("/proposals");
+      R.eventsBeforeManual = hits("/events");
+      const btn = document.getElementById("btn-manual-refresh");
+      R.manualBtnPresent = !!btn;
+      if (btn) { btn.click(); }
+      await waitHits("/proposals", R.proposalsBeforeManual + 1, 3000);
+      await waitHits("/events", R.eventsBeforeManual + 1, 3000);
+      R.proposalsAfterManual = hits("/proposals");
+      R.eventsAfterManual = hits("/events");
+      R.manualPropTs = fetchTimes("/proposals").slice(-1)[0];
+      R.manualEvTs = fetchTimes("/events").slice(-1)[0];
+    }
+\n
     const card = R.repo ? cardOf(R.repo) : null;
     R.cardClasses = card ? card.getAttribute("class") : null;
     R.cardHasLandedClass = card ? card.classList.contains("is-landed") : false;
@@ -388,6 +401,29 @@ const contract = (obs) => {
   check("C3 landed-banner text exact ('landed — nothing pending')", obs.landedText === "landed — nothing pending", `text=${obs.landedText}`);
   check("C4 landed badge class is badge badge-neutral", obs.landedBadgeCls === "badge badge-neutral", `cls=${obs.landedBadgeCls}`);
   check("C5 landed badge text is 'landed'", obs.badgeText === "landed", `text=${obs.badgeText}`);
+
+  // ---- Leg D: ticker adoption of new top event + manual refresh fires both endpoints ----
+  // Gap 2: after the debounced refresh, renderEventsTicker must adopt the new top-event repo (agent-3).
+  const tickerHtml = obs.tickerHtml || "";
+  check("D1 ticker renders the new top-event repo (agent-3)", tickerHtml.includes("agent-3"), `ticker=${tickerHtml.slice(0, 200)}`);
+  check("D2 ticker no longer in empty state", !tickerHtml.includes("ticker-empty"), `ticker=${tickerHtml.slice(0, 200)}`);
+
+  // Gap 3: manual refresh button fires both /proposals and /events exactly once each.
+  const propManual = f.filter((x) => x[0] === "/proposals").map((x) => x[1]);
+  const evManual = f.filter((x) => x[0] === "/events").map((x) => x[1]);
+  check("D3 manual refresh button present in DOM", obs.manualBtnPresent === true);
+  check("D4 one new /proposals fetch after manual refresh click",
+    (obs.proposalsAfterManual || 0) === (obs.proposalsBeforeManual || 0) + 1,
+    `before=${obs.proposalsBeforeManual} after=${obs.proposalsAfterManual}`);
+  check("D5 one new /events fetch after manual refresh click",
+    (obs.eventsAfterManual || 0) === (obs.eventsBeforeManual || 0) + 1,
+    `before=${obs.eventsBeforeManual} after=${obs.eventsAfterManual}`);
+  if (obs.manualPropTs != null && obs.manualEvTs != null && obs.landTs != null) {
+    check("D6 manual /proposals fetch after land interaction", obs.manualPropTs > obs.landTs,
+      `manual=${obs.manualPropTs} land=${obs.landTs}`);
+    check("D7 manual /events fetch after land interaction", obs.manualEvTs > obs.landTs,
+      `manual=${obs.manualEvTs} land=${obs.landTs}`);
+  }
 };
 
 try {
