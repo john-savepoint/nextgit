@@ -1367,7 +1367,7 @@ export default {
           await env.LIVE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
           console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
         } catch (e) {
-          console.log("warmup-failed", String(e));
+          console.log("warmup-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
         }
       })(),
     );
