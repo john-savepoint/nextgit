@@ -214,7 +214,7 @@ export async function runWorkOrder(order, opts = {}) {
       try { return await agent(prompt, opts).wait(); }
       catch (e) {
         if (a >= tries) throw e;
-        log(`retry ${a}/${tries - 1} on ${opts?.label ?? "agent"}: ${String(e?.message ?? e).slice(0, 120)}`);
+        log(`attempt ${a}/${tries} on ${opts?.label ?? "agent"}: ${String(e?.message ?? e).slice(0, 120)}`);
         await Bun.sleep(1500 * a);
       }
     }
@@ -243,6 +243,7 @@ export async function runWorkOrder(order, opts = {}) {
 
   // ---- PLAN (plan-agent: read-only → returns; runner persists) --------------
   if (!skip("plan.md")) {
+    const planFp = wtFingerprint();
     const p = await ask(
       `${SCOPE_LAW}` +
       `PLAN phase for work order "${order.id}" — ${order.title}.\n` +
@@ -266,6 +267,7 @@ export async function runWorkOrder(order, opts = {}) {
       }
     } catch { /* stat failed — plan.md missing is already caught by skip() */ }
     log(`plan: ${String(typeof p === "object" ? (p?.summary ?? "") : "").slice(0, 200)}`);
+    checkRO("plan", planFp);
   }
 
   // ---- IMPLEMENT (wf-implementer: has write; writes implement.md itself) ----
@@ -344,13 +346,13 @@ export async function runWorkOrder(order, opts = {}) {
     const settled = await wait(handles, { raiseErrors: false });
     // One bounded retry per infra-errored lens — a transient provider 500 must not BLOCK a correct
     // order (fail-closed gates + laguna-free throw rates made this the top false-block source).
+    // Route through ask() so backoff + logging stay centralized (F4-consistency).
     for (let i = 0; i < lensList.length; i++) {
       if (settled[i] instanceof Error) {
         const lens = lensList[i];
         log(`gate lens ${lens} errored (${String(settled[i].message).slice(0, 80)}) — one retry`);
-        await Bun.sleep(1500);
         try {
-          settled[i] = await agent(lensPrompt(lens), { agent: lensAgent(lens), label: `gate:${lens}:${order.id}:retry`, schema: LENS_SCHEMA }).wait();
+          settled[i] = await ask(lensPrompt(lens), { agent: lensAgent(lens), label: `gate:${lens}:${order.id}:retry`, schema: LENS_SCHEMA }, 2);
         } catch { /* keep the original Error — normalizeVerdict fails it closed */ }
       }
     }

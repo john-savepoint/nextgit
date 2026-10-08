@@ -59,6 +59,7 @@ let fails = 0;
 const check = (n, ok, d = "") => { if (!ok) fails++; console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok || !d ? "" : ` — ${d}`}`); };
 const exactKeys = (o, ks) => { const a = Object.keys(o ?? {}).sort(); const w = [...ks].sort(); return a.length === w.length && a.every((k, i) => k === w[i]); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const credRe = /token|plaintext|secret|credential|caller/i;
 
 // apiToken(): copy fanout.mjs:24-37 + real-agents.mjs:45-67 (CLOUDFLARE_API_TOKEN env,
 // else wrangler OAuth toml) — cached so api() can drop it after a 401 and re-read the
@@ -230,6 +231,16 @@ try {
   const C2 = ev.commit;
   check("(a) base remote ref === evidence.commit", (await lsBase()) === C2);
   check("(a) landed commit is a new sha (≠ fork point)", !!C2 && C2 !== H0);
+  // Exact key-set proof: 200 carries {ok, landed, evidence} only —
+  // no token / plaintext / secret field anywhere in the success body.
+  check("(a) success exact keys {ok,landed,evidence}", exactKeys(a.json, ["ok", "landed", "evidence"]), JSON.stringify(Object.keys(a.json ?? {})));
+  check("(a) success no credential field", !credRe.test(JSON.stringify(a.json)));
+
+  // Exact key-set proof for the `landed` sub-object: the success body's inner
+  // payload must be exactly {repos, commit, files, at} — no credential-shaped
+  // field can hide inside landed even if the top-level regex sweep would pass it.
+  check("(a) landed exact keys {repos,commit,files,at}", exactKeys(a.json?.landed, ["repos", "commit", "files", "at"]), JSON.stringify(a.json?.landed ?? null));
+  check("(a) landed no credential field", !credRe.test(JSON.stringify(a.json?.landed ?? {})));
 
   // (b) re-land same proposal, refreshed reviewed heads -> no-changes.
   console.log("(b) re-land (refreshed reviewed heads)");
@@ -243,6 +254,12 @@ try {
   check("(c) stale proposal head -> 409 stale", c1.status === 409 && c1.json?.error === "stale", JSON.stringify(c1.json));
   check("(c) stale base head -> 409 stale", c2.status === 409 && c2.json?.error === "stale", JSON.stringify(c2.json));
   check("(c) base unmoved by refusals", (await lsBase()) === C2);
+  // Exact key-set proof: 409 stale carries {detail, error, ok} only —
+  // no token / plaintext / secret / auth / caller field anywhere in the envelope.
+  check("(c) stale c1 exact keys {detail,error,ok}", exactKeys(c1.json, ["detail", "error", "ok"]), JSON.stringify(c1.json));
+  check("(c) stale c2 exact keys {detail,error,ok}", exactKeys(c2.json, ["detail", "error", "ok"]), JSON.stringify(c2.json));
+  check("(c) stale c1 no credential field", !credRe.test(JSON.stringify(c1.json)));
+  check("(c) stale c2 no credential field", !credRe.test(JSON.stringify(c2.json)));
 
   // (d) four-way land race: identical reviewed heads, four requests in flight.
   // Exactly one push may win; every loser must be refused with a 409
