@@ -1,0 +1,13 @@
+{
+  "repo": "agent-3",
+  "intent": "Perf: read-through memo cache for store reads",
+  "files": [
+    {
+      "path": "src/store.ts",
+      "status": "modified",
+      "additions": 17,
+      "deletions": 0,
+      "patch": "diff --git a/src/store.ts b/src/store.ts\nindex bf9310a..86a393c 100644\n--- a/src/store.ts\n+++ b/src/store.ts\n@@ -9,7 +9,12 @@ export interface Row<T> {\n \n const rows = new Map<string, Row<unknown>>();\n \n+// Memo cache for values derived from store rows. Any mutation (put/del) drops\n+// all entries, so cached derivations never outlive the rows they came from.\n+const cache = new Map<string, unknown>();\n+\n export function put<T>(id: string, value: T): Row<T> {\n+  cache.clear();\n   const row: Row<T> = { id, value, updatedAt: Date.now() };\n   rows.set(id, row as Row<unknown>);\n   return row;\n@@ -19,7 +24,18 @@ export function get<T>(id: string): Row<T> | undefined {\n   return rows.get(id) as Row<T> | undefined;\n }\n \n+// Memoizes `compute` per key: the first call stores the result, later calls\n+// return it without recomputing. A cached `undefined` is honoured; a throwing\n+// `compute` stores nothing.\n+export function getCached<T>(key: string, compute: () => T): T {\n+  if (cache.has(key)) return cache.get(key) as T;\n+  const value = compute();\n+  cache.set(key, value);\n+  return value;\n+}\n+\n export function del(id: string): boolean {\n+  cache.clear();\n   return rows.delete(id);\n }\n \n@@ -37,6 +53,7 @@ export function size(): number {\n \n export function clear(): void {\n   rows.clear();\n+  cache.clear();\n }\n \n export function sessions(): Session[] {"
+    }
+  ]
+}

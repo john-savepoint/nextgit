@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-38",
+  "intent": "Feature: add HttpError class to api module",
+  "files": [
+    {
+      "path": "src/api.ts",
+      "status": "modified",
+      "additions": 6,
+      "deletions": 0,
+      "patch": "diff --git a/src/api.ts b/src/api.ts\nindex 58eeb11..750e8b5 100644\n--- a/src/api.ts\n+++ b/src/api.ts\n@@ -14,6 +14,12 @@ export interface ApiResponse {\n }\n \n export type Handler = (req: ApiRequest) => ApiResponse;\n+export class HttpError extends Error {\n+  constructor(public status: number, message: string) {\n+    super(message);\n+    this.name = \"HttpError\";\n+  }\n+}\n \n const sessionId = (userId: string): string => `session:${userId}`;"
+    }
+  ]
+}

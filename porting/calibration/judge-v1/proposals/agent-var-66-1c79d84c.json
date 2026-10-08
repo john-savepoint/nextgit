@@ -1,0 +1,13 @@
+{
+  "repo": "agent-var-66",
+  "intent": "Feature: isFresh variant 16 for parameterized test case",
+  "files": [
+    {
+      "path": "src/store.ts",
+      "status": "modified",
+      "additions": 6,
+      "deletions": 0,
+      "patch": "diff --git a/src/store.ts b/src/store.ts\nindex bf9310a..013a1a2 100644\n--- a/src/store.ts\n+++ b/src/store.ts\n@@ -2,6 +2,12 @@\n import type { Session } from \"./auth.js\";\n \n export interface Row<T> {\n+\n+// Variant 66: isFresh\n+export function isFreshVariant16(): string {\n+  return \"variant-16\";\n+}\n+\n   id: string;\n   value: T;\n   updatedAt: number;"
+    }
+  ]
+}

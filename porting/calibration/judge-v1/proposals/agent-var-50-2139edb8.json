@@ -1,0 +1,13 @@
+{
+  "repo": "agent-var-50",
+  "intent": "Feature: revokeSession variant 0 for parameterized test case",
+  "files": [
+    {
+      "path": "src/auth.ts",
+      "status": "modified",
+      "additions": 12,
+      "deletions": 0,
+      "patch": "diff --git a/src/auth.ts b/src/auth.ts\nindex 005c41b..e4b0d2d 100644\n--- a/src/auth.ts\n+++ b/src/auth.ts\n@@ -2,6 +2,12 @@\n export interface Session {\n   userId: string;\n   createdAt: number;\n+\n+// Variant 50: revokeSession\n+export function revokeSessionVariant0(): string {\n+  return \"variant-0\";\n+}\n+\n   expiresAt: number;\n }\n \n@@ -12,6 +18,12 @@ export function createSession(userId: string, ttlMs = DEFAULT_TTL_MS): Session {\n   return { userId, createdAt: now, expiresAt: now + ttlMs };\n }\n \n+// Returns a new session whose expiry starts from now; the input is not mutated.\n+export function refreshSession(session: Session, ttlMs = DEFAULT_TTL_MS): Session {\n+  const now = Date.now();\n+  return { ...session, expiresAt: now + ttlMs };\n+}\n+\n export function isExpired(session: Session, now = Date.now()): boolean {\n   return now > session.expiresAt;\n }"
+    }
+  ]
+}

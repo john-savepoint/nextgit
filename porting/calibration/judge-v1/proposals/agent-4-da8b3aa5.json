@@ -1,0 +1,13 @@
+{
+  "repo": "agent-4",
+  "intent": "Feature: feature-flag module with isEnabled()",
+  "files": [
+    {
+      "path": "src/feature.ts",
+      "status": "added",
+      "additions": 11,
+      "deletions": 0,
+      "patch": "diff --git a/src/feature.ts b/src/feature.ts\nnew file mode 100644\nindex 0000000..e7996e4\n--- /dev/null\n+++ b/src/feature.ts\n@@ -0,0 +1,11 @@\n+// Feature flags — in-memory registry, single process. Unknown flags are off.\n+// Null prototype: arbitrary flag names can never collide with Object.prototype keys.\n+const flags: Record<string, boolean> = Object.create(null);\n+\n+export function setFlag(flag: string, enabled: boolean): void {\n+  flags[flag] = enabled;\n+}\n+\n+export function isEnabled(flag: string): boolean {\n+  return flags[flag] ?? false;\n+}"
+    }
+  ]
+}

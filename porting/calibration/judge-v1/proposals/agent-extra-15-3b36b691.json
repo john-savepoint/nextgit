@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-15",
+  "intent": "Feature: add logger.ts with structured logging",
+  "files": [
+    {
+      "path": "src/logger.ts",
+      "status": "added",
+      "additions": 7,
+      "deletions": 0,
+      "patch": "diff --git a/src/logger.ts b/src/logger.ts\nnew file mode 100644\nindex 0000000..6b87238\n--- /dev/null\n+++ b/src/logger.ts\n@@ -0,0 +1,7 @@\n+// Minimal structured logger. Writes to stderr with JSON.\n+export type Level = \"debug\" | \"info\" | \"warn\" | \"error\";\n+\n+export function log(level: Level, msg: string, ctx: Record<string, unknown> = {}): void {\n+  const line = JSON.stringify({ level, msg, ...ctx, ts: Date.now() });\n+  process.stderr.write(line + \"\\n\");\n+}\n\\ No newline at end of file"
+    }
+  ]
+}
