@@ -168,6 +168,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       await waitHits("/land", 1, 5000);
       R.landTs = fetchTimes("/land")[0];
       await sleep(1500); // settle land-triggered reloads + at least one periodic tick
+
+      // Phase 3 — manual refresh: click the refresh button and prove both endpoints
+      // reload immediately (within 300ms of each other), anchored strictly after land.
+      const propsBefore = hits("/proposals");
+      const evBefore = hits("/events");
+      R.propsBeforeManual = propsBefore;
+      R.evBeforeManual = evBefore;
+      const btn = document.getElementById("btn-manual-refresh");
+      if (btn) { btn.click(); }
+      else { R.manualBtnMissing = true; }
+      // Wait for exactly one new fetch on each endpoint within a 3s budget.
+      await waitHits("/proposals", propsBefore + 1, 3000);
+      await waitHits("/events", evBefore + 1, 3000);
+      R.manualPropTs = fetchTimes("/proposals")[propsBefore];
+      R.manualEventsTs = fetchTimes("/events")[evBefore];
     }
 
     // Snapshot the converged card state.
@@ -378,6 +393,24 @@ const contract = (obs) => {
   check("C3 landed-banner text exact ('landed — nothing pending')", obs.landedText === "landed — nothing pending", `text=${obs.landedText}`);
   check("C4 landed badge class is badge badge-neutral", obs.landedBadgeCls === "badge badge-neutral", `cls=${obs.landedBadgeCls}`);
   check("C5 landed badge text is 'landed'", obs.badgeText === "landed", `text=${obs.badgeText}`);
+
+  // ---- Leg D: manual refresh reloads both endpoints immediately ----
+  check("D1 manual refresh fired exactly one new /proposals fetch",
+    obs.propsBeforeManual != null && (propTimes.length - obs.propsBeforeManual) === 1);
+  check("D2 manual refresh fired exactly one new /events fetch",
+    obs.evBeforeManual != null && (evTimes.length - obs.evBeforeManual) === 1);
+  if (obs.manualPropTs != null && obs.manualEventsTs != null) {
+    check("D3 manual /proposals and /events fetched within 300ms of each other",
+      Math.abs(obs.manualEventsTs - obs.manualPropTs) < 300,
+      `delta=${obs.manualEventsTs - obs.manualPropTs}ms`);
+    check("D4 manual /proposals fetch occurred after the land interaction (not a stale pre-land fetch)",
+      obs.manualPropTs > (obs.landTs || 0) + 1000,
+      `manualPropTs=${obs.manualPropTs} landTs=${obs.landTs}`);
+  } else {
+    check("D3 manual refresh timing (insufficient observations)", false,
+      `manualPropTs=${obs.manualPropTs} manualEventsTs=${obs.manualEventsTs}`);
+    check("D4 manual refresh ordering (insufficient observations)", false);
+  }
 };
 
 try {
