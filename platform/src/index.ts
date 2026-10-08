@@ -831,6 +831,40 @@ async function foldHashOf(files: LandFile[]): Promise<string> {
 function badRequest(error: string): Response {
   return Response.json({ ok: false, error }, { status: 400 });
 }
+/** Validate a repo name against the same charset /land and /judge enforce. */
+function validateRepoName(name: string | null): string | Response {
+  if (!name) return badRequest("repo parameter required");
+  if (!REPO_NAME_RE.test(name)) return badRequest(`invalid repo name: ${JSON.stringify(name)}`);
+  return name;
+}
+
+/** Validate a ref against the same charset /land and /judge enforce. */
+function validateRef(ref: string | null): string | Response {
+  const value = ref ?? "main";
+  if (typeof value !== "string" || !REF_RE.test(value) || value.includes("..") || value.startsWith("/") || value.endsWith("/")) {
+    return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+  }
+  return value;
+}
+
+/** Validate an optional comma-separated repo list (for /proposals and /merge). */
+function validateRepoList(
+  reposParam: string | null,
+  requireNonEmpty: boolean,
+): string[] | null | Response {
+  const list = reposParam
+    ? reposParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : null;
+  if (!list || !list.length) {
+    if (requireNonEmpty) return badRequest("repos parameter required");
+    return list; // null — signals auto-discover
+  }
+  if (list.length > MAX_LAND_REPOS) return badRequest(`at most ${MAX_LAND_REPOS} repos per request`);
+  for (const r of list) {
+    if (!REPO_NAME_RE.test(r)) return badRequest(`invalid repo name: ${JSON.stringify(r)}`);
+  }
+  return list;
+}
 
 interface LandRequestBody {
   base?: unknown;
@@ -1295,45 +1329,55 @@ export default {
       }
 
       if (url.pathname === "/changes" && request.method === "GET") {
-        const repo = url.searchParams.get("repo");
-        if (!repo) return Response.json({ ok: false, error: "repo parameter required" }, { status: 400 });
-        const base = url.searchParams.get("base") ?? "demo";
-        const ref = url.searchParams.get("ref") ?? "main";
-        const baseRef = url.searchParams.get("baseRef") ?? "main";
-        const changeSet = await computeChangeSet(env, base, baseRef, repo, ref);
+        const repoResult = validateRepoName(url.searchParams.get("repo"));
+        if (repoResult instanceof Response) return repoResult;
+        const baseResult = validateRepoName(url.searchParams.get("base") ?? "demo");
+        if (baseResult instanceof Response) return baseResult;
+        const refResult = validateRef(url.searchParams.get("ref"));
+        if (refResult instanceof Response) return refResult;
+        const baseRefResult = validateRef(url.searchParams.get("baseRef"));
+        if (baseRefResult instanceof Response) return baseRefResult;
+        const changeSet = await computeChangeSet(env, baseResult, baseRefResult, repoResult, refResult);
         return Response.json({ ok: true, changeSet });
       }
 
       if (url.pathname === "/proposals" && request.method === "GET") {
-        const base = url.searchParams.get("base") ?? "demo";
-        const ref = url.searchParams.get("ref") ?? "main";
-        const baseRef = url.searchParams.get("baseRef") ?? "main";
-        const reposParam = url.searchParams.get("repos");
-        const repoList = reposParam ? reposParam.split(",").map((s) => s.trim()).filter(Boolean) : null;
+        const baseResult = validateRepoName(url.searchParams.get("base") ?? "demo");
+        if (baseResult instanceof Response) return baseResult;
+        const refResult = validateRef(url.searchParams.get("ref"));
+        if (refResult instanceof Response) return refResult;
+        const baseRefResult = validateRef(url.searchParams.get("baseRef"));
+        if (baseRefResult instanceof Response) return baseRefResult;
+        const reposResult = validateRepoList(url.searchParams.get("repos"), false);
+        if (reposResult instanceof Response) return reposResult;
+        const repoList = reposResult as string[] | null;
         // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
         // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
         // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
         // cached set by key change; TTL bounds staleness if invalidation is ever missed.
         const gen = (await env.LIVE.get("cache:gen")) ?? "0";
-        const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
+        const cacheKey = `cache:proposals:${gen}:${baseResult}:${baseRefResult}:${refResult}:${repoList ? repoList.join(",") : "*"}`;
         try {
           const hit = await env.LIVE.get(cacheKey);
           if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
         } catch { /* cache read is best-effort — fall through to compute */ }
-        const result = await computeProposals(env, base, baseRef, ref, repoList);
+        const result = await computeProposals(env, baseResult, baseRefResult, refResult, repoList);
         const body = JSON.stringify({ ok: true, ...result });
         try { await env.LIVE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
         return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
       }
 
       if (url.pathname === "/merge" && request.method === "GET") {
-        const base = url.searchParams.get("base") ?? "demo";
-        const ref = url.searchParams.get("ref") ?? "main";
-        const baseRef = url.searchParams.get("baseRef") ?? "main";
-        const reposParam = url.searchParams.get("repos");
-        const repoList = reposParam ? reposParam.split(",").map((s) => s.trim()).filter(Boolean) : null;
-        if (!repoList || !repoList.length) return Response.json({ ok: false, error: "repos parameter required" }, { status: 400 });
-        const merge = await computeMerge(env, base, baseRef, repoList, ref);
+        const baseResult = validateRepoName(url.searchParams.get("base") ?? "demo");
+        if (baseResult instanceof Response) return baseResult;
+        const refResult = validateRef(url.searchParams.get("ref"));
+        if (refResult instanceof Response) return refResult;
+        const baseRefResult = validateRef(url.searchParams.get("baseRef"));
+        if (baseRefResult instanceof Response) return baseRefResult;
+        const reposResult = validateRepoList(url.searchParams.get("repos"), true);
+        if (reposResult instanceof Response) return reposResult;
+        const repoList = reposResult as string[];
+        const merge = await computeMerge(env, baseResult, baseRefResult, repoList, refResult);
         return Response.json({ ok: true, merge });
       }
 
