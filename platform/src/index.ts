@@ -25,6 +25,7 @@ import {
   buildJudgeRequest,
   validateJudgeResponse,
   judgeRateAllow,
+  scrubFreeText,           // NEW
   type JudgeRepoInput,
 } from "./judge";
 interface Env {
@@ -472,7 +473,7 @@ async function computeChangeSet(
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
 
-  if (intent) for (const f of files) if (!isSecretPath(f.path)) f.intent = intent;
+  if (intent) for (const f of files) if (!isSecretPath(f.path)) f.intent = scrubFreeText(intent);
 
   const stats = {
     files: files.length,
@@ -682,7 +683,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
         fileIndex.set(f.path, entries);
       }
     } catch (err) {
-      proposals.push({ repo: name, error: String((err as Error)?.message ?? err) });
+      proposals.push({ repo: name, error: scrubFreeText(String((err as Error)?.message ?? err)) });
     }
   }
 
@@ -1126,7 +1127,7 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
           { status: 409 },
         );
       }
-      const detail = String((err as Error)?.message ?? err);
+      const detail = scrubFreeText(String((err as Error)?.message ?? err));
       // Credential-free failure: no token, no shell snippets. The caller may
       // retry, preview again, or land through the sanctioned control plane —
       // never via a handed-out write credential (spine AD-9).
@@ -1351,7 +1352,7 @@ export default {
       // Everything else is the triage UI from platform/ui via wrangler assets.
       return env.ASSETS.fetch(request);
     } catch (err) {
-      return Response.json({ ok: false, error: String((err as Error)?.message ?? err) }, { status: 500 });
+      return Response.json({ ok: false, error: scrubFreeText(String((err as Error)?.message ?? err)) }, { status: 500 });
     }
   },
 
