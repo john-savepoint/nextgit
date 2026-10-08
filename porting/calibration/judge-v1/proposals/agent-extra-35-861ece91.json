@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-35",
+  "intent": "Fix: handle empty input in truncate",
+  "files": [
+    {
+      "path": "src/utils.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 0,
+      "patch": "diff --git a/src/utils.ts b/src/utils.ts\nindex 41ede05..89cb411 100644\n--- a/src/utils.ts\n+++ b/src/utils.ts\n@@ -4,5 +4,6 @@ export function slugify(input: string): string {\n }\n \n export function truncate(input: string, max = 80): string {\n+  if (!input) return \"\";\n   return input.length <= max ? input : input.slice(0, max - 1) + \"\\u2026\";\n }"
+    }
+  ]
+}

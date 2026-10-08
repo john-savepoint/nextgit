@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-29",
+  "intent": "Perf: cache invalidation on store mutations",
+  "files": [
+    {
+      "path": "src/store.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 0,
+      "patch": "diff --git a/src/store.ts b/src/store.ts\nindex bf9310a..7739933 100644\n--- a/src/store.ts\n+++ b/src/store.ts\n@@ -8,6 +8,7 @@ export interface Row<T> {\n }\n \n const rows = new Map<string, Row<unknown>>();\n+const cache = new Map<string, unknown>();\n \n export function put<T>(id: string, value: T): Row<T> {\n   const row: Row<T> = { id, value, updatedAt: Date.now() };"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-36",
+  "intent": "Feature: add metrics.ts with inc/get/snapshot counters",
+  "files": [
+    {
+      "path": "src/metrics.ts",
+      "status": "added",
+      "additions": 14,
+      "deletions": 0,
+      "patch": "diff --git a/src/metrics.ts b/src/metrics.ts\nnew file mode 100644\nindex 0000000..245d959\n--- /dev/null\n+++ b/src/metrics.ts\n@@ -0,0 +1,14 @@\n+// Lightweight metrics counter. No allocations on the hot path.\n+const counters = new Map<string, number>();\n+\n+export function inc(name: string, by = 1): void {\n+  counters.set(name, (counters.get(name) ?? 0) + by);\n+}\n+\n+export function get(name: string): number {\n+  return counters.get(name) ?? 0;\n+}\n+\n+export function snapshot(): Record<string, number> {\n+  return Object.fromEntries(counters);\n+}\n\\ No newline at end of file"
+    }
+  ]
+}

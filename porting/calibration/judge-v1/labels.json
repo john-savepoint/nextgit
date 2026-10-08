@@ -1,0 +1,713 @@
+{
+  "setVersion": "v1",
+  "proposals": [
+    {
+      "id": "agent-1-f401b219",
+      "repo": "agent-1",
+      "fixture": "proposals/agent-1-f401b219.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.773Z",
+      "notes": "new pure function returning updated session, doesn't touch auth validation logic"
+    },
+    {
+      "id": "agent-2-cff80a08",
+      "repo": "agent-2",
+      "fixture": "proposals/agent-2-cff80a08.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.773Z",
+      "notes": "modifies existing expiry check with a security-relevant parameter"
+    },
+    {
+      "id": "agent-3-e3be4aff",
+      "repo": "agent-3",
+      "fixture": "proposals/agent-3-e3be4aff.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "pure perf addition, cache invalidation on put/del"
+    },
+    {
+      "id": "agent-4-da8b3aa5",
+      "repo": "agent-4",
+      "fixture": "proposals/agent-4-da8b3aa5.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "new feature-flag module with isEnabled()"
+    },
+    {
+      "id": "agent-extra-10-67464097",
+      "repo": "agent-extra-10",
+      "fixture": "proposals/agent-extra-10-67464097.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #11"
+    },
+    {
+      "id": "agent-extra-13-96e19416",
+      "repo": "agent-extra-13",
+      "fixture": "proposals/agent-extra-13-96e19416.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #14"
+    },
+    {
+      "id": "agent-extra-14-bee55d85",
+      "repo": "agent-extra-14",
+      "fixture": "proposals/agent-extra-14-bee55d85.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #15"
+    },
+    {
+      "id": "agent-extra-15-3b36b691",
+      "repo": "agent-extra-15",
+      "fixture": "proposals/agent-extra-15-3b36b691.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #16"
+    },
+    {
+      "id": "agent-extra-16-7a471b80",
+      "repo": "agent-extra-16",
+      "fixture": "proposals/agent-extra-16-7a471b80.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #17"
+    },
+    {
+      "id": "agent-extra-17-1c7e7a2d",
+      "repo": "agent-extra-17",
+      "fixture": "proposals/agent-extra-17-1c7e7a2d.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #18"
+    },
+    {
+      "id": "agent-extra-19-d2ba82a2",
+      "repo": "agent-extra-19",
+      "fixture": "proposals/agent-extra-19-d2ba82a2.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #2"
+    },
+    {
+      "id": "agent-extra-20-89f06a3e",
+      "repo": "agent-extra-20",
+      "fixture": "proposals/agent-extra-20-89f06a3e.json",
+      "label": {
+        "risk": "focused",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #3"
+    },
+    {
+      "id": "agent-extra-21-957948ae",
+      "repo": "agent-extra-21",
+      "fixture": "proposals/agent-extra-21-957948ae.json",
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #4"
+    },
+    {
+      "id": "agent-extra-22-e28d7fe8",
+      "repo": "agent-extra-22",
+      "fixture": "proposals/agent-extra-22-e28d7fe8.json",
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #5"
+    },
+    {
+      "id": "agent-extra-25-feb9eedb",
+      "repo": "agent-extra-25",
+      "fixture": "proposals/agent-extra-25-feb9eedb.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #8"
+    },
+    {
+      "id": "agent-extra-26-7a1a0927",
+      "repo": "agent-extra-26",
+      "fixture": "proposals/agent-extra-26-7a1a0927.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #9"
+    },
+    {
+      "id": "agent-extra-29-9551a13e",
+      "repo": "agent-extra-29",
+      "fixture": "proposals/agent-extra-29-9551a13e.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #12"
+    },
+    {
+      "id": "agent-extra-3-06067ca9",
+      "repo": "agent-extra-3",
+      "fixture": "proposals/agent-extra-3-06067ca9.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #4"
+    },
+    {
+      "id": "agent-extra-31-af72339a",
+      "repo": "agent-extra-31",
+      "fixture": "proposals/agent-extra-31-af72339a.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #14"
+    },
+    {
+      "id": "agent-extra-32-bcebd0f8",
+      "repo": "agent-extra-32",
+      "fixture": "proposals/agent-extra-32-bcebd0f8.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #15"
+    },
+    {
+      "id": "agent-extra-35-861ece91",
+      "repo": "agent-extra-35",
+      "fixture": "proposals/agent-extra-35-861ece91.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #18"
+    },
+    {
+      "id": "agent-extra-36-6c867b09",
+      "repo": "agent-extra-36",
+      "fixture": "proposals/agent-extra-36-6c867b09.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #1"
+    },
+    {
+      "id": "agent-extra-37-b32ba264",
+      "repo": "agent-extra-37",
+      "fixture": "proposals/agent-extra-37-b32ba264.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #2"
+    },
+    {
+      "id": "agent-extra-38-f1148bc6",
+      "repo": "agent-extra-38",
+      "fixture": "proposals/agent-extra-38-f1148bc6.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #3"
+    },
+    {
+      "id": "agent-extra-39-913eb7f6",
+      "repo": "agent-extra-39",
+      "fixture": "proposals/agent-extra-39-913eb7f6.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #4"
+    },
+    {
+      "id": "agent-extra-4-9a807196",
+      "repo": "agent-extra-4",
+      "fixture": "proposals/agent-extra-4-9a807196.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #5"
+    },
+    {
+      "id": "agent-extra-41-f7fe8952",
+      "repo": "agent-extra-41",
+      "fixture": "proposals/agent-extra-41-f7fe8952.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #6"
+    },
+    {
+      "id": "agent-extra-42-2fcc354b",
+      "repo": "agent-extra-42",
+      "fixture": "proposals/agent-extra-42-2fcc354b.json",
+      "label": {
+        "risk": "focused",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #7"
+    },
+    {
+      "id": "agent-extra-43-7363ccd5",
+      "repo": "agent-extra-43",
+      "fixture": "proposals/agent-extra-43-7363ccd5.json",
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #8"
+    },
+    {
+      "id": "agent-extra-44-56c0b63e",
+      "repo": "agent-extra-44",
+      "fixture": "proposals/agent-extra-44-56c0b63e.json",
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #9"
+    },
+    {
+      "id": "agent-extra-47-7615903b",
+      "repo": "agent-extra-47",
+      "fixture": "proposals/agent-extra-47-7615903b.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #12"
+    },
+    {
+      "id": "agent-extra-48-10cea730",
+      "repo": "agent-extra-48",
+      "fixture": "proposals/agent-extra-48-10cea730.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #13"
+    },
+    {
+      "id": "agent-extra-7-a86cacc7",
+      "repo": "agent-extra-7",
+      "fixture": "proposals/agent-extra-7-a86cacc7.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #8"
+    },
+    {
+      "id": "agent-extra-9-4d9dfe38",
+      "repo": "agent-extra-9",
+      "fixture": "proposals/agent-extra-9-4d9dfe38.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #10"
+    },
+    {
+      "id": "agent-extra-secret-1-6485585d",
+      "repo": "agent-extra-secret-1",
+      "fixture": "proposals/agent-extra-secret-1-6485585d.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "adds config/.env (secret-class) — repo skipped by judge"
+    },
+    {
+      "id": "agent-extra-secret-2-458b7a42",
+      "repo": "agent-extra-secret-2",
+      "fixture": "proposals/agent-extra-secret-2-458b7a42.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "adds secrets.json (secret-class) — repo skipped by judge"
+    },
+    {
+      "id": "agent-extra-secret-3-48f666b1",
+      "repo": "agent-extra-secret-3",
+      "fixture": "proposals/agent-extra-secret-3-48f666b1.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "adds .env (secret-class) — repo skipped by judge"
+    },
+    {
+      "id": "agent-extra-secret-4-3052a0f5",
+      "repo": "agent-extra-secret-4",
+      "fixture": "proposals/agent-extra-secret-4-3052a0f5.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "adds src/secrets/db.ts (secret-class) — repo skipped by judge"
+    },
+    {
+      "id": "agent-extra-secret-5-9ce7c7fd",
+      "repo": "agent-extra-secret-5",
+      "fixture": "proposals/agent-extra-secret-5-9ce7c7fd.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "adds config/.dev.vars (secret-class) — repo skipped by judge"
+    },
+    {
+      "id": "agent-var-50-2139edb8",
+      "repo": "agent-var-50",
+      "fixture": "proposals/agent-var-50-2139edb8.json",
+      "label": {
+        "risk": "routine",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #15"
+    },
+    {
+      "id": "agent-var-51-26762269",
+      "repo": "agent-var-51",
+      "fixture": "proposals/agent-var-51-26762269.json",
+      "label": {
+        "risk": "focused",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #16"
+    },
+    {
+      "id": "agent-var-52-910b59c1",
+      "repo": "agent-var-52",
+      "fixture": "proposals/agent-var-52-910b59c1.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #17"
+    },
+    {
+      "id": "agent-var-53-770980a5",
+      "repo": "agent-var-53",
+      "fixture": "proposals/agent-var-53-770980a5.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #18"
+    },
+    {
+      "id": "agent-var-54-67fed67e",
+      "repo": "agent-var-54",
+      "fixture": "proposals/agent-var-54-67fed67e.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #1"
+    },
+    {
+      "id": "agent-var-55-062f645c",
+      "repo": "agent-var-55",
+      "fixture": "proposals/agent-var-55-062f645c.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #2"
+    },
+    {
+      "id": "agent-var-56-c9f8fe77",
+      "repo": "agent-var-56",
+      "fixture": "proposals/agent-var-56-c9f8fe77.json",
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #3"
+    },
+    {
+      "id": "agent-var-57-50a61c78",
+      "repo": "agent-var-57",
+      "fixture": "proposals/agent-var-57-50a61c78.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #4"
+    },
+    {
+      "id": "agent-var-58-86e647e0",
+      "repo": "agent-var-58",
+      "fixture": "proposals/agent-var-58-86e647e0.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #5"
+    },
+    {
+      "id": "agent-var-59-4fcb72cb",
+      "repo": "agent-var-59",
+      "fixture": "proposals/agent-var-59-4fcb72cb.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #6"
+    },
+    {
+      "id": "agent-var-60-19cd47f3",
+      "repo": "agent-var-60",
+      "fixture": "proposals/agent-var-60-19cd47f3.json",
+      "label": {
+        "risk": "focused",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #7"
+    },
+    {
+      "id": "agent-var-61-a1dc964b",
+      "repo": "agent-var-61",
+      "fixture": "proposals/agent-var-61-a1dc964b.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #8"
+    },
+    {
+      "id": "agent-var-62-da183dc8",
+      "repo": "agent-var-62",
+      "fixture": "proposals/agent-var-62-da183dc8.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #9"
+    },
+    {
+      "id": "agent-var-63-c3756bbf",
+      "repo": "agent-var-63",
+      "fixture": "proposals/agent-var-63-c3756bbf.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #10"
+    },
+    {
+      "id": "agent-var-64-5cff77f6",
+      "repo": "agent-var-64",
+      "fixture": "proposals/agent-var-64-5cff77f6.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #11"
+    },
+    {
+      "id": "agent-var-65-727629f3",
+      "repo": "agent-var-65",
+      "fixture": "proposals/agent-var-65-727629f3.json",
+      "label": {
+        "risk": "routine",
+        "intent": "contradicts"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #12"
+    },
+    {
+      "id": "agent-var-66-1c79d84c",
+      "repo": "agent-var-66",
+      "fixture": "proposals/agent-var-66-1c79d84c.json",
+      "label": {
+        "risk": "focused",
+        "intent": "insufficient"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #13"
+    },
+    {
+      "id": "agent-var-67-71eaa6f7",
+      "repo": "agent-var-67",
+      "fixture": "proposals/agent-var-67-71eaa6f7.json",
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #14"
+    },
+    {
+      "id": "agent-var-68-af660764",
+      "repo": "agent-var-68",
+      "fixture": "proposals/agent-var-68-af660764.json",
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #15"
+    },
+    {
+      "id": "agent-var-69-6bd0bb5b",
+      "repo": "agent-var-69",
+      "fixture": "proposals/agent-var-69-6bd0bb5b.json",
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "labeledBy": "gen-labels",
+      "labeledAt": "2026-10-08T17:35:41.774Z",
+      "notes": "generated variant of agents.mjs transform #16"
+    }
+  ]
+}
