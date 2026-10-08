@@ -2,16 +2,21 @@
 #
 # Layering: defaults <- global (~/.omp/agent/config.yml) <- PROJECT (this file) <- CLI <- overrides.
 # Scope: this file affects ONLY this project. Global roles/agents are untouched.
-# Split: WORKER agents run on the free Laguna S 2.1 model; GATE lenses stay on deepseek-v4.1-flash
-# (explicitly pinned here so this project's gates never drift with global config changes).
+# Routing: EVERY agent runs on the free Laguna S 2.1 model (provider-prefixed id —
+# bare `poolside/...` does NOT resolve; `commandcode/poolside/laguna-s-2.1-free` is the
+# catalog-verified id, verified live 2026-10-08 via probe spawns).
+#
+# NOTE (the override trap): `agentModelOverrides` in config BEATS per-agent `model:` fields in
+# agent definitions and /agents UI overrides — those get overwritten on every resolution.
+# Change models HERE (or in the global config), never in agent files alone.
 task:
   agentModelOverrides:
-    # --- workers: free laguna ---
+    # workers
     plan-agent: commandcode/poolside/laguna-s-2.1-free:xhigh
     wf-implementer: commandcode/poolside/laguna-s-2.1-free:xhigh
     wf-verifier: commandcode/poolside/laguna-s-2.1-free:xhigh
-    heal-researcher: commandcode/poolside/laguna-s-2.1-free:xhigh
     wf-researcher: commandcode/poolside/laguna-s-2.1-free:xhigh
+    heal-researcher: commandcode/poolside/laguna-s-2.1-free:xhigh
     task: commandcode/poolside/laguna-s-2.1-free:xhigh
     scout: commandcode/poolside/laguna-s-2.1-free:xhigh
     sonic: commandcode/poolside/laguna-s-2.1-free:xhigh
@@ -21,10 +26,10 @@ task:
     corpus-researcher: commandcode/poolside/laguna-s-2.1-free:xhigh
     librarian: commandcode/poolside/laguna-s-2.1-free:xhigh
     laguna: commandcode/poolside/laguna-s-2.1-free:xhigh
-    # --- gates: deepseek flash (pinned) ---
-    security-reviewer: commandcode/deepseek/deepseek-v4.1-flash:max
-    senior-reviewer: commandcode/deepseek/deepseek-v4.1-flash:max
-    reviewer: commandcode/deepseek/deepseek-v4.1-flash:max
-    compliance-reviewer: commandcode/deepseek/deepseek-v4.1-flash:max
-    parity-auditor: commandcode/deepseek/deepseek-v4.1-flash:max
-    designer: commandcode/deepseek/deepseek-v4.1-flash:max
+    # gates
+    security-reviewer: commandcode/poolside/laguna-s-2.1-free:xhigh
+    senior-reviewer: commandcode/poolside/laguna-s-2.1-free:xhigh
+    reviewer: commandcode/poolside/laguna-s-2.1-free:xhigh
+    compliance-reviewer: commandcode/poolside/laguna-s-2.1-free:xhigh
+    parity-auditor: commandcode/poolside/laguna-s-2.1-free:xhigh
+    designer: commandcode/poolside/laguna-s-2.1-free:xhigh
