@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // land-hardening.probe.mjs — LIVE probe for the /land hardening (AD-3).
 // Scratch chain ONLY: REST-fork demo -> demo-lh-base -> agent-lh-1; asserts:
-//  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash}
+//  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash,checks,results,mergedSha,testedSha,artifactRef,at}
 //      and the base remote's ref equals evidence.commit; (b) re-land with
 //      refreshed reviewed heads -> 409 no-changes; (c) stale reviewed heads ->
 //      409 stale (proposal-head + base-head variants); (d) four-way concurrent
@@ -217,12 +217,23 @@ try {
   const a = await land({ base: BASE_REPO, repos: [PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: H0, heads: { [PROPOSAL_REPO]: C1 } } });
   const ev = a.json?.evidence ?? {};
   check("(a) 200 ok", a.status === 200 && a.json?.ok === true);
-  check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash"]), JSON.stringify(Object.keys(ev)));
+  check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash", "checks", "results", "mergedSha", "testedSha", "artifactRef", "at"]), JSON.stringify(Object.keys(ev)));
   check("(a) evidence.repos", JSON.stringify(ev.repos) === JSON.stringify([PROPOSAL_REPO]));
   check("(a) evidence.commit === landed.commit", !!ev.commit && ev.commit === a.json?.landed?.commit);
   check("(a) ancestor = fork point H0", ev.ancestor?.[PROPOSAL_REPO] === H0, JSON.stringify(ev.ancestor));
   check("(a) heads = fold inputs", ev.heads?.base === H0 && ev.heads?.repos?.[PROPOSAL_REPO] === C1, JSON.stringify(ev.heads));
   check("(a) foldHash sha256 hex", /^[0-9a-f]{64}$/.test(String(ev.foldHash)), String(ev.foldHash));
+  // (a) extended evidence (FR-18): the server's content-identity check is appended
+  // to the validation ledger; with no `validation` supplied by the caller,
+  // testedSha is null and the equality check result is "not-recorded".
+  const MERGED_SHA_CHECK = "merged-sha-equals-tested-sha";
+  check("(a) checks includes merged-sha-equals-tested-sha last", Array.isArray(ev.checks) && ev.checks[ev.checks.length - 1] === MERGED_SHA_CHECK, JSON.stringify(ev.checks));
+  check("(a) results pairs one-to-one with checks", Array.isArray(ev.results) && ev.results.length === ev.checks.length, JSON.stringify(ev.results));
+  check("(a) equality check result is not-recorded (no validation supplied)", ev.results[ev.results.length - 1] === "not-recorded", JSON.stringify(ev.results));
+  check("(a) mergedSha === foldHash (sha256 hex)", typeof ev.mergedSha === "string" && ev.mergedSha === ev.foldHash && /^[0-9a-f]{64}$/.test(ev.mergedSha), String(ev.mergedSha));
+  check("(a) testedSha is null (no validation supplied)", ev.testedSha === null, String(ev.testedSha));
+  check("(a) artifactRef is null (no validation supplied)", ev.artifactRef === null, String(ev.artifactRef));
+  check("(a) at is an ISO timestamp", typeof ev.at === "string" && !Number.isNaN(Date.parse(ev.at)), String(ev.at));
   check("(a) landed.files has lh-probe-1.txt", Array.isArray(a.json?.landed?.files) && a.json.landed.files.includes("lh-probe-1.txt"));
   const C2 = ev.commit;
   check("(a) base remote ref === evidence.commit", (await lsBase()) === C2);
