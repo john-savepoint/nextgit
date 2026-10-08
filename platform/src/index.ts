@@ -1019,7 +1019,7 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
  return { base, repos, baseRef, ref, reviewed, validation };
 }
 
-async function handleLand(request: Request, env: Env): Promise<Response> {
+async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
  const parsed = parseLandBody(await request.json().catch(() => null));
  if (parsed instanceof Response) return parsed;
  const { base, repos, baseRef, ref, reviewed, validation } = parsed;
@@ -1182,8 +1182,17 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
    // the feed, not the land (AD-6: the consumer is the sole recorder; this
    // call is a best-effort duplicate). Mirrors the queue consumer at line ~1174
    // where ack() commits progress.
-   recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at })
-    .catch((e) => console.log("feed-lag", String(e)));
+   // ctx.waitUntil keeps the cache:gen bump alive past the Response boundary
+   // (cache-invalidation-fireforget HIGH finding; matches the scheduled handler idiom).
+   ctx.waitUntil(
+    (async () => {
+     try {
+      await recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at });
+     } catch (e) {
+      console.log("feed-lag", String(e));
+     }
+    })(),
+   );
    return Response.json({ ok: true, landed, evidence });
   } catch (err) {
    if (err instanceof BaseMovedError) {
@@ -1380,19 +1389,19 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
 const COMMIT_RE = /^[0-9a-f]{40}$/;
 
 async function handleLandingsRead(commit: string, env: Env): Promise<Response> {
-  if (!COMMIT_RE.test(commit)) {
-    return badRequest("bad-request");
-  }
-  const record = await env.LIVE.get(`${LANDING_KEY_PREFIX}${commit}`);
-  if (record === null) {
-    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  }
-  const parsed = JSON.parse(record) as { landed: object; evidence: object };
-  return Response.json({ ok: true, landed: parsed.landed, evidence: parsed.evidence });
+ if (!COMMIT_RE.test(commit)) {
+  return badRequest("bad-request");
+ }
+ const record = await env.LIVE.get(`${LANDING_KEY_PREFIX}${commit}`);
+ if (record === null) {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const parsed = JSON.parse(record) as { landed: object; evidence: object };
+ return Response.json({ ok: true, landed: parsed.landed, evidence: parsed.evidence });
 }
 
 export default {
- async fetch(request: Request, env: Env): Promise<Response> {
+ async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   try {
    if (url.pathname === "/health") {
@@ -1418,7 +1427,7 @@ export default {
     // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
     // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
     // cached set by key change; TTL bounds staleness if invalidation is ever missed.
-    const gen = (await env.LIVE.get("cache:gen")) ?? "0";
+    const gen = (await env.LIVE.get("cache:gen").catch(() => null)) ?? "0";
     const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
     try {
      const hit = await env.LIVE.get(cacheKey);
@@ -1440,7 +1449,7 @@ export default {
    }
 
    if (url.pathname === "/land" && request.method === "POST") {
-    return await handleLand(request, env);
+    return await handleLand(request, env, ctx);
    }
 
    if (url.pathname === "/judge" && request.method === "POST") {
