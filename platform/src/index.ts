@@ -1391,8 +1391,12 @@ export default {
           at: new Date().toISOString(),
         }),
       );
+      const rawType = event?.type;
+      const normalizedType = rawType?.startsWith("cf.artifacts.repo")
+        ? rawType.replace("cf.artifacts.", "")
+        : rawType;
       await recordEvent(env, {
-        type: event?.type,
+        type: normalizedType,
         repo: event?.source?.repoName,
         ref: event?.payload?.ref,
         after: event?.payload?.after,
