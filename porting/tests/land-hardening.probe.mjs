@@ -272,6 +272,13 @@ try {
   check("(c) stale c1 no credential field", !credRe.test(JSON.stringify(c1.json)));
   check("(c) stale c2 no credential field", !credRe.test(JSON.stringify(c2.json)));
 
+  // (c-replay) a re-land with the same reviewed heads is refused (no-changes) —
+  // the base ref cannot be advanced again by replaying the same fold. This proves
+  // refused lands push nothing and cannot be replayed.
+  const replayRes = await land({ base: BASE_REPO, repos: [PROPOSAL_REPO], reviewed: { baseHead: C2, heads: { [PROPOSAL_REPO]: C1 } } });
+  check("(c-replay) re-land with same reviewed heads -> 409 no-changes", replayRes.status === 409 && replayRes.json?.error === "no-changes", JSON.stringify(replayRes.json));
+  check("(c-replay) base ref still === evidence.commit (no replay)", (await lsBase()) === C2);
+
   // (d) four-way land race: identical reviewed heads, four requests in flight.
   // Exactly one push may win; every loser must be refused with a 409
   // (base-moved — the pre-push re-read / push witness; or stale — the
