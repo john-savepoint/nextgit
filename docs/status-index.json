@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-08T04:07:31.528Z",
-  "head": "bf1531f",
+  "generatedAt": "2026-10-08T15:36:02.732Z",
+  "head": "9c172a0",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-08 ",
     "branch": "main",
-    "lastCommit": "0a65d3b",
+    "lastCommit": "9c172a0",
     "standingRedSet": null
   },
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 567,
+      "pending": 553,
       "partial": 1,
-      "done": 93
+      "done": 107
     },
     "items": [
       {
@@ -2265,62 +2265,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Honor prefers-reduced-motion across the triage app"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Verify degrade-never-fake: banner, sticky panels, silent ticker, honest landing"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove event debounce and land-triggered reload convergence"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Prove the change-set carries the per-fork commit list"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the merge modal renders merged text, conflict text, withheld notice and the empty/error states"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove in-Worker change-set work stays within the request budget and clones only on /land"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add per-fork commit list to /changes"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Render withheld-secret and conflict card states with Land disabled"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Serialize lands with a Durable Object lease"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Extend the landing record: checks, results, merged/tested hashes, artifact ref"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Render the landing counts: landed"
       },
       {
         "status": "pending",
@@ -2331,21 +2276,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Serve the landing record at GET /landings/{commit}"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove card confirm → landing… two-step and the in-flight banner copy"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove withheld-secret, conflict, and generic failure banners"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove /land needs no caller credentials and leaks no token"
       },
       {
         "status": "pending",

@@ -1,7 +1,7 @@
 # State — NextGit
 
-**Last updated:** 2026-10-08 (EPICS WAVE 2 — the three phantom-destroyed E1 orders RE-RAN and landed on the fixed merge-back (7 files +835/−10, 6 commits, parity SHIP); batch-level parity+merged gates now run concurrently; deployed `3855d934` + demo-verify 25/25; progress 20/148 — next: keep waving)
-**Branch:** `main` · **Last commit:** `0a65d3b` (order merges from batch 23-10-14) — this record folds in next
+**Last updated:** 2026-10-08 (FLEET WAVE 5 CLOSED — 10 orders GREEN integrated `9c172a0`, deployed `a8b99aae`: FR-17 DO land-lease, FR-18 evidence, card contract states, landed receipts, two-step confirm; probe + demo-verify green. **E1 epic COMPLETE (21/21)**; E2 11/12; E3 12/17; total 43/148. Fleet on all-laguna + hardened runner. Next: waves toward E2/E3 completion)
+**Branch:** `main` · **Last commit:** `9c172a0` (+ state commit) — see `docs/CHECKPOINT.md` top entry
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `bun porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (47/47 — bd adapter) · `bun porting/tests/batch.test.mjs` (43/43 — batch path, parity gate, parallel merge-back) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: pre-commit chain = status-index check + bd integration (`.beads/hooks`, core.hooksPath)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `docs/HANDOFF-PLATFORM.md` — **authoritative platform handoff** (inventory, endpoints, invariants, production gaps, verification recipes, lessons) — for anyone building on the platform
@@ -36,4 +36,4 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 | `claude` CLI auth (401 OAuth expired) | John | one `claude login` (≈30 s); unlocks a marquee demo agent |
 | `codex` CLI usage-limited; `pi` insufficient balance | John | fleet currently runs all-omp; restore when quotas reset — optional demo agents |
 | `gemini` + `opencode` CLI auth | John | optional demo agents; need auth setup |
-| 4 pre-existing tsc errors in `platform/` | unassigned | recorded from build waves; fix with a TypeScript pass (queue P2-4); verify after installing TS |
+| 5 pre-existing tsc errors in `platform/` (ArtifactsRepo surface + one possibly-undefined) | unassigned | recorded from build waves; fix with a TypeScript pass (queue P2-4) |
