@@ -32,6 +32,7 @@
 
 import { mkdirSync, writeFileSync, appendFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 // Full gate battery (reference: security · quality+architecture · spec-fit · compliance ·
 // resilience ×2 · + project extras parity/ux). Default = scaled-down 4 (never zero).
@@ -282,22 +283,27 @@ export async function runWorkOrder(order, opts = {}) {
   if (!existsSync(`${runDir}/implement.md`)) {
     writeState("implement-no-artifact", { guard: "IMPLEMENT wrote no implement.md — gates will see an empty change set; heal artifacts count as the implement record on resume" });
   }
-  // Guard: implement.md SHA drift check — if the implementer cited an app.js SHA in its
-  // report, verify it matches the current HEAD:app.js so evidence can't be replayed
-  // against a different tree. (Cited in heal-research as plan.md clobber + SHA drift.)
+  // Guard: implement.md SHA drift check — if the implementer cited a sha256 in its report,
+  // verify it against the file's ACTUAL content digest so evidence can't be replayed against
+  // a different tree. NOTE: the cited digest is sha256 content; git rev-parse returns blob
+  // SHA-1, so the comparison must hash the bytes (the earlier SHA-1 comparison was a
+  // guaranteed false block — fixed 2026-10-08).
   if (existsSync(`${runDir}/implement.md`)) {
     try {
       const implText = readFileSync(`${runDir}/implement.md`, "utf8");
       const shaMatch = implText.match(/sha256[:\s]+([0-9a-f]{64})/i);
       if (shaMatch) {
         const citedSha = shaMatch[1].toLowerCase();
+        const citedPath = (implText.match(/([\w./-]*platform\/(?:ui|src)\/[\w.-]+)/) ?? [])[1] ?? "platform/ui/app.js";
         let actualSha = "";
         try {
-          actualSha = execFileSync("git", ["-C", root, "rev-parse", "HEAD:platform/ui/app.js"], { encoding: "utf8", timeout: 10000 }).trim();
-        } catch { /* git rev-parse fails on non-git or missing path — skip drift check */ }
+          if (existsSync(`${root}/${citedPath}`)) {
+            actualSha = createHash("sha256").update(readFileSync(`${root}/${citedPath}`)).digest("hex");
+          }
+        } catch { /* unreadable/missing — skip drift check */ }
         if (actualSha && actualSha !== citedSha) {
-          discipline.push({ phase: "implement-sha-drift", changed: [`implement.md cited app.js sha256 ${citedSha.slice(0,12)}… but HEAD:app.js is ${actualSha.slice(0,12)}…`] });
-          log(`SHA DRIFT GUARD: implement.md cited ${citedSha.slice(0,12)}… but HEAD:app.js is ${actualSha.slice(0,12)}… — flagging as ship-blocker`);
+          discipline.push({ phase: "implement-sha-drift", changed: [`implement.md cited ${citedPath} sha256 ${citedSha.slice(0, 12)}… but the file digests to ${actualSha.slice(0, 12)}…`] });
+          log(`SHA DRIFT GUARD: implement.md cited ${citedSha.slice(0, 12)}… but ${citedPath} digests to ${actualSha.slice(0, 12)}… — flagging as ship-blocker`);
         }
       }
     } catch { /* readFileSync failed — implement.md unreadable, skip */ }

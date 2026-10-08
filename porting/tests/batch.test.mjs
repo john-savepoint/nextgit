@@ -38,7 +38,7 @@ const check = (name, ok, detail = "") => {
 let calls = [];
 let reply = () => "ok";
 const defaultReply = (label) => {
-  if (label.startsWith("plan:")) return { plan: "# plan (stub)", summary: "stub plan" };
+  if (label.startsWith("plan:")) return { plan: "# plan (stub)\n\n## Files\n- porting/fixture-target.md (create)\n\n## Change\nCreate the fixture target with the run id; no source files touched.\n\n## Check\nThe order's focused check command runs and exits 0 on the written fixture.\n".padEnd(320, "x"), summary: "stub plan" };
   if (label.startsWith("impl:")) return "stub implement";
   if (label.startsWith("verify:")) return { verdict: "PASS", evidence: "stub verify PASS" };
   if (label.startsWith("heal-research:")) return { proposals: "(none)" };

@@ -1429,7 +1429,10 @@ export default {
     // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
     // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
     // cached set by key change; TTL bounds staleness if invalidation is ever missed.
-    const gen = (await env.CACHE.get("cache:gen").catch(() => null)) ?? "0";
+    // Cache is best-effort by design: a missing/degraded CACHE binding must never
+    // turn /proposals into a 500 (test fakes and partial deployments carry no CACHE).
+    let gen = "0";
+    try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* no CACHE — compute */ }
     const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
     try {
      const hit = await env.CACHE.get(cacheKey);
