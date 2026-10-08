@@ -29,10 +29,13 @@
 //   3. live capture — when PROPS_FIXTURE points at a /proposals capture, the wire
 //      contract + the src/auth.ts collision contract + the DOM agreement run over
 //      it verbatim; unset -> one SKIP line.
+//   4. zero-state DOM leg — an all-zero summary exercises the REMOVE branch of
+//      every tint (is-alert / is-warn / is-clean all absent) and pins the zero-state
+//      chip labels ("0 detected" / "0 active").
 // A box without a Chrome binary skips the suite (precedent: ui-first-load-chips);
 // the order's acceptance gate hard-requires Chrome.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -517,6 +520,63 @@ function agreementContract(label, payload, dom) {
   check(`${label} #val-shared chip == summary.sharedFiles`, chip("val-shared") === String(payload.summary.sharedFiles), `chip=${chip("val-shared")}`);
   check(`${label} #val-proposals chip == summary.proposals`, chip("val-proposals") === String(payload.summary.proposals), `chip=${chip("val-proposals")}`);
   check(`${label} #val-changed chip == summary.changedFiles`, chip("val-changed") === String(payload.summary.changedFiles), `chip=${chip("val-changed")}`);
+
+  const chipClass = (id) => {
+    const m = dom.match(new RegExp(`<div[^>]*id=${JSON.stringify("chip-" + id)}[^>]*>`));
+    if (!m) return null;
+    const cls = m[0].match(/class="([^"]*)"/);
+    return cls ? cls[1] : null;
+  };
+  const cc = chipClass("conflicts");
+  check(
+    `${label} #chip-conflicts has is-alert iff summary.conflictingPairs > 0`,
+    (cc ? cc.indexOf("is-alert") >= 0 : false) === (payload.summary.conflictingPairs > 0),
+    `classes=${cc}`,
+  );
+  const cs = chipClass("shared");
+  check(
+    `${label} #chip-shared has is-warn iff summary.sharedFiles > 0`,
+    (cs ? cs.indexOf("is-warn") >= 0 : false) === (payload.summary.sharedFiles > 0),
+    `classes=${cs}`,
+  );
+  const cl = chipClass("clean");
+  check(
+    `${label} #chip-clean has is-clean iff summary.cleanPairs > 0`,
+    (cl ? cl.indexOf("is-clean") >= 0 : false) === (payload.summary.cleanPairs > 0),
+    `classes=${cl}`,
+  );
+}
+// ---------------------------------------------------------------------------
+// Independent jq recompute — pipes the raw payload through `jq -ec` (jaq 2.3.0
+// on this box; `-c` exits 0 on empty/dead input, so `-ec` is required) and
+// re-derives all five summary fields from the pair/file arrays, proving the
+// server-side counters match a from-JSON recompute outside the test process.
+// ---------------------------------------------------------------------------
+const QJ = '.proposals as $ps | .conflicts as $cs | ($cs | map(.pairs) | add // []) as $all | ($all | map(select(.conflict == true)) | length) as $tp | ($all | map(select(.conflict == false)) | length) as $fp | ($ps | length) as $np | ([$ps[].files[]? | .path] | unique | length) as $cf | {proposals: $np, changedFiles: $cf, sharedFiles: ($cs | length), conflictingPairs: $tp, cleanPairs: $fp}';
+function jqRecompute(label, payload) {
+  const jqBin = String(spawnSync("which", ["jq"], { encoding: "utf8" }).stdout ?? "").trim() || null;
+  if (!jqBin) {
+    check(`${label} jq recompute skipped (no jq binary on PATH)`, true, "no jq binary on PATH");
+    return;
+  }
+  const tmpDir = mkdtempSync(join(tmpdir(), "nextgit-jq-"));
+  const tmp = join(tmpDir, "payload.json");
+  writeFileSync(tmp, JSON.stringify(payload));
+  let recompute = null;
+  try {
+    recompute = JSON.parse(execFileSync(jqBin, ["-ec", QJ, tmp], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  } catch (e) {
+    check(`${label} jq recompute exited 0`, false, `jq error: ${e.stderr || e.message}`);
+    return;
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+  const s = payload.summary || {};
+  check(`${label} jq recompute: proposals`, recompute.proposals === s.proposals, `jq=${recompute.proposals} summary=${s.proposals}`);
+  check(`${label} jq recompute: changedFiles`, recompute.changedFiles === s.changedFiles, `jq=${recompute.changedFiles} summary=${s.changedFiles}`);
+  check(`${label} jq recompute: sharedFiles`, recompute.sharedFiles === s.sharedFiles, `jq=${recompute.sharedFiles} summary=${s.sharedFiles}`);
+  check(`${label} jq recompute: conflictingPairs`, recompute.conflictingPairs === s.conflictingPairs, `jq=${recompute.conflictingPairs} summary=${s.conflictingPairs}`);
+  check(`${label} jq recompute: cleanPairs`, recompute.cleanPairs === s.cleanPairs, `jq=${recompute.cleanPairs} summary=${s.cleanPairs}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -590,6 +650,7 @@ try {
   check("1 /proposals answers 200 with ok:true", status === 200 && body?.ok === true, `status=${status} error=${body?.error ?? ""}`);
   wireContract("1", body);
   fixtureContract("1", body);
+  jqRecompute("1", body);
 
   // 2. DOM agreement over the same payload (the route's real response).
   const port = await new Promise((resolve, reject) => {
@@ -616,7 +677,17 @@ try {
     const liveDom = await dumpDom(url);
     if (process.env.DOM_OUT) writeFileSync(`${process.env.DOM_OUT}.live.html`, liveDom);
     agreementContract("3", live, liveDom);
+    jqRecompute("3", live);
   }
+
+  // 4. Zero-state DOM leg — an empty/all-zero summary exercises the REMOVE
+  //    branch of every tint (is-alert / is-warn / is-clean all absent) and
+  //    pins the zero-state chip labels ("0 detected" / "0 active").
+  const empty = { ok: true, proposals: [], conflicts: [], summary: { proposals: 0, changedFiles: 0, sharedFiles: 0, conflictingPairs: 0, cleanPairs: 0 } };
+  currentPayload = empty;
+  const emptyDom = await dumpDom(url);
+  if (process.env.DOM_OUT) writeFileSync(`${process.env.DOM_OUT}.empty.html`, emptyDom);
+  agreementContract("4", empty, emptyDom);
 } finally {
   if (typeof server.closeAllConnections === "function") server.closeAllConnections();
   await new Promise((resolve) => {
