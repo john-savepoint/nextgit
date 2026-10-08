@@ -1197,6 +1197,28 @@ async function handleLand(request: Request, env: Env): Promise<Response> {
     }
   });
 }
+// ---------------------------------------------------------------------------
+// GET /landings/{commit} — read back the landing record persisted by POST /land.
+// ---------------------------------------------------------------------------
+// Read-only, credential-free (NFR-6). The KV value is the inner record
+// `{ landed, evidence }` that POST /land persisted; the read response wraps
+// it with `ok: true` so the 200 body deep-equals the landing's 200 payload
+// (same `landed` / `evidence` sub-objects). No secret-class content reaches
+// KV (secret files are withheld at fold), so the record never carries
+// credentials (NFR-5).
+const COMMIT_RE = /^[0-9a-f]{40}$/;
+
+async function handleLandingsRead(commit: string, env: Env): Promise<Response> {
+  if (!COMMIT_RE.test(commit)) {
+    return badRequest("bad-request");
+  }
+  const record = await env.LIVE.get(`${LANDING_KEY_PREFIX}${commit}`);
+  if (record === null) {
+    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  const parsed = JSON.parse(record) as { landed: object; evidence: object };
+  return Response.json({ ok: true, landed: parsed.landed, evidence: parsed.evidence });
+}
 
 // ---------------------------------------------------------------------------
 // POST /judge — typed advisory judgments for a target set of proposals (AD-11).
@@ -1391,6 +1413,10 @@ export default {
 
       if (url.pathname === "/events" && request.method === "GET") {
         return Response.json({ ok: true, events: await readEvents(env) });
+      }
+      if (url.pathname.startsWith("/landings/") && request.method === "GET") {
+        const commit = url.pathname.slice("/landings/".length);
+        return handleLandingsRead(commit, env);
       }
       // Everything else is the triage UI from platform/ui via wrangler assets.
       return env.ASSETS.fetch(request);
