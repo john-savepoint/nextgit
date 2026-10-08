@@ -248,6 +248,8 @@ const get = async (env, query) => {
   check("C: fallback base.sha === base head", cs?.base?.sha === baseHead, J({ sha: cs?.base?.sha, want: baseHead }));
   const removed = (cs?.files ?? []).filter((f) => f.status === "removed").map((f) => f.path).sort();
   check("C: legacy head-diff shows base-only files removed", J(removed) === J(["src/landed.ts"]), J(removed));
+  check("C: changeSet.commits is a present array (contract field)", Array.isArray(cs?.commits), J(cs?.commits));
+  check("C: commits is empty (no shared commit -> no proposal log)", (cs?.commits ?? null) !== null && cs.commits.length === 0, J(cs?.commits));
 }
 
 // ---- case D: binding log fault on the fork walk -> degraded fallback ---------
@@ -256,6 +258,8 @@ const get = async (env, query) => {
   const r = await get(env, "?repo=agent-flaky&base=demo&ref=main&baseRef=main");
   check("D: 200 (degraded fallback, not 500)", r.status === 200 && r.body?.ok === true, J({ status: r.status, body: r.body }));
   check("D: fallback base.sha === base head", r.body?.changeSet?.base?.sha === baseHead, J(r.body?.changeSet?.base));
+  check("D: changeSet.commits is a present array (contract field, even if empty)", Array.isArray(r.body?.changeSet?.commits), J(r.body?.changeSet?.commits));
+  check("D: commits is empty (no shared commit -> no proposal log)", r.body?.changeSet?.commits?.length === 0, J(r.body?.changeSet?.commits));
 }
 
 // ---- case E: route guard -----------------------------------------------------
