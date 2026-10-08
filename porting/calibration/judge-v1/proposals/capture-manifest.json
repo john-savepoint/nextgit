@@ -1,0 +1,595 @@
+{
+  "proposals": [
+    {
+      "id": "agent-1-f401b219",
+      "repo": "agent-1",
+      "headSha": "f401b2194fff1c778149859f9eeadaee8d1df1a7",
+      "forkSha": "6a5dac9707f4d28f92761cb23010afb45da1b327",
+      "source": "/tmp/real-agents/agent-1",
+      "capturedAt": "2026-10-08T18:01:48.599Z",
+      "intent": "Feature: refreshSession() extends a live session by TTL",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-2-cff80a08",
+      "repo": "agent-2",
+      "headSha": "cff80a08e579e05a180e3595cd720a51061bd674",
+      "forkSha": "6a5dac9707f4d28f92761cb23010afb45da1b327",
+      "source": "/tmp/real-agents/agent-2",
+      "capturedAt": "2026-10-08T18:01:48.619Z",
+      "intent": "Fix: tolerate clock skew in isExpired via leewayMs",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-3-e3be4aff",
+      "repo": "agent-3",
+      "headSha": "e3be4aff805a87f8c853dca035ba4a7e9630422c",
+      "forkSha": "6a5dac9707f4d28f92761cb23010afb45da1b327",
+      "source": "/tmp/real-agents/agent-3",
+      "capturedAt": "2026-10-08T18:01:48.636Z",
+      "intent": "Perf: read-through memo cache for store reads",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-4-da8b3aa5",
+      "repo": "agent-4",
+      "headSha": "da8b3aa53c028598baf8b883f45c2f627e78bafb",
+      "forkSha": "6a5dac9707f4d28f92761cb23010afb45da1b327",
+      "source": "/tmp/real-agents/agent-4",
+      "capturedAt": "2026-10-08T18:01:48.659Z",
+      "intent": "Feature: feature-flag module with isEnabled()",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-10-67464097",
+      "repo": "agent-extra-10",
+      "headSha": "67464097ca21eb2f6edbdf4101772930dc583279",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-10",
+      "capturedAt": "2026-10-08T18:01:48.688Z",
+      "intent": "Fix: validate port range in start()",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-13-96e19416",
+      "repo": "agent-extra-13",
+      "headSha": "96e19416acea0fc6f46c8c692676ab000b05b5b0",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-13",
+      "capturedAt": "2026-10-08T18:01:48.713Z",
+      "intent": "Fix: handle empty input in truncate",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-14-bee55d85",
+      "repo": "agent-extra-14",
+      "headSha": "bee55d854d55188c49459915dd88e9b86157b37f",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-14",
+      "capturedAt": "2026-10-08T18:01:48.734Z",
+      "intent": "Feature: add metrics.ts with inc/get/snapshot counters",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-15-3b36b691",
+      "repo": "agent-extra-15",
+      "headSha": "3b36b69119586ecd4c3bc6ee85360cca06575e35",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-15",
+      "capturedAt": "2026-10-08T18:01:48.756Z",
+      "intent": "Feature: add logger.ts with structured logging",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-16-7a471b80",
+      "repo": "agent-extra-16",
+      "headSha": "7a471b80a9643375e5279baa9a0145534a6467fd",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-16",
+      "capturedAt": "2026-10-08T18:01:48.779Z",
+      "intent": "Feature: add HttpError class to api module",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-17-1c7e7a2d",
+      "repo": "agent-extra-17",
+      "headSha": "1c7e7a2ded56e1d8208e86aec9c558857b9ac4d7",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-17",
+      "capturedAt": "2026-10-08T18:01:48.799Z",
+      "intent": "Feat: enforce store size cap in put()",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-19-d2ba82a2",
+      "repo": "agent-extra-19",
+      "headSha": "d2ba82a2443da418f6f0e44eb561aee5b2efa739",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-19",
+      "capturedAt": "2026-10-08T18:01:48.820Z",
+      "intent": "Fix: validate userId input in auth POST",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-20-89f06a3e",
+      "repo": "agent-extra-20",
+      "headSha": "89f06a3e39846136b3d4035ea256d32f455ac2f1",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-20",
+      "capturedAt": "2026-10-08T18:01:48.838Z",
+      "intent": "Feature: add structured logging to server start",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-21-957948ae",
+      "repo": "agent-extra-21",
+      "headSha": "957948aee185896482da4eb1ac6252babcff9122",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-21",
+      "capturedAt": "2026-10-08T18:01:48.856Z",
+      "intent": "Improve the code",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-22-e28d7fe8",
+      "repo": "agent-extra-22",
+      "headSha": "e28d7fe886c2b821457c7f14a3b017d0373a56c1",
+      "forkSha": "28ab412f4e5f1041e082bb8f825bbb40f4a502f3",
+      "source": "/tmp/real-agents/agent-extra-22",
+      "capturedAt": "2026-10-08T18:01:48.872Z",
+      "intent": null,
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-25-feb9eedb",
+      "repo": "agent-extra-25",
+      "headSha": "feb9eedb172158b95d233ec04d13e68d7f570d4c",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-25",
+      "capturedAt": "2026-10-08T18:01:48.892Z",
+      "intent": "Fix: tolerate clock skew in isExpired via leewayMs",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-26-7a1a0927",
+      "repo": "agent-extra-26",
+      "headSha": "7a1a09271d70f85b662135f7a97c1c5179a84360",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-26",
+      "capturedAt": "2026-10-08T18:01:48.918Z",
+      "intent": "Fix: validate session max TTL to prevent unbounded sessions",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-29-9551a13e",
+      "repo": "agent-extra-29",
+      "headSha": "9551a13edd9c2d1538aa939de7db8b8475cfd38e",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-29",
+      "capturedAt": "2026-10-08T18:01:48.944Z",
+      "intent": "Perf: cache invalidation on store mutations",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-3-06067ca9",
+      "repo": "agent-extra-3",
+      "headSha": "06067ca974369670673f2d88a03e9b26b2180f33",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-3",
+      "capturedAt": "2026-10-08T18:01:48.971Z",
+      "intent": "Fix: tolerate clock skew in isExpired via leewayMs",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-31-af72339a",
+      "repo": "agent-extra-31",
+      "headSha": "af72339a968ccc6046284f64fd093745f9b4b7ad",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-31",
+      "capturedAt": "2026-10-08T18:01:48.993Z",
+      "intent": "Fix: structured error codes for validation failures",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-32-bcebd0f8",
+      "repo": "agent-extra-32",
+      "headSha": "bcebd0f8fa2a5bad69133a874393c898e8fbec8a",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-32",
+      "capturedAt": "2026-10-08T18:01:49.015Z",
+      "intent": "Fix: validate port range in start()",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-35-861ece91",
+      "repo": "agent-extra-35",
+      "headSha": "861ece9171e2dd5eb91fdaa0ec009e264a6e18df",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-35",
+      "capturedAt": "2026-10-08T18:01:49.039Z",
+      "intent": "Fix: handle empty input in truncate",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-36-6c867b09",
+      "repo": "agent-extra-36",
+      "headSha": "6c867b093258a5eb88dd11c76c0521bb583050a6",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-36",
+      "capturedAt": "2026-10-08T18:01:49.074Z",
+      "intent": "Feature: add metrics.ts with inc/get/snapshot counters",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-37-b32ba264",
+      "repo": "agent-extra-37",
+      "headSha": "b32ba264e8a6a792bedeaa096292d81279f46903",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-37",
+      "capturedAt": "2026-10-08T18:01:49.098Z",
+      "intent": "Feature: add logger.ts with structured logging",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-38-f1148bc6",
+      "repo": "agent-extra-38",
+      "headSha": "f1148bc6a7a775b0cc0c862da1460b00ad3e57ae",
+      "forkSha": "1ddbca596b3e02b589f381cddf3eb84818e368ca",
+      "source": "/tmp/real-agents/agent-extra-38",
+      "capturedAt": "2026-10-08T18:01:49.121Z",
+      "intent": "Feature: add HttpError class to api module",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-39-913eb7f6",
+      "repo": "agent-extra-39",
+      "headSha": "913eb7f656b4fbc54f1f0de8aa9696d51d3ef78d",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-39",
+      "capturedAt": "2026-10-08T18:01:49.148Z",
+      "intent": "Feat: enforce store size cap in put()",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-4-9a807196",
+      "repo": "agent-extra-4",
+      "headSha": "9a807196bd4f769e3eb2c31157bc10452afcf181",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-4",
+      "capturedAt": "2026-10-08T18:01:49.179Z",
+      "intent": "Fix: validate session max TTL to prevent unbounded sessions",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-41-f7fe8952",
+      "repo": "agent-extra-41",
+      "headSha": "f7fe8952797a2eac5556e63dc9a01467e586f1a5",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-41",
+      "capturedAt": "2026-10-08T18:01:49.203Z",
+      "intent": "Fix: validate userId input in auth POST",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-42-2fcc354b",
+      "repo": "agent-extra-42",
+      "headSha": "2fcc354ba49c91506a8771d878dec7eac0403964",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-42",
+      "capturedAt": "2026-10-08T18:01:49.230Z",
+      "intent": "Feature: add structured logging to server start",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-43-7363ccd5",
+      "repo": "agent-extra-43",
+      "headSha": "7363ccd58357eba736a34a655abebb50cc329cd5",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-43",
+      "capturedAt": "2026-10-08T18:01:49.256Z",
+      "intent": "Improve the code",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-44-56c0b63e",
+      "repo": "agent-extra-44",
+      "headSha": "56c0b63e7994781c560081e445ec94d36240f1e2",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-44",
+      "capturedAt": "2026-10-08T18:01:49.281Z",
+      "intent": null,
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-47-7615903b",
+      "repo": "agent-extra-47",
+      "headSha": "7615903b8d373c556b0c79a68a88adec4e9903f6",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-47",
+      "capturedAt": "2026-10-08T18:01:49.309Z",
+      "intent": "Fix: tolerate clock skew in isExpired via leewayMs",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-48-10cea730",
+      "repo": "agent-extra-48",
+      "headSha": "10cea73021f121cd1fba9be00124f28e9f9ab8a6",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-extra-48",
+      "capturedAt": "2026-10-08T18:01:49.343Z",
+      "intent": "Fix: validate session max TTL to prevent unbounded sessions",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-7-a86cacc7",
+      "repo": "agent-extra-7",
+      "headSha": "a86cacc797ee5dfe0f556c5cd6df56c9ada27909",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-7",
+      "capturedAt": "2026-10-08T18:01:49.369Z",
+      "intent": "Perf: cache invalidation on store mutations",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-9-4d9dfe38",
+      "repo": "agent-extra-9",
+      "headSha": "4d9dfe38306796cf9cc13c9b099a037149b18e3b",
+      "forkSha": "ba89028241017547dd6fafb71ae38fbfe3e54f59",
+      "source": "/tmp/real-agents/agent-extra-9",
+      "capturedAt": "2026-10-08T18:01:49.391Z",
+      "intent": "Fix: structured error codes for validation failures",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-extra-secret-1-6485585d",
+      "repo": "agent-extra-secret-1",
+      "headSha": "6485585d68434fe77cf4ea6f1727f4ffcd62cdc7",
+      "forkSha": "91e9e30a0929bacb5093ad5f5a551e801ba10597",
+      "source": "/tmp/real-agents/agent-extra-secret-1",
+      "capturedAt": "2026-10-08T18:01:49.426Z",
+      "intent": "Feature: add config/.env with database and redis URLs",
+      "fileCount": 2
+    },
+    {
+      "id": "agent-extra-secret-2-458b7a42",
+      "repo": "agent-extra-secret-2",
+      "headSha": "458b7a42cdf3b36dc868163a6dc62d8523306879",
+      "forkSha": "91e9e30a0929bacb5093ad5f5a551e801ba10597",
+      "source": "/tmp/real-agents/agent-extra-secret-2",
+      "capturedAt": "2026-10-08T18:01:49.453Z",
+      "intent": "Feature: add secrets.json with API key and webhook secret",
+      "fileCount": 2
+    },
+    {
+      "id": "agent-extra-secret-3-48f666b1",
+      "repo": "agent-extra-secret-3",
+      "headSha": "48f666b1afd3a5d184dde3d59b14cccafd37b6da",
+      "forkSha": "91e9e30a0929bacb5093ad5f5a551e801ba10597",
+      "source": "/tmp/real-agents/agent-extra-secret-3",
+      "capturedAt": "2026-10-08T18:01:49.481Z",
+      "intent": "Feature: add .env with JWT and encryption keys",
+      "fileCount": 2
+    },
+    {
+      "id": "agent-extra-secret-4-3052a0f5",
+      "repo": "agent-extra-secret-4",
+      "headSha": "3052a0f5698c3e14c3ea25af0b414df1bbca7fe8",
+      "forkSha": "91e9e30a0929bacb5093ad5f5a551e801ba10597",
+      "source": "/tmp/real-agents/agent-extra-secret-4",
+      "capturedAt": "2026-10-08T18:01:49.519Z",
+      "intent": "Feature: add database secrets module",
+      "fileCount": 2
+    },
+    {
+      "id": "agent-extra-secret-5-9ce7c7fd",
+      "repo": "agent-extra-secret-5",
+      "headSha": "9ce7c7fda739507339d0c9fc12da296ae5708195",
+      "forkSha": "91e9e30a0929bacb5093ad5f5a551e801ba10597",
+      "source": "/tmp/real-agents/agent-extra-secret-5",
+      "capturedAt": "2026-10-08T18:01:49.552Z",
+      "intent": "Feature: add .dev.vars with API tokens",
+      "fileCount": 2
+    },
+    {
+      "id": "agent-var-50-2139edb8",
+      "repo": "agent-var-50",
+      "headSha": "2139edb8fbc5fe3d4949b7f221a60f626a378439",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-var-50",
+      "capturedAt": "2026-10-08T18:01:49.584Z",
+      "intent": "Feature: revokeSession variant 0 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-51-26762269",
+      "repo": "agent-var-51",
+      "headSha": "26762269a4312200753e4bba4e58e1fa178cfe31",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-var-51",
+      "capturedAt": "2026-10-08T18:01:49.608Z",
+      "intent": "Fix: isFresh variant 1 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-52-910b59c1",
+      "repo": "agent-var-52",
+      "headSha": "910b59c13527c117a7fd298f948591a6a73bc78e",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-var-52",
+      "capturedAt": "2026-10-08T18:01:49.632Z",
+      "intent": "Perf: cloneSession variant 2 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-53-770980a5",
+      "repo": "agent-var-53",
+      "headSha": "770980a52a35aae1888adea870b32993845fe777",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-var-53",
+      "capturedAt": "2026-10-08T18:01:49.656Z",
+      "intent": "Refactor: validateSession variant 3 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-54-67fed67e",
+      "repo": "agent-var-54",
+      "headSha": "67fed67ede64d5a630a14362ee79d3402e55f65d",
+      "forkSha": "31aa79307fa8616dd54862ca734c874cd1cebf5a",
+      "source": "/tmp/real-agents/agent-var-54",
+      "capturedAt": "2026-10-08T18:01:49.680Z",
+      "intent": "Feature: touchSession variant 4 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-55-062f645c",
+      "repo": "agent-var-55",
+      "headSha": "062f645c37da788ddaa8fb7e3288a172ca312122",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-55",
+      "capturedAt": "2026-10-08T18:01:49.704Z",
+      "intent": "Fix: revokeSession variant 5 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-56-c9f8fe77",
+      "repo": "agent-var-56",
+      "headSha": "c9f8fe77f7cca8d54b3094d0bd62ccc60ef70f0d",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-56",
+      "capturedAt": "2026-10-08T18:01:49.724Z",
+      "intent": "Perf: isFresh variant 6 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-57-50a61c78",
+      "repo": "agent-var-57",
+      "headSha": "50a61c7842dc3bb4a7476ce0d3ff20d49a71138b",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-57",
+      "capturedAt": "2026-10-08T18:01:49.744Z",
+      "intent": "Refactor: cloneSession variant 7 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-58-86e647e0",
+      "repo": "agent-var-58",
+      "headSha": "86e647e04638a2c4bbe635579446ffd17557e957",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-58",
+      "capturedAt": "2026-10-08T18:01:49.761Z",
+      "intent": "Feature: validateSession variant 8 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-59-4fcb72cb",
+      "repo": "agent-var-59",
+      "headSha": "4fcb72cb3b957fccca32ecab71af8c222211b99c",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-59",
+      "capturedAt": "2026-10-08T18:01:49.779Z",
+      "intent": "Fix: touchSession variant 9 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-60-19cd47f3",
+      "repo": "agent-var-60",
+      "headSha": "19cd47f386e6e60b7e84bfe118abf427b04c996a",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-60",
+      "capturedAt": "2026-10-08T18:01:49.801Z",
+      "intent": "Perf: revokeSession variant 10 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-61-a1dc964b",
+      "repo": "agent-var-61",
+      "headSha": "a1dc964b5fe2016657abcaece95064a2ee6887d4",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-61",
+      "capturedAt": "2026-10-08T18:01:49.823Z",
+      "intent": "Refactor: isFresh variant 11 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-62-da183dc8",
+      "repo": "agent-var-62",
+      "headSha": "da183dc899651b7a48f5ec0451c6a866bafadd2c",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-62",
+      "capturedAt": "2026-10-08T18:01:49.845Z",
+      "intent": "Feature: cloneSession variant 12 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-63-c3756bbf",
+      "repo": "agent-var-63",
+      "headSha": "c3756bbfddd470f4e565698f27412b85785dd1bf",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-63",
+      "capturedAt": "2026-10-08T18:01:49.864Z",
+      "intent": "Fix: validateSession variant 13 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-64-5cff77f6",
+      "repo": "agent-var-64",
+      "headSha": "5cff77f69930e17a22b539632cf15a5eb3208a62",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-64",
+      "capturedAt": "2026-10-08T18:01:49.886Z",
+      "intent": "Perf: touchSession variant 14 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-65-727629f3",
+      "repo": "agent-var-65",
+      "headSha": "727629f3c91fbdf6497b05000f7800d8b01f1cbe",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-65",
+      "capturedAt": "2026-10-08T18:01:49.910Z",
+      "intent": "Refactor: revokeSession variant 15 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-66-1c79d84c",
+      "repo": "agent-var-66",
+      "headSha": "1c79d84c68aff45ffa010c0eb5ba0c9075c53d78",
+      "forkSha": "b602b848a132d70610dafa724e9f6b07592f3a5d",
+      "source": "/tmp/real-agents/agent-var-66",
+      "capturedAt": "2026-10-08T18:01:49.932Z",
+      "intent": "Feature: isFresh variant 16 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-67-71eaa6f7",
+      "repo": "agent-var-67",
+      "headSha": "71eaa6f72d9fe00bcc64cbd675ca8f6dfed8072a",
+      "forkSha": "4bfd3a139f70265cadd70ddf8011ab401267eae0",
+      "source": "/tmp/real-agents/agent-var-67",
+      "capturedAt": "2026-10-08T18:01:49.952Z",
+      "intent": "Fix: cloneSession variant 17 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-68-af660764",
+      "repo": "agent-var-68",
+      "headSha": "af66076455552d8603bd922f9befb977706407ac",
+      "forkSha": "4bfd3a139f70265cadd70ddf8011ab401267eae0",
+      "source": "/tmp/real-agents/agent-var-68",
+      "capturedAt": "2026-10-08T18:01:49.971Z",
+      "intent": "Perf: validateSession variant 18 for parameterized test case",
+      "fileCount": 1
+    },
+    {
+      "id": "agent-var-69-6bd0bb5b",
+      "repo": "agent-var-69",
+      "headSha": "6bd0bb5b9a566509585635c0c997aa4a2d5d2830",
+      "forkSha": "4bfd3a139f70265cadd70ddf8011ab401267eae0",
+      "source": "/tmp/real-agents/agent-var-69",
+      "capturedAt": "2026-10-08T18:01:49.990Z",
+      "intent": "Refactor: touchSession variant 19 for parameterized test case",
+      "fileCount": 1
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,12 @@
+{
+  "repo": "agent-extra-22",
+  "files": [
+    {
+      "path": "src/store.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 0,
+      "patch": "diff --git a/src/store.ts b/src/store.ts\nindex bf9310a..0df58fe 100644\n--- a/src/store.ts\n+++ b/src/store.ts\n@@ -8,6 +8,7 @@ export interface Row<T> {\n }\n \n const rows = new Map<string, Row<unknown>>();\n+const maxSize = 10000;\n \n export function put<T>(id: string, value: T): Row<T> {\n   const row: Row<T> = { id, value, updatedAt: Date.now() };"
+    }
+  ]
+}

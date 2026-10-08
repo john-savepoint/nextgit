@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-31",
+  "intent": "Fix: structured error codes for validation failures",
+  "files": [
+    {
+      "path": "src/api.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "patch": "diff --git a/src/api.ts b/src/api.ts\nindex 58eeb11..03e5113 100644\n--- a/src/api.ts\n+++ b/src/api.ts\n@@ -22,7 +22,7 @@ const handlers: Record<string, Record<string, Handler>> = {\n     POST(req): ApiResponse {\n       const userId = String(req.body?.userId ?? \"\");\n       const problem = userId ? null : \"userId is required\";\n-      if (problem) return { status: 400, body: { error: problem } };\n+      if (problem) return { status: 400, body: { error: problem, code: \"INVALID_INPUT\" } };\n       const session = createSession(userId);\n       put(sessionId(userId), session);\n       return { status: 201, body: { session } };"
+    }
+  ]
+}

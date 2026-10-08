@@ -1,0 +1,13 @@
+{
+  "repo": "agent-2",
+  "intent": "Fix: tolerate clock skew in isExpired via leewayMs",
+  "files": [
+    {
+      "path": "src/auth.ts",
+      "status": "modified",
+      "additions": 2,
+      "deletions": 2,
+      "patch": "diff --git a/src/auth.ts b/src/auth.ts\nindex 005c41b..f7284e9 100644\n--- a/src/auth.ts\n+++ b/src/auth.ts\n@@ -12,8 +12,8 @@ export function createSession(userId: string, ttlMs = DEFAULT_TTL_MS): Session {\n   return { userId, createdAt: now, expiresAt: now + ttlMs };\n }\n \n-export function isExpired(session: Session, now = Date.now()): boolean {\n-  return now > session.expiresAt;\n+export function isExpired(session: Session, leewayMs = 0, now = Date.now()): boolean {\n+  return now > session.expiresAt + leewayMs;\n }\n \n export function remainingMs(session: Session, now = Date.now()): number {"
+    }
+  ]
+}

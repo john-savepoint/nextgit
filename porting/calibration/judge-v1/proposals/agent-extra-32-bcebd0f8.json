@@ -1,0 +1,13 @@
+{
+  "repo": "agent-extra-32",
+  "intent": "Fix: validate port range in start()",
+  "files": [
+    {
+      "path": "src/server.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 0,
+      "patch": "diff --git a/src/server.ts b/src/server.ts\nindex d0aba51..2de306f 100644\n--- a/src/server.ts\n+++ b/src/server.ts\n@@ -24,6 +24,7 @@ export function createDispatcher() {\n }\n \n export function start(transport: Transport, port = 8787): ServerHandle {\n+  if (port < 1 || port > 65535) throw new RangeError(\"port must be 1-65535\");\n   const dispatch = createDispatcher();\n   transport.listen(\"/api/:route\", dispatch);\n   return {"
+    }
+  ]
+}
