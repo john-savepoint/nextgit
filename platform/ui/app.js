@@ -14,6 +14,7 @@ const state = {
   lastError: null,
   lastSyncTime: null,
   activeInspector: null, // { type: 'diff' | 'merge', data: ... }
+  modalReturnFocus: null, // element that opened the inspector — focus returns here on close
   landingRepo: null,     // repo currently being landed
   confirmingRepo: null,  // repo in inline confirmation state
   lastEventSeenAt: null, // timestamp/id of newest event seen
@@ -681,10 +682,30 @@ function renderConnectionState() {
 }
 
 /**
+ * Focusable controls inside the inspector dialog, in DOM order.
+ * Recomputed per call: the dialog body re-renders on merge-tab clicks, so a cached
+ * list would point at detached nodes. Non-rendered controls never trap.
+ */
+function modalFocusables() {
+  if (!el.inspectorModal) return [];
+  return Array.from(
+    el.inspectorModal.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((node) => node.getClientRects().length > 0);
+}
+
+/**
  * Show inspector modal
  */
 function openModal(title, badgeText, badgeClass, bodyHtml) {
   if (!el.inspectorModal) return;
+  const wasHidden = el.inspectorModal.hidden;
+  if (wasHidden) {
+    // The dialog renders in place (loading → content); only a fresh open captures the
+    // trigger — a second render would otherwise store the dialog's own close control.
+    state.modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   if (el.modalTitle) el.modalTitle.textContent = title;
   if (el.modalBadge) {
     if (badgeText) {
@@ -697,6 +718,7 @@ function openModal(title, badgeText, badgeClass, bodyHtml) {
   }
   if (el.modalBody) el.modalBody.innerHTML = bodyHtml;
   el.inspectorModal.hidden = false;
+  if (wasHidden && el.btnCloseModal) el.btnCloseModal.focus();
 }
 
 /**
@@ -707,6 +729,11 @@ function closeModal() {
   el.inspectorModal.hidden = true;
   if (el.modalBody) el.modalBody.innerHTML = "";
   state.activeInspector = null;
+  const returnFocus = state.modalReturnFocus;
+  state.modalReturnFocus = null;
+  if (returnFocus && document.contains(returnFocus) && typeof returnFocus.focus === "function") {
+    returnFocus.focus();
+  }
 }
 
 /**
@@ -1045,8 +1072,27 @@ function setupInteractions() {
     });
   }
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && el.inspectorModal && !el.inspectorModal.hidden) {
+    if (!el.inspectorModal || el.inspectorModal.hidden) return;
+    if (e.key === "Escape") {
       closeModal();
+      return;
+    }
+    if (e.key === "Tab") {
+      const focusables = modalFocusables();
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      const inside = active instanceof HTMLElement && el.inspectorModal.contains(active);
+      if (e.shiftKey) {
+        if (!inside || active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   });
 
