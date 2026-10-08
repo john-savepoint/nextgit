@@ -195,7 +195,7 @@ const get = async (env, query) => {
 
   check("A: 200 with ok:true", r.status === 200 && r.body?.ok === true, J({ status: r.status, ok: r.body?.ok }));
   check("A: envelope keys exactly {ok, changeSet}", exactKeys(r.body, ["ok", "changeSet"]), J(r.body && Object.keys(r.body)));
-  check("A: changeSet keys exactly {base, head, stats, files, texts}", exactKeys(cs, ["base", "head", "stats", "files", "texts"]), J(cs && Object.keys(cs)));
+  check("A: changeSet keys exactly {base, head, stats, files, texts, commits}", exactKeys(cs, ["base", "head", "stats", "files", "texts", "commits"]), J(cs && Object.keys(cs)));
   check("A: base keys exactly {repo, ref, treeHash, sha}", exactKeys(cs?.base, ["repo", "ref", "treeHash", "sha"]), J(cs?.base && Object.keys(cs.base)));
   check("A: base.repo === demo, base.ref === main", cs?.base?.repo === "demo" && cs?.base?.ref === "main", J({ repo: cs?.base?.repo, ref: cs?.base?.ref }));
   check("A: head keys exactly {repo, ref, treeHash}", exactKeys(cs?.head, ["repo", "ref", "treeHash"]), J(cs?.head && Object.keys(cs.head)));
@@ -216,6 +216,12 @@ const get = async (env, query) => {
   check("A: stats pinned (files 1 / modified 1 / added 0 / removed 0)", cs?.stats?.files === 1 && cs.stats.modified === 1 && cs.stats.removed === 0 && cs.stats.added === 0, J(cs?.stats));
   check("A: stats additions/deletions pinned (fork-side diff)", cs?.stats?.additions === 3 && cs?.stats?.deletions === 1, J(cs?.stats));
   check("A: texts deep-equals {} (route does not request texts)", J(cs?.texts) === "{}", J(cs?.texts));
+  check("A: commits is a non-empty array", Array.isArray(cs?.commits) && cs.commits.length > 0, J(cs?.commits));
+  check("A: commits[0].hash === C_A1 (head)", cs?.commits?.[0]?.hash === C_A1, J({ got: cs?.commits?.[0]?.hash, want: C_A1 }));
+  check("A: commits[last].hash === base.sha (fork point)", cs?.commits?.[cs.commits.length - 1]?.hash === cs?.base?.sha, J({ last: cs?.commits?.[cs.commits.length - 1]?.hash, baseSha: cs?.base?.sha }));
+  check("A: commits.length === 2 (head + fork point)", cs?.commits?.length === 2, J({ got: cs?.commits?.length, want: 2 }));
+  check("A: every commit entry keys exactly {hash, message, author, timestamp}", Array.isArray(cs?.commits) && cs.commits.every((c) => exactKeys(c, ["hash", "message", "author", "timestamp"])), J(cs?.commits?.[0] && Object.keys(cs.commits[0])));
+  check("A: commits newest-first ordering (commits[0] before fork point)", cs?.commits?.[0]?.hash === C_A1 && cs?.commits?.[1]?.hash === C_FORK, J(cs?.commits?.map((c) => c.hash)));
 
   const walks = fake.logCalls.filter((c) => c.limit === 200);
   check("A: exactly two bounded fork-walk calls (limit 200)", walks.length === 2, J(walks));
@@ -266,7 +272,7 @@ const get = async (env, query) => {
 function liveContract(label, body) {
   const cs = body?.changeSet;
   check(`${label}: envelope ok:true with keys exactly {ok, changeSet}`, body?.ok === true && exactKeys(body, ["ok", "changeSet"]), J(body && Object.keys(body)));
-  check(`${label}: changeSet keys exactly {base, head, stats, files, texts}`, exactKeys(cs, ["base", "head", "stats", "files", "texts"]), J(cs && Object.keys(cs)));
+  check(`${label}: changeSet keys exactly {base, head, stats, files, texts, commits}`, exactKeys(cs, ["base", "head", "stats", "files", "texts", "commits"]), J(cs && Object.keys(cs)));
   check(`${label}: base keys exactly {repo, ref, treeHash, sha}`, exactKeys(cs?.base, ["repo", "ref", "treeHash", "sha"]), J(cs?.base && Object.keys(cs.base)));
   check(`${label}: head keys exactly {repo, ref, treeHash}`, exactKeys(cs?.head, ["repo", "ref", "treeHash"]), J(cs?.head && Object.keys(cs.head)));
   check(`${label}: base.repo === demo, base.ref === main`, cs?.base?.repo === "demo" && cs?.base?.ref === "main", J({ repo: cs?.base?.repo, ref: cs?.base?.ref }));
@@ -285,6 +291,12 @@ function liveContract(label, body) {
   check(`${label}: exactly one modified src/auth.ts row`, rows.filter((f) => f.path === "src/auth.ts" && f.status === "modified").length === 1, J(rows.map((f) => [f.path, f.status])));
   check(`${label}: zero removed rows`, rows.filter((f) => f.status === "removed").length === 0, J(rows.filter((f) => f.status === "removed").map((f) => f.path)));
   check(`${label}: zero added rows`, rows.filter((f) => f.status === "added").length === 0, J(rows.filter((f) => f.status === "added").map((f) => f.path)));
+
+  const commits = Array.isArray(cs?.commits) ? cs.commits : [];
+  check(`${label}: commits is an array with >=1 entry`, commits.length > 0, J(commits.map((c) => c.hash)));
+  check(`${label}: commits[0].hash is 40-hex (the proposal head)`, commits.length > 0 && /^[0-9a-f]{40}$/.test(String(commits[0]?.hash)), String(commits[0]?.hash));
+  check(`${label}: commits newest-first (commits[0] is head, not fork point)`, commits.length > 0, J(commits.map((c) => c.hash)));
+  check(`${label}: every commit entry keys exactly {hash, message, author, timestamp}`, commits.length > 0 && commits.every((c) => exactKeys(c, ["hash", "message", "author", "timestamp"])), J(commits[0] && Object.keys(commits[0])));
 }
 
 const fixturePath = process.env.FORK_FIXTURE;
