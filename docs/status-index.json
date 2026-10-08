@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-08T01:27:53.786Z",
-  "head": "0fd8ea5",
+  "generatedAt": "2026-10-08T04:07:31.528Z",
+  "head": "bf1531f",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-08 ",
@@ -12,9 +12,9 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 576,
+      "pending": 567,
       "partial": 1,
-      "done": 84
+      "done": 93
     },
     "items": [
       {
@@ -2265,32 +2265,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Stop the proposals grid overflowing below 424px"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Trap modal focus and return it to the trigger"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Raise phone-width touch targets to 44px"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Honor prefers-reduced-motion across the triage app"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Verify click-first, hover parity, and document-order tab order"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the default 8s refresh cycle and manual refresh"
       },
       {
         "status": "pending",
@@ -2305,32 +2280,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove modal dismissal paths and one-level modal depth"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the five summary chips are exact, tinted, and labeled"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Prove merge, diff and conflict detection are platform-native on the pinned v1 runtime"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Prove the change-set carries the per-fork commit list"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove a change-set stays byte-identical after the baseline advances"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the diff viewer renders patch rows and the no-patch, secret, error and not-found states"
       },
       {
         "status": "pending",

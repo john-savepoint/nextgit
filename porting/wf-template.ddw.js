@@ -61,7 +61,8 @@ export const DEFAULT_AGENTS = {
 // porting/runs/agent-skill-map/*.json). Names + paths are also recorded in .omp/agents.md —
 // some live in plugin caches the skill router may miss, so the prompt names them explicitly.
 export const SKILL_HINTS = {
-  plan: "writing-plans + security-design-review (STRIDE for scoping)",
+  artifacts: "cloudflare-artifacts (every phase: ~/.claude/skills/cloudflare-artifacts/SKILL.md — the platform's storage substrate)",
+  plan: "writing-plans + security-design-review (STRIDE for scoping) + cloudflare-artifacts",
   implement: "workers-best-practices + typescript-professional (+ cloudflare when a bound product is touched)",
   healApply: "workers-best-practices + typescript-professional",
   verify: "verification-before-completion (+ full-output-enforcement: report EVERY failure line)",
@@ -182,7 +183,12 @@ export async function runWorkOrder(order, opts = {}) {
     throw new Error("work order incomplete: id, title, testCmd and acceptance are required (no order ships without a check)");
   }
   const corpus = (order.corpus ?? [`${root}/docs/STATE.md`, `${root}/platform/CONTRACT.md`]).join(", ");
-  const SCOPE_LAW = `WORKSPACE LAW: your workspace root is ${root}; ALL code/file reads and writes MUST stay under it. NEVER write code outside it — especially never into /home/johnzealanddoyle/projects/cloudflare-git-comp unless that IS your workspace root (a parallel run may own that tree). Exception (required): write YOUR phase reports/verdicts to the run-evidence directory ${runDir} — that is the only permitted path outside your workspace root.\n`;
+  const SCOPE_LAW =
+    `WORKSPACE LAW (STRICT — read twice): your workspace root is ${root}. ` +
+    `Your shell's CURRENT WORKING DIRECTORY IS NOT your workspace — before ANY shell/file operation run \`cd ${root}\` (or use \`git -C ${root}\`, or absolute paths); RELATIVE PATHS ARE FORBIDDEN for every read/write/check. ` +
+    `NEVER write outside ${root} — writes into the main repo tree are a hard failure that holds the whole batch (observed live: a relative-path write corrupted a shared suite). ` +
+    `Exception (required): write YOUR phase reports/verdicts to the run-evidence directory ${runDir} (absolute). ` +
+    `Skill for EVERY agent (load by trigger): cloudflare-artifacts — SKILL.md at ~/.claude/skills/cloudflare-artifacts/SKILL.md (Artifacts is the platform's storage substrate: env.ARTIFACTS binding, repo-scoped tokens, git-over-HTTPS, ArtifactFS; read it before touching platform/src or platform/scripts).\n`;
   const resumed = opts.resume === true;
   const skip = (artifact) => resumed && existsSync(`${runDir}/${artifact}`);
   // IMPLEMENT also counts a completed heal round as its record: a healed run must not
