@@ -104,37 +104,49 @@ export async function runFleet({
   });
 
   // ---- serial integration into main --------------------------------------------
+  // Main-tree cleanliness gate: a dirty main tree refuses lane merges (and is usually a leak's
+  // fingerprint — lane agents' cwd is main, so relative-path writes escape the worktree). Detect
+  // ONCE per wave; if dirty, skip ALL integration with named files instead of failing halfway.
+  let mainDirty = "";
+  try {
+    mainDirty = execFileSync("git", ["-C", mainRoot, "status", "--porcelain"], { encoding: "utf8", timeout: 30000 }).trim();
+  } catch { }
   const integration = [];
-  for (const r of runs) {
-    const dir = `${fleetRoot}/${r.id}`;
-    if (r.error) {
-      // Lane errored mid-batch. Its commits may still be partial — merge what exists, report.
-      integration.push({ id: r.id, state: "lane errored (batch)", detail: r.error.slice(0, 160) });
-    }
-    try {
-      git(["fetch", "-q", dir, "main"], mainRoot);
-      const ahead = git(["log", "--oneline", "HEAD..FETCH_HEAD"], mainRoot);
-      if (!ahead) {
-        integration.push({ id: r.id, state: "no new commits" });
-        continue;
+  if (mainDirty) {
+    const files = mainDirty.split("\n").map((l) => l.slice(3).split(" -> ")[0]).slice(0, 12);
+    for (const r of runs) integration.push({ id: r.id, state: "main-dirty — integration skipped", detail: files.join(", ") });
+    console.error(`fleet: main tree dirty — integration skipped for all lanes (reconcile: ${files.join(", ")})`);
+  } else
+    for (const r of runs) {
+      const dir = `${fleetRoot}/${r.id}`;
+      if (r.error) {
+        // Lane errored mid-batch. Its commits may still be partial — merge what exists, report.
+        integration.push({ id: r.id, state: "lane errored (batch)", detail: r.error.slice(0, 160) });
       }
       try {
-        git(["merge", "--no-ff", "--no-edit", "-m", `fleet ${ts} ${r.id}: parallel batch merge`, "FETCH_HEAD"], mainRoot);
-        integration.push({ id: r.id, state: "merged", commits: ahead.split("\n").filter(Boolean).length });
+        git(["fetch", "-q", dir, "main"], mainRoot);
+        const ahead = git(["log", "--oneline", "HEAD..FETCH_HEAD"], mainRoot);
+        if (!ahead) {
+          integration.push({ id: r.id, state: "no new commits" });
+          continue;
+        }
         try {
-          git(["fetch", "-q", mainRoot, "main"], dir);
-          git(["merge", "--ff-only", "FETCH_HEAD"], dir);
+          git(["merge", "--no-ff", "--no-edit", "-m", `fleet ${ts} ${r.id}: parallel batch merge`, "FETCH_HEAD"], mainRoot);
+          integration.push({ id: r.id, state: "merged", commits: ahead.split("\n").filter(Boolean).length });
+          try {
+            git(["fetch", "-q", mainRoot, "main"], dir);
+            git(["merge", "--ff-only", "FETCH_HEAD"], dir);
+          } catch (e) {
+            integration.push({ id: r.id, state: "merged (lane sync deferred)", detail: String(e.stderr ?? e.message).slice(0, 160) });
+          }
         } catch (e) {
-          integration.push({ id: r.id, state: "merged (lane sync deferred)", detail: String(e.stderr ?? e.message).slice(0, 160) });
+          try { git(["merge", "--abort"], mainRoot); } catch { }
+          integration.push({ id: r.id, state: "CONFLICT — lane held for manual reconcile", detail: String(e.stderr ?? e.message).slice(0, 200) });
         }
       } catch (e) {
-        try { git(["merge", "--abort"], mainRoot); } catch { }
-        integration.push({ id: r.id, state: "CONFLICT — lane held for manual reconcile", detail: String(e.stderr ?? e.message).slice(0, 200) });
+        integration.push({ id: r.id, state: "integration error", detail: String(e.stderr ?? e.message).slice(0, 200) });
       }
-    } catch (e) {
-      integration.push({ id: r.id, state: "integration error", detail: String(e.stderr ?? e.message).slice(0, 200) });
     }
-  }
 
   const out = {
     ts,

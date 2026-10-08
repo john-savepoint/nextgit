@@ -206,9 +206,43 @@ export async function runWorkOrder(order, opts = {}) {
   phase(`ORDER ${order.id}: ${order.title}${resumed ? " (resume)" : ""}`);
   writeState(resumed ? "resume-scan" : "plan", { agents: { plan: ag.plan, implement: ag.implement, verify: ag.verify, healResearch: ag.healResearch, healApply: ag.healApply } });
 
+  // Bounded retry for infra faults (laguna-free throws 500s / "Cannot yield"): 2 extra attempts,
+  // short backoff. Retries THROWN errors only — a returned verdict is never re-run.
+  const ask = async (prompt, opts, tries = 3) => {
+    for (let a = 1; ; a++) {
+      try { return await agent(prompt, opts).wait(); }
+      catch (e) {
+        if (a >= tries) throw e;
+        log(`retry ${a}/${tries - 1} on ${opts?.label ?? "agent"}: ${String(e?.message ?? e).slice(0, 120)}`);
+        await Bun.sleep(1500 * a);
+      }
+    }
+  };
+
+  // Read-only-phase write discipline: VERIFY, GATE lenses and HEAL-research must not modify the
+  // worktree's non-evidence files (agents observed writing outside their remit; driver `add -A`
+  // would land it unreviewed). Fingerprint around those phases; mismatch = recorded ship-blocker.
+  const RO_EXCLUDE = /^(porting\/runs|porting\/compile|\.worktrees)(\/|$)/;
+  const wtFingerprint = () => {
+    try {
+      return execFileSync("git", ["-C", root, "status", "--porcelain"], { encoding: "utf8", timeout: 30000 })
+        .split("\n").filter(Boolean).map((l) => l.slice(3).split(" -> ")[0]).filter((p) => !RO_EXCLUDE.test(p)).sort().join("\n");
+    } catch { return "FINGERPRINT-UNAVAILABLE"; }
+  };
+  const discipline = [];
+  const checkRO = (phaseName, before) => {
+    const after = wtFingerprint();
+    if (before !== "FINGERPRINT-UNAVAILABLE" && after !== before) {
+      const beforeSet = new Set(before.split("\n").filter(Boolean));
+      const changed = after.split("\n").filter((l) => l && !beforeSet.has(l)).slice(0, 10);
+      discipline.push({ phase: phaseName, changed });
+      log(`READ-ONLY VIOLATION during ${phaseName}: ${changed.join(" | ")}`);
+    }
+  };
+
   // ---- PLAN (plan-agent: read-only → returns; runner persists) --------------
   if (!skip("plan.md")) {
-    const p = await agent(
+    const p = await ask(
       `${SCOPE_LAW}` +
       `PLAN phase for work order "${order.id}" — ${order.title}.\n` +
       `Scope + acceptance: ${order.scope}\n${order.acceptance}\n` +
@@ -217,20 +251,20 @@ export async function runWorkOrder(order, opts = {}) {
       `Skills: apply ${SKILL_HINTS.plan} (paths in .omp/agents.md if the router misses them).\n` +
       `Do NOT implement anything yet. Do NOT commit.`,
       { agent: ag.plan, label: `plan:${order.id}`, schema: PLAN_SCHEMA },
-    ).wait();
+    );
     const planText = typeof p === "string" ? p : (p?.plan ?? JSON.stringify(p, null, 2));
     writeFileSync(`${runDir}/plan.md`, planText);
     log(`plan: ${String(typeof p === "object" ? (p?.summary ?? "") : "").slice(0, 200)}`);
   }
 
   // ---- IMPLEMENT (wf-implementer: has write; writes implement.md itself) ----
-  if (!implDone()) await agent(
+  if (!implDone()) await ask(
     `${SCOPE_LAW}` +
     `IMPLEMENT phase of ${order.id} per ${runDir}/plan.md.\n` +
     `Smallest correct diffs; respect existing patterns. Skills: ${SKILL_HINTS.implement}. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
     `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
     { agent: ag.implement, label: `impl:${order.id}` },
-  ).wait();
+  );
   // Loud phase guard: a mute IMPLEMENT (observed once — the agent wrote nothing) must not fail silent.
   if (!existsSync(`${runDir}/implement.md`)) {
     writeState("implement-no-artifact", { guard: "IMPLEMENT wrote no implement.md — gates will see an empty change set; heal artifacts count as the implement record on resume" });
@@ -238,14 +272,16 @@ export async function runWorkOrder(order, opts = {}) {
 
   // ---- VERIFY (wf-verifier: mechanical; runner persists) --------------------
   const runVerify = async (label) => {
-    const v = await agent(
+    const fp = wtFingerprint();
+    const v = await ask(
       `${SCOPE_LAW}` +
       `VERIFY phase of ${order.id} (${label}). You are a FRESH verifier: do not fix anything.\n` +
       `Run ${order.testCmd} (cwd ${root}) and return {verdict: "PASS"|"FAIL", evidence: "<the VERBATIM output>", notes: [...]}. ` +
       `Per ${SKILL_HINTS.verify}: evidence is the executed command + raw output, nothing paraphrased. ` +
       `Also state whether the acceptance is observably met: ${order.acceptance}`,
       { agent: ag.verify, label: `verify:${order.id}:${label}`, schema: VERIFY_SCHEMA },
-    ).wait();
+    );
+    checkRO(`verify:${label}`, fp);
     // Prefer the caller-schema verdict over the def's pinned `clean` flag — the pinned flag is
     // fork-specific (its <=7 testFailures exemption can record a verdict unrelated to this
     // order's testCmd; gate finding 2026-10-06, wf-v3-selftest quality lens).
@@ -260,21 +296,34 @@ export async function runWorkOrder(order, opts = {}) {
   // ---- GATE (lens set; specialist per lens; missing/errored = BLOCK) --------
   const gatePass = async (round, lensList) => {
     writeState(`gate:${round}`);
+    const fp = wtFingerprint();
+    const lensPrompt = (lens) =>
+      `${SCOPE_LAW}` +
+      `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
+      `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).` +
+      (SKILL_HINTS.lens[lens] ? ` Apply: ${SKILL_HINTS.lens[lens]}.` : "") +
+      (lens === "parity"
+        ? " PARITY semantics: compare the current tree against the batch base — list any behavior, file, endpoint, capability, or output REMOVED or weakened. A removal blocks UNLESS this order's scope/acceptance declares it (intentional replacement) or an adequate covering test still passes (tests substitute for manual comparison); with neither, it is a ship-blocker. The rule is: this build must be ≥ the previous build. Competitor mode: compare against the GitHub baseline feature list in the research dossiers."
+        : "") + "\n" +
+      `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
+      `Do NOT write files — the runner records your verdict. Return ONLY the object {lens, verdict, shipBlockers, highs, mediums, notes} (objects only, no arrays, no prose).`;
     const handles = lensList.map((lens) =>
-      agent(
-        `${SCOPE_LAW}` +
-        `GATE lens "${lens}" for work order ${order.id} (${order.title}). Round ${round}.\n` +
-        `Review the change set in ${root} (git diff vs the batch base; read ${runDir}/plan.md, implement.md, verify.md).` +
-        (SKILL_HINTS.lens[lens] ? ` Apply: ${SKILL_HINTS.lens[lens]}.` : "") +
-        (lens === "parity"
-          ? " PARITY semantics: compare the current tree against the batch base — list any behavior, file, endpoint, capability, or output REMOVED or weakened. A removal blocks UNLESS this order's scope/acceptance declares it (intentional replacement) or an adequate covering test still passes (tests substitute for manual comparison); with neither, it is a ship-blocker. The rule is: this build must be ≥ the previous build. Competitor mode: compare against the GitHub baseline feature list in the research dossiers."
-          : "") + "\n" +
-        `Block rule: 0 ship-blockers + 0 highs = SHIP. Attribution: only reds INTRODUCED by this order block — a red identical at the batch base (porting/runs/base-red.json plus the standing red set in docs/STATE.md) is a HIGH with a named owner, not a blocker.\n` +
-        `Do NOT write files — the runner records your verdict. Return ONLY the object {lens, verdict, shipBlockers, highs, mediums, notes} (objects only, no arrays, no prose).`,
-        { agent: lensAgent(lens), label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA },
-      ),
+      agent(lensPrompt(lens), { agent: lensAgent(lens), label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA }),
     );
     const settled = await wait(handles, { raiseErrors: false });
+    // One bounded retry per infra-errored lens — a transient provider 500 must not BLOCK a correct
+    // order (fail-closed gates + laguna-free throw rates made this the top false-block source).
+    for (let i = 0; i < lensList.length; i++) {
+      if (settled[i] instanceof Error) {
+        const lens = lensList[i];
+        log(`gate lens ${lens} errored (${String(settled[i].message).slice(0, 80)}) — one retry`);
+        await Bun.sleep(1500);
+        try {
+          settled[i] = await agent(lensPrompt(lens), { agent: lensAgent(lens), label: `gate:${lens}:${order.id}:retry`, schema: LENS_SCHEMA }).wait();
+        } catch { /* keep the original Error — normalizeVerdict fails it closed */ }
+      }
+    }
+    checkRO(`gate-${round}`, fp);
     const out = new Map();
     lensList.forEach((lens, i) => {
       const s = settled[i];
@@ -299,7 +348,8 @@ export async function runWorkOrder(order, opts = {}) {
       .filter((v) => v.verdict !== "SHIP")
       .flatMap((v) => [...(v.shipBlockers ?? []), ...(v.highs ?? [])])
       .filter(Boolean);
-    const hr = await agent(
+    const hrFp = wtFingerprint();
+    const hr = await ask(
       `${SCOPE_LAW}` +
       `HEAL research round ${heals} for ${order.id} (skills: ${SKILL_HINTS.healResearch} — root cause before fix).\n` +
       `The AUTHORITATIVE findings are the gate reports in ${runDir}/gate-*.md — read them first; the inline list below may be partial.\n` +
@@ -307,17 +357,18 @@ export async function runWorkOrder(order, opts = {}) {
       `For each blocking finding return a minimal fix: finding → file:line → the repo-sibling pattern to follow. Do NOT edit files.\n` +
       `Return {proposals: "<full markdown>"}.`,
       { agent: ag.healResearch, label: `heal-research:${order.id}:${heals}`, schema: HEAL_RESEARCH_SCHEMA },
-    ).wait();
+    );
+    checkRO(`heal-research:${heals}`, hrFp);
     writeFileSync(`${runDir}/heal-${heals}-research.md`, String(typeof hr === "object" ? (hr?.proposals ?? JSON.stringify(hr, null, 2)) : hr));
 
     writeState("heal", { healRound: heals });
-    await agent(
+    await ask(
       `${SCOPE_LAW}` +
       `HEAL apply round ${heals} for ${order.id}. Read ${runDir}/heal-${heals}-research.md and the gate reports; apply the minimal fixes. Skills: ${SKILL_HINTS.healApply}.\n` +
       `Group by file; ONE writer per file per wave; <=10 files; fix only what the findings name. Run ${order.testCmd} after the wave.\n` +
       `Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
       { agent: ag.healApply, label: `heal:${order.id}:${heals}` },
-    ).wait();
+    );
 
     writeState("re-verify", { healRound: heals });
     await runVerify(`heal-${heals}`);
@@ -325,6 +376,20 @@ export async function runWorkOrder(order, opts = {}) {
     const failed = [...verdicts.entries()].filter(([, v]) => v.verdict !== "SHIP").map(([lens]) => lens);
     const re = await gatePass(heals, failed);
     for (const [lens, v] of re) verdicts.set(lens, v);
+  }
+
+  // Read-only-phase write violations become their own blocked lens (never silently landed).
+  if (discipline.length) {
+    const v = {
+      lens: "discipline",
+      verdict: "BLOCK",
+      shipBlockers: discipline.map((d) => `read-only phase "${d.phase}" modified the worktree: ${d.changed.join(", ")}`),
+      highs: [],
+      mediums: [],
+      notes: ["The runner fingerprinted tracked+untracked (non-evidence) files around VERIFY / GATE / HEAL-research; a change is a discipline violation. Inspect, revert if stray, then re-run the order."],
+    };
+    verdicts.set("discipline", v);
+    writeFileSync(`${runDir}/gate-discipline.md`, JSON.stringify(v, null, 2));
   }
 
   const blocked = [...verdicts.values()].some((v) => v.verdict !== "SHIP");
