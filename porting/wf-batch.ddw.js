@@ -301,13 +301,14 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
     const parityHandle = preBatchCommit && results.some((r) => r.verdict === "GREEN")
       ? agent(
-        `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
-        `Pre-batch commit: ${preBatchCommit}. Run \`git diff --stat ${preBatchCommit}\` and \`git diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
-        `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
-        `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
-        `Return ONLY {verdict, shipBlockers, highs, notes}.`,
-        { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
-      )
+          `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
+          `THE BATCH TREE — the only tree to inspect — is ${root}. Your shell cwd is NOT it (it is the session dir): use \`git -C ${root} …\` for every git command and absolute paths under ${root} for everything else.\n` +
+          `Pre-batch commit: ${preBatchCommit}. Run \`git -C ${root} diff --stat ${preBatchCommit}\` and \`git -C ${root} diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
+          `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
+          `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
+          `Return ONLY {verdict, shipBlockers, highs, notes}.`,
+          { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
+        )
       : null;
 
     // --- merged gate (v1: sequential workspace; this gate sees the union) ------
@@ -316,7 +317,8 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     const mergedHandle = agent(
       `MERGED GATE for batch ${ts}. Orders run: ${results.map((r) => `${r.order} (${r.verdict}, heals=${r.heals})`).join("; ")}.\n` +
       `Unlanded work (kept branches — NOT in the build): ${(mergeBack?.kept ?? []).map((k) => k.id).join(", ") || "(none)"}. Merge conflicts: ${mergeConflicts.join(", ") || "(none)"}.\n` +
-      `Read every order's result.json + reports under ${batchDir}/../ and the current working tree (git diff vs the pre-batch commit).\n` +
+      `THE BATCH TREE — the only tree to inspect — is ${root} (your shell cwd is NOT it): use \`git -C ${root} …\` / absolute paths under ${root}. Read the run reports under ${batchDir}/../.\n` +
+      `Run \`git -C ${root} diff ${preBatchCommit}\` versus the pre-batch commit and judge the batch's effect on it.\n` +
       `Skills: apply ${SKILL_HINTS.mergedGate}.\n` +
       `Block rule + attribution as in the per-order gate: only reds INTRODUCED by this batch block; base-identical reds are recorded with owners.\n` +
       `Do NOT write files — the runner records your verdict. Return the verdict object + a <=6 line summary ending with NEXT: ALL GREEN or the blockers.`,
