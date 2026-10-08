@@ -1032,3 +1032,22 @@ html, body {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
+
+/* Phone-width touch targets — every listed control presents a ≥44×44px hit area at ≤720px
+   viewports (EXPERIENCE.md Accessibility Floor 'To build': touch targets ≥44px at phone widths;
+   PRD NFR-9). The auto-refresh toggle targets its wrapping label so the 2rem pill is not resized. */
+@media (max-width: 720px) {
+  .btn-refresh,
+  .btn-tour-header,
+  .btn-tour-help,
+  .toggle-label,
+  .btn-card-action,
+  .btn-file-diff,
+  .btn-close-modal,
+  .connection-banner-action,
+  .action-banner-close,
+  .merge-file-tab {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
