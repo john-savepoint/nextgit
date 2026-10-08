@@ -79,6 +79,7 @@ function envFor(kv) {
   return {
     ARTIFACTS: { get: async () => null },
     LIVE: kv,
+    CACHE: kv,
     ASSETS: { fetch: async () => new Response("") },
     AI: { run: async () => null },
   };

@@ -179,7 +179,7 @@ function makeFakeKV() {
 }
 
 function envFor({ ai = AI, artifacts = ARTIFACTS } = {}) {
-  return { ARTIFACTS: artifacts, LIVE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: ai };
+  return { ARTIFACTS: artifacts, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: ai };
 }
 
 // --- canary fixtures ---------------------------------------------------------

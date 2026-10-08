@@ -26,6 +26,10 @@
     {
       "binding": "LIVE",
       "id": "9850d064f5bc43649125b9d8e9e130d2"
+    },
+    {
+      "binding": "CACHE",
+      "id": "55d973240e2d4770a07ddc0faedf757c"
     }
   ],
   "triggers": {

@@ -126,7 +126,7 @@ const ARTIFACTS = {
   },
 };
 
-const env = { ARTIFACTS, LIVE, ASSETS: { fetch: async () => new Response("") } };
+const env = { ARTIFACTS, LIVE, CACHE: LIVE, ASSETS: { fetch: async () => new Response("") } };
 
 // ---------------------------------------------------------------------------
 // 1. handleLand threads ctx (does not throw when ctx has waitUntil)

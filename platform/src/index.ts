@@ -31,6 +31,7 @@ import {
 interface Env {
  ARTIFACTS: Artifacts;
  LIVE: KVNamespace;
+ CACHE: KVNamespace;
  ASSETS: Fetcher;
  AI: Ai;
  LAND_LEASE: DurableObjectNamespace;
@@ -596,7 +597,7 @@ function classifyPair(a: ProposalEntry, b: ProposalEntry): {
   const regions = diff3Merge(a.texts.head.split("\n"), a.texts.base.split("\n"), b.texts.head.split("\n"));
   const conflicted = regions.filter((r) => r.conflict);
   if (conflicted.length === 0) return { kind: "mergeable", conflict: false };
-  const c = conflicted[0].conflict;
+  const c = conflicted[0].conflict!;
   return {
    kind: "text-conflict",
    conflict: true,
@@ -764,7 +765,7 @@ async function recordEvent(env: Env, event: LiveEvent): Promise<void> {
  const normType = event.type ? normalizeEventType(event.type) : "";
  await env.LIVE.put(EVENTS_KEY, JSON.stringify([{ ...event, type: normType }, ...events].slice(0, MAX_EVENTS)));
  if (CACHE_INVALIDATING_TYPES[normType]) {
-  await env.LIVE.put("cache:gen", String(Date.now()));
+  await env.CACHE.put("cache:gen", String(Date.now()));
  }
 }
 
@@ -1173,7 +1174,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    // its only landing-record writer. The push already happened, so a storage
    // failure is logged and degraded, never reported as a failed land.
    try {
-    await env.LIVE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
+    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
    } catch (e) {
     console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
    }
@@ -1393,7 +1394,7 @@ async function handleLandingsRead(commit: string, env: Env): Promise<Response> {
  if (!COMMIT_RE.test(commit)) {
   return badRequest("bad-request");
  }
- const record = await env.LIVE.get(`${LANDING_KEY_PREFIX}${commit}`);
+ const record = await env.CACHE.get(`${LANDING_KEY_PREFIX}${commit}`);
  if (record === null) {
   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
  }
@@ -1428,15 +1429,15 @@ export default {
     // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
     // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
     // cached set by key change; TTL bounds staleness if invalidation is ever missed.
-    const gen = (await env.LIVE.get("cache:gen").catch(() => null)) ?? "0";
+    const gen = (await env.CACHE.get("cache:gen").catch(() => null)) ?? "0";
     const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
     try {
-     const hit = await env.LIVE.get(cacheKey);
+     const hit = await env.CACHE.get(cacheKey);
      if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
     } catch { /* cache read is best-effort — fall through to compute */ }
     const result = await computeProposals(env, base, baseRef, ref, repoList);
     const body = JSON.stringify({ ok: true, ...result });
-    try { await env.LIVE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
+    try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
     return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
    }
 
@@ -1477,10 +1478,10 @@ export default {
   ctx.waitUntil(
    (async () => {
     try {
-     const gen = (await env.LIVE.get("cache:gen")) ?? "0";
+     const gen = (await env.CACHE.get("cache:gen")) ?? "0";
      const cacheKey = `cache:proposals:${gen}:demo:main:main:*`;
      const result = await computeProposals(env, "demo", "main", "main", null);
-     await env.LIVE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+     await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
      console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
     } catch (e) {
      console.log("warmup-failed", String(e));
