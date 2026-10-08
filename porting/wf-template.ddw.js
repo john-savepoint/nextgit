@@ -30,7 +30,8 @@
 //  budget counted per invocation, loud implement guard, truncation markers, lensesRun recorded.
 // v1 note: sequential, single workspace; per-order worktree isolation remains a recorded carry.
 
-import { mkdirSync, writeFileSync, appendFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync, appendFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 // Full gate battery (reference: security · quality+architecture · spec-fit · compliance ·
 // resilience ×2 · + project extras parity/ux). Default = scaled-down 4 (never zero).
@@ -254,6 +255,16 @@ export async function runWorkOrder(order, opts = {}) {
     );
     const planText = typeof p === "string" ? p : (p?.plan ?? JSON.stringify(p, null, 2));
     writeFileSync(`${runDir}/plan.md`, planText);
+    // Guard: reject plan.md clobbered to a self-pointer — a plan under 200 bytes is
+    // a stub/placeholder, not a real spec. Record as a ship-blocker rather than
+    // letting gates run against an empty plan.
+    try {
+      const planSize = statSync(`${runDir}/plan.md`).size;
+      if (planSize < 200) {
+        discipline.push({ phase: "plan", changed: [`plan.md self-clobbered (${planSize} bytes < 200)`] });
+        log(`PLAN CLAMBER GUARD: ${runDir}/plan.md is only ${planSize} bytes — flagging as ship-blocker`);
+      }
+    } catch { /* stat failed — plan.md missing is already caught by skip() */ }
     log(`plan: ${String(typeof p === "object" ? (p?.summary ?? "") : "").slice(0, 200)}`);
   }
 
@@ -268,6 +279,26 @@ export async function runWorkOrder(order, opts = {}) {
   // Loud phase guard: a mute IMPLEMENT (observed once — the agent wrote nothing) must not fail silent.
   if (!existsSync(`${runDir}/implement.md`)) {
     writeState("implement-no-artifact", { guard: "IMPLEMENT wrote no implement.md — gates will see an empty change set; heal artifacts count as the implement record on resume" });
+  }
+  // Guard: implement.md SHA drift check — if the implementer cited an app.js SHA in its
+  // report, verify it matches the current HEAD:app.js so evidence can't be replayed
+  // against a different tree. (Cited in heal-research as plan.md clobber + SHA drift.)
+  if (existsSync(`${runDir}/implement.md`)) {
+    try {
+      const implText = readFileSync(`${runDir}/implement.md`, "utf8");
+      const shaMatch = implText.match(/sha256[:\s]+([0-9a-f]{64})/i);
+      if (shaMatch) {
+        const citedSha = shaMatch[1].toLowerCase();
+        let actualSha = "";
+        try {
+          actualSha = execFileSync("git", ["-C", root, "rev-parse", "HEAD:platform/ui/app.js"], { encoding: "utf8", timeout: 10000 }).trim();
+        } catch { /* git rev-parse fails on non-git or missing path — skip drift check */ }
+        if (actualSha && actualSha !== citedSha) {
+          discipline.push({ phase: "implement-sha-drift", changed: [`implement.md cited app.js sha256 ${citedSha.slice(0,12)}… but HEAD:app.js is ${actualSha.slice(0,12)}…`] });
+          log(`SHA DRIFT GUARD: implement.md cited ${citedSha.slice(0,12)}… but HEAD:app.js is ${actualSha.slice(0,12)}… — flagging as ship-blocker`);
+        }
+      }
+    } catch { /* readFileSync failed — implement.md unreadable, skip */ }
   }
 
   // ---- VERIFY (wf-verifier: mechanical; runner persists) --------------------
