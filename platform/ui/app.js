@@ -80,10 +80,10 @@ function formatTime(isoOrTimestamp) {
   if (!isoOrTimestamp) return "";
   try {
     const d = new Date(isoOrTimestamp);
-    if (isNaN(d.getTime())) return String(isoOrTimestamp);
+    if (isNaN(d.getTime())) return "";
     return d.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
   } catch {
-    return String(isoOrTimestamp);
+    return "";
   }
 }
 
@@ -630,7 +630,7 @@ function renderProposals() {
             isLanded
               ? `<div class="landed-banner">
                    <span class="landed-status">landed — nothing pending</span>
-                   <span>All changes from this branch have been merged into baseline.</span>
+                   <span>${landing?.files ?? 0} files · All changes from this branch have been merged into baseline.</span>
                  </div>`
               : `
                 <div class="proposal-stats">
@@ -967,10 +967,14 @@ async function handleLandProposal(repo) {
     const shortSha = commitSha ? commitSha.slice(0, 8) : "";
     const shaHtml = commitSha ? `<code class="commit-sha" title="${escapeHtml(commitSha)}">${escapeHtml(shortSha)}</code>` : "";
 
+    const landedFiles = Array.isArray(res.landed?.files) ? res.landed.files.length : 0;
+    const landedAt = typeof res.landed?.at === "string" && res.landed.at ? formatTime(res.landed.at) : "";
+    const receiptExtra = `${landedFiles ? ` · ${landedFiles} files` : ""}${landedAt ? ` · ${landedAt}` : ""}`;
+
     showActionBanner(
       "success",
       "landed",
-      `Successfully landed proposal <strong>${escapeHtml(repo)}</strong> into <strong>${escapeHtml(baseRepo)}</strong>. Commit ${shaHtml}`
+      `Successfully landed proposal <strong>${escapeHtml(repo)}</strong> into <strong>${escapeHtml(baseRepo)}</strong>. Commit ${shaHtml}${receiptExtra}`
     );
 
     // Auto-refresh proposals immediately
