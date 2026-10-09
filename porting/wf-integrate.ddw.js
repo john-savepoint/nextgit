@@ -53,7 +53,7 @@ export async function open({ root, id, reuse = true } = {}) {
   if (!existsSync(`${wt}/platform/node_modules`)) {
     sh("ln", ["-s", `${mainRoot}/platform/node_modules`, `${wt}/platform/node_modules`], mainRoot);
   }
-  const st = { runId, mainRoot, wt, branch, baseSha: mainSha, created, opens: (readState(runDir)?.opens ?? 0) + 1, updatedAt: new Date().toISOString() };
+  const st = { runId, mainRoot, runDir, wt, branch, baseSha: mainSha, created, opens: (readState(runDir)?.opens ?? 0) + 1, updatedAt: new Date().toISOString() };
   writeFileSync(`${runDir}/state.json`, JSON.stringify(st, null, 2));
   return st;
 }
