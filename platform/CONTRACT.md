@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.3 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
+Version: v2.4 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -229,3 +229,13 @@ Masking is **path-driven by design** in this version: a secret value placed in a
 ## Land lease (DO coordination)
 
 `POST /land` uses a Durable Object lease (`LAND_LEASE` binding, `LandLeaseDO` class) to serialize concurrent lands per base repo across Workers isolates. The lease is advisory-first and internal: `acquire` returns `{ acquired: boolean, leaseId: string | null }`; on `!acquired`, the caller is refused with the existing `409 {ok:false, error:"base-moved", detail:"..."}` shape (no new response fields). The lease key is `lease:<base>` — single key per base — with a 30-second TTL and lazy expiry (plus native DO hibernation). When `env.LAND_LEASE` is undefined (e.g. local dev), `acquireLandLease` returns `null` and the route falls back to AD-3's push-rejection conversion. The winner acquires the lease, lands, and releases on completion; losers are refused deterministically rather than relying on push-rejection timing. The `lease` evidence field (additive-optional) records `{ provider: "do", leaseId }` on the winning land only.
+
+
+## Platform VERIFY gate
+
+Every platform deploy runs two live probes as a non-negotiable VERIFY gate. Both are read-only against the live worker — they never land/push/fork/delete `demo` or `agent-1..5`:
+
+- `node porting/tests/land-hardening.probe.mjs` — AD-3 fold-merge + landing correctness across success and induced-failure paths.
+- `node porting/tests/egress-guard.probe.mjs` — AD-9 E8 credential egress guard: scans every route's raw response body across success and induced-failure paths (200/500/400/403/404) for `Bearer` tokens, `Authorization:` headers, Artifacts token shapes, and shell snippets. Includes a self-test that injects a synthetic token into a body and asserts the scanner detects it (proving the scanner is not a no-op). The probe also structurally verifies that the 500 push-failed path's `files` projection strips `merged` content — only `{path, action, result}` survive, so file-content payloads can never echo in a failure response.
+
+A deploy is not "done" until both probes exit 0.

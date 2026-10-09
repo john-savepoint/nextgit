@@ -1223,6 +1223,9 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    // Credential-free failure: no token, no shell snippets. The caller may
    // retry, preview again, or land through the sanctioned control plane —
    // never via a handed-out write credential (spine AD-9).
+   // NFR-6: strip `merged` (file-content payload) from the error-path `files`
+   // projection — only path/action/result survive so a non-secret file
+   // carrying credential-shaped content can never echo in a failure body.
    return Response.json(
     {
      ok: false,
@@ -1230,7 +1233,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
      detail,
      repos,
      branch: baseRef,
-     files: writeable,
+     files: writeable.map((f) => ({ path: f.path, action: f.action, result: f.result })),
     },
     { status: 500 },
    );
