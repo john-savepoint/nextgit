@@ -26,6 +26,9 @@ import {
  validateJudgeResponse,
  judgeRateAllow,
  scrubFreeText,
+ CONTENT_SECRET_MIN,
+ isNoulAnswer,
+ isPlainObject,
  type JudgeRepoInput,
 } from "./judge";
 interface Env {
@@ -34,6 +37,7 @@ interface Env {
  CACHE: KVNamespace;
  ASSETS: Fetcher;
  AI: Ai;
+ SKIP_RECORD?: KVNamespace;
  LAND_LEASE: DurableObjectNamespace;
 }
 
@@ -1072,6 +1076,18 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
   // Values must never leave the worker and must never be pushed by it.
   return Response.json({ ok: false, error: "withheld-secret", files: secretFiles }, { status: 409 });
  }
+ // Judge idea 11: content-detected-secret landing gate.
+ // /judge may have flagged any repo as containing a secret-value pattern.
+ // Such repos cannot land — the skip record persists across the review/land gap.
+ const skipChecks = repos.map((name) => env.SKIP_RECORD?.get(`judge-skip:${name}:${base}:${ref}`).catch(() => null) ?? Promise.resolve(null));
+ const skipHits = await Promise.all(skipChecks);
+ const skipFlagged = repos.filter((_, i) => skipHits[i] !== null);
+ if (skipFlagged.length) {
+  return Response.json(
+   { ok: false, error: "content-detected-secret", repos: skipFlagged, detail: "one or more repos were judge-skipped for content-detected secrets" },
+   { status: 409 },
+  );
+ }
  if (merge.status === "conflict") {
   const detail = merge.files
    .filter((f) => f.result === "conflict")
@@ -1333,7 +1349,7 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
  if (!judgeRateAllow(caller)) return Response.json({ ok: false, error: "rate-limited" }, { status: 429 });
  if (!env.AI || typeof env.AI.run !== "function") return judgeUnavailable();
 
- const skipped: Array<{ repo: string; reason: "secret-class" | "empty-change-set" }> = [];
+ const skipped: Array<{ repo: string; reason: "secret-class" | "empty-change-set" | "content-detected-secret" }> = [];
  const judged: JudgeRepoInput[] = [];
  for (const name of parsed.repos) {
   // The same fork-point reads /proposals uses, with texts for the fold below.
@@ -1364,6 +1380,38 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
  if (!validated.ok) {
   console.log("judge-unavailable", JSON.stringify({ reason: validated.reason }));
   return judgeUnavailable();
+ }
+ // Judge idea 11: content-detected-secret skip conversion.
+ // If the raw model response flags any repo's content_secret_<i> noul above
+ // CONTENT_SECRET_MIN, that repo is moved to skipped — removed from judgments
+ // and recorded in SKIP_RECORD so /land can refuse it.
+ const rawUnknown: unknown = raw;
+ const rawAnswers: Record<string, unknown> = isPlainObject(rawUnknown) && isPlainObject(rawUnknown.answers) ? rawUnknown.answers : {};
+ for (const entry of plan) {
+  if (!entry.isContentSecret) continue;
+  const answer = rawAnswers[entry.id];
+  if (isNoulAnswer(answer) && answer.noul > CONTENT_SECRET_MIN) {
+   skipped.push({ repo: entry.repo, reason: "content-detected-secret" });
+   if (env.SKIP_RECORD) {
+    void env.SKIP_RECORD.put(`judge-skip:${entry.repo}:${parsed.base}:${parsed.ref}`, new Date().toISOString()).catch(() => { });
+   }
+  }
+ }
+ if (skipped.some((s) => s.reason === "content-detected-secret")) {
+  const flagged = skipped.filter((s) => s.reason === "content-detected-secret").map((s) => s.repo);
+  const remaining = validated.judgments.filter((j) => !flagged.includes(j.repo));
+  // Content-free log: counts only — never state, answers, or repo content.
+  console.log(
+   "judge",
+   JSON.stringify({ setId: JUDGE_SET_ID, model: validated.model, judged: remaining.length, skipped: skipped.length }),
+  );
+  return Response.json({
+   ok: true,
+   setId: JUDGE_SET_ID,
+   model: PINNED_MODEL_ID,
+   judgments: remaining,
+   skipped,
+  });
  }
  // Content-free log: counts only — never state, answers, or repo content.
  console.log(
