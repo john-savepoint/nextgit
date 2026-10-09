@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.3 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
+Version: v2.4 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -206,6 +206,18 @@ git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-no
 ```
 
 Fallback source: `NEXTGIT_INTENT/<sha>.txt` (or `NEXTGIT_INTENT/intent.txt`) on that branch. Response shape unchanged (`intent` string, omitted when absent).
+## Authorization (FR-45 / AD-9)
+
+A single `authorize(request, env, action, {repo|base})` chokepoint is called by every route; `AUTH_MODE` defaults to deny; the demo opts in explicitly (`demo`).
+
+- `AUTH_MODE` (Worker var, defaults to deny when absent or any value other than `demo`): `resolveAuthMode(env)` returns `"demo"` only when `env.AUTH_MODE === "demo"`; absent or any other value ⇒ `"deny"`.
+- **Deny mode** (default): every API route returns `401 { ok: false, error: "unauthorized" }` before any repo read (no `env.ARTIFACTS.get()` is reached on a denial).
+- **Demo mode** (`AUTH_MODE="demo"`): current demo behavior is preserved — routes run unchanged; the `/land` demo-repolist allowlist (`demo`, `agent-*`) and its `403 {ok:false,error:"repo-not-allowed"}` shape are unchanged.
+- **Action vocabulary:** `read` (GET endpoints + `/landings/{commit}`), `write` (`POST /land`), `judge` (`POST /judge`), `reveal` (reserved for elevated reveal — FR-31, behind the seam). Enforced per-route via the route table in `platform/src/index.ts`.
+- **Identity carrier:** opaque token in the `Authorization` header (Bearer prefix stripped by handlers). In demo mode any non-empty token is accepted (no identity resolution yet — the reveal-behind-seam story adds it later).
+- **Uniform deny shape:** `401 { ok: false, error: "unauthorized" }` — no detail, no token logging (NFR-3).
+
+Exact copy (FR-45): "A single `authorize(request, env, action, {repo|base})` chokepoint is called by every route; `AUTH_MODE` defaults to deny; the demo opts in explicitly (`demo`)."
 
 ## Secret classes (masking law)
 

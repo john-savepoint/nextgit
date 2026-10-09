@@ -228,7 +228,7 @@ function makeEnvironment(agentCount) {
     fake.discovered.push({ name, status: "ready" });
   }
   const agentRepos = fake.discovered.filter((r) => r.name.startsWith("agent-")).map((r) => r.name).sort();
-  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: makeKV(), ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null } };
+  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: makeKV(), CACHE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null }, AUTH_MODE: "demo" };
   return { env, agentRepos };
 }
 
