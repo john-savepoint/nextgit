@@ -15,9 +15,11 @@
 
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
-import { BaseMovedError, mintWriteToken, pushLand, type LandFile } from "./land";
+import { BaseMovedError, foldHashOf, mintWriteToken, pushLand, type LandFile } from "./land";
 import { LandLeaseDO, acquireLandLease, releaseLandLease } from "./landLeaseDO";
 export { LandLeaseDO };
+import { EventsHubDO, publishEventToHub } from "./eventsHubDO";
+export { EventsHubDO };
 import {
  JUDGE_SET_ID,
  PINNED_MODEL_ID,
@@ -35,6 +37,7 @@ interface Env {
  ASSETS: Fetcher;
  AI: Ai;
  LAND_LEASE: DurableObjectNamespace;
+ EVENTS_HUB: DurableObjectNamespace;
 }
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
@@ -767,6 +770,37 @@ async function recordEvent(env: Env, event: LiveEvent): Promise<void> {
  if (CACHE_INVALIDATING_TYPES[normType]) {
   await env.CACHE.put("cache:gen", String(Date.now()));
  }
+ // SSE fan-out: best-effort. A hub failure must not reject the queue message
+ // or roll back the KV write (the queue consumer acks after this returns;
+ // GET /events is the durable feed). Swallow and log.
+ try { await publishEventToHub(env, { ...event, type: normType }); } catch (e) {
+  console.log("events-hub-publisher", String(e));
+ }
+}
+
+// GET /events/stream — reverse-proxy into the EVENTS_HUB Durable Object.
+// The DO owns the streaming connection lifecycle (hibernation on disconnect);
+// the Worker is a thin proxy. Matches the LandLeaseDO stub.fetch RPC shape
+// (index.ts ~87-89). No caller input — one namespace-wide feed, unauthenticated,
+// same auth model as GET /events (CONTRACT § GET /events/stream).
+async function handleSSEStream(request: Request, env: Env): Promise<Response> {
+ if (!env.EVENTS_HUB) {
+   // Hub unbound (local-dev / staging without the DO binding). Degrade to a
+   // connect comment so the client reconnects and falls back to GET /events.
+   return new Response(": connected\n\n", {
+     headers: {
+       "content-type": "text/event-stream; charset=utf-8",
+       "cache-control": "no-cache",
+       "connection": "keep-alive",
+     },
+   });
+ }
+ const id = env.EVENTS_HUB.idFromName("events");
+ const stub = env.EVENTS_HUB.get(id);
+ // The DO returns a streaming Response (text/event-stream). We proxy it directly
+ // so the connection is owned by the DO's hibernate-aware lifecycle — when all
+ // consumers disconnect, the DO hibernates. No waitUntil.
+ return stub.fetch(request);
 }
 
 // Event type whitelist + validation helpers for the queue consumer.
@@ -856,19 +890,6 @@ async function repoHead(env: Env, name: string, ref: string): Promise<string> {
  const commits = await repo.log({ ref, limit: 1 });
  if (!commits.length) throw new Error(`cannot resolve ref "${ref}"`);
  return commits[0].hash;
-}
-
-/** Stable SHA-256 (hex) over the folded result: action + path + content, path-sorted. */
-async function foldHashOf(files: LandFile[]): Promise<string> {
- const canonical = [...files]
-  // Code-unit order (not localeCompare): the contract publishes this
-  // serialization (CONTRACT.md POST /land) and clients recompute it from a
-  // /merge preview — ICU collation must never enter the digest.
-  .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-  .map((f) => `${f.action}\n${f.path}\n${f.action === "write" ? f.merged ?? "" : ""}\n\x00`)
-  .join("");
- const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
- return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function badRequest(error: string): Response {
@@ -1139,6 +1160,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     files: writeable,
     expectedBaseHead: baseHeadNow,
     readBaseHead: () => repoHead(env, base, baseRef),
+    landingNote: true,
    });
    const at = new Date().toISOString();
    const landed = {
@@ -1466,6 +1488,9 @@ export default {
 
    if (url.pathname === "/events" && request.method === "GET") {
     return Response.json({ ok: true, events: await readEvents(env) });
+   }
+   if (url.pathname === "/events/stream" && request.method === "GET") {
+    return handleSSEStream(request, env);
    }
    if (url.pathname.startsWith("/landings/") && request.method === "GET") {
     const commit = url.pathname.slice("/landings/".length);

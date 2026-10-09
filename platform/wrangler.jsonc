@@ -18,7 +18,7 @@
       {
         "queue": "nextgit-events",
         "max_batch_size": 10,
-        "max_batch_timeout": 5
+        "max_batch_timeout": 1
       }
     ]
   },
@@ -41,14 +41,16 @@
   },
   "durable_objects": {
     "bindings": [
-      { "name": "LAND_LEASE", "class_name": "LandLeaseDO" }
+      { "name": "LAND_LEASE", "class_name": "LandLeaseDO" },
+      { "name": "EVENTS_HUB", "class_name": "EventsHubDO" }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": [
-        "LandLeaseDO"
+        "LandLeaseDO",
+        "EventsHubDO"
       ]
     }
   ]

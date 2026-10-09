@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.3 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
+Version: v2.4 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -193,6 +193,43 @@ Thresholds, weights, and labels live in code (AD-11): the wire carries typed ans
 
 `{ "ok": true, "events": [{"type","repo","ref","after","at"}] }` — newest first, ≤50, from KV.
 
+## GET /events/stream
+
+**Real-time transport** — server-sent events over a Durable Object hub (`EVENTS_HUB` binding, `EventsHubDO` class, single instance keyed via `idFromName("events")`). `GET /events` remains the durable read; this route is a push mirror of the same validated event frame.
+
+**Request**: `GET /events/stream` (no query parameters; one namespace-wide feed — per-repo/per-base subscription is deferred).
+
+**Response**: `200` with `content-type: text/event-stream`, `cache-control: no-cache`, `connection: keep-alive`.
+
+**Initial frame**: within 5 s of connect, the server sends `: connected\n\n` (an SSE comment line) as a connection confirmation — never an event frame on connect alone.
+
+**Snapshot on connect**: after `: connected`, the server drains the most recent 50 events (the ring buffer, same cap as `GET /events`) as `event:` frames, newest-first. The snapshot is a best-effort drain; if the buffer is empty, none are sent and the client enters the live heartbeat.
+
+**SSE frame vocabulary** (identical to the `GET /events` event shape):
+
+```
+event: repo.pushed
+retry: 30000
+id: <dedup-key>
+data: { "type": "repo.pushed", "repo": "agent-1", "ref": "main", "after": "<40-hex>", "at": "<iso-8601-utc>" }
+
+```
+
+- `event:` — the normalized event type (`repo.pushed`, `repo.forked`, `repo.created`; normalized via the same `normalizeEventType` as the queue consumer — `cf.artifacts.` prefix stripped).
+- `retry:` — `30000` (30 s); instructs the client to reconnect after this interval on disconnect.
+- `id:` — the event's dedup key (`type|repo|ref|after`, same as `eventDedupKey` in index.ts:749-752) so a reconnecting client can resume via `Last-Event-ID`.
+- `data:` — JSON object `{ type, repo, ref, after, at }` — the exact `LiveEvent` shape (CONTRACT.md:194, `type?|repo?|ref?|after?` nullable; `at` always present).
+
+**Heartbeat**: every ≤30 s (implemented at ≤25 s) the server emits `: heartbeat\n\n` — an SSE comment, no `data:`. A client that has not received *any* line (event or heartbeat) within 45 s should reconnect with `Last-Event-ID` set to the most recent `id:` it received; the server re-drains the snapshot tail from its ring buffer (no server-side resume cursor is maintained).
+
+**Live broadcast**: every validated event that the queue consumer writes to KV (`recordEvent`, index.ts:754) is simultaneously published to the hub; open streams receive the matching `event:` frame. The producer is best-effort: a hub failure logs `events-hub-publisher` and is swallowed — the KV write stands and `GET /events` remains correct.
+
+**Relationship to GET /events**: `/events/stream` is derived — it never writes, never alters KV, never acks Queue messages. The queue consumer (`async queue`, index.ts:1496) is the single recorder; the SSE hub is a fan-out mirror. `GET /events/stream` degrades gracefully to the `: connected` + snapshot tail if the hub is unbound or empty.
+
+**Errors**: HTTP 200 for the stream. A hub dispatch error that precedes any SSE frame written is `503 { ok: false, error: "events-unavailable" }`.
+
+**Additive only** — no existing route shape changes.
+
 ## UI
 
 `GET /` serves the triage UI (`platform/ui/` via wrangler assets). API routes fall through to the worker.
@@ -207,6 +244,21 @@ git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-no
 
 Fallback source: `NEXTGIT_INTENT/<sha>.txt` (or `NEXTGIT_INTENT/intent.txt`) on that branch. Response shape unchanged (`intent` string, omitted when absent).
 
+
+### Landing-decision note (after land)
+
+After a successful `POST /land`, the worker attaches a landing-decision git note to the landed commit in `refs/notes/commits` and mirrors it to `refs/heads/nextgit-notes` inside the same `pushLand` critical section. The note payload is metadata-only:
+
+`{ repos: string[], commit: string, foldHash: string, at: string (ISO timestamp) }`
+
+- **repos** — the proposal repos folded into the landed commit.
+- **commit** — the landed commit SHA-1 (40-hex).
+- **foldHash** — SHA-256 over the folded result (action + path + content, path-sorted), identical to `evidence.foldHash` from the same land.
+- **at** — ISO 8601 timestamp of the note write.
+
+The note write is best-effort: a failure is logged as `landing-note-push-failed` and does not fail the land or alter any response shape. No secret-class content reaches the note — withheld-secret files are excluded at fold (CONTRACT §Secret classes). The note rides inside `pushLand` within `withLandGate`, using the same single-use worker token and the same critical section — it is not a separate control-plane push to base branches. This is the only code path that writes `refs/heads/nextgit-notes`; `refs/heads/<baseRef>` is written by exactly one `git.push` (the land commit push).
+
+Reader surface: `GET /changes` intent and `GET /proposals` card read intent from the mirror branch per the recipe above; the landing-decision note is readable via standard git-notes readers (e.g. `git notes --ref=refs/notes/commits show <commit>` after fetching the mirror).
 ## Secret classes (masking law)
 
 Path matches: basename `.env*`, `*.pem`, `*.key`, `*.p12`, `credentials.json`, `secrets.json`, `.dev.vars`, or any path containing `secrets/`.
