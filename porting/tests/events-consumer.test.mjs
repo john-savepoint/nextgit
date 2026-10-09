@@ -80,8 +80,8 @@ function envFor(kv) {
     ARTIFACTS: { get: async () => null },
     LIVE: kv,
     CACHE: kv,
-    ASSETS: { fetch: async () => new Response("") },
     AI: { run: async () => null },
+    AUTH_MODE: "demo",
   };
 }
 

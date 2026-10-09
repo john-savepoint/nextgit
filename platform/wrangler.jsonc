@@ -4,6 +4,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
+  "vars": {
+    "AUTH_MODE": "demo"
+  },
   "artifacts": [
     {
       "binding": "ARTIFACTS",

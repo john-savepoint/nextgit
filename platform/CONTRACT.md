@@ -243,6 +243,18 @@ git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-no
 ```
 
 Fallback source: `NEXTGIT_INTENT/<sha>.txt` (or `NEXTGIT_INTENT/intent.txt`) on that branch. Response shape unchanged (`intent` string, omitted when absent).
+## Authorization (FR-45 / AD-9)
+
+A single `authorize(request, env, action, {repo|base})` chokepoint is called by every route; `AUTH_MODE` defaults to deny; the demo opts in explicitly (`demo`).
+
+- `AUTH_MODE` (Worker var, defaults to deny when absent or any value other than `demo`): `resolveAuthMode(env)` returns `"demo"` only when `env.AUTH_MODE === "demo"`; absent or any other value ⇒ `"deny"`.
+- **Deny mode** (default): every API route returns `401 { ok: false, error: "unauthorized" }` before any repo read (no `env.ARTIFACTS.get()` is reached on a denial).
+- **Demo mode** (`AUTH_MODE="demo"`): current demo behavior is preserved — routes run unchanged; the `/land` demo-repolist allowlist (`demo`, `agent-*`) and its `403 {ok:false,error:"repo-not-allowed"}` shape are unchanged.
+- **Action vocabulary:** `read` (GET endpoints + `/landings/{commit}`), `write` (`POST /land`), `judge` (`POST /judge`), `reveal` (reserved for elevated reveal — FR-31, behind the seam). Enforced per-route via the route table in `platform/src/index.ts`.
+- **Identity carrier:** opaque token in the `Authorization` header (Bearer prefix stripped by handlers). In demo mode any non-empty token is accepted (no identity resolution yet — the reveal-behind-seam story adds it later).
+- **Uniform deny shape:** `401 { ok: false, error: "unauthorized" }` — no detail, no token logging (NFR-3).
+
+Exact copy (FR-45): "A single `authorize(request, env, action, {repo|base})` chokepoint is called by every route; `AUTH_MODE` defaults to deny; the demo opts in explicitly (`demo`)."
 
 
 ### Landing-decision note (after land)
@@ -281,3 +293,13 @@ Masking is **path-driven by design** in this version: a secret value placed in a
 ## Land lease (DO coordination)
 
 `POST /land` uses a Durable Object lease (`LAND_LEASE` binding, `LandLeaseDO` class) to serialize concurrent lands per base repo across Workers isolates. The lease is advisory-first and internal: `acquire` returns `{ acquired: boolean, leaseId: string | null }`; on `!acquired`, the caller is refused with the existing `409 {ok:false, error:"base-moved", detail:"..."}` shape (no new response fields). The lease key is `lease:<base>` — single key per base — with a 30-second TTL and lazy expiry (plus native DO hibernation). When `env.LAND_LEASE` is undefined (e.g. local dev), `acquireLandLease` returns `null` and the route falls back to AD-3's push-rejection conversion. The winner acquires the lease, lands, and releases on completion; losers are refused deterministically rather than relying on push-rejection timing. The `lease` evidence field (additive-optional) records `{ provider: "do", leaseId }` on the winning land only.
+
+
+## Platform VERIFY gate
+
+Every platform deploy runs two live probes as a non-negotiable VERIFY gate. Both are read-only against the live worker — they never land/push/fork/delete `demo` or `agent-1..5`:
+
+- `node porting/tests/land-hardening.probe.mjs` — AD-3 fold-merge + landing correctness across success and induced-failure paths.
+- `node porting/tests/egress-guard.probe.mjs` — AD-9 E8 credential egress guard: scans every route's raw response body across success and induced-failure paths (200/500/400/403/404) for `Bearer` tokens, `Authorization:` headers, Artifacts token shapes, and shell snippets. Includes a self-test that injects a synthetic token into a body and asserts the scanner detects it (proving the scanner is not a no-op). The probe also structurally verifies that the 500 push-failed path's `files` projection strips `merged` content — only `{path, action, result}` survive, so file-content payloads can never echo in a failure response.
+
+A deploy is not "done" until both probes exit 0.

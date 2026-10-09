@@ -279,7 +279,7 @@ function makeEnvironment() {
     fake.discovered.push({ name, status: "ready" });
   }
 
-  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null } };
+  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, CACHE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null }, AUTH_MODE: "demo" };
   return { env };
 }
 
