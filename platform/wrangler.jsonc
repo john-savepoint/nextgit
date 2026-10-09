@@ -52,7 +52,12 @@
     {
       "tag": "v1",
       "new_sqlite_classes": [
-        "LandLeaseDO",
+        "LandLeaseDO"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
         "EventsHubDO"
       ]
     }
