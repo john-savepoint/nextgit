@@ -15,7 +15,7 @@
     {
       "severity": "low",
       "story": "e7-verify-byo-harness-push-protocol",
-      "note": "Scope line refs into platform/scripts/real-agents.mjs are stale: the single push is at :424 (not :408-411), the runner commit block is :405-411 (not :392-405), clone prep is :362-371 (not :349-358). check_cmd does not depend on these; wayfinding only."
+      "note": "Scope line refs into platform/scripts/real-agents.mjs were stale (push :424 not :408-411, runner commit block :405-411 not :392-405, clone prep :362-371 not :349-358); CONTRACT.md:163-171 also repointed to :200-206 — all repointed to current lines on the implementation pass. check_cmd does not depend on these; wayfinding only."
     },
     {
       "severity": "low",

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "example",
+    "bin": "npx",
+    "env": {},
+    "args": ["-y", "my-agent", "run", "--cwd", "{cwd}", "{prompt}"],
+    "notes": "BYO template: {prompt} is replaced with the task prompt, {cwd} with the working directory. To pipe the prompt via stdin instead of a positional arg, set args: [] and 'stdinPrompt': true — buildArgs returns [] and the caller must feed prompt on stdin (not yet wired in real-agents.mjs)."
+  }
+]

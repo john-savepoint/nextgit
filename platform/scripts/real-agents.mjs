@@ -15,6 +15,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { loadRegistry, buildArgs } from "./harness-registry.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -121,36 +122,17 @@ async function forkFresh(name) {
 // it is never dispatched a task.
 // ---------------------------------------------------------------------------
 
-const CANDIDATES = [
- {
-  id: "codex",
-  bin: "codex",
-  // `--skip-git-repo-check` because a fresh clone is trusted by path, not by
-  // codex's own trust store; `--sandbox workspace-write` is the only way the
-  // default read-only sandbox lets the agent touch files.
-  build: (prompt, cwd) => ["exec", "--skip-git-repo-check", "--sandbox", "workspace-write", prompt],
-  env: () => ({}),
- },
- {
-  id: "omp",
-  bin: "omp",
-  // `--approval-mode=write` allows edits but still denies destructive commands,
-  // which is exactly the permission a task agent needs headless.
-  build: (prompt, cwd) => ["-p", "--approval-mode=write", "--no-session", "--cwd", cwd, prompt],
-  env: () => ({}),
- },
- {
-  id: "pi",
-  bin: "pi",
-  build: (prompt) => ["-p", prompt],
-  env: () => ({}),
-  // pi reached the provider but the account is out of credit — re-probing on
-  // every run would just burn the timeout; still probed because the balance
-  // may be topped up between runs.
-  probeBudgetMs: 60_000,
- },
-];
 
+const { harnesses: CANDIDATES, errors: registryErrors } = loadRegistry();
+if (registryErrors.length) {
+ console.error("harness registry load failed:");
+ for (const e of registryErrors) console.error(`  ${e}`);
+ if (process.argv.includes("--list-harnesses")) {
+  console.error("  (--list-harnesses cannot proceed — registry is broken)");
+  process.exit(2);
+ }
+ process.exitCode = 1;
+}
 const KNOWN_UNAVAILABLE = [
  { id: "claude", reason: "401 OAuth access token is invalid" },
  { id: "gemini", reason: "2.5-pro no longer available to new users (model revoked)" },
@@ -163,7 +145,7 @@ function spawnBounded(cand, args, cwd, timeoutMs, sink) {
  return new Promise((resolve) => {
   const child = spawn(cand.bin, args, {
    cwd,
-   env: { ...process.env, ...cand.env() },
+   env: { ...process.env, ...cand.env },
    stdio: ["ignore", "pipe", "pipe"],
   });
   let out = "";
@@ -220,7 +202,7 @@ async function probeCandidate(cand) {
  const started = Date.now();
  const res = await spawnBounded(
   cand,
-  cand.build("Create a file named hello.txt in this directory whose only content is the word pong. Do not do anything else.", scratch),
+  buildArgs(cand, "Create a file named hello.txt in this directory whose only content is the word pong. Do not do anything else.", scratch),
   scratch,
   cand.probeBudgetMs ?? 4 * 60_000,
   null,
@@ -378,12 +360,12 @@ async function runAgent(task, cand) {
   } else {
    const logPath = join(WORK_ROOT, `${task.name}.log`);
    const outSink = createWriteStream(logPath);
-   outSink.write(`$ ${cand.bin} ${cand.build(promptWithCommitInstructions(task), dir).map((a) => JSON.stringify(a).slice(0, 200)).join(" ")}\n\n`);
+   outSink.write(`$ ${cand.bin} ${buildArgs(cand, promptWithCommitInstructions(task), dir).map((a) => JSON.stringify(a).slice(0, 200)).join(" ")}\n\n`);
    const errSink = createWriteStream(`${logPath}.err`);
    console.log(`  ${task.name}  ${cand.id}  running…`);
    const res = await spawnBounded(
     cand,
-    cand.build(promptWithCommitInstructions(task), dir),
+    buildArgs(cand, promptWithCommitInstructions(task), dir),
     dir,
     AGENT_TIMEOUT_MS,
     { out: outSink, err: errSink },
@@ -626,4 +608,13 @@ function writeReport({ statuses, results, proposalsRes, assignments, patches }) 
  console.log(`  proposals visible: ${props.length}, conflict rows: ${conflicts.length}, agent-1x2 auth conflict: ${authPair.length ? "yes" : "no"}`);
 }
 
+if (process.argv.includes("--list-harnesses")) {
+ if (registryErrors.length) {
+  console.error("harness registry errors:");
+  for (const e of registryErrors) console.error(`  ${e}`);
+  process.exitCode = 1;
+ }
+ console.log(JSON.stringify(CANDIDATES, null, 2));
+ process.exit(registryErrors.length ? 1 : 0);
+}
 await main();

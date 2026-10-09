@@ -1,0 +1,24 @@
+[
+  {
+    "id": "codex",
+    "bin": "codex",
+    "env": {},
+    "args": ["exec", "--skip-git-repo-check", "--sandbox", "workspace-write", "{prompt}"],
+    "notes": "--skip-git-repo-check because a fresh clone is trusted by path, not by codex's own trust store; --sandbox workspace-write is the only way the default read-only sandbox lets the agent touch files."
+  },
+  {
+    "id": "omp",
+    "bin": "omp",
+    "env": {},
+    "args": ["-p", "--approval-mode=write", "--no-session", "--cwd", "{cwd}", "{prompt}"],
+    "notes": "--approval-mode=write allows edits but still denies destructive commands, which is exactly the permission a task agent needs headless."
+  },
+  {
+    "id": "pi",
+    "bin": "pi",
+    "env": {},
+    "args": ["-p", "{prompt}"],
+    "probeBudgetMs": 60000,
+    "notes": "pi reached the provider but the account is out of credit — re-probing on every run would just burn the timeout; still probed because the balance may be topped up between runs."
+  }
+]
