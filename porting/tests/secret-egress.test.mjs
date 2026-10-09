@@ -379,6 +379,32 @@ try {
 } catch (e) {
   check("judge: suite threw", false, String(e?.stack ?? e));
 }
+// ============================================================================
+// Test: /judge — mixed secret/non-secret repo (agent-canary) is judged, no canary leaks
+// ============================================================================
+// agent-canary has BOTH src/canary.ts (non-secret) AND config/.env (secret-class).
+// After the judge skip-logic fix, it must be judged (not skipped) and the secret
+// file must be masked to keys-only — no canary value in AI state, response, or logs.
+try {
+  resetAi(clefReply(singleAnswers()));
+  const env = envFor();
+  captureLogs();
+  const { status, body } = await judge({ setId: "v1", target: { repos: ["agent-canary"] } }, { ip: "10.0.6.1", env });
+  restoreLogs();
+
+  check("canary-mix-judge: status 200", status === 200, `status ${status}`);
+  check("canary-mix-judge: agent-canary in judgments", body?.judgments?.some((j) => j.repo === "agent-canary"), JSON.stringify(body?.judgments));
+  check("canary-mix-judge: not in skipped", !body?.skipped?.some((s) => s.repo === "agent-canary"), JSON.stringify(body?.skipped));
+  check("canary-mix-judge: canary count 0 in response", countCanaryDeep(body) === 0, `count ${countCanaryDeep(body)}`);
+  check("canary-mix-judge: console.log canary count 0", countCanary(logLines.join("\n")) === 0, `count ${countCanary(logLines.join("\n"))}`);
+
+  check("canary-mix-judge: one AI call", aiCalls.length === 1, `aiCalls.length ${aiCalls.length}`);
+  const stateJson = JSON.stringify(aiCalls[0]?.inputs?.state ?? aiCalls[0]?.inputs);
+  check("canary-mix-judge: AI state canary count 0", countCanary(stateJson) === 0, `count ${countCanary(stateJson)}`);
+  check("canary-mix-judge: skipped has no canary", countCanaryDeep(body?.skipped) === 0, `count ${countCanaryDeep(body?.skipped)}`);
+} catch (e) {
+  check("canary-mix-judge: suite threw", false, String(e?.stack ?? e));
+}
 
 // ============================================================================
 // Test: scrubFreeText correctness — KEY=value becomes KEY=[redacted]

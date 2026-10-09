@@ -96,7 +96,7 @@ try {
   git("add", "-A");
   git("commit", "-q", "-m", `${REPO}: session refresh with TTL`);
   git("notes", "add", "-f", "-m", NOTE, "HEAD");
-  const push = execFileSync("git", ["-C", dir, "-c", `http.extraHeader=Authorization: Bearer ${repoToken}`, "push", "-q", "origin", "main", "refs/notes/commits", "refs/notes/commits:refs/heads/nextgit-notes"], { encoding: "utf8", timeout: 180000, stderr: "pipe" }).toString?.() ?? "";
+  execFileSync("git", ["-C", dir, "-c", `http.extraHeader=Authorization: Bearer ${repoToken}`, "push", "-q", "origin", "main", "refs/notes/commits", "refs/notes/commits:refs/heads/nextgit-notes"], { encoding: "utf8", timeout: 180000, stderr: "pipe" });
   console.log("  pushed main + notes mirror");
 } finally {
   rmSync(dir, { recursive: true, force: true });
