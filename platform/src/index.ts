@@ -28,6 +28,8 @@ import {
  scrubFreeText,
  type JudgeRepoInput,
 } from "./judge";
+
+import { authorize, type ActionType } from "./auth";
 interface Env {
  ARTIFACTS: Artifacts;
  LIVE: KVNamespace;
@@ -35,6 +37,7 @@ interface Env {
  ASSETS: Fetcher;
  AI: Ai;
  LAND_LEASE: DurableObjectNamespace;
+ AUTH_MODE?: string;
 }
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
@@ -1402,73 +1405,133 @@ async function handleLandingsRead(commit: string, env: Env): Promise<Response> {
  return Response.json({ ok: true, landed: parsed.landed, evidence: parsed.evidence });
 }
 
+// ---------------------------------------------------------------------------
+// GET /health — liveness probe.
+// ---------------------------------------------------------------------------
+async function handleHealth(_request: Request, env: Env): Promise<Response> {
+ return Response.json({ ok: true, service: "nextgit-platform", namespace: "nextgit" });
+}
+
+// ---------------------------------------------------------------------------
+// GET /changes?repo=...&base=demo&ref=main&baseRef=main
+// ---------------------------------------------------------------------------
+async function handleChanges(request: Request, env: Env): Promise<Response> {
+ const url = new URL(request.url);
+ const repo = url.searchParams.get("repo");
+ if (!repo) return Response.json({ ok: false, error: "repo parameter required" }, { status: 400 });
+ if (!REPO_NAME_RE.test(repo)) return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+ const parsed = parseProposalsQuery(url);
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef } = parsed;
+ const changeSet = await computeChangeSet(env, base, baseRef, repo, ref);
+ return Response.json({ ok: true, changeSet });
+}
+
+// ---------------------------------------------------------------------------
+// GET /proposals?base=demo&repos=a,b&ref=main&baseRef=main
+// ---------------------------------------------------------------------------
+async function handleProposals(request: Request, env: Env): Promise<Response> {
+ const url = new URL(request.url);
+ const parsed = parseProposalsQuery(url);
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef, repoList } = parsed;
+ // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
+ // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
+ // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
+ // cached set by key change; TTL bounds staleness if invalidation is ever missed.
+ // Cache is best-effort by design: a missing/degraded CACHE binding must never
+ // turn /proposals into a 500 (test fakes and partial deployments carry no CACHE).
+ let gen = "0";
+ try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* no CACHE — compute */ }
+ const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
+ try {
+  const hit = await env.CACHE.get(cacheKey);
+  if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+ } catch { /* cache read is best-effort — fall through to compute */ }
+ const result = await computeProposals(env, base, baseRef, ref, repoList);
+ const body = JSON.stringify({ ok: true, ...result });
+ try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
+ return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
+}
+
+// ---------------------------------------------------------------------------
+// GET /merge?base=demo&repos=agent-1,agent-2&ref=main&baseRef=main
+// ---------------------------------------------------------------------------
+async function handleMerge(request: Request, env: Env): Promise<Response> {
+ const url = new URL(request.url);
+ const parsed = parseProposalsQuery(url);
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef, repoList } = parsed;
+ if (!repoList || !repoList.length) return Response.json({ ok: false, error: "repos parameter required" }, { status: 400 });
+ const merge = await computeMerge(env, base, baseRef, repoList, ref);
+ return Response.json({ ok: true, merge });
+}
+
+// ---------------------------------------------------------------------------
+// GET /events
+// ---------------------------------------------------------------------------
+async function handleEvents(_request: Request, env: Env): Promise<Response> {
+ return Response.json({ ok: true, events: await readEvents(env) });
+}
+
+// ---------------------------------------------------------------------------
+// Route table (AD-8: single registration point; every route authorizes).
+// ---------------------------------------------------------------------------
+
+/** A registered API route. `path` matches exact paths; `dynamicPrefix` matches a prefix (e.g. "/landings/"). */
+interface RouteEntry {
+ path: string;
+ method: "GET" | "POST";
+ action: ActionType;
+ handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+}
+
+/** Extract the scope (repo/base) to authorize, for routes that carry them. */
+function extractScope(request: Request): { repo?: string; base?: string } {
+ const url = new URL(request.url);
+ const repo = url.searchParams.get("repo") ?? undefined;
+ const base = url.searchParams.get("base") ?? undefined;
+ return { repo, base };
+}
+
+/** Static API routes — every entry authorizes before its handler runs. */
+export const ROUTES: RouteEntry[] = [
+ { path: "/health", method: "GET", action: "read", handler: handleHealth },
+ { path: "/changes", method: "GET", action: "read", handler: handleChanges },
+ { path: "/proposals", method: "GET", action: "read", handler: handleProposals },
+ { path: "/merge", method: "GET", action: "read", handler: handleMerge },
+ { path: "/land", method: "POST", action: "write", handler: handleLand },
+ { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
+ { path: "/events", method: "GET", action: "read", handler: handleEvents },
+];
+
+export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
+ { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
+];
+
 export default {
  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   try {
-   if (url.pathname === "/health") {
-    return Response.json({ ok: true, service: "nextgit-platform", namespace: "nextgit" });
+   // Static route table.
+   for (const route of ROUTES) {
+    if (url.pathname === route.path && request.method === route.method) {
+     const denied = authorize(request, env, route.action, extractScope(request));
+     if (denied) return denied;
+     return await route.handler(request, env, ctx);
+    }
    }
 
-   if (url.pathname === "/changes" && request.method === "GET") {
-    const repo = url.searchParams.get("repo");
-    if (!repo) return Response.json({ ok: false, error: "repo parameter required" }, { status: 400 });
-    if (!REPO_NAME_RE.test(repo)) return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
-    const parsed = parseProposalsQuery(url);
-    if (parsed instanceof Response) return parsed;
-    const { base, ref, baseRef } = parsed;
-    const changeSet = await computeChangeSet(env, base, baseRef, repo, ref);
-    return Response.json({ ok: true, changeSet });
+   // Dynamic routes (prefix match).
+   for (const route of DYNAMIC_ROUTES) {
+    if (url.pathname.startsWith(route.prefix) && request.method === route.method) {
+     const denied = authorize(request, env, route.action, extractScope(request));
+     if (denied) return denied;
+     return await route.handler(request, env, ctx);
+    }
    }
 
-   if (url.pathname === "/proposals" && request.method === "GET") {
-    const parsed = parseProposalsQuery(url);
-    if (parsed instanceof Response) return parsed;
-    const { base, ref, baseRef, repoList } = parsed;
-    // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
-    // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
-    // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
-    // cached set by key change; TTL bounds staleness if invalidation is ever missed.
-    // Cache is best-effort by design: a missing/degraded CACHE binding must never
-    // turn /proposals into a 500 (test fakes and partial deployments carry no CACHE).
-    let gen = "0";
-    try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* no CACHE — compute */ }
-    const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
-    try {
-     const hit = await env.CACHE.get(cacheKey);
-     if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
-    } catch { /* cache read is best-effort — fall through to compute */ }
-    const result = await computeProposals(env, base, baseRef, ref, repoList);
-    const body = JSON.stringify({ ok: true, ...result });
-    try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
-    return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
-   }
-
-   if (url.pathname === "/merge" && request.method === "GET") {
-    const parsed = parseProposalsQuery(url);
-    if (parsed instanceof Response) return parsed;
-    const { base, ref, baseRef, repoList } = parsed;
-    if (!repoList || !repoList.length) return Response.json({ ok: false, error: "repos parameter required" }, { status: 400 });
-    const merge = await computeMerge(env, base, baseRef, repoList, ref);
-    return Response.json({ ok: true, merge });
-   }
-
-   if (url.pathname === "/land" && request.method === "POST") {
-    return await handleLand(request, env, ctx);
-   }
-
-   if (url.pathname === "/judge" && request.method === "POST") {
-    return await handleJudge(request, env);
-   }
-
-   if (url.pathname === "/events" && request.method === "GET") {
-    return Response.json({ ok: true, events: await readEvents(env) });
-   }
-   if (url.pathname.startsWith("/landings/") && request.method === "GET") {
-    const commit = url.pathname.slice("/landings/".length);
-    return handleLandingsRead(commit, env);
-   }
-   // Everything else is the triage UI from platform/ui via wrangler assets.
+   // Non-API path: the triage UI from platform/ui via wrangler assets.
    return env.ASSETS.fetch(request);
   } catch (err) {
    return Response.json({ ok: false, error: scrubFreeText(String((err as Error)?.message ?? err)) }, { status: 500 });

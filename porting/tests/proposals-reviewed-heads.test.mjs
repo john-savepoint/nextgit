@@ -137,7 +137,7 @@ function makeEnvironment() {
   fake.defineRepo("agent-1", { history: [fake.commit(C_A1, tA1), fake.commit(C_FORK, tFork), fake.commit(C_BASE, tBase)], refs: { main: C_A1 } });
   fake.defineRepo("agent-done", { history: [fake.commit(C_DONE, tDone), fake.commit(C_FORK, tFork), fake.commit(C_BASE, tBase)], refs: { main: C_DONE } });
 
-  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null } };
+  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, CACHE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null }, AUTH_MODE: "demo" };
   return { fake, env };
 }
 
