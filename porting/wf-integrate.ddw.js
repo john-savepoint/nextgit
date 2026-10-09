@@ -53,7 +53,7 @@ export async function open({ root, id, reuse = true } = {}) {
   if (!existsSync(`${wt}/platform/node_modules`)) {
     sh("ln", ["-s", `${mainRoot}/platform/node_modules`, `${wt}/platform/node_modules`], mainRoot);
   }
-  const st = { runId, mainRoot, wt, branch, baseSha: mainSha, created, opens: (readState(runDir)?.opens ?? 0) + 1, updatedAt: new Date().toISOString() };
+  const st = { runId, mainRoot, runDir, wt, branch, baseSha: mainSha, created, opens: (readState(runDir)?.opens ?? 0) + 1, updatedAt: new Date().toISOString() };
   writeFileSync(`${runDir}/state.json`, JSON.stringify(st, null, 2));
   return st;
 }
@@ -111,8 +111,12 @@ export async function finalize({ root, id } = {}) {
   const mainHead = git(["rev-parse", "HEAD"], mainRoot).stdout.trim();
   // main must be an ancestor of wt head (FF only)
   const anc = git(["merge-base", "--is-ancestor", mainHead, wtHead], mainRoot, { allowFail: true });
-  if (anc.status !== 0) throw new Error("main has moved off the integration base — refusing non-FF advance");
-  git(["update-ref", "refs/heads/main", wtHead, mainHead], mainRoot);
+  if (anc.status !== 0) throw new Error("main has moved off the integration base — refusing non-FF advance.");
+  // main must be CLEAN: `merge --ff-only` updates the working tree; uncommitted work would be at risk.
+  const dirty = git(["status", "--porcelain"], mainRoot).stdout.trim();
+  if (dirty) throw new Error(`main working tree is dirty (${dirty.split("\n").length} paths) — commit/stash before finalize, then merge main INTO the integration branch and re-run battery+finalize.`);
+  // Advance ref AND working tree in one step (plain update-ref would strand the files).
+  git(["merge", "--ff-only", wtHead], mainRoot, { timeout: 300000 });
   const rec = { status: "finalized", from: mainHead, to: wtHead, branch, battery: { total: batt.results.length, green: true }, at: new Date().toISOString() };
   appendRecord(runDir, "merges", rec);
   return rec;
