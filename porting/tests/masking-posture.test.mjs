@@ -154,7 +154,8 @@ function makeFakeKV() {
 }
 
 function envFor({ ai = AI, artifacts = ARTIFACTS } = {}) {
-  return { ARTIFACTS: artifacts, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: ai };
+  // AUTH_MODE:"demo" — auth.ts chokepoint is default-deny; demo opt-in (see judge.test.mjs).
+  return { ARTIFACTS: artifacts, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: ai, AUTH_MODE: "demo" };
 }
 
 // --- minimal fake AI (not used by /changes, but Env requires AI) --------------

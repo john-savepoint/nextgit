@@ -114,7 +114,8 @@ const makeFakeKV = () => {
 };
 
 function envFor() {
-  return { ARTIFACTS, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: { async run() { return { model: "clef", answers: [], usage: { neurons: 1 } }; } } };
+  // AUTH_MODE:"demo" — auth.ts chokepoint is default-deny; demo opt-in (see judge.test.mjs).
+  return { ARTIFACTS, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: { async run() { return { model: "clef", answers: [], usage: { neurons: 1 } }; } }, AUTH_MODE: "demo" };
 }
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@
 //      diff3Merge imported from node-diff3 and used in renderMerge;
 //      createTwoFilesPatch imported from diff and used in computeChangeSet;
 //      `function classifyPair` defined and called in computeProposals;
-//      one git.clone + one git.push call site in land.ts, zero in index.ts.
+//      one git.clone + the pinned push pair (1 base + 1 notes-mirror) in land.ts, zero in index.ts.
 //   2. live route behavior through the REAL worker module (worker.fetch) against
 //      an in-memory Artifacts fake (pattern per merge-fold-api.test.mjs):
 //      /merge on colliding repos => {ok:true,merge:{status:"conflict"}} with
@@ -75,7 +75,18 @@ check("classifyPair defined in index.ts", /function\s+classifyPair\s*\(/.test(in
 check("classifyPair called in computeProposals", indexSrc.includes("classifyPair(") && /async function computeProposals/.test(indexSrc));
 check("git.clone / git.push absent from index.ts", !/git\.clone/.test(indexSrc) && !/git\.push/.test(indexSrc));
 check("exactly one git.clone call site in land.ts", countCallSites(landSrc, "git.clone") === 1, `found ${countCallSites(landSrc, "git.clone")}`);
-check("exactly one git.push call site in land.ts", countCallSites(landSrc, "git.push") === 1, `found ${countCallSites(landSrc, "git.push")}`);
+// Push sites are a PINNED PAIR (e3-impl-landing-decision-note, 1f74707): exactly one
+// BASE-branch push (the AD-3 witness carrier: `remoteTipAtPush = info.remoteRef.oid`)
+// plus exactly one best-effort notes-mirror push (`remoteRef: NOTES_BRANCH_LOCAL`).
+// Any third push site, or a missing/duplicated identity, fails this gate.
+const pushSites = countCallSites(landSrc, "git.push");
+const basePushWitness = (landSrc.match(/remoteTipAtPush = info\.remoteRef\.oid/g) ?? []).length;
+const notesMirrorPush = (landSrc.match(/remoteRef: NOTES_BRANCH_LOCAL/g) ?? []).length;
+check(
+  "git.push call sites pinned: 1 base (AD-3 witness) + 1 notes-mirror (best-effort)",
+  pushSites === 2 && basePushWitness === 1 && notesMirrorPush === 1,
+  `pushes=${pushSites} witness=${basePushWitness} notesMirror=${notesMirrorPush}`,
+);
 
 // ---------------------------------------------------------------------------
 // Leg 2 — live /merge + /proposals behavior through the real route.

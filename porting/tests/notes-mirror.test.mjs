@@ -249,6 +249,8 @@ function makeEnvironment() {
     LIVE: makeKV(),
     ASSETS: { fetch: async () => new Response("") },
     AI: { run: async () => null },
+    // AUTH_MODE:"demo" — auth.ts chokepoint is default-deny; demo opt-in (see judge.test.mjs).
+    AUTH_MODE: "demo",
   };
   return { fake, env };
 }

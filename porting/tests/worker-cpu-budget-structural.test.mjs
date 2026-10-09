@@ -55,9 +55,17 @@ check("forkPoint bound log walks use limit: FORK_LOG_LIMIT", logCallsInFork.leng
 // 2. No child_process in index.ts — the read routes never import or use a shell.
 check("no child_process in index.ts", !/child_process/.test(indexSrc));
 
-// 3. git.clone / git.push only in land.ts — index.ts has zero, land.ts has exactly one each.
+// 3. git.clone / git.push only in land.ts — index.ts has zero; land.ts carries exactly
+// one clone and the PINNED PUSH PAIR (1 base push with the AD-3 witness + 1 best-effort
+// notes-mirror push, per e3-impl-landing-decision-note 1f74707). Any third push fails.
 check("git.clone only in land.ts", indexSrc.match(/git\.clone/g) === null && countCallSites(landSrc, "git.clone") === 1);
-check("git.push only in land.ts", indexSrc.match(/git\.push/g) === null && countCallSites(landSrc, "git.push") === 1);
+check(
+ "git.push pinned pair in land.ts (base + notes-mirror), zero in index.ts",
+ indexSrc.match(/git\.push/g) === null &&
+ countCallSites(landSrc, "git.push") === 2 &&
+ (landSrc.match(/remoteTipAtPush = info\.remoteRef\.oid/g) ?? []).length === 1 &&
+ (landSrc.match(/remoteRef: NOTES_BRANCH_LOCAL/g) ?? []).length === 1,
+);
 
 // 4. Exactly one git.commit per land (single commit per fold-push).
 check("git.commit only in land.ts (one per land)", countCallSites(landSrc, "git.commit") === 1);
