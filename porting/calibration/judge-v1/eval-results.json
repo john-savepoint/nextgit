@@ -1,0 +1,992 @@
+{
+  "runAt": "2026-10-09T02:13:29.276Z",
+  "model": "@cf/cloudflare/clef",
+  "setId": "v1",
+  "proposals": [
+    {
+      "id": "agent-1-f401b219",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-2-cff80a08",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-3-e3be4aff",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-4-da8b3aa5",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-10-67464097",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-13-96e19416",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-14-bee55d85",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-15-3b36b691",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-16-7a471b80",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-17-1c7e7a2d",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-extra-19-d2ba82a2",
+      "answer": {
+        "risk": "senior-security",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-20-89f06a3e",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-21-957948ae",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-extra-22-e28d7fe8",
+      "answer": {
+        "risk": "focused",
+        "intent": "insufficient",
+        "collision": true
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-25-feb9eedb",
+      "answer": {
+        "risk": "senior-security",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-26-7a1a0927",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-29-9551a13e",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-extra-3-06067ca9",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-31-af72339a",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-32-bcebd0f8",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-35-861ece91",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-36-6c867b09",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-37-b32ba264",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-38-f1148bc6",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-39-913eb7f6",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-4-9a807196",
+      "answer": {
+        "risk": "senior-security",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-extra-41-f7fe8952",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-42-2fcc354b",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-43-7363ccd5",
+      "answer": {
+        "risk": "routine",
+        "intent": "insufficient",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-44-56c0b63e",
+      "answer": {
+        "risk": "focused",
+        "intent": "insufficient",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-47-7615903b",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-48-10cea730",
+      "answer": {
+        "risk": "senior-security",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-7-a86cacc7",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-extra-9-4d9dfe38",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-50-2139edb8",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-51-26762269",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-52-910b59c1",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-53-770980a5",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-54-67fed67e",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-55-062f645c",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-56-c9f8fe77",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-57-50a61c78",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-58-86e647e0",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-59-4fcb72cb",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-60-19cd47f3",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-61-a1dc964b",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-62-da183dc8",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-63-c3756bbf",
+      "answer": {
+        "risk": "routine",
+        "intent": "supports",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-64-5cff77f6",
+      "answer": {
+        "risk": "focused",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-65-727629f3",
+      "answer": {
+        "risk": "senior-security",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "contradicts"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-var-66-1c79d84c",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "insufficient"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-67-71eaa6f7",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-68-af660764",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": false
+      },
+      "label": {
+        "risk": "routine",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-var-69-6bd0bb5b",
+      "answer": {
+        "risk": "routine",
+        "intent": "contradicts",
+        "collision": true
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "id": "agent-extra-secret-1-6485585d",
+      "repo": "agent-extra-secret-1",
+      "reason": "secret-class"
+    },
+    {
+      "id": "agent-extra-secret-2-458b7a42",
+      "repo": "agent-extra-secret-2",
+      "reason": "secret-class"
+    },
+    {
+      "id": "agent-extra-secret-3-48f666b1",
+      "repo": "agent-extra-secret-3",
+      "reason": "secret-class"
+    },
+    {
+      "id": "agent-extra-secret-4-3052a0f5",
+      "repo": "agent-extra-secret-4",
+      "reason": "secret-class"
+    },
+    {
+      "id": "agent-extra-secret-5-9ce7c7fd",
+      "repo": "agent-extra-secret-5",
+      "reason": "secret-class"
+    }
+  ],
+  "metrics": {
+    "perQuestion": {
+      "risk": {
+        "routine": {
+          "tp": 14,
+          "fp": 13,
+          "fn": 6,
+          "precision": 0.5185185185185185,
+          "recall": 0.7
+        },
+        "focused": {
+          "tp": 9,
+          "fp": 13,
+          "fn": 10,
+          "precision": 0.4090909090909091,
+          "recall": 0.47368421052631576
+        },
+        "senior-security": {
+          "tp": 4,
+          "fp": 1,
+          "fn": 11,
+          "precision": 0.8,
+          "recall": 0.26666666666666666
+        }
+      },
+      "intent": {
+        "supports": {
+          "tp": 25,
+          "fp": 0,
+          "fn": 13,
+          "precision": 1,
+          "recall": 0.6578947368421053
+        },
+        "contradicts": {
+          "tp": 8,
+          "fp": 18,
+          "fn": 0,
+          "precision": 0.3076923076923077,
+          "recall": 1
+        },
+        "insufficient": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 5,
+          "precision": 1,
+          "recall": 0.375
+        }
+      }
+    },
+    "confusion": {
+      "risk": {
+        "routine": {
+          "routine": 14,
+          "focused": 5,
+          "senior-security": 1
+        },
+        "focused": {
+          "routine": 10,
+          "focused": 9,
+          "senior-security": 0
+        },
+        "senior-security": {
+          "routine": 3,
+          "focused": 8,
+          "senior-security": 4
+        }
+      },
+      "intent": {
+        "supports": {
+          "supports": 25,
+          "contradicts": 13,
+          "insufficient": 0
+        },
+        "contradicts": {
+          "supports": 0,
+          "contradicts": 8,
+          "insufficient": 0
+        },
+        "insufficient": {
+          "supports": 0,
+          "contradicts": 5,
+          "insufficient": 3
+        }
+      }
+    },
+    "shipBlocking": {
+      "class": "risk=senior-security ∪ intent=contradicts",
+      "precision": 0.5714285714285714,
+      "recall": 0.8,
+      "tp": 16,
+      "fp": 12,
+      "fn": 4
+    }
+  }
+}
