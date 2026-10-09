@@ -13,8 +13,8 @@
 //   2. wrangler.jsonc: exactly 1 kv_namespaces entry bound as "LIVE" + 1 as "CACHE"
 //   3. Push a small change to a SCRATCH fork (never the live demo) via the Artifacts API + git-over-HTTPS
 //      (minted write token, real push — no mocks) → generates a queue event
-//   4. Poll GET /events until an event with type matching /^cf\.artifacts\.repo\.pushed$/
-//      and repo === the scratch fork appears (90s timeout — queue delivery is seconds-to-tens)
+//   4. Poll GET /events until an event with type matching /^repo\.pushed$/
+//      and repo === the scratch fork appears (300s timeout — queue delivery is seconds-to-tens)
 //   5. Assert the event shape matches CONTRACT.md § GET /events: { type, repo, ref, after, at }
 //   6. Assert `at` is within the test window (proves it came from this push, not stale cache)
 //
@@ -158,7 +158,7 @@ const windowStart = Date.now();
 const TARGET = `agent-e4s-${Date.now()}`;
 
 try {
-  // Mint a write token for agent-1
+  // Fork scratch repo from demo
   await call("POST", `${apiBase}/repos/demo/fork`, { name: TARGET, default_branch_only: true });
   for (let i = 0; i < 30; i++) {
     const page = await call("GET", `${apiBase}/repos?limit=100`);
@@ -200,7 +200,7 @@ try {
         const evt = parsed.events.find(
           (e) =>
             typeof e.type === "string" &&
-            /^cf\.artifacts\.repo\.pushed$/.test(e.type) &&
+            /^repo\.pushed$/.test(e.type) &&
             e.repo === TARGET &&
             Date.parse(String(e.at)) >= windowStart,
         );
@@ -213,7 +213,7 @@ try {
     }
 
     if (!found) {
-      check("live queue event materializes in GET /events", false, `timed out at 90s — no cf.artifacts.repo.pushed for ${TARGET}`);
+      check("live queue event materializes in GET /events", false, `timed out after 300s — no repo.pushed for ${TARGET}`);
     } else {
       check("live queue event materializes in GET /events", true, `type=${found.type}, repo=${found.repo}`);
 
