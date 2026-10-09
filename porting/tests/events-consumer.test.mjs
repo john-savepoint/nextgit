@@ -379,6 +379,28 @@ try {
 }
 
 // ---------------------------------------------------------------------------
+// 17. GET /events/stream degrades gracefully when EVENTS_HUB is unbound.
+//     Per CONTRACT.md § GET /events/stream: "degrades gracefully to the
+//     `: connected` + snapshot tail if the hub is unbound or empty."
+//     With no EVENTS_HUB binding, handleSSEStream returns a minimal SSE
+//     response with just `: connected` so the client reconnects and falls
+//     back to GET /events.
+// ---------------------------------------------------------------------------
+try {
+  const kv = fakeKV();
+  const env = envFor(kv); // envFor omits EVENTS_HUB — simulating local-dev/staging
+  const res = await worker.fetch(new Request("https://test/events/stream"), env);
+  check("17 stream unbound: status 200", res.status === 200, `got ${res.status}`);
+  const ct = res.headers.get("content-type") ?? "";
+  check("17 stream unbound: text/event-stream content-type", ct.startsWith("text/event-stream"), `got "${ct}"`);
+  check("17 stream unbound: cache-control no-cache", res.headers.get("cache-control") === "no-cache", `got ${res.headers.get("cache-control")}`);
+  const text = await res.text();
+  check("17 stream unbound: body is `: connected` comment", text === ": connected\n\n", `got "${text}"`);
+} catch (e) {
+  check("17 stream unbound case threw", false, String(e?.stack ?? e));
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);
