@@ -10,12 +10,12 @@
     {
       "severity": "low",
       "story": "e7-impl-harness-route-registry",
-      "note": "Scope citation `real-agents.mjs:411` for the runner's three-refspec push was exact at authoring time but is stale vs HEAD: post-compile commit 6e55692 (2026-10-06 23:46) inserted 13 lines above it — the push is now at :424; the CANDIDATES :124-152 citation is still exact. Behavior unchanged; repoint the pointer on rebase."
+      "note": "Scope citation `real-agents.mjs:411` for the runner's three-refspec push was stale vs HEAD (post-compile commit 6e55692 inserted 13 lines above it; push now at :424) — repointed to :424 on the implementation pass. The CANDIDATES :124-152 citation remains exact. Behavior unchanged."
     },
     {
       "severity": "low",
       "story": "e7-impl-byo-harness-onboarding-standard",
-      "note": "Scope citation `real-agents.mjs:338-345` for the credential rule is stale vs HEAD for the same post-compile commit: the git-wrapper token env now sits at :351-358. The described as-built contract holds — the agent subprocess env carries no minted token (token only in the runner's `git` wrapper) and the prompt says 'Do not run `git push`' (:284). CONTRACT.md:163-171 and the quoted label-size limits verified exact."
+      "note": "Scope citation `real-agents.mjs:338-345` for the credential rule is stale vs HEAD (same post-compile commit; git-wrapper token env now at :351-358) — left per plan scope (only `:411->:424` was in the fix set). The described as-built contract holds — the agent subprocess env carries no minted token (token only in the runner's `git` wrapper) and the prompt says 'Do not run `git push`' (:284). CONTRACT.md:163-171 and the quoted label-size limits verified exact."
     },
     {
       "severity": "low",
