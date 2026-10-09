@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-09T08:35:30.731Z",
-  "head": "b0f1292",
+  "generatedAt": "2026-10-09T16:31:32.977Z",
+  "head": "9138e39",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-08 ",
+    "lastUpdated": "2026-10-10 ",
     "branch": "main",
-    "lastCommit": "9c172a0",
+    "lastCommit": "9138e39",
     "standingRedSet": null
   },
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 553,
+      "pending": 495,
       "partial": 1,
-      "done": 107
+      "done": 165
     },
     "items": [
       {
@@ -2264,103 +2264,8 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Prove the change-set carries the per-fork commit list"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Persist the landing decision as a git note"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Serve the landing record at GET /landings/{commit}"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove landed card dims 0"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the single gated write path"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove /land folds and pushes one commit server-side, no caller git"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove success banner sha8 + tooltip and immediate proposals/events refresh"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Stream platform events over an SSE Durable Object hub"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Harden the event consumer: validate payloads and dedupe the feed"
-      },
-      {
-        "status": "pending",
         "priority": "P0",
         "title": "Consume the event stream in the UI; keep polling as the degraded fallback"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the live demo serves the verified UI source byte-for-byte"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove a new top event debounces a /proposals refresh at 500ms"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove GET /events serves the newest 50 or fewer events, newest-first"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove /events failure goes stale without breaking the proposals surface"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove a land and a manual refresh reload /proposals and /events immediately"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the polling cadence fallback contract and the set view"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the fallback cadence: /events 2s, /proposals 8s behind a default-on toggle"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove exactly one queue consumer and one KV LIVE writer, feed non-authoritative"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the feed's single-writer, single-consumer, hint-only posture"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the events ticker renders the newest 8 events with type, repo and time"
       },
       {
         "status": "pending",
@@ -2374,108 +2279,8 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Run the injection-testing spike over the judge-v1 labeled set"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Build the judge-v1 evaluation harness over the labeled set"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Build the judge-v1 labeled proposal set"
-      },
-      {
-        "status": "pending",
         "priority": "P3",
         "title": "Render auto-land verdicts behind the Land button"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove callers cannot inject judge state, questions, or model"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the per-caller judge rate cap maps to 429"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove pinned-model fail-closed 503s and silent UI degradation"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove judge set versioning rejects unknown sets"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove judge state assembly, secret masking, and skip reasons"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove /judge v1 emits typed risk, intent, and collision signals"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove advisory judge chips render, stay amber, and block nothing"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Ship content-detected secret arrival per the recorded CONTRACT decision"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Adjudicate content-detected secret arrival in CONTRACT"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the secret-egress law across every channel with an offline canary gate"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove cards show the proposal repo and the baseline header"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the single three-refspec intent push and durability across branch movement"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove secret-class values never enter judge state, logs, or free-text scrub output"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove /land refuses secret-class folds with 409 withheld-secret and pushes nothing"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove merge previews render withheld-secret rows with no text"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove intent readers resolve from the nextgit-notes mirror, with the fallback carrier"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the path-driven masking posture and its documented v1 limit"
       },
       {
         "status": "pending",
@@ -2484,78 +2289,8 @@
       },
       {
         "status": "pending",
-        "priority": "P0",
-        "title": "Prove secret-class rows serve schema-only on /proposals and /changes"
-      },
-      {
-        "status": "pending",
         "priority": "P1",
         "title": "Publish the BYO harness onboarding standard and validate declarations"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Load harness routes from a declarative registry"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Ship workspace manifest and structure map into every workspace"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the BYO harness clone/commit/three-refspec push interface"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove one command provisions N workspaces with scoped tokens"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the N≥4 concurrent real-agent demo floor live"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove every workspace push emits a platform event"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove omp/codex routes push real proposals to the baseline"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove agent-* workspaces self-discover before token handoff"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Make the end-to-end demo reproducible from the committed scripts"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Machine-check the twelve-law carrier map"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add the mechanical runtime-pin guard and reconcile pinned surfaces"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Add the concerns-floor guard"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Complete the submission license surface: package"
       },
       {
         "status": "pending",
@@ -2564,33 +2299,8 @@
       },
       {
         "status": "pending",
-        "priority": "P0",
-        "title": "Record and gate the 5-10 minute single-take submission video"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify a clean reset from committed scripts reproduces the full demo set live"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Prove the four demo scripts are committed and parse from the repo root"
-      },
-      {
-        "status": "pending",
         "priority": "P1",
         "title": "Enforce the demo repo allowlist on every base/repos param"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Build the authorize"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Guard every response path against token and credential egress"
       },
       {
         "status": "pending",

@@ -34,6 +34,8 @@ export async function runFleet({
   fleetDir,
   agent: agentOpt,
   lanesOnly,
+  plans,
+  spawnCap = 240,
 } = {}) {
   if (!root) throw new Error("runFleet: root (main repo path) is required");
   const mainRoot = root;
@@ -118,11 +120,24 @@ export async function runFleet({
   }
 
   // ---- run lanes CONCURRENTLY (one worktree-parallel batch per lane) -----------
+  // plans (optional, aligned to laneIds order): { ids?: string[], lenses?: string[], parallel?: number, limit?: number }
+  // — enforces the O2 file-ownership pre-pass (explicit id sets per lane) and the O3
+  // risk tiering (2 lenses for docs/tests lanes, 4 for platform-risky lanes).
   const { runBatch } = await import(`${mainRoot}/porting/wf-batch.ddw.js`);
   const settled = await Promise.allSettled(
-    active.map((id) =>
-      runBatch({ root: `${fleetRoot}/${id}`, limit, parallel, sourceLike, evidenceRoot: mainRoot, agent: agentOpt }),
-    ),
+    active.map((id, i) => {
+      const plan = plans ? plans[laneIds.indexOf(id)] ?? null : null;
+      return runBatch({
+        root: `${fleetRoot}/${id}`,
+        limit: plan?.limit ?? limit,
+        parallel: plan?.parallel ?? parallel,
+        sourceLike,
+        evidenceRoot: mainRoot,
+        agent: agentOpt,
+        ids: plan?.ids,
+        lenses: plan?.lenses,
+      });
+    }),
   );
   const runs = active.map((id, i) => {
     const s = settled[i];
@@ -138,6 +153,15 @@ export async function runFleet({
     };
   });
 
+  // O7 — spawn telemetry (estimate: per order ≈ 3 phases [plan/impl/verify] + its lens count;
+  // + 2 batch gates per lane). A wave over the cap HALTS before integration (runaway guard).
+  const spawnEstimate = runs.reduce((n, r) => {
+    const plan = plans ? plans[laneIds.indexOf(r.id)] ?? null : null;
+    const lensCount = plan?.lenses?.length ?? 4;
+    return n + (r.orders?.length ?? 0) * (3 + lensCount) + 2;
+  }, 0);
+  const spawnCapExceeded = spawnEstimate > spawnCap;
+
   // ---- serial integration into main --------------------------------------------
   // Main-tree cleanliness gate: a dirty main tree refuses lane merges (and is usually a leak's
   // fingerprint — lane agents' cwd is main, so relative-path writes escape the worktree). Detect
@@ -147,7 +171,10 @@ export async function runFleet({
     mainDirty = execFileSync("git", ["-C", mainRoot, "status", "--porcelain"], { encoding: "utf8", timeout: 30000 }).trim();
   } catch { }
   const integration = [];
-  if (mainDirty) {
+  if (spawnCapExceeded) {
+    for (const r of runs) integration.push({ id: r.id, state: `halted — spawn estimate ${spawnEstimate} > cap ${spawnCap} (O7 runaway guard)`, detail: "raise spawnCap or split the wave" });
+    console.error(`fleet: O7 spawn cap exceeded (${spawnEstimate} > ${spawnCap}) — integration halted`);
+  } else if (mainDirty) {
     const files = mainDirty.split("\n").map((l) => l.slice(3).split(" -> ")[0]).slice(0, 12);
     for (const r of runs) integration.push({ id: r.id, state: "main-dirty — integration skipped", detail: files.join(", ") });
     console.error(`fleet: main tree dirty — integration skipped for all lanes (reconcile: ${files.join(", ")})`);
@@ -219,6 +246,8 @@ export async function runFleet({
     lanes: prep,
     runs,
     integration,
+    spawnEstimate,
+    spawnCap,
     uxReport: uxReportPath,
     next: "review integration[]; reconcile CONFLICT lanes; read the UX report; regenerate the spine views; commit",
   };

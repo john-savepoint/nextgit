@@ -12,3 +12,4 @@
 - 2026-10-06 | land-hardening | concurrency-safe /land + evidence shipped; runner died mid-heal-2 after catching a masked-write-back corruption; orchestrator repaired the line, redeployed, probe green on the deployed artifact | next: demo chain (reset + secret fixture)
 - 2026-10-06 | demo reset | fresh 4-agent fleet + agent-5 secret fixture live; demo-verify.mjs 25/25 PASS; recording-ready state (all pending, 1 conflict, secret-skip live) | next: John reviews video script → record
 - 2026-10-06 | submission compliance | README + LICENSE (MIT) + run instructions shipped (competition requirement closed) | next: record video → curate → file
+- 2026-10-09/10 | wave 7 integrated (O1 transactional) | battery 54/54; main d61f341→9138e39; deployed 31f75bb4 (DO v2 fix); live gates 25/25 + 8/8; 101/148 done, 47 pending | next: wave 8 @ 30-wide (O2/O3/O7, @workflows)

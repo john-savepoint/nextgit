@@ -81,7 +81,7 @@ export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids } = {}) {
   // evidenceRoot: where run evidence + batch reports land (defaults to root). Fleet lanes
   // pass the MAIN tree so all audit evidence lands in one place while the lane works in
   // its own clone.
@@ -118,6 +118,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
   const picked = [];
   for (const row of rows) {
     if (picked.length >= limit) break;
+    if (ids && (!row.id || !ids.includes(row.id))) continue; // O2 lane plan: explicit id set
     if (!row.id) { picked.push({ ...row, claimed: false }); continue; } // md-fallback rows carry no ids
     try {
       execFileSync("bun", [`${root}/porting/tasks.mjs`, "claim", row.id, "--agent", batchAgent],
@@ -301,14 +302,14 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } };
     const parityHandle = preBatchCommit && results.some((r) => r.verdict === "GREEN")
       ? agent(
-          `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
-          `THE BATCH TREE — the only tree to inspect — is ${root}. Your shell cwd is NOT it (it is the session dir): use \`git -C ${root} …\` for every git command and absolute paths under ${root} for everything else.\n` +
-          `Pre-batch commit: ${preBatchCommit}. Run \`git -C ${root} diff --stat ${preBatchCommit}\` and \`git -C ${root} diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
-          `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
-          `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
-          `Return ONLY {verdict, shipBlockers, highs, notes}.`,
-          { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
-        )
+        `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
+        `THE BATCH TREE — the only tree to inspect — is ${root}. Your shell cwd is NOT it (it is the session dir): use \`git -C ${root} …\` for every git command and absolute paths under ${root} for everything else.\n` +
+        `Pre-batch commit: ${preBatchCommit}. Run \`git -C ${root} diff --stat ${preBatchCommit}\` and \`git -C ${root} diff ${preBatchCommit} -- <suspicious paths>\`; inspect for any behavior, file, endpoint, capability, or output that was REMOVED or weakened.\n` +
+        `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
+        `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
+        `Return ONLY {verdict, shipBlockers, highs, notes}.`,
+        { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
+      )
       : null;
 
     // --- merged gate (v1: sequential workspace; this gate sees the union) ------

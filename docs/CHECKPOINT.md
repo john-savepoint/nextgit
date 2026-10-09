@@ -2,6 +2,17 @@
 
 > Append a new `## <date> — <session/batch name>` entry per session or batch. A correction to an entry appends under it as `### CORRECTIONS to the entry above` with numbered items — a record that cannot correct itself misleads the next session.
 
+## 2026-10-10 — Wave 7 integrated TRANSACTIONALLY (O1): main `d61f341` → `9138e39`, deployed `31f75bb4`
+**O1 engine (`porting/wf-integrate.ddw.js`):** all 10 lane refs merged inside `.worktrees/integrate-wave7`; **main untouched until the full battery was green**; finalize = `merge --ff-only` (refuses on dirty/diverged main). 43 lane commits, 49 files, +15,812/−720 (65 files / +17,318/−1,558 vs pre-integration main incl. handoff commits).
+**Defect classes fixed in-worktree (the 5 red suites):**
+- **A — default-deny vs test envs:** `auth.ts` chokepoint 401s without `AUTH_MODE:"demo"`; added the demo opt-in to `envFor` in masking-posture / notes-mirror / egress-guard (matches judge/secret-egress).
+- **B — stale push invariant:** land.ts push sites are the DELIBERATE pair (1 base push w/ AD-3 witness + 1 best-effort notes-mirror push, `1f74707`); both structural suites re-pinned from the old single-push form (index.ts zero-push assertion unchanged).
+**NEW class found + fixed (BEADS_DIR leak):** the battery spawns suites with the caller env; an exported `BEADS_DIR=<live store>` made the two bd-fixture suites' template `bd init` collide with the live store (rc=1 crash). Fix: `cleanEnv()` strips BEADS_DIR/TASKS_DB for every self-resolving spawn in batch/tasks suites + battery sanitizes the suite env. **Proven under hostile env** (both suites PASS with BEADS_DIR leaked). Live store verified intact (674 rows).
+**Battery:** **54/54 green** (tsc + every suite, per-suite rc). **Finalize:** `d61f341 → 614c71a`. Worktree removed; `integrate-wave7` branch deleted.
+**Deploy + live gates:** first deploy attempt failed **10061** — the SSE-hub order retroactively widened the ALREADY-APPLIED `v1` DO migration; migrations are append-only. Fixed: `v1=[LandLeaseDO]` (applied form) + `v2=[EventsHubDO]` → deployed **`31f75bb4`** (SSE hub EventsHubDO + cron + consumer live). `demo-verify` **25/25**; live-render probe **8/8** (LIVE PAGE OK). judge + events spot checks ALL PASS post-deploy.
+**Ticks:** +29 evidence-backed rows → **101/148 done, 47 pending** (11 dep-gated behind pending deps; graph is sequencing correctly).
+**Also:** `submission/` landed with the integration (7MB demo video + NOTES — review before public repo curation); wave-8 machinery wired (O2 explicit lane plans via `ids`, O3 per-lane lens tiers, O7 spawn telemetry + cap in `runFleet`).
+
 ## 2026-10-09 — Corrections cycle: judge rule + agent-4 fixture restored; lanes pinned durable
 **Context:** John halted all waves ("hundreds of agents → broken main") — full diagnosis in `docs/DIAGNOSIS-2026-10-09.md`; abort forensics in `docs/abort-forensics-2026-10-09.md` (HARNESS-side false-abort, not provider).
 **Corrected this cycle:**
