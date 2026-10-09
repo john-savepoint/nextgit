@@ -155,10 +155,10 @@ const windowStart = Date.now();
 // SCRATCH-ONLY LAW (2026-10-08): never push into the live demo fixtures (demo / agent-1..5) —
 // a previous version of this suite pushed e4-test commits into agent-1 and destroyed its
 // demo change-set + intent. Fork a scratch repo, push there, delete after.
-const TARGET = `agent-e4s-${Date.now()}`;
+const TARGET = `e4s-scratch-${Date.now()}`;
 
 try {
-  // Mint a write token for agent-1
+  // Fork a scratch repo from demo + mint a write token for it
   await call("POST", `${apiBase}/repos/demo/fork`, { name: TARGET, default_branch_only: true });
   for (let i = 0; i < 30; i++) {
     const page = await call("GET", `${apiBase}/repos?limit=100`);

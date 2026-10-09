@@ -60,12 +60,14 @@ const remote = r.data.result.remote;
 console.log(`  forked: ${remote}`);
 
 // wait ready
+let row;
 for (let i = 0; i < 30; i++) {
   const page = await api("GET", `${base}/repos?limit=100`);
-  const row = (page.data.result ?? []).find((x) => x.name === REPO);
+  row = (page.data.result ?? []).find((x) => x.name === REPO);
   if (row && row.status === "ready") break;
   await sleep(2000);
 }
+if (!row) throw new Error(`fork ${REPO}: never reached 'ready' status after 30x2s polling`);
 
 r = await api("POST", `${base}/tokens`, { repo: REPO, scope: "write", ttl: 3600 });
 if (!r.data.success) throw new Error(`token: ${JSON.stringify(r.data.errors)}`);

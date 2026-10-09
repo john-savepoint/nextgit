@@ -68,8 +68,7 @@ async function fetchJson(path, init = {}) {
 async function main() {
   // ---- the set view ------------------------------------------------------
   const props = await fetchJson(`/proposals?base=${BASE}`);
-  check("GET /proposals → 200", props.status === 200, `status ${props.status}`);
-  check("GET /proposals → ok:true", props.body?.ok === true, JSON.stringify(props.body?.error ?? ""));
+  check("GET /proposals → 200 + ok:true", props.status === 200 && props.body?.ok === true, `status ${props.status} ${JSON.stringify(props.body?.error ?? "")}`);
   check("base repo is demo", props.body?.base?.repo === BASE, JSON.stringify(props.body?.base ?? null));
 
   const proposals = Array.isArray(props.body?.proposals) ? props.body.proposals : [];
@@ -80,6 +79,16 @@ async function main() {
     "exactly agent-1..agent-5 discovered (6 repos incl. demo)",
     JSON.stringify(repos) === JSON.stringify([...EXPECTED_REPOS].sort()),
     `got ${JSON.stringify(repos)}`,
+  );
+
+  // ---- each workspace head served independently, per-repo ------------------
+  check(
+    "every workspace head served independently, per-repo (/proposals)",
+    Boolean(props.body?.base?.head) &&
+    /^[0-9a-f]{40}$/.test(props.body.base.head) &&
+    proposals.every((p) => typeof p.head === "string" && /^[0-9a-f]{40}$/.test(p.head)),
+    `base.head=${String(props.body?.base?.head)} missing or malformed; ` +
+    `proposals missing head: ${proposals.filter((p) => !p.head || !/^[0-9a-f]{40}$/.test(p.head)).map((p) => p.repo).join(",") || "none"}`,
   );
 
   const conflicts = Array.isArray(props.body?.conflicts) ? props.body.conflicts : [];
