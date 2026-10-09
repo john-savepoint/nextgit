@@ -1338,7 +1338,7 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
  for (const name of parsed.repos) {
   // The same fork-point reads /proposals uses, with texts for the fold below.
   const changeSet = await computeChangeSet(env, parsed.base, parsed.ref, name, parsed.ref, { includeTexts: true });
-  if (changeSet.files.some((f) => isSecretPath(f.path))) {
+  if (changeSet.files.length > 0 && changeSet.files.every((f) => isSecretPath(f.path))) {
    // Secret-class content cannot enter state: the repo is listed by name only.
    skipped.push({ repo: name, reason: "secret-class" });
    continue;
