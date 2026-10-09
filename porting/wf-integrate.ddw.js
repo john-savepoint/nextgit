@@ -91,9 +91,15 @@ export async function battery({ root, id, timeoutPer = 900000, only = null } = {
   const tsc = sh("npx", ["tsc", "--noEmit"], `${wt}/platform`, { allowFail: true, timeout: 300000 });
   results.push({ suite: "tsc", rc: tsc.status, output: ((tsc.stdout || "") + (tsc.stderr || "")).trim().slice(0, 1500) });
   const files = readdirSync(`${wt}/porting/tests`).filter((f) => f.endsWith(".test.mjs")).sort();
+  // Suite env: strip caller store-config so fixture suites always resolve their OWN temp
+  // stores — a leaked BEADS_DIR (e.g. exported by a parent harness) pointed fixtures at
+  // the live store and crashed them on init (observed 2026-10-10).
+  const suiteEnv = { ...process.env };
+  delete suiteEnv.BEADS_DIR;
+  delete suiteEnv.TASKS_DB;
   for (const f of files) {
     if (only && !only.includes(f)) continue;
-    const r = spawnSync("bun", [`porting/tests/${f}`], { cwd: wt, encoding: "utf8", timeout: timeoutPer, env: process.env });
+    const r = spawnSync("bun", [`porting/tests/${f}`], { cwd: wt, encoding: "utf8", timeout: timeoutPer, env: suiteEnv });
     const tail = ((r.stdout || "") + (r.stderr || "")).trim().split("\n").slice(-2).join(" | ").slice(0, 200);
     results.push({ suite: f, rc: r.status, tail });
   }

@@ -30,9 +30,13 @@ const jparse = (s) => { try { return JSON.parse(s); } catch { return null; } };
 const idOf = (out) => (out.match(/^id: (.+)$/m) ?? [])[1];
 
 const tmps = [];
+// Suites must never inherit the caller's store configuration: a leaked BEADS_DIR makes
+// `bd init` target the LIVE store instead of the temp template (observed 2026-10-10 —
+// integrate-harness battery exports BEADS_DIR and these fixtures crashed on init).
+const cleanEnv = () => { const e = { ...process.env }; delete e.BEADS_DIR; delete e.TASKS_DB; return e; };
 const TEMPLATE = mkdtempSync(join(tmpdir(), "tasks-bd-template-"));
 tmps.push(TEMPLATE);
-execFileSync(BD_BIN, ["init", "--non-interactive", "--prefix", "nextgit"], { cwd: TEMPLATE, encoding: "utf8", timeout: 60000 });
+execFileSync(BD_BIN, ["init", "--non-interactive", "--prefix", "nextgit"], { cwd: TEMPLATE, env: cleanEnv(), encoding: "utf8", timeout: 60000 });
 
 // per-case fixture: throwaway BEADS_DIR + a run() bound to it
 function fixture(name) {
@@ -200,9 +204,8 @@ try {
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {
   if (existsSync(LIVE_BEADS)) {
-    const cleanEnv = { ...process.env };
-    delete cleanEnv.BEADS_DIR;
-    const live = JSON.parse(execFileSync(BD_BIN, ["list", "--json", "--all", "--limit", "3000"], { cwd: ROOT, env: cleanEnv, encoding: "utf8", timeout: 120000, maxBuffer: 64 * 1024 * 1024 }));
+    // cleanEnv() strips BEADS_DIR → bd resolves the repo's OWN store from cwd=ROOT.
+    const live = JSON.parse(execFileSync(BD_BIN, ["list", "--json", "--all", "--limit", "3000"], { cwd: ROOT, env: cleanEnv(), encoding: "utf8", timeout: 120000, maxBuffer: 64 * 1024 * 1024 }));
     const leaked = live.filter((r) => String(r.id).includes(ID_PREFIX));
     check("10 live store untouched (no selftest rows)", leaked.length === 0, JSON.stringify(leaked.map((r) => r.id).slice(0, 4)));
   } else {
