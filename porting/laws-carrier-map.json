@@ -1,0 +1,156 @@
+{
+  "L1": {
+    "law": "Convergence is the central act — sets, not diffs. Triage at set level.",
+    "status": "carried",
+    "fract": "covered",
+    "carriers": [
+      {"type": "fr", "id": "FR-1"},
+      {"type": "fr", "id": "FR-2"},
+      {"type": "fr", "id": "FR-3"},
+      {"type": "fr", "id": "FR-4"},
+      {"type": "fr", "id": "FR-5"}
+    ],
+    "stories": [
+      {"type": "verify", "id": "e1-verify-one-set-one-response"},
+      {"type": "verify", "id": "e1-verify-card-anatomy"},
+      {"type": "verify", "id": "e1-verify-summary-chips-exact"},
+      {"type": "verify", "id": "e1-verify-conflict-map-render"}
+    ]
+  },
+  "L2": {
+    "law": "Two-tier intelligence. Fast/cheap (System-1) models see every file first — classify, type, tag, lint. Expensive reasoning reads only what needs judgment.",
+    "status": "roadmap",
+    "fract": "unrepresented",
+    "carriers": [],
+    "roadmap": [
+      {"type": "task", "id": "law-2-two-tier-intelligence-system-1-sees-every-file-first"},
+      {"type": "task", "id": "classify-every-file-with-system-1-models-at-ingest"}
+    ]
+  },
+  "L3": {
+    "law": "Self-describing platform. A machine-readable tool manifest + structure map ships into every agent workspace. No context-blind agents.",
+    "status": "carried",
+    "fract": "covered",
+    "carriers": [
+      {"type": "fr", "id": "FR-35"}
+    ],
+    "stories": [
+      {"type": "impl", "id": "e7-impl-workspace-manifest-structure-map"},
+      {"type": "verify", "id": "e7-verify-fanout-one-command-scoped-tokens"}
+    ]
+  },
+  "L4": {
+    "law": "Repo answers for itself. Semantic index + live preview + native demos + push provenance — comprehension without cloning.",
+    "status": "carried",
+    "fract": "partial",
+    "carriers": [
+      {"type": "fr", "id": "FR-9"},
+      {"type": "fr", "id": "FR-10"},
+      {"type": "fr", "id": "FR-13"},
+      {"type": "fr", "id": "FR-33"},
+      {"type": "fr", "id": "FR-37"}
+    ],
+    "stories": [
+      {"type": "verify", "id": "e2-verify-changes-capture"},
+      {"type": "verify", "id": "e2-verify-fork-point-pinning"},
+      {"type": "verify", "id": "e6-verify-card-baseline-header"},
+      {"type": "verify", "id": "e9-verify-step6-live-proposals"}
+    ]
+  },
+  "L5": {
+    "law": "Agents inspect just enough. Context maps + semantic index orient an agent without total reads.",
+    "status": "carried",
+    "fract": "partial",
+    "carriers": [
+      {"type": "fr", "id": "FR-35"}
+    ],
+    "stories": [
+      {"type": "impl", "id": "e7-impl-workspace-manifest-structure-map"},
+      {"type": "verify", "id": "e7-verify-byo-harness-push-protocol"}
+    ]
+  },
+  "L6": {
+    "law": "Locks are surgical. Scope/entity-level, expiring, advisory-first. Never fleet-wide serialization.",
+    "status": "carried",
+    "fract": "partial",
+    "carriers": [
+      {"type": "fr", "id": "FR-17"}
+    ],
+    "stories": [
+      {"type": "impl", "id": "e3-impl-concurrency-race-regression"},
+      {"type": "impl", "id": "e3-impl-do-land-lease"}
+    ],
+    "roadmap": [
+      {"type": "task", "id": "surgical-authoring-leases-scoped-expiring-advisory-first-dem"}
+    ]
+  },
+  "L7": {
+    "law": "Contribution standard as a service. Platform-level contribution standards (lint, conventions, changelogs, commit rules) enforced platform-side — no per-repo scaffolding.",
+    "status": "carried",
+    "fract": "partial",
+    "carriers": [
+      {"type": "fr", "id": "FR-32"},
+      {"type": "fr", "id": "FR-43"}
+    ],
+    "stories": [
+      {"type": "verify", "id": "e6-verify-notes-mirror-readers"},
+      {"type": "verify", "id": "e11-verify-seven-route-surface"}
+    ]
+  },
+  "L8": {
+    "law": "Ambient capability. GitLens-class parity, but features surface in context — discoverable in place, never buried in tabs. No tab explosion; SPA-like continuity.",
+    "status": "carried",
+    "fract": "partial",
+    "carriers": [
+      {"type": "fr", "id": "FR-1"},
+      {"type": "fr", "id": "FR-8"}
+    ],
+    "stories": [
+      {"type": "verify", "id": "e1-verify-one-set-one-response"},
+      {"type": "verify", "id": "e1-verify-inline-confirm-click-first"}
+    ]
+  },
+  "L9": {
+    "law": "Work-item ↔ change-set linkage. Work items and change-sets reference each other; review stays on one surface.",
+    "status": "roadmap",
+    "fract": "unrepresented",
+    "carriers": [],
+    "roadmap": [
+      {"type": "task", "id": "law-9-work-item-to-change-set-linkage-on-one-review-surface"}
+    ]
+  },
+  "L10": {
+    "law": "Integrate PM, don't imitate it. Milestones/epics are first-class, checkout-able timeline objects in project language — not convoluted tags.",
+    "status": "roadmap",
+    "fract": "partial",
+    "carriers": [],
+    "roadmap": [
+      {"type": "task", "id": "law-10-pm-inspection-via-milestones-as-timeline-objects-demo"}
+    ]
+  },
+  "L11": {
+    "law": "Always-on decision layer. Cheap System-1 decision agents run continuously, prime the LLM agents doing code work, and can drive CI/CD directly. Always-on is affordable because the decision layer is cheap.",
+    "status": "roadmap",
+    "fract": "unrepresented",
+    "carriers": [],
+    "roadmap": [
+      {"type": "task", "id": "law-11-always-on-system-1-decision-layer-primed-for-agents-a"},
+      {"type": "task", "id": "run-always-on-system-1-decision-agents"}
+    ]
+  },
+  "L12": {
+    "law": "Workspaces woven through the experience. Merging feels transparent, seamless, understandable — not a bolt-on.",
+    "status": "carried",
+    "fract": "partial",
+    "carriers": [
+      {"type": "fr", "id": "FR-14"},
+      {"type": "fr", "id": "FR-15"},
+      {"type": "fr", "id": "FR-19"}
+    ],
+    "stories": [
+      {"type": "verify", "id": "e3-verify-server-side-land-one-commit"},
+      {"type": "verify", "id": "e3-verify-success-banner-refresh"},
+      {"type": "verify", "id": "e3-verify-landed-card-render"}
+    ]
+  }
+}
