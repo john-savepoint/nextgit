@@ -159,11 +159,11 @@ const clefReply = (answers, model = "clef") => ({ model, answers, usage: { neuro
 let ipSeq = 0;
 const nextIp = () => `10.7.0.${++ipSeq}`;
 
-// Standard answer set for a single intent-carrying repo.
 const singleAnswers = () => ({
   risk_1: { type: "score", score: 1.2, confidence: 0.5 },
   intent_1: { type: "choice", choice: "supports" },
   overclaim_1: { type: "noul", noul: 0.2 },
+  content_secret_1: { type: "noul", noul: 0.1 },
 });
 
 function makeFakeKV() {
@@ -178,8 +178,10 @@ function makeFakeKV() {
   };
 }
 
-function envFor({ ai = AI, artifacts = ARTIFACTS } = {}) {
-  return { ARTIFACTS: artifacts, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: ai };
+function envFor({ ai = AI, artifacts = ARTIFACTS, skipRecord = null } = {}) {
+  const env = { ARTIFACTS: artifacts, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: ai };
+  if (skipRecord) Object.assign(env, { SKIP_RECORD: skipRecord });
+  return env;
 }
 
 // --- canary fixtures ---------------------------------------------------------
@@ -412,6 +414,40 @@ try {
 }
 
 // ============================================================================
+// Test: judge-gate — canary in non-secret patch must be skipped by judge-gate
+// ============================================================================
+// agent-negative carries CANARY in src/leak.ts patch (KEY=VALUE line in content).
+// The patch is NOT scrubbed (only intent is), so the canary IS visible in the
+// judge state. The content_secret noul fires -> repo skipped, no canary in
+// response, no canary in logs, no canary in AI state.
+
+try {
+  const skipRecord = makeFakeKV();
+  resetAi(
+    clefReply({
+      risk_1: { type: "score", score: 0.5 },
+      content_secret_1: { type: "noul", noul: 0.95 },
+    }),
+  );
+  const env = envFor({ skipRecord });
+  captureLogs();
+  const { status, body } = await judge(
+    { setId: "v1", target: { base: "demo", repos: ["agent-negative"] } },
+    { ip: "10.0.5.5", env },
+  );
+  restoreLogs();
+
+  check("judge-gate: status 200", status === 200, `status ${status}`);
+  check("judge-gate: skipped content-detected-secret", body?.skipped?.[0]?.reason === "content-detected-secret", JSON.stringify(body?.skipped));
+  check("judge-gate: canary count 0 in response", countCanaryDeep(body) === 0, `count ${countCanaryDeep(body)}`);
+  check("judge-gate: canary count 0 in logs", countCanary(logLines.join("\n")) === 0, `count ${countCanary(logLines.join("\n"))}`);
+  // The AI state carries the patch (by design — patches are not scrubbed).
+  // But the skip decision isolates it: no judgment is returned for this repo.
+  check("judge-gate: judgments empty", body?.judgments?.length === 0, JSON.stringify(body?.judgments));
+  check("judge-gate: skip record written", skipRecord.get("judge-skip:agent-negative:demo:main") !== null);
+} catch (e) {
+  check("judge-gate: suite threw", false, String(e?.stack ?? e));
+}
 
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);
