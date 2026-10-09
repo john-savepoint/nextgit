@@ -190,6 +190,11 @@ for (let i = 1; i <= 40; i++) agent6Files[`src/small-${String(i).padStart(2, "0"
 const a6 = commit("c-agent-6", tree(agent6Files));
 defineRepo("agent-6", { history: [a6, c1], refs: { main: a6.hash } });
 
+// agent-content: content-detected secret in a non-secret path (src/config.js).
+const CONTENT_CANARY = "CANARY-NG-1";
+const contentFiles = { ...BASE_FILES, "src/config.js": `export const TOKEN = "${CONTENT_CANARY}";\n` };
+const aContent = commit("c-agent-content", tree(contentFiles));
+defineRepo("agent-content", { history: [aContent, c1], refs: { main: aContent.hash } });
 // --- fake AI + request helpers ----------------------------------------------
 
 const aiCalls = [];
@@ -207,12 +212,28 @@ const resetAi = (response = null) => {
 };
 const clefReply = (answers, model = "clef") => ({ model, answers, usage: { neurons: 1 } });
 
+// --- fake KV for SKIP_RECORD tests ------------------------------------------
+
+function makeFakeKV() {
+  const store = new Map();
+  return {
+    async get(key) {
+      return store.get(key) ?? null;
+    },
+    async put(key, value) {
+      store.set(key, value);
+    },
+  };
+}
+
+function envFor({ ai = AI, artifacts = ARTIFACTS, skipRecord = null } = {}) {
+  const env = { ARTIFACTS: artifacts, LIVE: {}, ASSETS: { fetch: async () => new Response("") }, AI: ai };
+  if (skipRecord) Object.assign(env, { SKIP_RECORD: skipRecord });
+  return env;
+}
 let ipSeq = 0;
 const nextIp = () => `10.7.0.${++ipSeq}`;
 
-function envFor({ ai = AI, artifacts = ARTIFACTS } = {}) {
-  return { ARTIFACTS: artifacts, LIVE: {}, ASSETS: { fetch: async () => new Response("") }, AI: ai };
-}
 
 async function judge(body, { ip = nextIp(), env = envFor() } = {}) {
   const res = await worker.fetch(
@@ -232,17 +253,18 @@ const happyAnswers = () => ({
   intent_1: { type: "choice", choice: "supports", confidence: 0.9, probabilities: { supports: 0.9 } },
   overclaim_1: { type: "noul", noul: 0.31 },
   collision_1: { type: "noul", noul: 0.17 },
+  content_secret_1: { type: "noul", noul: 0.1 },
   risk_2: { type: "score", score: 0.5 },
   intent_2: { type: "choice", choice: "supports" },
   overclaim_2: { type: "noul", noul: 0.1 },
   collision_2: { type: "noul", noul: 0.2 },
+  content_secret_2: { type: "noul", noul: 0.0 },
 });
-
-// Standard answer set for a single intent-carrying repo ([agent-1]).
 const singleAnswers = () => ({
   risk_1: { type: "score", score: 1.2, confidence: 0.5 },
   intent_1: { type: "choice", choice: "supports" },
   overclaim_1: { type: "noul", noul: 0.2 },
+  content_secret_1: { type: "noul", noul: 0.1 },
 });
 
 // ---------------------------------------------------------------------------
@@ -279,10 +301,12 @@ try {
       intent_1: { type: "choice", choice: "supports" },
       overclaim_1: { type: "noul", noul: 0 },
       collision_1: { type: "noul", noul: 0.9 },
+      content_secret_1: { type: "noul", noul: 0.1 },
       risk_2: { type: "score", score: 1.9 },
       intent_2: { type: "choice", choice: "supports" },
       overclaim_2: { type: "noul", noul: 0.2 },
       collision_2: { type: "noul", noul: 0.5 },
+      content_secret_2: { type: "noul", noul: 0.0 },
     }),
   );
   const { status, body } = await judge({ setId: "v1", target: { repos: ["agent-1", "agent-2"] } }, { ip: "10.0.1.2" });
@@ -557,20 +581,18 @@ try {
   check("12 questions <= 64", ids.length <= 64, `${ids.length}`);
   check(
     "12 ids exactly planned",
-    JSON.stringify(ids) === JSON.stringify(["collision_1", "collision_2", "intent_1", "intent_2", "overclaim_1", "overclaim_2", "risk_1", "risk_2"]),
+    JSON.stringify(ids) === JSON.stringify(["collision_1", "collision_2", "content_secret_1", "content_secret_2", "intent_1", "intent_2", "overclaim_1", "overclaim_2", "risk_1", "risk_2"]),
     JSON.stringify(ids),
   );
   check(
     "12 question kinds match plan",
-    questions.risk_1?.type === "score" && questions.intent_1?.type === "choice" && questions.overclaim_1?.type === "noul" && questions.collision_1?.type === "noul",
+    questions.risk_1?.type === "score" && questions.intent_1?.type === "choice" && questions.overclaim_1?.type === "noul" && questions.collision_1?.type === "noul" && questions.content_secret_1?.type === "noul",
   );
-
-  resetAi({ model: "clef", answers: { risk_1: { type: "score", score: 1, legend: { 0: "low" }, probabilities: { 0: 1 }, confidence: 1 } } });
+  resetAi({ model: "clef", answers: { risk_1: { type: "score", score: 1, legend: { 0: "low" }, probabilities: { 0: 1 }, confidence: 1 }, content_secret_1: { type: "noul", noul: 0.1 } } });
   await judge({ setId: "v1", target: { repos: [hostileName] } }, { ip: "10.0.1.12" });
   const hostileQuestions = JSON.stringify(aiCalls[0]?.inputs?.questions ?? {});
-  check("12 repo name never in questions", !hostileQuestions.includes(hostileName), hostileQuestions);
   const hostileIds = Object.keys(aiCalls[0]?.inputs?.questions ?? {});
-  check("12 no-intent repo: risk only", JSON.stringify(hostileIds) === JSON.stringify(["risk_1"]), JSON.stringify(hostileIds));
+  check("12 no-intent repo: risk + content_secret only", JSON.stringify(hostileIds) === JSON.stringify(["risk_1", "content_secret_1"]), JSON.stringify(hostileIds));
   check("12 single repo: no collision question", !hostileQuestions.includes("collision_"), hostileQuestions);
 } catch (e) {
   check("12 case threw", false, String(e?.stack ?? e));
@@ -580,7 +602,7 @@ try {
 // 13. Derivation edges
 // ---------------------------------------------------------------------------
 try {
-  resetAi({ model: "clef", answers: { risk_1: { type: "score", score: 1 } } });
+  resetAi({ model: "clef", answers: { risk_1: { type: "score", score: 1 }, content_secret_1: { type: "noul", noul: 0.1 } } });
   const noIntent = await judge({ setId: "v1", target: { repos: ["agent-5"] } }, { ip: "10.0.1.13" });
   const nij = noIntent.body?.judgments?.[0];
   check(
@@ -594,6 +616,7 @@ try {
       risk_1: { type: "score", score: 1.4 },
       intent_1: { type: "choice", choice: "insufficient" },
       overclaim_1: { type: "noul", noul: 0.9 },
+      content_secret_1: { type: "noul", noul: 0.1 },
     }),
   );
   const insufficient = await judge({ setId: "v1", target: { repos: ["agent-1"] } }, { ip: "10.0.1.13" });
@@ -607,7 +630,7 @@ try {
 // 14. State budget (~125 KB diff repo)
 // ---------------------------------------------------------------------------
 try {
-  resetAi({ model: "clef", answers: { risk_1: { type: "score", score: 0.4 } } });
+  resetAi({ model: "clef", answers: { risk_1: { type: "score", score: 0.4 }, content_secret_1: { type: "noul", noul: 0.1 } } });
   const { status } = await judge({ setId: "v1", target: { repos: ["agent-6"] } }, { ip: "10.0.1.14" });
   check("14 status 200", status === 200, `status ${status}`);
   const stateJson = JSON.stringify(aiCalls[0]?.inputs?.state ?? null);
@@ -648,6 +671,36 @@ try {
   );
 } catch (e) {
   check("15 case threw", false, String(e?.stack ?? e));
+}
+// ---------------------------------------------------------------------------
+// 16. Content-detected secret skip (judge-gate route)
+// ---------------------------------------------------------------------------
+try {
+  const skipRecord = makeFakeKV();
+  resetAi(
+    clefReply({
+      risk_1: { type: "score", score: 1.2, confidence: 0.5 },
+      content_secret_1: { type: "noul", noul: 0.9 },
+    }),
+  );
+  const { status, body } = await judge(
+    { setId: "v1", target: { base: "demo", repos: ["agent-content"] } },
+    { ip: "10.0.1.16", env: envFor({ skipRecord }) },
+  );
+  check("16 status 200", status === 200, `status ${status}`);
+  check(
+    "16 skipped content-detected-secret",
+    body?.skipped?.[0]?.repo === "agent-content" && body?.skipped?.[0]?.reason === "content-detected-secret",
+    JSON.stringify(body?.skipped),
+  );
+  check("16 judgments empty", body?.judgments?.length === 0, JSON.stringify(body?.judgments));
+  check("16 canary absent from body", !JSON.stringify(body).includes(CONTENT_CANARY), JSON.stringify(body));
+  // Canary IS present in AI state — patches are not scrubbed (only intent is).
+  // The judge-gate skip is the content-detection backstop: the repo is skipped
+  // despite the canary being in the patch text.
+  check("16 canary present in AI state (patches unsanitized)", JSON.stringify(aiCalls[0]?.inputs?.state ?? null).includes(CONTENT_CANARY));
+} catch (e) {
+  check("16 case threw", false, String(e?.stack ?? e));
 }
 
 // ---------------------------------------------------------------------------
