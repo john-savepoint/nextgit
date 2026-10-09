@@ -44,3 +44,11 @@
 9. **Canonical id prefix (bd) — load-bearing, do not "simplify"** — every issue id carries the `nextgit-` prefix. bd classifies a dependency target whose prefix differs from the source's as EXTERNAL (`issueops.IsExternalDepTarget`; prefix = text before first hyphen) and files it in `depends_on_external`, which **never blocks** — cross-prefix slugs silently disabled dep gating (root-caused 2026-10-08; migrated by `porting/migrate-to-bd.mjs` v2 + store rebuild; acceptance = ready-set diff vs legacy store = 0). New ids MUST go through the adapter (`add`/`upsert` canonicalize; bare slugs accepted) — never `bd create` with an arbitrary prefix, and never create two issues whose prefixes differ.
 
 **Project facts:** platform live at `https://nextgit-platform.john-b7d.workers.dev` (worker `nextgit-platform`; Artifacts namespace `nextgit`; baseline repo `demo`; proposals `agent-1..4`). Wrangler: `artifacts` repo commands exist since 4.92.0; the Artifacts queue-subscription source flag needs ≥4.147 (verified: present on 4.147, absent on 4.106). Deploys use the lockfile-pinned local wrangler (`npx wrangler deploy`), never `@latest`. Demo reset: `node platform/scripts/seed.mjs && node platform/scripts/real-agents.mjs`. Land: `node platform/scripts/land.mjs agent-3` (delegates to the worker; the worker is the only base-ref writer). Judge layer: Clef — catalog at `docs/judge-layer-ideas.md`, plan is `AI` binding + `/judge`.
+
+
+## Platform VERIFY gate
+
+Every platform deploy runs the cred-guard pair as a non-negotiable VERIFY gate. The worker is the only base-ref writer; these probes are read-only against live routes and must not mutate `demo` or `agent-1..5`:
+
+- `node porting/tests/land-hardening.probe.mjs` — AD-3 fold-merge + landing correctness (200 happy path, 409 stale/no-changes, 4-way race exactly-once, fork-point ancestor proof, DO lease release-on-winner).
+- `node porting/tests/egress-guard.probe.mjs` — AD-9 E8 credential egress guard: scans every route's raw response body across success and induced-failure paths (200/500/400/403/404) for `Bearer` tokens, `Authorization:` headers, Artifacts token shapes, and shell snippets. Self-tests the scanner with an injected token sample so a no-op scanner cannot green-pass. Never lands/pushes/forks/deletes — uses only GET and non-mutating POSTs (malformed bodies, unknown repos).
