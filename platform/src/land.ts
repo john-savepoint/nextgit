@@ -21,6 +21,8 @@ const LAND_COMMIT_AUTHOR = {
 
 const TOKEN_TTL_SECONDS = 300; // one push, seconds-scale; revoked in a finally by the caller
 const LAND_WORKDIR = "/repo";
+const NOTES_REF_LOCAL = "refs/notes/commits"; // git-notes ref for landing-decision notes
+const NOTES_BRANCH_LOCAL = "refs/heads/nextgit-notes"; // mirror branch for refs/notes/commits (full ref for isomorphic-git push remoteRef)
 
 /** One file of a folded merge, as /merge produces it. */
 export interface LandFile {
@@ -38,6 +40,8 @@ export interface LandInput {
  files: LandFile[];
  expectedBaseHead?: string;
  readBaseHead?: () => Promise<string>;
+ /** When true, attach a landing-decision git note to the landed commit and mirror it. */
+ landingNote?: boolean;
 }
 
 /** Raised when the base ref moved between the fold and the push (AD-3). */
@@ -46,6 +50,23 @@ export class BaseMovedError extends Error {
   super(`base ref moved to ${currentHead}`);
   this.name = "BaseMovedError";
  }
+}
+
+/**
+ * Stable SHA-256 (hex) over the folded result: action + path + content, path-sorted.
+ * Lives here so /land's landing-decision note can compute the fold hash inline
+ * without a circular import from index.ts.
+ */
+export async function foldHashOf(files: LandFile[]): Promise<string> {
+ const canonical = [...files]
+  // Code-unit order (not localeCompare): the contract publishes this
+  // serialization (CONTRACT.md POST /land) and clients recompute it from a
+  // /merge preview — ICU collation must never enter the digest.
+  .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+  .map((f) => `${f.action}\n${f.path}\n${f.action === "write" ? f.merged ?? "" : ""}\n\x00`)
+  .join("");
+ const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+ return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -97,6 +118,36 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
   if (currentHead !== input.expectedBaseHead) throw new BaseMovedError(currentHead);
  }
 
+ // Landing-decision note: metadata-only (repos, commit, foldHash, at). No
+ // file contents, no secrets — withheld-secret files are excluded at fold.
+ // Written to the local notes ref, then pushed to the mirror branch after
+ // the base-branch push succeeds. Best-effort: a write failure here does
+ // not fail the land.
+ let noteWritten = false;
+ if (input.landingNote) {
+  try {
+   await git.addNote({
+    fs: fs as never,
+    dir: LAND_WORKDIR,
+    ref: NOTES_REF_LOCAL,
+    oid: commit,
+    note: JSON.stringify({
+     repos: input.repos,
+     commit,
+     foldHash: await foldHashOf(input.files),
+     at: new Date().toISOString(),
+    }),
+    force: true,
+    author: LAND_COMMIT_AUTHOR,
+    committer: LAND_COMMIT_AUTHOR,
+   });
+   noteWritten = true;
+  } catch (e: unknown) {
+   const err = e as { code?: string; data?: unknown; message?: string };
+   console.log("landing-note-write-failed", JSON.stringify({ commit, code: err?.code, data: err?.data, error: String(e) }));
+  }
+ }
+
  let remoteTipAtPush: string | null = null;
  const result = (await git.push({
   fs: fs as never,
@@ -123,6 +174,25 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
  if (!refResult?.ok) {
   throw new Error(`land: push rejected: ${refResult?.error ?? "unknown ref result"}`);
  }
+
+ // Push the notes ref to its mirror branch — NOT a base-branch write.
+ // Best-effort: logs "landing-note-push-failed" and degrades gracefully.
+ // Only push if the local note was written successfully; otherwise there is
+ // nothing to push.
+ if (noteWritten) {
+  await git.push({
+   fs: fs as never,
+   http: http as never,
+   dir: LAND_WORKDIR,
+   ref: NOTES_REF_LOCAL,
+   remoteRef: NOTES_BRANCH_LOCAL,
+   onPrePush: () => true,
+  }).catch((e: unknown) => {
+   const err = e as { code?: string; data?: unknown; message?: string };
+   console.log("landing-note-push-failed", JSON.stringify({ commit, code: err?.code, data: err?.data, error: String(e) }));
+  });
+ }
+
  return { commit, remote: input.remote };
 }
 

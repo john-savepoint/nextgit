@@ -15,7 +15,7 @@
 
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
-import { BaseMovedError, mintWriteToken, pushLand, type LandFile } from "./land";
+import { BaseMovedError, foldHashOf, mintWriteToken, pushLand, type LandFile } from "./land";
 import { LandLeaseDO, acquireLandLease, releaseLandLease } from "./landLeaseDO";
 export { LandLeaseDO };
 import {
@@ -858,19 +858,6 @@ async function repoHead(env: Env, name: string, ref: string): Promise<string> {
  return commits[0].hash;
 }
 
-/** Stable SHA-256 (hex) over the folded result: action + path + content, path-sorted. */
-async function foldHashOf(files: LandFile[]): Promise<string> {
- const canonical = [...files]
-  // Code-unit order (not localeCompare): the contract publishes this
-  // serialization (CONTRACT.md POST /land) and clients recompute it from a
-  // /merge preview — ICU collation must never enter the digest.
-  .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-  .map((f) => `${f.action}\n${f.path}\n${f.action === "write" ? f.merged ?? "" : ""}\n\x00`)
-  .join("");
- const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
- return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 function badRequest(error: string): Response {
  return Response.json({ ok: false, error }, { status: 400 });
 }
@@ -1139,6 +1126,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     files: writeable,
     expectedBaseHead: baseHeadNow,
     readBaseHead: () => repoHead(env, base, baseRef),
+    landingNote: true,
    });
    const at = new Date().toISOString();
    const landed = {

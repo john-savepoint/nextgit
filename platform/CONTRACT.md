@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v2.3 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
+Version: v2.4 (2026-10-09). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
@@ -207,6 +207,21 @@ git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-no
 
 Fallback source: `NEXTGIT_INTENT/<sha>.txt` (or `NEXTGIT_INTENT/intent.txt`) on that branch. Response shape unchanged (`intent` string, omitted when absent).
 
+
+### Landing-decision note (after land)
+
+After a successful `POST /land`, the worker attaches a landing-decision git note to the landed commit in `refs/notes/commits` and mirrors it to `refs/heads/nextgit-notes` inside the same `pushLand` critical section. The note payload is metadata-only:
+
+`{ repos: string[], commit: string, foldHash: string, at: string (ISO timestamp) }`
+
+- **repos** — the proposal repos folded into the landed commit.
+- **commit** — the landed commit SHA-1 (40-hex).
+- **foldHash** — SHA-256 over the folded result (action + path + content, path-sorted), identical to `evidence.foldHash` from the same land.
+- **at** — ISO 8601 timestamp of the note write.
+
+The note write is best-effort: a failure is logged as `landing-note-push-failed` and does not fail the land or alter any response shape. No secret-class content reaches the note — withheld-secret files are excluded at fold (CONTRACT §Secret classes). The note rides inside `pushLand` within `withLandGate`, using the same single-use worker token and the same critical section — it is not a separate control-plane push to base branches. This is the only code path that writes `refs/heads/nextgit-notes`; `refs/heads/<baseRef>` is written by exactly one `git.push` (the land commit push).
+
+Reader surface: `GET /changes` intent and `GET /proposals` card read intent from the mirror branch per the recipe above; the landing-decision note is readable via standard git-notes readers (e.g. `git notes --ref=refs/notes/commits show <commit>` after fetching the mirror).
 ## Secret classes (masking law)
 
 Path matches: basename `.env*`, `*.pem`, `*.key`, `*.p12`, `credentials.json`, `secrets.json`, `.dev.vars`, or any path containing `secrets/`.
