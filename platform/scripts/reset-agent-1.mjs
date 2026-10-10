@@ -14,6 +14,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
+import { gitAuthEnv } from "./lib/tokens.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -75,11 +76,14 @@ if (!r.data.success) throw new Error(`token: ${JSON.stringify(r.data.errors)}`);
 const repoToken = r.data.result.plaintext;
 
 const dir = mkdtempSync(join(tmpdir(), "reset-a1-"));
+// The token rides GIT_CONFIG_VALUE_0 (env), never argv — invisible to
+// ps / /proc/<pid>/cmdline (FR-36 argv law).
+const gitEnv = { ...process.env, ...gitAuthEnv(repoToken) };
 const git = (...args) =>
-  execFileSync("git", ["-C", dir, "-c", `http.extraHeader=Authorization: Bearer ${repoToken}`, ...args], { encoding: "utf8", timeout: 120000 });
+  execFileSync("git", args, { cwd: dir, env: gitEnv, encoding: "utf8", timeout: 120000 });
 
 try {
-  execFileSync("git", ["-c", `http.extraHeader=Authorization: Bearer ${repoToken}`, "clone", "-q", remote, dir], { encoding: "utf8", timeout: 120000 });
+  execFileSync("git", ["clone", "-q", remote, dir], { cwd: dir, env: gitEnv, encoding: "utf8", timeout: 120000 });
   git("config", "user.email", "agent-1@nextgit.dev");
   git("config", "user.name", "agent-1");
 
@@ -97,7 +101,7 @@ try {
   git("add", "-A");
   git("commit", "-q", "-m", `${REPO}: session refresh with TTL`);
   git("notes", "add", "-f", "-m", NOTE, "HEAD");
-  execFileSync("git", ["-C", dir, "-c", `http.extraHeader=Authorization: Bearer ${repoToken}`, "push", "-q", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes"], { encoding: "utf8", timeout: 180000, stderr: "pipe" });
+  execFileSync("git", ["-C", dir, "push", "-q", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes"], { cwd: dir, env: gitEnv, encoding: "utf8", timeout: 180000, stderr: "pipe" });
   console.log("  pushed main + notes mirror");
 } finally {
   rmSync(dir, { recursive: true, force: true });

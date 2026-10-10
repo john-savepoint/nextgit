@@ -40,11 +40,15 @@ check("resolveTtl(3600) = 3600", resolveTtl(3600) === 3600);
 // At exact max boundary = 604800 (7d)
 check("resolveTtl(604800) = 604800 (max)", resolveTtl(604800) === 604800);
 
-// Above max is clamped to 604800
-check("resolveTtl(999999) = 604800 (clamped)", resolveTtl(999999) === 604800);
+// Above max is REJECTED (fail closed — no silent clamp, FR-36)
+let threw = false;
+try { resolveTtl(999999); } catch (e) {
+  threw = /604800/.test(e.message); // reject names the ceiling
+}
+check("resolveTtl(999999) throws (>7d rejected, no clamp)", threw);
 
 // Reject < 60 seconds
-let threw = false;
+threw = false;
 try { resolveTtl(30); } catch { threw = true; }
 check("resolveTtl(30) throws (<60s)", threw);
 

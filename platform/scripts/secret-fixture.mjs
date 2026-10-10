@@ -25,6 +25,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
+import { mintRepoToken, gitAuthEnv, writeAgentManifest } from "./lib/tokens.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -32,7 +33,6 @@ const OUT_FILE = process.env.AGENTS_OUT ?? "/tmp/nextgit-agents.json";
 
 const BASE = "demo";   // fork source (read-only for this script)
 const REPO = "agent-5"; // the only repo this script writes
-const TTL = 604800;
 
 const ENV_PATH = "config/.env";
 const ENV_LINES = [
@@ -107,16 +107,14 @@ async function main() {
     if (row && row.status === "ready") break;
     await sleep(1000);
   }
-  const tok = await call("POST", `${apiBase}/tokens`, { repo: REPO, scope: "write", ttl: TTL });
+  const tok = await mintRepoToken(call, { base: apiBase, repo: REPO, headers });
 
   // The token rides an env header, never argv.
   const env = {
     ...process.env,
     GIT_AUTHOR_DATE: PINNED_DATE,
     GIT_COMMITTER_DATE: PINNED_DATE,
-    GIT_CONFIG_COUNT: "1",
-    GIT_CONFIG_KEY_0: "http.extraheader",
-    GIT_CONFIG_VALUE_0: `Authorization: Bearer ${tok.plaintext}`,
+    ...gitAuthEnv(tok.plaintext),
   };
   const dir = mkdtempSync(join(tmpdir(), "nextgit-secret-fixture-"));
   const git = (...args) =>
@@ -169,7 +167,7 @@ async function main() {
         ),
       ).values(),
     ];
-    writeFileSync(OUT_FILE, JSON.stringify(merged, null, 2));
+    writeAgentManifest(OUT_FILE, merged);
 
     console.log(`${dropped ? "dropped + " : ""}forked ${REPO} <- ${BASE}`);
     console.log(`wrote   ${ENV_PATH} (2 lines, keys: ${ENV_LINES.map((l) => l.slice(0, l.indexOf("="))).join(", ")})`);

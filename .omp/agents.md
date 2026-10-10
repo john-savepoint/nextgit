@@ -32,6 +32,8 @@
 
 **Secrets:** never in argv, records, or transcripts. The wrangler OAuth token lives at `~/.config/.wrangler/config/default.toml`; Artifacts repo tokens are minted per-run from it and never committed.
 
+**Repo-token TTL policy (FR-36):** repo git tokens minted by `platform/scripts/*` route through `platform/scripts/lib/tokens.mjs`: omitted ttl → 86400 s (24 h); > 604800 s (7 d) is rejected before the API call (fail closed, no silent clamp); explicit shorter TTLs legal (seed's 3600 s). Worker-minted access tokens are a separate class: single-use, ≤300 s, revoked in a `finally` (`platform/src/land.ts` — as-built, unchanged). This policy MUST travel to future Workflows-side minting (AD-7 control plane / AD-10 Workflows takeover of token minting): the same default/ceiling/reject rule applies there.
+
 **Flags (read before touching these areas):**
 1. **Crash-resume** — runner state is durable only because `porting/runs/<id>/run-state.json` is written every phase; never start a batch you cannot reconstruct from disk. `resume: true` skips phases whose artifacts exist and always re-runs gates; the heal budget counts per invocation (`healsThisRun`), so a resumed run can heal again; the in-flight phase restarts from scratch.
 2. **Display masks vs corruption** — the harness redacts secret-shaped text in what you *see*; verify raw bytes on disk before "fixing" a file.

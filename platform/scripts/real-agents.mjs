@@ -18,6 +18,7 @@ import { homedir } from "node:os";
 import { ensureWorkspaceFiles } from "./workspace-manifest.mjs";
 import { loadRegistry, buildArgs } from "./harness-registry.mjs";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
+import { resolveTtl, mintRepoToken, writeAgentManifest, gitAuthEnv } from "./lib/tokens.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -32,7 +33,7 @@ const only = (() => {
 })();
 
 const baseline = /^\d+$/.test(process.argv[3] ?? "") ? process.argv[2] ?? "demo" : "demo";
-const ttl = Number(process.argv[3]) || 604800;
+const ttl = resolveTtl(process.argv[3]);
 const AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS) || 8 * 60_000;
 // An agent killed mid-flight leaves its clone with real work but no commit.
 // The clone is kept so a retry can collect it, and on the first full run
@@ -281,13 +282,13 @@ async function prepareFork(task) {
   await sleep(1200);
  }
  const fork = await forkFresh(task.name);
- const tok = await call("POST", `${apiBase}/tokens`, { repo: task.name, scope: "write", ttl });
+ const tok = await mintRepoToken(call, { base: apiBase, repo: task.name, ttl, headers: authHeader() });
  return { remote: fork.remote, token: tok.plaintext, scope: tok.scope, expires_at: tok.expires_at };
 }
 
 /** Mint a fresh write token for an existing fork (resume path: keep the clone). */
 async function refreshForkToken(name, remote) {
- const tok = await call("POST", `${apiBase}/tokens`, { repo: name, scope: "write", ttl });
+ const tok = await mintRepoToken(call, { base: apiBase, repo: name, ttl, headers: authHeader() });
  return { remote, token: tok.plaintext, scope: tok.scope, expires_at: tok.expires_at };
 }
 
@@ -335,9 +336,7 @@ async function runAgent(task, cand) {
   }
   const env = {
    ...process.env,
-   GIT_CONFIG_COUNT: "1",
-   GIT_CONFIG_KEY_0: "http.extraheader",
-   GIT_CONFIG_VALUE_0: `Authorization: Bearer ${minted.token}`,
+   ...gitAuthEnv(minted.token),
   };
   const git = (...args) =>
    execFileSync("git", args, { cwd: dir, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -506,7 +505,7 @@ async function main() {
  const minted = settled.map((s) => s.minted).filter(Boolean);
  // A `--only` run must not drop the other agents' tokens from the shared file.
  const merged = [...new Map([...(only && existsSync(OUT_FILE) ? JSON.parse(readFileSync(OUT_FILE, "utf8")) : []), ...minted].map((m) => [m.name, m])).values()];
- writeFileSync(OUT_FILE, JSON.stringify(merged, null, 2));
+ writeAgentManifest(OUT_FILE, merged);
 
  console.log("\n  agent    cli      status  head     change");
  console.log(`  ${"-".repeat(72)}`);
