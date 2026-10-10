@@ -239,8 +239,10 @@ data: { "type": "repo.pushed", "repo": "agent-1", "ref": "main", "after": "<40-h
 The Artifacts binding cannot resolve `refs/notes/*` (server-side limitation, measured). Intent is read from a branch mirroring the notes ref. Agent push recipe — one command, three refspecs:
 
 ```
-git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-notes
+git push origin main +refs/notes/commits +refs/notes/commits:refs/heads/nextgit-notes
 ```
+
+The notes ref and its mirror are **derived, single-writer state** — the `+` (force) prefix is deliberate: forks inherit a stale mirror from the base, and an unforced mirror push is rejected non-fast-forward, leaving intent dark (root-caused 2026-10-10). The mirror is always `:= refs/notes/commits`.
 
 Fallback source: `NEXTGIT_INTENT/<sha>.txt` (or `NEXTGIT_INTENT/intent.txt`) on that branch. Response shape unchanged (`intent` string, omitted when absent).
 ## Authorization (FR-45 / AD-9)

@@ -186,6 +186,10 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
    dir: LAND_WORKDIR,
    ref: NOTES_REF_LOCAL,
    remoteRef: NOTES_BRANCH_LOCAL,
+   // The mirror is DERIVED state (always := refs/notes/commits); unforced pushes are
+   // rejected non-ff once the base carries a divergent mirror from an earlier land
+   // (2026-10-10). Forced, single-writer, inside the pushLand critical section.
+   force: true,
    onPrePush: () => true,
   }).catch((e: unknown) => {
    const err = e as { code?: string; data?: unknown; message?: string };

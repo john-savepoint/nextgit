@@ -97,6 +97,15 @@ async function main() {
     await sleep(1200); // deletes are eventually consistent
   }
   const fork = await forkFresh(REPO);
+  // Wait for the fork to MATERIALIZE before cloning: cloning mid-fork can yield an empty
+  // repo → the fixture commit becomes a root commit → push rejected non-ff against the
+  // demo-head main (observed 2026-10-10). Pattern: fanout.mjs / agents.mjs prep.
+  for (let i = 0; i < 30; i++) {
+    const page = await call("GET", `${apiBase}/repos?limit=200`);
+    const row = page.find((r) => r.name === REPO);
+    if (row && row.status === "ready") break;
+    await sleep(1000);
+  }
   const tok = await call("POST", `${apiBase}/tokens`, { repo: REPO, scope: "write", ttl: TTL });
 
   // The token rides an env header, never argv.
@@ -142,7 +151,9 @@ async function main() {
     // Intent travels as a git note mirrored to a branch (CONTRACT "Notes
     // mirror"). The row must NOT surface this note — secret-class law.
     one("notes", "add", "-m", NOTE, "HEAD");
-    one("push", "origin", "main", "refs/notes/commits", "refs/notes/commits:refs/heads/nextgit-notes");
+    // Forced mirror (derived state: mirror := refs/notes/commits). Forks inherit stale
+    // mirrors from the base; an unforced push is rejected non-ff (2026-10-10).
+    one("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
 
     const head = one("rev-parse", "HEAD");
     const remoteHead = one("ls-remote", "origin", "refs/heads/main").split("\t")[0];

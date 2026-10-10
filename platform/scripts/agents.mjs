@@ -268,8 +268,10 @@ async function main() {
 
       // The Artifacts binding cannot resolve refs/notes/*, so intent is served
       // from a `nextgit-notes` branch mirroring the notes ref. Push main and
-      // both note refspecs in one command.
-      one("push", "origin", "main", "refs/notes/commits", "refs/notes/commits:refs/heads/nextgit-notes");
+      // both note refspecs in one command. The mirror is DERIVED state (always :=
+      // refs/notes/commits) and forks inherit stale mirrors from the base — without
+      // `+` the mirror push is rejected non-ff and intent goes dark (2026-10-10).
+      one("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
 
       row.status = "ok";
       row.files = changed.map((l) => `${l.slice(0, 2).trim() || "M"} ${l.slice(3).trim()}`).join(", ");

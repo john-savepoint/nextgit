@@ -403,7 +403,8 @@ async function runAgent(task, cand) {
   // Intent travels as a git note; the Artifacts binding cannot resolve
   // refs/notes/*, so it is mirrored to a branch (CONTRACT "Notes mirror").
   one("notes", "add", "-m", task.note, "HEAD");
-  one("push", "origin", "main", "refs/notes/commits", "refs/notes/commits:refs/heads/nextgit-notes");
+  // Forced mirror (derived state: mirror := refs/notes/commits). See agents.mjs comment.
+  one("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
 
   row.status = "ok";
  } catch (err) {

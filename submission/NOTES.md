@@ -30,6 +30,16 @@ git grep -l 'api_token|api_key|secret.*=' -- 'platform/wrangler.jsonc'
 
 **License:** `platform/package.json` now declares `"license": "MIT"`, matching root LICENSE (commit `8169aa2`).
 
+## Section A addendum — re-scan at integration HEAD (2026-10-10)
+
+**Scope:** all tracked files at HEAD `49a81e9` (post wave-7 integration + seam hygiene; the original scan was at `324a24c`, before 65 files changed).
+
+**Method:** the same three scans, rerun at the new HEAD (path-class via `git ls-files` filter; literal-assignment over `platform/` sources; `platform/wrangler.jsonc`).
+
+**Result: CLEAN** — zero credential-class files, zero literal credential assignments, `wrangler.jsonc` carries only KV namespace IDs + the `AUTH_MODE` var (public identifiers).
+
+**Video vintage (for the freeze call):** `submission/nextgit-demo.mp4` (f3fd213, recorded 2026-10-09) predates the wave-7 integration and the `31f75bb4` deploy; it also carries recording-session blemishes (Chrome `--no-sandbox` bar, scratch-repo traffic in the ticker). Re-record is a deliberate choice, recommended in the wave-7 close-out.
+
 ## Section B — Single-entry filing
 
 **Eligibility:** US-resident teammate will file (CHECKPOINT.md:95 — "eligibility RESOLVED"; SPEC.md:50 §3 residency).
