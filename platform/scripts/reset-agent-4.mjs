@@ -37,7 +37,7 @@ function apiToken() {
 
 const TOKEN = apiToken();
 const base = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/artifacts/namespaces/${NAMESPACE}`;
-const H = { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application" };
+const H = { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function api(method, url, body) {
