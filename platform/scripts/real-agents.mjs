@@ -517,6 +517,11 @@ async function main() {
  console.log(`\n  ${ok}/${results.length} real agents pushed a proposal -> ${PLATFORM}`);
  if (ok < 2) process.exitCode = 1;
 
+ // Bust the /proposals KV gen BEFORE the verification reads below: the report embeds this
+ // read, and queue-driven invalidation is 1.5-4 min (a bust after the report would leave it
+ // showing pre-push counts). Must also stay AFTER the last push so no new stale window opens.
+ await bustProposalsCache("real-agents");
+
  // ---- platform verification -------------------------------------------
  // Always re-check all four: a `--only` run still has to prove the whole set.
  const repos = TASKS.map((t) => t.name).join(",");
@@ -533,7 +538,6 @@ async function main() {
    .join("\n");
  }
  writeReport({ statuses, results, proposalsRes, assignments, patches });
- await bustProposalsCache("real-agents");
 }
 
 const HISTORY_FILE = join(WORK_ROOT, "runs.json");
