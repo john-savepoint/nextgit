@@ -11,11 +11,12 @@
 // Invariants pinned:
 //   1. Exactly one runner push invocation per agent (one("push", "origin", …))
 //   2. That push carries exactly three refspecs
-//   3. No --force / -f flag on the push (fast-forward-only mirror)
+//   3. Force is refspec-scoped: notes + mirror carry `+`, main bare, no blanket --force/-f
+//      (mirror is derived state; unforced pushes are rejected non-ff — 2026-10-10 redesign)
 //   4. The agent prompt forbids "git push" (runner pushes for the agent)
 //   5. The runner commits leftover work with committedByRunner tracking
 //   6. The report table carries a "committed by" column fed by committedByRunner
-//   7. CONTRACT.md documents the three-refspec agent push recipe
+//   7. CONTRACT.md documents the three-refspec agent push recipe (with `+`)
 
 import { readFileSync } from "node:fs";
 
@@ -54,11 +55,18 @@ check(
   `refs=[${refs.join(", ")}]`,
 );
 
-// --- Invariant 3: no --force / -f on the push ---
+// --- Invariant 3: force is REFSPEC-SCOPED (notes + mirror `+`; main bare; no blanket --force) ---
+// The mirror is derived state (mirror := refs/notes/commits) and forks inherit stale mirrors,
+// so the notes + mirror refspecs carry `+`. `main` must NEVER be forced and no blanket
+// --force/-f flag may appear (which would force main too). Redesigned 2026-10-10 after the
+// intent outage root cause (unforced mirror push rejected non-ff).
 check(
-  "3. push does not use --force or -f",
+  "3. force is refspec-scoped: notes + mirror carry `+`, main bare, no blanket --force/-f",
+  refs.includes('"+refs/notes/commits"') &&
+  refs.includes('"+refs/notes/commits:refs/heads/nextgit-notes"') &&
+  refs.includes('"main"') &&
   !/one\("push"[^)]*--force/.test(REAL_AGENTS) && !/one\("push"[^)]*\s-f\b/.test(REAL_AGENTS),
-  `--force/-f absent from push call`,
+  `refs=[${refs.join(", ")}]`,
 );
 
 // --- Invariant 4: agent prompt forbids git push ---
@@ -90,8 +98,8 @@ check(
   `column header + row expression present`,
 );
 
-// --- Invariant 7: CONTRACT.md documents the three-refspec recipe ---
-const expectedRecipe = "git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-notes";
+// --- Invariant 7: CONTRACT.md documents the three-refspec recipe (forced mirror) ---
+const expectedRecipe = "git push origin main +refs/notes/commits +refs/notes/commits:refs/heads/nextgit-notes";
 check(
   "7. CONTRACT.md documents the three-refspec push recipe",
   CONTRACT.includes(expectedRecipe),

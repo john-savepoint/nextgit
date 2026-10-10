@@ -183,7 +183,7 @@ These values are fake by design. The platform's path-driven masking law (CONTRAC
 - Call `POST /land`.
 - Print repo tokens.
 
-**What it pushes.** Three refspecs in one git push: `main`, `refs/notes/commits`, and `refs/heads/nextgit-notes` — the notes mirror that carries the commit's intent record (CONTRACT "Notes mirror"). The `agent-5` row must render **schema-only** (keys only, no intent, no patch) on every platform route.
+**What it pushes.** Three refspecs in one git push: `main`, `+refs/notes/commits`, and `+refs/notes/commits:refs/heads/nextgit-notes` — the notes mirror that carries the commit's intent record (CONTRACT "Notes mirror"). Notes + mirror are **forced** (`+`): the mirror is derived single-writer state and forks inherit stale mirrors (unforced mirror pushes are rejected non-ff — root-caused 2026-10-10). The `agent-5` row must render **schema-only** (keys only, no intent, no patch) on every platform route.
 
 **Expected output:**
 

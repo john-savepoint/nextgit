@@ -15,6 +15,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { ensureWorkspaceFiles } from "./workspace-manifest.mjs";
 import { loadRegistry, buildArgs } from "./harness-registry.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
@@ -265,6 +266,7 @@ function promptWithCommitInstructions(task) {
   "",
   "Do not run `git push` — the runner pushes for you.",
   "When you are done, commit the change with `git add -A` and `git commit -m \"${task.name}: ${task.short}\"`.",
+  "Workspace manifest: read .nextgit/manifest.json before planning — never dispatch a context-blind agent.",
  ].join("\n");
 }
 
@@ -351,6 +353,9 @@ async function runAgent(task, cand) {
    // possible .env work; ignore rules must come from the repo alone.
    one("config", "core.excludesFile", "/dev/null");
   }
+  // Law 3: ship a workspace manifest + structure map into every clone so the
+  // agent is never context-blind. Creates .nextgit/ files if absent.
+  ensureWorkspaceFiles(dir);
   // origin/main is the fork point: the clone starts there and the runner only
   // pushes after the agent is done, so it never masks an agent's own commits.
   const forkHead = execFileSync("git", ["rev-parse", "origin/main"], { cwd: dir, encoding: "utf8" }).trim();

@@ -3,14 +3,16 @@
 // and intent durability across branch movement.
 // Scratch chain ONLY: fork demo -> agent-in-1 (proposal). Asserts:
 //  (1) the single three-refspec push
-//        git push origin main refs/notes/commits refs/notes/commits:refs/heads/nextgit-notes
+//        git push origin main +refs/notes/commits +refs/notes/commits:refs/heads/nextgit-notes
+//      (notes + mirror forced — derived single-writer state, 2026-10-10)
 //      leaves a mirror branch `nextgit-notes` on the remote; (2) the git-note
 //      intent resolves for the head commit via GET /changes (changeSet.files[0].intent);
 //  (3) after advancing main to shaB (main-only push), the notes mirror branch is
 //      untouched and shaA's note blob is still present (cloned tree inspection);
 //  (4) the NEXTGIT_INTENT fallback carrier resolves intent for the new head shaB
-//      via GET /changes (readIntentFile fallback); (5) a non-FF push onto
-//      nextgit-notes is rejected ("Updates were rejected" — FF-only mirror);
+//      via GET /changes (readIntentFile fallback); (5a) an UNFORCED non-FF push onto
+//      nextgit-notes is rejected (mirror protected from accidental divergence);
+//      (5b) the same update with a forced refspec succeeds (derived-state semantics);
 //      (6) GET /proposals carries the intent string on the proposal card.
 // Run: node porting/tests/intent-notes.probe.mjs
 // Exit 0 = all green. Never touches demo's main branch; cleans up agent-in-1 + temp dirs.
@@ -190,8 +192,10 @@ try {
   // git note is the primary intent carrier
   git("notes", "add", "-m", intentA, "HEAD");
 
-  // CONTRACT recipe — single three-refspec push (CONTRACT.md:194-196)
-  const pushOut = git("push", "origin", "main", "refs/notes/commits", "refs/notes/commits:refs/heads/nextgit-notes");
+  // CONTRACT recipe — single three-refspec push. Notes + mirror are FORCED (`+`): the
+  // mirror is derived single-writer state and forks inherit stale mirrors, so an unforced
+  // mirror refspec is rejected non-ff (intent outage root cause, 2026-10-10).
+  const pushOut = git("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
   console.log(`  push > ${pushOut}`);
 
   // (1) Mirror branch exists via ls-remote
@@ -275,10 +279,12 @@ try {
   const intent4 = files4.find((f) => f.intent)?.intent;
   check("fallback carrier serves shaB intent", intent4 === intentB, `got: ${JSON.stringify(intent4)}`);
 
-  // (5) Non-FF push to nextgit-notes is rejected (FF-only mirror): create a
-  // divergent (orphan) commit and push WITHOUT --force. Any git server rejects
-  // non-FF updates to an existing branch. (A --force push would succeed, but the
-  // recipe never uses --force — the mirror is updated via FF notes pushes only.)
+  // (5) Mirror protection + derived-state semantics (redesigned 2026-10-10):
+  //   (5a) an UNFORCED non-FF push onto nextgit-notes is rejected — the mirror is
+  //        protected from accidental divergence (any git server rejects non-FF
+  //        updates without force);
+  //   (5b) the SAME update with a forced refspec (`+`) succeeds — the recipe
+  //        deliberately forces because the mirror is derived single-writer state.
   const orphanTree = gitM("mktree");
   const diverTip = gitM("commit-tree", orphanTree, "-m", "divergent: non-FF commit");
   gitM("update-ref", "refs/heads/nextgit-notes", diverTip);
@@ -290,7 +296,16 @@ try {
     ffRejected = true;
     ffMsg = String(err?.stderr ?? err?.message ?? "unknown").slice(0, 200);
   }
-  check("non-FF mirror push rejected (FF-only mirror)", ffRejected, ffMsg || "push unexpectedly succeeded");
+  check("(5a) unforced non-FF mirror push rejected (mirror protected)", ffRejected, ffMsg || "push unexpectedly succeeded");
+
+  let forcedOk = false;
+  try {
+    gitM("push", "origin", `+nextgit-notes:refs/heads/nextgit-notes`);
+    forcedOk = true;
+  } catch (err) {
+    ffMsg = String(err?.stderr ?? err?.message ?? "unknown").slice(0, 200);
+  }
+  check("(5b) forced mirror push succeeds (derived-state semantics)", forcedOk, ffMsg);
 
   // No leaked secrets in any platform response
   check("no credential field in /changes response", !credRe.test(JSON.stringify(c2.json)));
