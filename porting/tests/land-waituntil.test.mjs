@@ -164,18 +164,19 @@ try {
 // 3. /proposals cache:gen read is protected (spec-fit medium: falls through on KV error)
 // ---------------------------------------------------------------------------
 try {
-  // Replace LIVE.get to throw on cache:gen, verify /proposals still responds (500 is OK,
-  // but NOT from the gen read itself — it should fall through to compute)
-  const origGet = LIVE.get;
+  // Fault-inject the binding the code actually reads: post cache-split, /proposals reads
+  // env.CACHE.get("cache:gen") (recordEvent bumps env.CACHE). Patch CACHE, not LIVE — if the
+  // two fakes are ever separated, a LIVE patch would silently stop exercising this path.
+  const origGet = env.CACHE.get;
   let threwOnGen = false;
-  LIVE.get = async (key) => {
+  env.CACHE.get = async (key) => {
     if (key === "cache:gen") { threwOnGen = true; throw new Error("kv throttle"); }
     return origGet(key);
   };
   const res = await worker.fetch(new Request("https://test/proposals"), env, fakeCtx);
   check("3 cache:gen read attempted", threwOnGen === true, `threwOnGen=${threwOnGen}`);
   check("3 /proposals does not 500 from gen read failure", res.status !== 500 || !threwOnGen, `status ${res.status}`);
-  LIVE.get = origGet;
+  env.CACHE.get = origGet;
 } catch (e) {
   check("3 case threw", false, String(e?.stack ?? e));
 }

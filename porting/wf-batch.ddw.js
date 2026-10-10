@@ -6,7 +6,9 @@
 // Picks the first N `pending` rows from the bd task store (beads/Dolt; md fallback
 // docs/NEXT-ACTIONS.md), runs each through runWorkOrder
 // (direct composition — the sub-driver returns a result promise, wait() is not involved),
-// then a MERGED gate over the union. The CALLER ticks rows + commits — this driver never does.
+// then a MERGED gate over the union. The CALLER ticks rows + commits the state docs — the
+// DRIVER commits order WORK itself before the batch gates (per-worktree in the parallel
+// branch; once in the root in the sequential branch) so fleet integration can carry it.
 // Claim discipline: batches claim rows before running (collision guard) and heartbeat
 // long orders (bd leases ~5m). An ALL-GREEN batch CAS-closes its rows itself; red/stopped
 // rows are released for the caller to reconcile. bd leases are ~5m; a per-batch heartbeat loop
@@ -291,6 +293,27 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       }
       // picks that never ran (batch stopped early) must not hold leases
       for (const row of picked) if (row.claimed && !ranIds.has(row.id)) releaseRow(row.id, `batch ${ts}: not run (batch stopped early)`);
+
+      // --- driver commit (sequential path) ---------------------------------------
+      // Orders here run directly in the batch root and never commit (workers never commit).
+      // Without this the lane carries uncommitted dirt: fleet integration fetches the lane's
+      // main, finds "no new commits", and skips — rows close while the build gains nothing
+      // (phantom-merge class, resurrected; caught in wave-8 plan review 2026-10-10). Mirrors
+      // the parallel branch's per-worktree driver commit. Failure is tolerated: the work
+      // stays in the tree for the caller (integration will then hold that lane).
+      if (results.some((r) => r.verdict === "GREEN")) {
+        try {
+          const dirty = execFileSync("git", ["-C", root, "status", "--porcelain"], { encoding: "utf8", timeout: 30000 }).trim();
+          if (dirty) {
+            const who = ["-c", "user.email=nextgit-runner@local", "-c", "user.name=nextgit-runner"];
+            execFileSync("git", ["-C", root, ...who, "add", "-A"], { encoding: "utf8", timeout: 60000 });
+            execFileSync("git", ["-C", root, ...who, "commit", "-q", "--no-verify", "-m", `batch ${ts}: ${results.filter((r) => r.verdict === "GREEN").map((r) => r.order).join(", ")}`], { encoding: "utf8", timeout: 60000 });
+            log(`batch ${ts}: sequential driver-commit landed (${results.filter((r) => r.verdict === "GREEN").length} green orders)`);
+          }
+        } catch (e) {
+          console.error(`wf-batch: sequential driver-commit failed — ${String(e.stderr ?? e.message).slice(0, 160)}; work left in tree`);
+        }
+      }
     }
 
     // --- BATCH GATES (parallel): parity + merged ------------------------------

@@ -126,7 +126,17 @@ async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, be
 // --- 1. green path: claim → orders → parity (SHIP) → merged (SHIP) ------------
 try {
   const a = `${ID_PREFIX}s1-a`, b = `${ID_PREFIX}s1-b`;
-  const o = await scenario([a, b], { limit: 2 });
+  let fx1;
+  const o = await scenario([a, b], {
+    limit: 2,
+    before: (fx) => { fx1 = fx; },
+    mode: (label, dflt) => {
+      // Serial path: orders run directly in the batch root; stub "real work" writes files
+      // there so the sequential driver-commit can be asserted (phantom-merge guard).
+      for (const id of [a, b]) if (label === `impl:${CID(id)}`) writeFileSync(join(fx1.root, `order-work-${id}.md`), `work for ${id}\n`);
+      return dflt(label);
+    },
+  });
   if (o.error) { check("1 batch composition completes (batch gates reach the DDW agent runtime)", false, String(o.error.message).slice(0, 200)); }
   else {
     const r = o.report;
@@ -145,6 +155,9 @@ try {
     check("1 report records the closed rows", Array.isArray(r.closed) && r.closed.length === 2 && r.closed.includes(CID(a)) && r.closed.includes(CID(b)), JSON.stringify(r.closed));
     check("1 no claims left after the close (reclaim/re-run window closed)", o.fx.claimsOf().length === 0, JSON.stringify(o.fx.claimsOf().map((x) => x.id)));
     check("1 fixture store isolation via BEADS_DIR (no SQLite store created)", existsSync(join(o.fx.beadsDir, "metadata.json")) && !existsSync(join(o.fx.root, "porting/tasks.db")));
+    check("1 serial orders' content present in the batch root", readFileSync(join(o.fx.root, `order-work-${a}.md`), "utf8") === `work for ${a}\n` && readFileSync(join(o.fx.root, `order-work-${b}.md`), "utf8") === `work for ${b}\n`);
+    const seqLog = execFileSync("git", ["log", "--oneline"], { cwd: o.fx.root, encoding: "utf8" });
+    check("1 sequential driver-commit landed the orders' work (lane integration can carry it)", seqLog.split("\n").filter(Boolean).length >= 2 && seqLog.includes("batch ") && seqLog.includes(a), seqLog.slice(0, 200));
   }
 } catch (e) { check("1 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
