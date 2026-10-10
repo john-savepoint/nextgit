@@ -13,7 +13,7 @@
 // Run: node platform/scripts/reset-agent-4.mjs   (idempotent: rebuilds the fork)
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
