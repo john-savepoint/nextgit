@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { bustProposalsCache } from "./lib/bust-cache.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -110,4 +111,5 @@ console.log(`verify: intent=${JSON.stringify(intent)} files=${JSON.stringify(fil
 if (intent !== NOTE) {
   console.log("WARN: intent not yet visible (cache/queue lag?) — re-check /changes in ~10s");
 }
+await bustProposalsCache("reset-agent-1");
 console.log("done");

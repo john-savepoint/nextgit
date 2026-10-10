@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { ensureWorkspaceFiles } from "./workspace-manifest.mjs";
 import { loadRegistry, buildArgs } from "./harness-registry.mjs";
+import { bustProposalsCache } from "./lib/bust-cache.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -532,6 +533,7 @@ async function main() {
    .join("\n");
  }
  writeReport({ statuses, results, proposalsRes, assignments, patches });
+ await bustProposalsCache("real-agents");
 }
 
 const HISTORY_FILE = join(WORK_ROOT, "runs.json");

@@ -1,7 +1,7 @@
 # State — NextGit
 
-**Last updated:** 2026-10-10 (WAVE 7 INTEGRATED TRANSACTIONALLY — O1 `wf-integrate`: main `d61f341`→`9138e39`; battery 54/54; deployed `31f75bb4` (incl. DO-v2 migration fix for EventsHubDO); live gates 25/25 + 8/8; **101/148 done, 47 pending** (11 dep-gated); next: wave 8 at 30-wide under O2/O3/O7 with the `@workflows` role)
-**Branch:** `main` · **Last commit:** `9138e39` (+ this record) — see `docs/CHECKPOINT.md` top entry
+**Last updated:** 2026-10-10 (WAVE 7 FORMALLY CLOSED — salvage committed `8879a4d` (2 suites + warmup hardening), deployed `18fa59ed`; post-deploy gates demo 25/25 + live-render 8/8; **101/148 done, 47 pending** (11 dep-gated); wave 8 staged `validate()` 34/34 — PARKED awaiting John's go, routes via the `@workflows` role)
+**Branch:** `main` · **Last commit:** `8879a4d` (wave-7 close-out salvage; prior record `b954f7a`) — see `docs/CHECKPOINT.md` top entry
 **Test baseline:** `node --check platform/ui/app.js && node --check platform/ui/tour.js` (clean) · `bun porting/tests/normalize.test.mjs` (ALL PASS) · `bun porting/tests/tasks.test.mjs` (47/47 — bd adapter) · `bun porting/tests/batch.test.mjs` (43/43 — batch path, parity gate, parallel merge-back) · live smoke: C2 `/health` → `ok:true`; C3 `/proposals | jq -ec .summary` → 5-key summary · `bun scripts/status-index.mjs --check` → current — **enforced at every commit: pre-commit chain = status-index check + bd integration (`.beads/hooks`, core.hooksPath)**. Current status: **GREEN**; standing reds below.
 **Corpus spine (read these first — recorded 2026-10-05):**
 - `docs/HANDOFF-PLATFORM.md` — **authoritative platform handoff** (inventory, endpoints, invariants, production gaps, verification recipes, lessons) — for anyone building on the platform

@@ -13,6 +13,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { bustProposalsCache } from "./lib/bust-cache.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -292,3 +293,4 @@ try {
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
+await bustProposalsCache("seed");

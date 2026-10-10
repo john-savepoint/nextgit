@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { bustProposalsCache } from "./lib/bust-cache.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -303,6 +304,8 @@ async function main() {
     console.log("\n  tokens:");
     for (const m of minted) console.log(`    ${pad(m.name, 8)} ${m.token.slice(0, 24)}…  expires ${m.expires_at}`);
   }
+
+  await bustProposalsCache("agents");
 
   if (ok !== results.length) process.exitCode = 1;
 }
