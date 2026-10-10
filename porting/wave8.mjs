@@ -20,9 +20,11 @@
 // - Verify lanes are split by SIDE EFFECT: lane-5 is SERIAL because its orders touch the LIVE
 //   demo (/land probes; real CLI agents; one lands agent-3) — concurrent live mutation is how
 //   wave-6 created phantom conflicts. lane-6/lane-7 are read-only (loopback + live GETs) → parallel:4.
-// - O7 budget: spawn estimate = Σ orders × (3 phases + lens count) + 2 gates/lane = 218
-//   (lane1 70 + lane2 14 + lane3 5 + lane4 5 + lane5 35 + lane6 40 + lane7 35 + gates 14).
+// - O7 budget: spawn estimate = Σ orders × (3 phases + lens count) + 2 gates/lane = 208
+//   (lane1 70 + lane2 14 + lane3 5 + lane4 5 + lane5 35 + lane6 40 + lane7 25 + gates 14).
 //   Cap 240. Heals not counted; raise the cap or split the wave if a chain heals repeatedly.
+//   (34 orders assigned; 2 e11 verifies are store-dep'd on the lane-1 router fix and re-run
+//   in wave 9 after the post-wave deploy.)
 //
 // PREFLIGHT (all must hold before launch):
 //   1. main clean (`git status --porcelain` empty) — runFleet refuses integration on dirty main.
@@ -131,15 +133,18 @@ export const plan = {
     },
     {
       // lane-7: verify-api — contract/route verification, read-only → parallel.
+      // NOTE (2026-10-10): e11-verify-json-404-unknown-paths and e11-verify-method-guards were
+      // deferred OUT of wave 8 — both probe the LIVE worker and their authoring notes record
+      // "NOT satisfied today" (asset fallthrough); their repair (e11-impl-api-route-discipline)
+      // is lane-1 #1 and only reaches the live worker post-deploy. They now carry a store dep
+      // on that order and re-run in wave 9 (after deploy + tick).
       name: "verify-api",
       parallel: 4,
-      limit: 7,
+      limit: 5,
       lenses: ["quality", "spec-fit"],
       ids: [
         "nextgit-e11-verify-contract-single-source",
         "nextgit-e11-verify-default-resolution-pinned",
-        "nextgit-e11-verify-json-404-unknown-paths",
-        "nextgit-e11-verify-method-guards",
         "nextgit-e11-verify-seven-route-surface",
         "nextgit-e11-verify-enums-timestamps-msg-pin",
         "nextgit-e11-verify-judge-pin-caps-ratelimit",

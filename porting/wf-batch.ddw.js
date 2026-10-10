@@ -283,7 +283,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     } else {
       const ranIds = new Set();
       for (const row of picked) {
-        const r = await runWorkOrder(makeOrder(row, root), { root, lenses, agent: agentOpt, agents, resume });
+        const r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume });
         results.push(r);
         ranIds.add(row.id);
         // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).

@@ -792,15 +792,15 @@ async function recordEvent(env: Env, event: LiveEvent): Promise<void> {
 // same auth model as GET /events (CONTRACT § GET /events/stream).
 async function handleSSEStream(request: Request, env: Env): Promise<Response> {
  if (!env.EVENTS_HUB) {
-   // Hub unbound (local-dev / staging without the DO binding). Degrade to a
-   // connect comment so the client reconnects and falls back to GET /events.
-   return new Response(": connected\n\n", {
-     headers: {
-       "content-type": "text/event-stream; charset=utf-8",
-       "cache-control": "no-cache",
-       "connection": "keep-alive",
-     },
-   });
+  // Hub unbound (local-dev / staging without the DO binding). Degrade to a
+  // connect comment so the client reconnects and falls back to GET /events.
+  return new Response(": connected\n\n", {
+   headers: {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache",
+    "connection": "keep-alive",
+   },
+  });
  }
  const id = env.EVENTS_HUB.idFromName("events");
  const stub = env.EVENTS_HUB.get(id);
@@ -1579,6 +1579,10 @@ export const ROUTES: RouteEntry[] = [
  { path: "/land", method: "POST", action: "write", handler: handleLand },
  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
  { path: "/events", method: "GET", action: "read", handler: handleEvents },
+ // SSE hub proxy — tabled like every other route so the authorize() chokepoint covers it
+ // (it previously sat in an inline branch below the tables and bypassed authorize: in
+ // AUTH_MODE=deny the stream still opened, contradicting CONTRACT.md. Fixed 2026-10-10.)
+ { path: "/events/stream", method: "GET", action: "read", handler: handleSSEStream },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
@@ -1607,56 +1611,9 @@ export default {
     }
    }
 
-   if (url.pathname === "/proposals" && request.method === "GET") {
-    const parsed = parseProposalsQuery(url);
-    if (parsed instanceof Response) return parsed;
-    const { base, ref, baseRef, repoList } = parsed;
-    // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
-    // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
-    // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
-    // cached set by key change; TTL bounds staleness if invalidation is ever missed.
-    // Cache is best-effort by design: a missing/degraded CACHE binding must never
-    // turn /proposals into a 500 (test fakes and partial deployments carry no CACHE).
-    let gen = "0";
-    try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* no CACHE — compute */ }
-    const cacheKey = `cache:proposals:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
-    try {
-     const hit = await env.CACHE.get(cacheKey);
-     if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
-    } catch { /* cache read is best-effort — fall through to compute */ }
-    const result = await computeProposals(env, base, baseRef, ref, repoList);
-    const body = JSON.stringify({ ok: true, ...result });
-    try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
-    return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
-   }
-
-   if (url.pathname === "/merge" && request.method === "GET") {
-    const parsed = parseProposalsQuery(url);
-    if (parsed instanceof Response) return parsed;
-    const { base, ref, baseRef, repoList } = parsed;
-    if (!repoList || !repoList.length) return Response.json({ ok: false, error: "repos parameter required" }, { status: 400 });
-    const merge = await computeMerge(env, base, baseRef, repoList, ref);
-    return Response.json({ ok: true, merge });
-   }
-
-   if (url.pathname === "/land" && request.method === "POST") {
-    return await handleLand(request, env, ctx);
-   }
-
-   if (url.pathname === "/judge" && request.method === "POST") {
-    return await handleJudge(request, env);
-   }
-
-   if (url.pathname === "/events" && request.method === "GET") {
-    return Response.json({ ok: true, events: await readEvents(env) });
-   }
-   if (url.pathname === "/events/stream" && request.method === "GET") {
-    return handleSSEStream(request, env);
-   }
-   if (url.pathname.startsWith("/landings/") && request.method === "GET") {
-    const commit = url.pathname.slice("/landings/".length);
-    return handleLandingsRead(commit, env);
-   }
+// (Inline route duplicates removed 2026-10-10 — the tables above handle every API path.
+  // The block here was unreachable except /events/stream, now a tabled route covered by
+  // authorize(). The e11 route-discipline order builds on this single registration point.)
    // Everything else is the triage UI from platform/ui via wrangler assets.
    return env.ASSETS.fetch(request);
   } catch (err) {

@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 7 entries", ROUTES.length === 7, `got ${ROUTES?.length}`);
+check("C: ROUTES has 8 entries", ROUTES.length === 8, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -194,6 +194,9 @@ check("C: /merge → GET read", routeMap["/merge"]?.method === "GET" && routeMap
 check("C: /land → POST write", routeMap["/land"]?.method === "POST" && routeMap["/land"]?.action === "write");
 check("C: /judge → POST judge", routeMap["/judge"]?.method === "POST" && routeMap["/judge"]?.action === "judge");
 check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeMap["/events"]?.action === "read");
+// /events/stream MUST be tabled: while it lived in an inline branch it bypassed authorize()
+// (deny mode still streamed). Pinned 2026-10-10.
+check("C: /events/stream → GET read (authorize-covered)", routeMap["/events/stream"]?.method === "GET" && routeMap["/events/stream"]?.action === "read", `got ${J(routeMap["/events/stream"] ? { method: routeMap["/events/stream"].method, action: routeMap["/events/stream"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
 check("C: DYNAMIC_ROUTES has 1 entry", DYNAMIC_ROUTES.length === 1, `got ${DYNAMIC_ROUTES?.length}`);
