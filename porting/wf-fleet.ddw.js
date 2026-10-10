@@ -36,6 +36,8 @@ export async function runFleet({
   lanesOnly,
   plans,
   spawnCap = 240,
+  integrate = true, // O1 standing rule: wave lanes must not merge into the live tree directly —
+  // pass integrate:false, then pin each lane tip and run wf-integrate (open/merge/battery/finalize).
 } = {}) {
   if (!root) throw new Error("runFleet: root (main repo path) is required");
   const mainRoot = root;
@@ -171,7 +173,19 @@ export async function runFleet({
     mainDirty = execFileSync("git", ["-C", mainRoot, "status", "--porcelain"], { encoding: "utf8", timeout: 30000 }).trim();
   } catch { }
   const integration = [];
-  if (spawnCapExceeded) {
+  if (!integrate) {
+    // O1 (HANDOFF-SESSION rule 5 / DIAGNOSIS O1): lanes must NEVER merge into the live tree
+    // directly — main stays untouched until the transactional wave battery (wf-integrate) is
+    // green. Wave-8 launches with integrate:false; the orchestrator pins each lane tip
+    // (refs/lane/…) and runs wf-integrate open/merge/battery/finalize.
+    for (const r of runs) {
+      integration.push({
+        id: r.id,
+        state: "deferred — O1 transactional integration (integrate:false)",
+        detail: `pin ${fleetRoot}/${r.id} main → refs/lane/<name>; then wf-integrate open/merge/battery/finalize`,
+      });
+    }
+  } else if (spawnCapExceeded) {
     for (const r of runs) integration.push({ id: r.id, state: `halted — spawn estimate ${spawnEstimate} > cap ${spawnCap} (O7 runaway guard)`, detail: "raise spawnCap or split the wave" });
     console.error(`fleet: O7 spawn cap exceeded (${spawnEstimate} > ${spawnCap}) — integration halted`);
   } else if (mainDirty) {
