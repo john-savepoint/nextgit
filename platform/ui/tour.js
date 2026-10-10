@@ -490,7 +490,17 @@ function renderRealProposalsCards() {
         annTag = `<span class="live-card-annotation ann-landed">Already shipped to main</span>`;
       } else if (hasConflict) {
         cardClass += " is-conflict";
-        annTag = `<span class="live-card-annotation ann-conflict">Collides on src/auth.ts</span>`;
+        // Derive the collision file(s) from the live conflict data for THIS
+        // proposal so the annotation is truthful for every pair, not just the
+        // src/auth.ts demo pair. Fall back to "src/auth.ts" only when no
+        // conflict data is present (the offline-snapshot synthetic case,
+        // which carries {file:"src/auth.ts", repos:["agent-1","agent-2"]}).
+        const collisionFiles = (state.realConflicts || [])
+          .filter((c) => c.repos?.includes(p.repo))
+          .map((c) => c.file)
+          .filter((v, i, a) => a.indexOf(v) === i);
+        const collisionLabel = collisionFiles.length > 0 ? collisionFiles.join(", ") : "src/auth.ts";
+        annTag = `<span class="live-card-annotation ann-conflict">Collides on ${escapeHtml(collisionLabel)}</span>`;
       } else {
         cardClass += " is-clean";
         annTag = `<span class="live-card-annotation ann-clean">Clean &amp; ready to ship</span>`;
