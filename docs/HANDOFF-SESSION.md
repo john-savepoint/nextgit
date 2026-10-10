@@ -1,5 +1,22 @@
 # HANDOFF — 2026-10-09 (session end)
 
+> ## ⚠️ SUPERSEDED — READ THIS BLOCK FIRST (updated 2026-10-10 after wave-7 close-out)
+>
+> **Everything below this block re: wave 7 is DONE.** Waves 7 is formally closed. Verify, don't redo:
+>
+> | Thing | Current truth |
+> |---|---|
+> | Git | `main` @ `d163676`, **tree clean**, `tsc --noEmit` **0 errors** |
+> | Wave 7 | Integrated (no worktree left — removed), battery **rc-classified 56/56 GREEN, zero failures**; integration record: `porting/runs/integrate-wave7/battery.json` |
+> | Live worker | Deploy of record **`18fa59ed`** (repo == live; worker bundle unchanged since); `demo-verify` **25/25**, `live-render` probe **8/8** |
+> | Store | bd **101/148 done · 47 pending** (11 dep-gated behind wave-9 impl rows), 0 claims |
+> | Models | `@workflows` role in BOTH config layers → `commandcode/inclusionai/ling-3.1-flash:free:xhigh` (prefix is **commandcode**; `&workflows` is invalid and silently falls back) |
+> | KV cache | Reset scripts bust `cache:gen` directly (`platform/scripts/lib/bust-cache.mjs` wired into seed/agents/real-agents/secret-fixture/reset-agent-1). Canonical reset acceptance: `seed → agents → secret-fixture → demo-verify` = 25/25 **with no manual bump** |
+> | **NEXT ACTION** | **Wave 8 is STAGED, VALIDATED (34/34), and PARKED — do not launch without John's go.** Plan: `porting/wave8.mjs` (7 lanes / 34 orders; run `validate()` then the launch export per its header). After it lands: waves 9+ toward 148/148, then milestone-1 close-out |
+> | Doctrine to carry | Classify test batteries by **EXIT CODE** (suite output shapes vary — e.g. `PASS — N/N checks green`); advisories/handoffs are untrusted until corroborated against disk; demo fixtures (`demo`, `agent-1..5`) must never be pushed to by tests |
+>
+> Chronology of record: `docs/CHECKPOINT.md` top entry ("Wave-7 FORMAL CLOSE-OUT") + its CORRECTIONS. Working state: `docs/STATE.md`.
+
 Self-sufficient handoff. A fresh session should read this + `docs/STATE.md` + `docs/CHECKPOINT.md` and be able to continue with **no other context**.
 
 ## TL;DR
