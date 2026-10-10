@@ -1611,9 +1611,9 @@ export default {
     }
    }
 
-// (Inline route duplicates removed 2026-10-10 — the tables above handle every API path.
-  // The block here was unreachable except /events/stream, now a tabled route covered by
-  // authorize(). The e11 route-discipline order builds on this single registration point.)
+   // (Inline route duplicates removed 2026-10-10 — the tables above handle every API path.
+   // The block here was unreachable except /events/stream, now a tabled route covered by
+   // authorize(). The e11 route-discipline order builds on this single registration point.)
    // Everything else is the triage UI from platform/ui via wrangler assets.
    return env.ASSETS.fetch(request);
   } catch (err) {
@@ -1627,13 +1627,24 @@ export default {
   ctx.waitUntil(
    (async () => {
     try {
-     const gen = (await env.CACHE.get("cache:gen")) ?? "0";
+     // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
+     let gen = "0";
+     try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
      const cacheKey = `cache:proposals:${gen}:demo:main:main:*`;
      const result = await computeProposals(env, "demo", "main", "main", null);
      await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+     // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
+     // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
+     // and would otherwise always miss.
+     try {
+      const subsetKey = `cache:proposals:${gen}:demo:main:main:agent-1,agent-2,agent-3,agent-4`;
+      await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+     } catch (e) {
+      console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
+     }
      console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
     } catch (e) {
-     console.log("warmup-failed", String(e));
+     console.log("warmup-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
     }
    })(),
   );

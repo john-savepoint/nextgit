@@ -10,7 +10,7 @@
 // Run: node platform/scripts/reset-agent-1.mjs   (idempotent: rebuilds the fork)
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -90,7 +90,7 @@ try {
     // insert after the isExpired return, then a blank line, preserving the tail newline
     const next = src.indexOf("\n", idx);
     const patched = src.slice(0, next) + INSERT + src.slice(next);
-    execFileSync("bash", ["-c", `printf '%s' "$0" > "$1"`, patched, authPath]);
+    writeFileSync(authPath, patched, "utf8");
   }
 
   git("add", "-A");
