@@ -78,12 +78,16 @@ const docList = docRoutes.map((r) => `${r.method} ${r.route}`).sort();
 // --- 3. Set equality (route+method pairs) ---
 const implOnly = implList.filter((r) => !docList.includes(r));
 const docOnly = docList.filter((r) => !implList.includes(r));
-// e13 (CAP-10) intentionally contract-pins three routes AHEAD of their
-// handlers — the contract declares the wire shape + rate rows now; the
-// handlers land with their own implementation orders. This is the ONLY
-// sanctioned documented-but-unimplemented set: keep it exact, and drop an
-// entry here the moment its handler lands.
-const PINNED = ["GET /forks", "POST /intents", "POST /upstream"];
+// e13 (CAP-10) intentionally contract-pins routes AHEAD of
+// their handlers — the contract declares the wire shape +
+// rate rows now; the handlers land with their own
+// implementation orders. This is the ONLY sanctioned
+// documented-but-unimplemented set: keep it exact, and drop
+// an entry here the moment its handler lands.
+// POST /upstream's handler landed with
+// nextgit-e13-impl-merge-back-upstream (dropped from the
+// pin set); GET /forks and POST /intents remain pinned.
+const PINNED = ["GET /forks", "POST /intents"];
 const pinnedOnly = docOnly.filter((r) => PINNED.includes(r));
 const docOnlyUnexpected = docOnly.filter((r) => !PINNED.includes(r));
 check(

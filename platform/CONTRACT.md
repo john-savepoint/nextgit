@@ -388,7 +388,7 @@ Body:
 ```
 
 - `repo` — required; the fork repo whose work is routed upstream. Must match the AD-9 allowlist, else `403 {ok:false, error:"repo-not-allowed", detail}`.
-- `base` — optional; the upstream (the repo `repo` forked from); default `"demo"`. Must equal the **recorded** upstream for `repo` — a fork can never merge into a repo it is not a fork of (`base` ≠ recorded upstream → `409 {ok:false, error:"conflict", detail}`); unknown lineage → fail closed (`409 {ok:false, error:"conflict", detail}`).
+- `base` — optional; the upstream (the repo `repo` forked from); default `"demo"`. Lineage is recorded per fork by the provisioning seam (`fork:<name>` → `{repo, forkPoint}` in the CACHE KV namespace — the same record `GET /forks` serves as `upstream`). Two distinct cases: no recorded lineage → `400 {ok:false, error:"no-lineage"}` (the caller forked outside the provisioning seam — a client-state error); a recorded lineage whose `repo` differs from `base` → `409 {ok:false, error:"conflict", detail}` (a fork can never merge into a repo it is not a fork of).
 - `reviewed` — the same optional reviewed-state precondition as `POST /land` (AD-3): `{baseHead, heads}`; same precedence (`400` shape → `409 stale`).
 - Closed schema (AD-9): unknown body fields → `400 {ok:false, error:"bad-request"}`.
 - Fold/merge semantics, the content-identity `foldHash`, and the validation ledger are identical to `POST /land` (diff3 fold, in order, server-side push over the v1 wire protocol).

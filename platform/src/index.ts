@@ -1399,6 +1399,376 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
 }
 
 // ---------------------------------------------------------------------------
+// POST /upstream — route a fork's work back to its upstream (CAP-10).
+//
+// The lineage record seam: the provisioning path (fanout) records
+// {repo, forkPoint} per fork at fork time in the CACHE KV namespace
+// (the script-writable durable namespace — the bust-cache.mjs
+// precedent; NFR-7 pins LIVE as worker-single-writer). /upstream
+// and /forks read it. {repo, forkPoint} is verbatim the contract's
+// GET /forks `upstream` payload, so /forks serves the record as-is
+// and /upstream reads lineage.repo as the parent.
+// ---------------------------------------------------------------------------
+
+/** KV key prefix for fork lineage records (the provisioning seam's write). */
+const FORK_KEY_PREFIX = "fork:";
+
+/** The recorded lineage of one fork: its parent repo and fork-point commit. */
+interface ForkLineage {
+ repo: string;
+ forkPoint: string;
+}
+
+/**
+ * The shared read seam for fork lineage: `fork:<name>` in env.CACHE,
+ * `{repo, forkPoint}` JSON. Fail closed — absent or unparseable is
+ * `null` (the caller's typed 400 no-lineage refusal), never a throw.
+ */
+async function readForkLineage(env: Env, name: string): Promise<ForkLineage | null> {
+ try {
+  const raw = await env.CACHE.get(`${FORK_KEY_PREFIX}${name}`);
+  if (!raw) return null;
+  const parsed = JSON.parse(raw) as Partial<ForkLineage>;
+  if (!parsed || typeof parsed !== "object") return null;
+  if (typeof parsed.repo !== "string" || typeof parsed.forkPoint !== "string") return null;
+  return { repo: parsed.repo, forkPoint: parsed.forkPoint };
+ } catch {
+  return null;
+ }
+}
+
+/** Closed request schema for POST /upstream (AD-9): exactly {repo, base?, reviewed?}. */
+interface UpstreamRequestBody {
+ repo?: unknown;
+ base?: unknown;
+ reviewed?: unknown;
+}
+
+/**
+ * Validate the /upstream body — the closed-schema twin of
+ * parseLandBody (unknown field → 400). `repo` is required and
+ * REPO_NAME_RE-checked; `base` defaults to the pinned default via
+ * resolveRouteBase (the AD-8 single-source seam); `reviewed` is
+ * validated exactly as /land's. `ref`/`baseRef` are NOT body
+ * params — both resolve to DEFAULT_REF ("main"), the parent's
+ * default branch.
+ */
+function parseUpstreamBody(raw: unknown): { repo: string; base: string; reviewed?: ReviewedHeads } | Response {
+ if (!raw || typeof raw !== "object") return badRequest("bad-request");
+ const body = raw as UpstreamRequestBody;
+ // Closed schema (AD-9): anything beyond {repo, base,
+ // reviewed} is an unknown field — the uniform 400, the
+ // parseJudgeBody/handleReveal idiom (the contract pins
+ // `400 {ok:false, error:"bad-request"}`).
+ if (!Object.keys(body).every((k) => k === "repo" || k === "base" || k === "reviewed")) {
+  return badRequest("bad-request");
+ }
+ if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(body.repo)}`);
+ }
+ const { base } = resolveRouteBase({ base: body.base });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ let reviewed: ReviewedHeads | undefined;
+ if (body.reviewed !== undefined) {
+  const rawReviewed = body.reviewed;
+  if (!rawReviewed || typeof rawReviewed !== "object" || Array.isArray(rawReviewed)) {
+   return badRequest("reviewed must be an object");
+  }
+  const r = rawReviewed as { baseHead?: unknown; heads?: unknown };
+  const isSha = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 128;
+  reviewed = {};
+  if (r.baseHead !== undefined) {
+   if (!isSha(r.baseHead)) return badRequest("reviewed.baseHead must be a commit sha string");
+   reviewed.baseHead = r.baseHead;
+  }
+  if (r.heads !== undefined) {
+   if (!r.heads || typeof r.heads !== "object" || Array.isArray(r.heads)) return badRequest("reviewed.heads must be an object");
+   const heads: Record<string, string> = {};
+   for (const [name, sha] of Object.entries(r.heads as Record<string, unknown>)) {
+    if (!REPO_NAME_RE.test(name)) return badRequest(`invalid repo name in reviewed.heads: ${JSON.stringify(name)}`);
+    if (name !== body.repo) return badRequest(`reviewed.heads names a repo that is not being landed: ${name}`);
+    if (!isSha(sha)) return badRequest(`reviewed.heads.${name} must be a commit sha string`);
+    heads[name] = sha;
+   }
+   if (!(body.repo in heads)) return badRequest(`reviewed.heads is missing repo: ${body.repo}`);
+   reviewed.heads = heads;
+  }
+ }
+ return { repo: body.repo, base, reviewed };
+}
+
+/**
+ * POST /upstream — the merge-back-to-upstream write (CAP-10).
+ *
+ * Delegates to the SAME machinery as handleLand — computeMerge →
+ * withLandGate → acquireLandLease → pushLand → foldHashOf → the
+ * 12-key evidence → the `landing:<commit>` KV record — so there is
+ * no second writer of the fold/push critical section (AD-1/NFR-4).
+ *
+ * Precondition order (contract-pinned): 400 (shape) → 429 → 403 →
+ * 400 no-lineage → 409 stale → 409 withheld-secret → 409 conflict →
+ * 409 no-changes → 409 base-moved → 200.
+ */
+async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+ const parsed = parseUpstreamBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ const { repo, base, reviewed } = parsed;
+
+ const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
+ if (!rateAllow("/upstream", caller)) return rateLimitedResponse();
+
+ // Demo allowlist (AD-9, handler-side defense-in-depth): the body
+ // carries repo/base, which the dispatcher's query-only
+ // extractScope cannot adjudicate — the /land precedent re-checks
+ // the allowlist here. Fires before any repo read.
+ for (const name of [base, repo]) {
+  if (!DEMO_REPO_RE.test(name)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${name}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+ }
+
+ // Lineage resolution — the seam both /upstream and /forks read.
+ // No record: the caller forked outside the provisioning seam — a
+ // client-state error (400, the order's typed refusal), distinct
+ // from a recorded lineage whose parent differs (409 conflict).
+ const lineage = await readForkLineage(env, repo);
+ if (!lineage) {
+  return Response.json({ ok: false, error: "no-lineage" }, { status: 400 });
+ }
+
+ // Parent identity: a fork can only merge into its RECORDED parent.
+ if (base !== lineage.repo) {
+  return Response.json(
+   { ok: false, error: "conflict", detail: `recorded upstream of ${repo} is ${lineage.repo}, not ${base}` },
+   { status: 409 },
+  );
+ }
+
+ // Pre-fold heads: the reviewed-state precondition compares against
+ // them, and the evidence record uses the same values.
+ const baseHeadNow = await repoHead(env, base, DEFAULT_REF);
+ const forkHead = await repoHead(env, repo, DEFAULT_REF);
+ if (reviewed?.heads && reviewed.heads[repo] !== forkHead) {
+  return Response.json(
+   { ok: false, error: "stale", detail: `reviewed head of ${repo} does not match the current proposal head` },
+   { status: 409 },
+  );
+ }
+ if (reviewed?.baseHead !== undefined && reviewed.baseHead !== baseHeadNow) {
+  return Response.json(
+   { ok: false, error: "stale", detail: "reviewed base head does not match the current base head" },
+   { status: 409 },
+  );
+ }
+
+ // One fold, identical semantics to GET /merge / POST /land.
+ // `ancestors` records the repo's fork point (the 3-way ancestor)
+ // for the evidence record.
+ const ancestors: Record<string, string> = {};
+ const merge = await computeMerge(env, base, DEFAULT_REF, [repo], DEFAULT_REF, ancestors);
+
+ const secretFiles = merge.files.filter((f) => f.result === "withheld-secret").map((f) => f.path);
+ if (secretFiles.length) {
+  // Values must never leave the worker and must never be pushed by it.
+  return Response.json({ ok: false, error: "withheld-secret", files: secretFiles }, { status: 409 });
+ }
+
+ if (merge.status === "conflict") {
+  const detail = merge.files
+   .filter((f) => f.result === "conflict")
+   .map((f) => `${f.path}: ${f.note ?? "conflict"}`)
+   .join("; ");
+  return Response.json({ ok: false, error: "conflict", conflicted: merge.conflicted, detail }, { status: 409 });
+ }
+
+ // Nothing to route: the fold produced no files, so a commit would
+ // be an empty change on the parent. The fold reads the parent at
+ // fold time, so an empty fold can also mean a concurrent land
+ // already applied this change: re-read the head and report the
+ // AD-3 loser outcome (base-moved), never no-changes, when the
+ // parent moved since the reviewed-heads check — the same
+ // conversion the push path applies.
+ if (merge.files.length === 0) {
+  const afterFold = await repoHead(env, base, DEFAULT_REF).catch(() => null);
+  if (afterFold !== null && afterFold !== baseHeadNow) {
+   return Response.json(
+    { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+    { status: 409 },
+   );
+  }
+  return Response.json(
+   { ok: false, error: "no-changes", detail: `fold of ${repo} onto ${base}:${DEFAULT_REF} changes nothing` },
+   { status: 409 },
+  );
+ }
+
+ const writeable: LandFile[] = merge.files
+  .filter((f) => f.action === "write" && typeof f.merged === "string")
+  .map((f) => ({ path: f.path, action: "write", result: f.result, merged: f.merged }));
+ for (const f of merge.files) {
+  if (f.action === "delete") writeable.push({ path: f.path, action: "delete", result: f.result });
+ }
+ const foldHash = await foldHashOf(writeable);
+
+ // Per-isolate single-flight around the clone+push critical section
+ // (withLandGate) — the SAME gate as /land, so the two writes
+ // serialize per isolate. Cross-isolate DO lease (FR-17) acquired
+ // inside so the finally block always releases it.
+ let leaseId: string | null = null;
+ return await withLandGate(async () => {
+  const lease = await acquireLandLease(env, base, 30);
+  if (lease && !lease.acquired) {
+   console.log("lease-denied", JSON.stringify({ base, by: caller }));
+   return Response.json(
+    { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+    { status: 409 },
+   );
+  }
+  if (lease?.leaseId) leaseId = lease.leaseId;
+
+  let baseRepo: ArtifactsRepo | null = null;
+  let token: string | null = null;
+
+  try {
+   baseRepo = await env.ARTIFACTS.get(base);
+   const info = await baseRepo.info();
+   token = await mintWriteToken(baseRepo);
+   auditToken("token-mint", { repo: base, ttl: TOKEN_TTL_SECONDS });
+   const { commit } = await pushLand({
+    remote: info.remote,
+    token,
+    baseRef: DEFAULT_REF,
+    repos: [repo],
+    files: writeable,
+    expectedBaseHead: baseHeadNow,
+    readBaseHead: () => repoHead(env, base, DEFAULT_REF),
+    landingNote: true,
+   });
+   const at = new Date().toISOString();
+   const landed = {
+    repos: [repo],
+    commit,
+    files: writeable.map((f) => f.path).sort(),
+    at,
+   };
+   // The evidence record (AD-3/FR-18): mechanically the 12-key
+   // /land evidence. /upstream carries no `validation` body field
+   // (the closed schema rejects it as unknown), so the ledger is
+   // the degenerate no-validation form — checks is the reserved
+   // merged-sha check alone, results is its "not-recorded" entry,
+   // testedSha/artifactRef are null. `autoLand` is /land-only (the
+   // auto-land gate is not part of the /upstream contract).
+   const evidence = {
+    repos: [repo],
+    commit,
+    ancestor: ancestors,
+    heads: { base: baseHeadNow, repos: { [repo]: forkHead } },
+    foldHash,
+    checks: [MERGED_SHA_CHECK],
+    results: ["not-recorded"],
+    mergedSha: foldHash,
+    testedSha: null,
+    artifactRef: null,
+    at,
+    lease: leaseId ? { provider: "do", leaseId } : null,
+   };
+   // The landing record (FR-18) persists keyed by the returned
+   // commit — the address the read surface serves. KV `LIVE` stays
+   // single-writer: this is its only landing-record writer. The
+   // push already happened, so a storage failure is logged and
+   // degraded, never reported as a failed land.
+   try {
+    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
+   } catch (e) {
+    console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
+   }
+   // The queue consumer records the real repo.pushed event; this
+   // keeps the feed useful even if queue delivery lags behind the
+   // push response (the /land posture, AD-6).
+   ctx.waitUntil(
+    (async () => {
+     try {
+      await recordEvent(env, { type: "repo.pushed", repo: base, ref: DEFAULT_REF, after: commit, at: landed.at });
+     } catch (e) {
+      console.log("feed-lag", String(e));
+     }
+    })(),
+   );
+   return Response.json({ ok: true, landed, evidence });
+  } catch (err) {
+   if (err instanceof BaseMovedError) {
+    return Response.json(
+     { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+     { status: 409 },
+    );
+   }
+   // A push rejected because a concurrent land advanced the ref is
+   // the base-moved loser path, not a server error: re-read and
+   // convert. Ref reads can briefly lag a git push — retry once
+   // before classifying (the /land posture).
+   let after = await repoHead(env, base, DEFAULT_REF).catch(() => null);
+   if (after === baseHeadNow) {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 400);
+    await promise;
+    after = await repoHead(env, base, DEFAULT_REF).catch(() => null);
+   }
+   if (after !== null && after !== baseHeadNow) {
+    return Response.json(
+     { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+     { status: 409 },
+    );
+   }
+   const detail = scrubFreeText(String((err as Error)?.message ?? err));
+   // Credential-free failure (NFR-6): no token, no shell snippets;
+   // the `files` projection carries only path/action/result — never
+   // `merged` content.
+   return Response.json(
+    {
+     ok: false,
+     error: "push-failed",
+     detail,
+     repos: [repo],
+     branch: DEFAULT_REF,
+     files: writeable.map((f) => ({ path: f.path, action: f.action, result: f.result })),
+    },
+    { status: 500 },
+   );
+  } finally {
+   // Worker-minted tokens are single-use: revoke whether the push
+   // landed or failed (the /land posture).
+   if (token) {
+    try {
+     if (baseRepo) {
+      await baseRepo.revokeToken(token);
+      auditToken("token-revoke", { repo: base, phase: "success" });
+     }
+    } catch {
+     // Best-effort; the short TTL still bounds exposure.
+     auditToken("token-revoke", { repo: base, phase: "failed" });
+    }
+   }
+   // Release the per-base DO lease (FR-17): best-effort, only by
+   // owner. AWAITED so the lease is released before withLandGate
+   // resolves — a fire-and-forget release would let the next
+   // /upstream see a stale lease and 409.
+   if (leaseId) {
+    try {
+     await releaseLandLease(env, base, leaseId);
+    } catch {
+     // Best-effort; the 30s TTL still bounds exposure.
+    }
+   }
+  }
+ });
+}
+
+// ---------------------------------------------------------------------------
 // POST /judge — typed advisory judgments for a target set of proposals (AD-11).
 // Advisory only: the route writes nothing and lands nothing.
 // ---------------------------------------------------------------------------
@@ -1991,6 +2361,12 @@ export const ROUTES: RouteEntry[] = [
  { path: "/floors", method: "GET", action: "read", handler: handleFloors },
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
+ // Merge-back-to-upstream (CAP-10): a fork's work routed to its
+ // recorded parent. Mutating route — authorize() + the CSRF gate
+ // precede the handler like every POST; the handler re-checks
+ // the AD-9 allowlist on the body-carried repo/base (the /land
+ // defense-in-depth precedent).
+ { path: "/upstream", method: "POST", action: "write", handler: handleUpstream },
  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
  // Reveal — secret-class value behind the explicit authorization rule.
  // The dispatcher runs authorize() (mode gate) + the CSRF gate first;
