@@ -45,6 +45,8 @@ node platform/scripts/demo-verify.mjs
 
 Open the worker URL: `/` for the triage app, `/tour.html` for the guided tour. To ship one: click **Land into demo** on a clean card (the platform commits and pushes it for you).
 
+The full step-by-step sequence — env prerequisites, per-step expected observables, and the retry playbook — lives in the operator runbook: [`platform/scripts/README.md`](platform/scripts/README.md).
+
 ## Repo map
 
 - `platform/` — the platform: worker (`src/`), triage UI (`ui/`), demo scripts (`scripts/`), **API contract (`CONTRACT.md`)**, wrangler config
