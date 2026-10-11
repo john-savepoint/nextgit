@@ -135,8 +135,9 @@ try {
   kvStore.clear();
   capturedWaitUntil.length = 0;
   // Send a land request with a no-changes fold (demo repo = base repo, same ref)
-  // This reaches the no-changes path which returns BEFORE recordEvent,
-  // but still proves ctx is threaded without TypeError.
+  // The auto-land gate fires first: this env carries no AI binding,
+  // so the request fails closed with 503 judge-unavailable (still
+  // proves ctx is threaded without TypeError).
   const res = await worker.fetch(
     new Request("https://test/land", {
       method: "POST",

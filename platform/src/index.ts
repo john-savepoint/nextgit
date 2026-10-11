@@ -24,6 +24,8 @@ import {
  JUDGE_SET_ID,
  PINNED_MODEL_ID,
  MODEL_SELECTOR,
+ AUTO_LAND_ENGAGED,
+ deriveAutoLandVerdict,
  buildJudgeRequest,
  validateJudgeResponse,
  scrubFreeText,
@@ -31,6 +33,7 @@ import {
  isNoulAnswer,
  isPlainObject,
  type JudgeRepoInput,
+ type AutoLandVerdict,
 } from "./judge";
 
 import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
@@ -916,6 +919,37 @@ function auditToken(event: "token-mint" | "token-revoke", fields: Record<string,
  console.log(event, JSON.stringify(fields));
 }
 
+/** AD-8: the platform's route defaults — the ONE place base/ref/baseRef
+ *  defaults live. Pinned in CONTRACT.md § Route defaults. baseRef defaults
+ *  to ref (the read-path coupling pinned by default-resolution.test.mjs
+ *  case 7), never to a second literal. */
+export const DEFAULT_BASE_REPO = "demo";
+export const DEFAULT_REF = "main";
+
+/**
+ * The single resolution point for base/ref/baseRef defaults (AD-8).
+ * Every route parser (query, land body, judge body, startup warmup)
+ * resolves absent params here, so no route carries a private default.
+ * `undefined`/absent -> the pinned default; any supplied value passes
+ * through untouched (the caller validates it against REPO_NAME_RE/REF_RE).
+ * Only the /land body historically defaulted an EMPTY string to the
+ * pinned default (its truthy guard, preserved); the GET query parser
+ * did not (nullish `??` — an empty param is a 400, not the default).
+ * The seam itself defaults only on absence.
+ */
+export function resolveRouteBase(opts: {
+ base?: unknown;
+ ref?: unknown;
+ baseRef?: unknown;
+}): { base: unknown; ref: unknown; baseRef: unknown } {
+ const ref = opts.ref === undefined ? DEFAULT_REF : opts.ref;
+ return {
+  base: opts.base === undefined ? DEFAULT_BASE_REPO : opts.base,
+  ref,
+  baseRef: opts.baseRef === undefined ? ref : opts.baseRef,
+ };
+}
+
 interface ProposalsQuery {
  base: string;
  ref: string;
@@ -935,15 +969,20 @@ interface ProposalsQuery {
  * POST handlers use via `parseLandBody`/`parseJudgeBody`.
  */
 function parseProposalsQuery(url: URL): ProposalsQuery | Response {
- const get = (k: string, def: string) => url.searchParams.get(k) ?? def;
- const base = get("base", "demo");
- if (!REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
- const ref = get("ref", "main");
- if (!REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+ const { base, ref, baseRef } = resolveRouteBase({
+  // Absent (null) -> the pinned default; a present value —
+  // including "" — passes through raw (nullish ??, the base GET
+  // parser's own idiom) so the REPO_NAME_RE/REF_RE guards below
+  // 400 it. The /land body alone historically defaulted "".
+  base: url.searchParams.get("base") ?? undefined,
+  ref: url.searchParams.get("ref") ?? undefined,
+  baseRef: url.searchParams.get("baseRef") ?? undefined,
+ });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
   return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
  }
- const baseRef = get("baseRef", ref);
- if (!REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
+ if (typeof baseRef !== "string" || !REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
   return badRequest(`invalid baseRef: ${JSON.stringify(baseRef)}`);
  }
  const reposParam = url.searchParams.get("repos");
@@ -984,10 +1023,21 @@ interface LandValidation {
 function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string; reviewed?: ReviewedHeads; validation?: LandValidation } | Response {
  if (!raw || typeof raw !== "object") return badRequest("JSON body required");
  const body = raw as LandRequestBody;
- const base = typeof body.base === "string" && body.base ? body.base : "demo";
- const ref = typeof body.ref === "string" && body.ref ? body.ref : "main";
- const baseRef = typeof body.baseRef === "string" && body.baseRef ? body.baseRef : ref;
-
+ // INTENTIONAL, PRE-SEAM ASYMMETRY (trap for the next caller):
+ // /land is the ONLY caller that historically defaulted an empty
+ // string to the pinned default (this truthy guard, preserved for
+ // base parity). parseProposalsQuery and parseJudgeBody default
+ // ONLY on absence (?? / undefined-only — a present "" is a 400,
+ // pinned by GET ?base= 400 and judge.test.mjs case 5). Do not
+ // "unify" the idioms: restoring typeof === "string" here would
+ // be a behavior change (base:123 would stop 400ing at the
+ // DEMO_REPO_RE chokepoint), and the resilience gate already
+ // classified the non-string drift as a safe tightening.
+ const { base, ref, baseRef } = resolveRouteBase({
+  base: body.base || undefined,
+  ref: body.ref || undefined,
+  baseRef: body.baseRef || undefined,
+ });
  if (!Array.isArray(body.repos) || !body.repos.length) return badRequest("repos must be a non-empty array");
  if (body.repos.length > MAX_LAND_REPOS) return badRequest(`at most ${MAX_LAND_REPOS} repos per land`);
  const repos: string[] = [];
@@ -996,11 +1046,12 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
   if (repos.includes(r)) return badRequest(`duplicate repo: ${r}`);
   repos.push(r);
  }
- if (!REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
- for (const r of [ref, baseRef]) {
-  if (!REF_RE.test(r) || r.includes("..") || r.startsWith("/") || r.endsWith("/")) {
-   return badRequest(`invalid ref: ${JSON.stringify(r)}`);
-  }
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ if (typeof baseRef !== "string" || !REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(baseRef)}`);
  }
  // Optional reviewed-state precondition (AD-3). Shape violations are 400;
  // well-formed values are compared against the current heads in handleLand.
@@ -1126,6 +1177,32 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    { status: 409 },
   );
  }
+ // Auto-land gate (AD-11 / FR-26): the server-side ACT/CONFIRM/ESCALATE
+ // verdict from the same pinned Clef question set the cards render.
+ // Advisory-only upstream (POST /judge) becomes a gate HERE: when engaged,
+ // every /land must be answered by the pinned model, and an unanswered
+ // land fails CLOSED (503 judge-unavailable, no fold-derived work, no
+ // push). The verdict is recorded on the landing — clients render it;
+ // they never decide it (the decision is this code, the policy is in
+ // judge.ts, the model is pinned and fail-closed).
+ // The gate's verdict, threaded into the evidence record below.
+ let autoLand: AutoLandVerdict | null = null;
+ if (AUTO_LAND_ENGAGED) {
+  const gate = await judgeLandGate(env, base, baseRef, repos, ref);
+  if (gate instanceof Response) return gate; // 503 judge-unavailable (fail closed)
+  if (gate.verdict === "escalate") {
+   // Content-free log: counts and reason codes only — never state,
+   // answers, or repo content (NFR-3, mirrors the /judge log idiom).
+   console.log("autoland-escalate", JSON.stringify({ setId: gate.setId, blocking: gate.blocking.length }));
+   return Response.json(
+    { ok: false, error: "autoland-escalate", verdict: "escalate", setId: gate.setId, blocking: gate.blocking },
+    { status: 409 },
+   );
+  }
+  // ACT/CONFIRM: the verdict rides the evidence record below.
+  autoLand = gate;
+ }
+
  if (merge.status === "conflict") {
   const detail = merge.files
    .filter((f) => f.result === "conflict")
@@ -1224,6 +1301,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     artifactRef: validation?.artifactRef ?? null,
     at,
     lease: leaseId ? { provider: "do", leaseId } : null,
+    autoLand, // the AutoLandVerdict — additive, served verbatim by GET /landings/{commit}
    };
    // The landing record (FR-18) persists keyed by the returned commit — the
    // address the read surface serves. KV `LIVE` stays single-writer: this is
@@ -1364,7 +1442,16 @@ function parseJudgeBody(raw: unknown): { base: string; repos: string[]; ref: str
   return judgeError("bad-request", 400);
  }
 
- const base = target.base === undefined ? "demo" : target.base;
+ // AD-8 seam: absent (undefined) -> the pinned default. A PRESENT value
+ // (including "") passes through to the validation below, preserving the
+ // pre-seam `target.base === undefined ? "demo" : target.base` semantics
+ // (an empty base is a 400, not the default — pinned by judge.test.mjs
+ // case 5 "base empty").
+ const resolved = resolveRouteBase({
+  base: target.base === undefined ? undefined : target.base,
+  ref: (target.refs as unknown[] | undefined)?.[0],
+ });
+ const base = resolved.base;
  if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return judgeError("bad-request", 400);
 
  const requested = target.repos;
@@ -1379,9 +1466,16 @@ function parseJudgeBody(raw: unknown): { base: string; repos: string[]; ref: str
  }
 
  // v1 accepts exactly one ref: base and proposals are read at it.
- const refs = target.refs === undefined ? ["main"] : target.refs;
- if (!Array.isArray(refs) || refs.length !== 1) return judgeError("bad-request", 400);
- const ref = refs[0];
+ // Pre-seam semantics preserved: absent refs -> the DEFAULT_REF
+ // (via the seam); a present value must be a ONE-ENTRY array —
+ // the raw shape check runs on target.refs (400 on any other
+ // shape or length), and the single entry flows through the
+ // seam (whose ref default applies only when refs is absent).
+ const refs = target.refs;
+ if (refs !== undefined && (!Array.isArray(refs) || refs.length !== 1)) {
+  return judgeError("bad-request", 400);
+ }
+ const ref = resolved.ref;
  if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
   return judgeError("bad-request", 400);
  }
@@ -1487,6 +1581,39 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
   judgments: validated.judgments,
   skipped,
  });
+}
+
+/**
+ * The auto-land gate's one Clef call (AD-11). Reuses the /judge
+ * assembly seam verbatim — same fork-point change-set reads, same
+ * AD-4 masking filter, same typed question set (setId `v1`), same
+ * pinned model — so the gate and the card chips can never diverge
+ * in what they asked. Fails closed on every failure mode: no AI
+ * binding, a thrown run, or any validation miss => 503
+ * judge-unavailable with zero repos landed.
+ */
+async function judgeLandGate(env: Env, base: string, baseRef: string, repos: string[], ref: string): Promise<AutoLandVerdict | Response> {
+ if (!env.AI || typeof env.AI.run !== "function") return judgeUnavailable();
+ const judged: JudgeRepoInput[] = [];
+ for (const name of repos) {
+  const changeSet = await computeChangeSet(env, base, baseRef, name, ref, { includeTexts: true });
+  // Mixed repos are judged with the secret file masked; all-secret
+  // repos are named only (same law as /judge).
+  if (changeSet.files.length > 0 && changeSet.files.every((f) => isSecretPath(f.path))) continue;
+  judged.push({ repo: name, intent: changeSet.files.find((f) => f.intent)?.intent, files: changeSet.files });
+ }
+ // Nothing to ask (every repo all-secret or empty): there is no
+ // model answer to gate on — fail closed like every other
+ // unanswered gate (a no-op land cannot self-authorize).
+ if (judged.length === 0) return judgeUnavailable();
+ const { state, questions, plan } = buildJudgeRequest(judged, isSecretPath);
+ const raw = await env.AI.run(PINNED_MODEL_ID, { model: MODEL_SELECTOR, state, questions }).catch(() => null);
+ const validated = validateJudgeResponse(raw, plan);
+ if (!validated.ok) {
+  console.log("judge-unavailable", JSON.stringify({ reason: validated.reason, route: "/land" }));
+  return judgeUnavailable();
+ }
+ return deriveAutoLandVerdict(validated.judgments);
 }
 
 // ---------------------------------------------------------------------------
@@ -1782,8 +1909,8 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 // not-found otherwise). Additive-only: a new UI file is added here
 // AND to the route-discipline parity check in the same commit.
 const UI_ASSET_PATHS: Record<string, true> = {
-  "/": true, "": true, "/index.html": true, "/styles.css": true,
-  "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+ "/": true, "": true, "/index.html": true, "/styles.css": true,
+ "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
 };
 
 export default {
@@ -1828,13 +1955,13 @@ export default {
    // handler-level 400/404/409 precedent (a malformed request is
    // rejected at the boundary without reaching the auth chokepoint).
    const knownPath =
-     ROUTES.some((r) => r.path === url.pathname) ||
-     DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
+    ROUTES.some((r) => r.path === url.pathname) ||
+    DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
    if (knownPath) {
-     return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
+    return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
    }
    if (UI_ASSET_PATHS[url.pathname]) {
-     return env.ASSETS.fetch(request);
+    return env.ASSETS.fetch(request);
    }
    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
   } catch (err) {
@@ -1851,14 +1978,18 @@ export default {
      // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
      let gen = "0";
      try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
-     const cacheKey = `cache:proposals:${gen}:demo:main:main:*`;
-     const result = await computeProposals(env, "demo", "main", "main", null);
+     const warmDefaults = resolveRouteBase({});
+     const warmBase = warmDefaults.base as string;
+     const warmBaseRef = warmDefaults.baseRef as string;
+     const warmRef = warmDefaults.ref as string;
+     const cacheKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:*`;
+     const subsetRepos = "agent-1,agent-2,agent-3,agent-4";
+     const result = await computeProposals(env, warmBase, warmBaseRef, warmRef, null);
      await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
      // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
      // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
-     // and would otherwise always miss.
+     const subsetKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:${subsetRepos}`;
      try {
-      const subsetKey = `cache:proposals:${gen}:demo:main:main:agent-1,agent-2,agent-3,agent-4`;
       await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
      } catch (e) {
       console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));

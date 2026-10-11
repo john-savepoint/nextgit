@@ -16,7 +16,8 @@
 // implemented but unpinned behaviorally — param-validation.test.mjs only
 // covers the 400 rejection path; proposals-cache-key.test.mjs case 9 only
 // asserts status !== 400; judge.test.mjs case 1 passes base:"demo"
-// explicitly, never omitting it):
+// explicitly, never omitting it; the GET empty-param 400 was unpinned,
+// per case 9):
 //
 //   1. GET /changes?repo=agent-5   (base/ref/baseRef OMITTED)
 //      -> changeSet.base.repo=="demo", .base.ref=="main" (baseRef default
@@ -43,12 +44,15 @@
 //      (base+baseRef omitted; `dev` a second fixture branch) ->
 //      .base.ref=="dev", .head.ref=="dev" — pins the
 //      baseRef=get("baseRef",ref) chain, not just a hardcoded "main".
+//   9. GET empty-param 400: GET /changes?repo=agent-5&base=&ref=
+//      &baseRef= -> 400 "invalid base repo: \"\"" (the GET parser
+//      passes a PRESENT "" through raw; only ABSENCE defaults).
 //
 // Full-suite safety: a fresh env (distinct fake Artifacts + fresh AI call
 // log) per case; /land makes exactly ONE refused POST; /judge makes
 // exactly ONE call. process.exit(fail===0?0:1); "ALL PASS (N checks)".
 
-import worker from "../../platform/src/index.ts";
+import worker, { DEFAULT_BASE_REPO, DEFAULT_REF, resolveRouteBase } from "../../platform/src/index.ts";
 
 let passes = 0;
 let fails = 0;
@@ -440,6 +444,50 @@ const post = async (env, path, body) => {
   const devHead = await repoHead(env, "demo", "dev");
   check("7 demo:dev resolves to the base commit", devHead === base.hash, J({ devHead, base: base.hash }));
   check("7 base.treeHash == demo:dev tree", cs?.base?.treeHash === base.treeHash, J({ got: cs?.base?.treeHash, want: base.treeHash }));
+}
+// ---- case 8: the seam IS the single source (AD-8, no private defaults) --
+// The exported resolver's values ARE the constants; every inlined call
+// site (parseProposalsQuery / parseLandBody / parseJudgeBody / warmup)
+// delegates to it, so a route cannot resolve a different default.
+{
+  check("8 DEFAULT_BASE_REPO == demo", DEFAULT_BASE_REPO === "demo", J(DEFAULT_BASE_REPO));
+  check("8 DEFAULT_REF == main", DEFAULT_REF === "main", J(DEFAULT_REF));
+  const r = resolveRouteBase({});
+  check("8 resolver({}) -> {base:demo, ref:main, baseRef:main}",
+    r.base === "demo" && r.ref === "main" && r.baseRef === "main", J(r));
+  // baseRef-follows-ref through the seam (mirrors case 7's live behavior).
+  const r2 = resolveRouteBase({ ref: "dev" });
+  check("8 resolver({ref:dev}).baseRef == dev", r2.baseRef === "dev" && r2.ref === "dev" && r2.base === "demo", J(r2));
+  // explicit values pass through untouched (omitted == explicit).
+  const r3 = resolveRouteBase({ base: "agent-1", ref: "dev", baseRef: "prod" });
+  check("8 resolver passes explicit values through",
+    r3.base === "agent-1" && r3.ref === "dev" && r3.baseRef === "prod", J(r3));
+  // The seam defaults only on ABSENCE (undefined): a present
+  // value passes through untouched — an empty string is the
+  // caller's to validate (a 400, not the default). Only the
+  // /land body historically defaulted an empty string (truthy
+  // guard); the GET parser did not (case 9 pins its 400).
+  // The route-level cases 1-7 pin the live behaviors.
+  const r4 = resolveRouteBase({ base: "", ref: "", baseRef: "" });
+  check("8 resolver passes empty strings through (undefined-only defaults)",
+    r4.base === "" && r4.ref === "" && r4.baseRef === "", J(r4));
+  const r5 = resolveRouteBase({ base: undefined, ref: undefined, baseRef: undefined });
+  check("8 resolver({undefined}) -> defaults",
+    r5.base === "demo" && r5.ref === "main" && r5.baseRef === "main", J(r5));
+}
+
+// ---- case 9: GET empty params are 400s, not defaults --------
+// Base parity: the GET query parser resolves absent (null) ->
+// default but passes a PRESENT "" through raw, so ?base= (and
+// ?ref= / ?baseRef=) hit the REPO_NAME_RE/REF_RE guards ->
+// 400 "invalid base repo: \"\"". Pins the restored behavior
+// (the parser's nullish `??` idiom) so the class cannot
+// silently regress to a default again.
+{
+  const { env } = makeEnv();
+  const r = await get(env, "changes", "?repo=agent-5&base=&ref=&baseRef=");
+  check("9 GET ?base= (empty) -> 400", r.status === 400, `status ${r.status}`);
+  check("9 400 invalid base repo: \"\"", r.body?.ok === false && r.body?.error === 'invalid base repo: ""', J(r.body));
 }
 
 console.log(fails === 0 ? `ALL PASS (${passes} checks)` : `${fails} FAILURES (${passes} passed)`);

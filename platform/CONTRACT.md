@@ -3,7 +3,22 @@
 Version: v3.0 (2026-10-11). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
-All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
+
+## Route defaults (AD-8 — single source)
+
+Every route that accepts `base`, `ref`, or `baseRef` (query or body) resolves an absent parameter through ONE code-owned seam (`resolveRouteBase` in `platform/src/index.ts`) — no route carries a private default:
+
+- `base` — default `demo`
+- `ref` — default `main`
+- `baseRef` — default **follows `ref`** (i.e. `main` when `ref` is also absent; `baseRef=X&ref=Y` keeps `X`)
+
+**Equivalence rule:** a request with `base`/`ref`/`baseRef` omitted resolves to exactly `base=demo, ref=main, baseRef=main` on **every** route — `/changes`, `/proposals`, `/merge` (GET, query params), `/land` (POST body), and `/judge` (`target.base` / `target.refs[0]`). Omitted == explicit. Pinned behaviorally by `porting/tests/default-resolution.test.mjs` (47 checks: per-route omission, negative control, `baseRef`-follows-`ref` coupling, seam single-source, GET empty-param 400).
+
+**Normalization rule:** the seam (`resolveRouteBase`) defaults only on *absence* (`undefined`). A present value — including the empty string `""` — passes through untouched to the caller's `REPO_NAME_RE`/`REF_RE` validation (an empty base/ref is a 400 on every route, not the default — pinned by `judge.test.mjs` case 5). The only caller that defaults an empty string is the `/land` POST body (truthy guard, pre-existing behavior). Non-string `ref`/`baseRef` values are rejected with a 400 by the caller's validation, never a 500.
+
+**The single documented exception:** `GET /changes` additionally requires `repo` (no default — absent `repo` -> `400 {ok:false,error:"repo parameter required"}`). All other params of `/changes` follow the defaults above.
+
+Routes with no default (unchanged, listed for completeness): `/reveal` requires `repo`, `ref`, `path`, `key`; `/land` requires `repos`; `/judge` requires `setId` and `target.repos`; `/events`, `/events/stream`, `/health`, `/landings/{commit}` take no base/ref params.
 
 ## GET /health
 
@@ -111,6 +126,25 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - `artifactRef` — optional non-empty string (≤512 chars): the evidence-artifact reference.
   - Self-attested: the server verifies content identity (`testedSha` vs the fold that lands), not execution.
   - Shape violations → `400 {ok:false, error:"bad-request"}` (same bucket and precedence as `reviewed`). The reserved check name `merged-sha-equals-tested-sha` must not appear in `checks`.
+- Auto-land gate (AD-11 / FR-26) — **engaged** (the injection-testing spike
+  passed and the question set is contract-pinned:
+  `porting/calibration/judge-v1/calibration-record.json`). When engaged, the
+  gate consults the same pinned question set the cards render (`setId: "v1"`)
+  for the requested `repos` **before** any fold-derived work:
+  - `ESCALATE` — any judgment carries a ship-blocking signal (`risk.label =
+    senior-security`, a corroborated `intent.verdict = contradicts`, or
+    `collision = true`) => `409 {ok:false, error:"autoland-escalate", verdict,
+    setId, blocking[]}`. `blocking[]` carries code-owned reason codes
+    (`risk:senior-security:<repo>` / `intent:contradicts:<repo>` /
+    `collision:<repo>`), never model prose. Nothing is folded or pushed.
+  - `CONFIRM` / `ACT` — the land proceeds; the verdict rides the landing:
+    `evidence.autoLand = {setId, verdict, blocking[]}` (and the `200` body
+    carries the same `evidence`), served verbatim by `GET /landings/{commit}`.
+    Clients render the verdict; they never decide it.
+  - **Fail closed:** when the judge cannot answer (no `AI` binding, a thrown
+    run, a response off the pinned schema, a wrong model echo, or nothing to
+    ask) => `503 {ok:false, error:"judge-unavailable"}` — the same envelope as
+    `POST /judge`, nothing folded or pushed.
 - Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (the concurrent double-land loser path; a push rejected because the ref moved is reported as `base-moved` too). Nothing is pushed.
 - `200` carries `evidence` in addition to `landed` — the landing record (AD-3/FR-18); the returned `commit` is the evidence reference:
 
@@ -121,7 +155,8 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
                   "foldHash": "<sha256 hex>",
                   "checks": ["<check>", "..."], "results": ["<outcome>", "..."],
                   "mergedSha": "<sha256 hex>", "testedSha": "<sha256 hex> | null",
-                  "artifactRef": "<string> | null", "at": "<iso>" } }
+                  "artifactRef": "<string> | null", "at": "<iso>",
+                  "autoLand": { "setId": "v1", "verdict": "act" | "confirm" | "escalate", "blocking": ["<reason-code>", ...] } } }
   ```
 
   - `ancestor` maps each landed repo to the fork-point commit used as its 3-way ancestor; `heads` are the base and proposal heads the fold was computed against.
@@ -132,7 +167,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
-- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
+- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` (the auto-land gate) → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
 ## GET /landings/{commit}
