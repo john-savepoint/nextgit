@@ -12,13 +12,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
+import { resolveTtl, mintRepoToken, writeAgentManifest, gitAuthEnv } from "./lib/tokens.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
 const OUT_FILE = process.env.AGENTS_OUT ?? "/tmp/nextgit-agents.json";
 
 const baseline = process.argv[2] ?? "demo";
-const ttl = Number(process.argv[3] ?? 604800);
+const ttl = resolveTtl(process.argv[3]);
 
 function apiToken() {
   if (process.env.CLOUDFLARE_API_TOKEN) return process.env.CLOUDFLARE_API_TOKEN;
@@ -209,14 +210,12 @@ async function main() {
       // Deleting a repo is eventually consistent — a same-name fork right after
       // the delete can still hit "repo already exists" (10201).
       const fork = await forkFresh(agent.name);
-      const tok = await call("POST", `${apiBase}/tokens`, { repo: agent.name, scope: "write", ttl });
+      const tok = await mintRepoToken(call, { base: apiBase, repo: agent.name, ttl, headers: apiHeaders });
       minted.push({ name: agent.name, remote: fork.remote, token: tok.plaintext, scope: tok.scope, expires_at: tok.expires_at });
 
       const env = {
         ...process.env,
-        GIT_CONFIG_COUNT: "1",
-        GIT_CONFIG_KEY_0: "http.extraheader",
-        GIT_CONFIG_VALUE_0: `Authorization: Bearer ${tok.plaintext}`,
+        ...gitAuthEnv(tok.plaintext),
       };
 
       dir = mkdtempSync(join(tmpdir(), `nextgit-${agent.name}-`));
@@ -287,7 +286,7 @@ async function main() {
     }
   }
 
-  writeFileSync(OUT_FILE, JSON.stringify(minted, null, 2));
+  writeAgentManifest(OUT_FILE, minted);
 
   const pad = (s, n) => String(s).padEnd(n);
   console.log("\n  agent    status  head     note / files");
@@ -300,10 +299,7 @@ async function main() {
   const ok = results.filter((r) => r.status === "ok").length;
   console.log(`\n  ${ok}/${results.length} agents applied -> ${OUT_FILE}`);
 
-  if (minted.length) {
-    console.log("\n  tokens:");
-    for (const m of minted) console.log(`    ${pad(m.name, 8)} ${m.token.slice(0, 24)}…  expires ${m.expires_at}`);
-  }
+  console.log(`\n  ${minted.length}/${results.length} tokens minted -> ${OUT_FILE} (mode 0600)`);
 
   await bustProposalsCache("agents");
 

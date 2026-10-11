@@ -12,7 +12,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { mintRepoToken, gitAuthEnv } from "./lib/tokens.mjs";
+import { join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
@@ -250,12 +251,10 @@ const repo = process.argv[2] ?? "demo";
 const namespace = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/artifacts/namespaces/${NAMESPACE}`;
 const headers = { Authorization: `Bearer ${apiToken()}` };
 
-const minted = await call("POST", `${namespace}/tokens`, { repo, scope: "write", ttl: TTL }, headers);
+const minted = await mintRepoToken(call, { base: namespace, repo, ttl: TTL, headers });
 const authEnv = {
   ...process.env,
-  GIT_CONFIG_COUNT: "1",
-  GIT_CONFIG_KEY_0: "http.extraheader",
-  GIT_CONFIG_VALUE_0: `Authorization: Bearer ${minted.plaintext}`,
+  ...gitAuthEnv(minted.plaintext),
 };
 
 const dir = mkdtempSync(join(tmpdir(), "nextgit-seed-"));

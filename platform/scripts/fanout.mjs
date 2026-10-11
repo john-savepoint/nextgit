@@ -13,10 +13,12 @@
 // Auth:   CLOUDFLARE_API_TOKEN if set, else the wrangler OAuth token on this machine.
 // Output: /tmp/nextgit-agents.json — [{ name, remote, token, scope, expires_at }]
 
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { resolveTtl, mintRepoToken, writeAgentManifest, formatAgentRow } from "./lib/tokens.mjs";
+export { resolveTtl };
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -37,14 +39,6 @@ function apiToken() {
   throw new Error("No API token: set CLOUDFLARE_API_TOKEN or run `wrangler login`.");
 }
 
-// Resolve and validate ttlSeconds: default 86400 (24h), clamped to 604800 (7d max,
-// FR-36), reject anything below 60s. Pure function for testability.
-export function resolveTtl(raw) {
-  const n = Number(raw ?? 86400);
-  if (Number.isNaN(n)) throw new Error("ttlSeconds must be a number");
-  if (n < 60) throw new Error("ttlSeconds must be >= 60 seconds");
-  return Math.min(n, 604800);
-}
 
 const count = Number(process.argv[2] ?? 4);
 const baseline = process.argv[3] ?? "demo";
@@ -83,12 +77,12 @@ if (isMain()) {
       forked = true;
     }
 
-    const tok = await call("POST", `${base}/tokens`, { repo: name, scope: "write", ttl });
+    const tok = await mintRepoToken(call, { base, repo: name, ttl, headers });
     agents.push({ name, remote, token: tok.plaintext, scope: tok.scope, expires_at: tok.expires_at });
     console.log(`${forked ? "forked" : "exists"}  ${name}`);
   }
 
-  writeFileSync(OUT_FILE, JSON.stringify(agents, null, 2), { mode: 0o600 });
+  writeAgentManifest(OUT_FILE, agents);
   console.log(`\n${agents.length} agent workspaces -> ${OUT_FILE}`);
-  for (const a of agents) console.log(`  ${a.name}  (token expires ${a.expires_at})`);
+  for (const a of agents) console.log(`  ${formatAgentRow(a)}`);
 }

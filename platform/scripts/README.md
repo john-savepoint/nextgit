@@ -41,6 +41,10 @@ All scripts resolve the Cloudflare API token via the same `apiToken()` helper:
 
 **Security reminder (spoofing law).** Tokens are single-use-scoped (`{ repo, scope: "write", ttl }`), minted per run, and never committed. If you see a token in a transcript or log, treat it as exposed and revoke it.
 
+**TTL policy (FR-36).** Repo-scoped write tokens are minted under the FR-36 TTL policy (24 h default / 7 d max / over-max rejected before the call), so operators passing a large `ttlSeconds` get a hard error instead of a silently-clamped token.
+
+**Manifest hygiene (FR-36).** The agent manifest (`/tmp/nextgit-agents.json`) is written by exactly one helper — `writeAgentManifest` in `lib/tokens.mjs` — which writes mode `0600`, re-modes a pre-existing `0644` file to `0600` on rewrite (Node's `writeFileSync({mode})` applies only at create), and verifies the resulting mode. Manifest rows are printed via `formatAgentRow`, which destructures only `name`/`scope`/`expires_at` (a token is unprintable by construction). Repo tokens reach `git` only through `gitAuthEnv` — the `GIT_CONFIG_VALUE_0` env var, never a `-c http.extraHeader=…` argv (invisible to `ps`).
+
 ---
 
 ## The corrected run order
