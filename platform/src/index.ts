@@ -2415,7 +2415,7 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 // AND to the route-discipline parity check in the same commit.
 const UI_ASSET_PATHS: Record<string, true> = {
  "/": true, "": true, "/index.html": true, "/styles.css": true,
- "/app.js": true, "/reveal-decision.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+ "/app.js": true, "/reveal-decision.js": true, "/land-verdict.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
 };
 
 export default {

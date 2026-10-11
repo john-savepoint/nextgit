@@ -1,6 +1,7 @@
 // nextgit — convergence triage UI (vanilla ES module)
 // Adheres strictly to platform/CONTRACT.md
 import { decideSecretSurface } from "./reveal-decision.js";
+import { renderLandVerdict, landVerdictFromLandResponse, landVerdictFromErrorEnvelope } from "./land-verdict.js";
 
 /**
  * State container
@@ -30,6 +31,7 @@ const state = {
  streamBackoffMs: 1000,  // SSE reconnect backoff, doubles to a 30s cap
  streamSeenKeys: new Set(), // SSE `id:` dedup keys seen this page
  revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
+ landVerdictByRepo: {}, // repo -> last auto-land advisory (AD-11 verdict, rendered never decided). Last VERDICT, not last error: only a server-carried verdict replaces the entry — an unrelated /land error leaves the last verdict standing, and a later act/confirm overwrites it.
 };
 
 // UI Selectors
@@ -654,6 +656,22 @@ function judgeChipsHtml(repo, isLanded) {
 }
 
 /**
+ * Auto-land verdict badge (AD-11): the ESCALATE advisory
+ * chip next to Land on the proposal card. Pure render of
+ * the last recorded verdict for this repo — the verdict is
+ * decided server-side; this only renders it (never a
+ * decision, never a bypass affordance). Absent verdict →
+ * no chip ("a skip is not a verdict").
+ */
+function landVerdictBadgeHtml(repo) {
+ const verdict = state.landVerdictByRepo[repo];
+ if (!verdict) return "";
+ const render = renderLandVerdict(verdict);
+ if (!render || render.kind !== "escalate" || !render.badgeText) return "";
+ return `<span class="badge ${escapeHtml(render.badgeClass)}" title="auto-land verdict: escalate">${escapeHtml(render.badgeText)}</span>`;
+}
+
+/**
  * Render Proposals Grid
  */
 function renderProposals() {
@@ -773,7 +791,7 @@ function renderProposals() {
         <div class="${cardClasses}" id="card-${repo}">
           <div class="proposal-card-header">
             <span class="proposal-repo-title">${repo}</span>
-            <div class="proposal-badges">${judgeChipsHtml(p.repo, isLanded)}</div>
+            <div class="proposal-badges">${judgeChipsHtml(p.repo, isLanded)}${landVerdictBadgeHtml(p.repo)}</div>
             <div class="proposal-actions">
               ${actionButtonsHtml}
             </div>
@@ -1135,10 +1153,25 @@ async function handleLandProposal(repo) {
   const landedAt = typeof res.landed?.at === "string" && res.landed.at ? formatTime(res.landed.at) : "";
   const receiptExtra = `${landedFiles ? ` · ${landedFiles} files` : ""}${landedAt ? ` · ${landedAt}` : ""}`;
 
+  // Auto-land verdict (AD-11): ACT/CONFIRM ride the 200
+  // evidence record (evidence.autoLand). The verdict is
+  // RENDERED here, never decided: it is recorded so the
+  // card re-render carries the advisory, and a CONFIRM
+  // adds the amber advisory to the receipt.
+  const autoLand = landVerdictFromLandResponse(res);
+  const verdictRender = autoLand ? renderLandVerdict(autoLand) : null;
+  if (autoLand) {
+   state.landVerdictByRepo[repo] = autoLand;
+  }
+  const receiptAdvisory =
+   verdictRender && verdictRender.kind === "confirm"
+    ? ` <span class="badge badge-amber">${escapeHtml(verdictRender.badgeText)}</span> <span class="action-hint">${verdictRender.noticeHtml}</span>`
+    : "";
+
   showActionBanner(
    "success",
    "landed",
-   `Successfully landed proposal <strong>${escapeHtml(repo)}</strong> into <strong>${escapeHtml(baseRepo)}</strong>. Commit ${shaHtml}${receiptExtra}`
+   `Successfully landed proposal <strong>${escapeHtml(repo)}</strong> into <strong>${escapeHtml(baseRepo)}</strong>. Commit ${shaHtml}${receiptExtra}${receiptAdvisory}`
   );
 
   // Auto-refresh proposals immediately
@@ -1176,6 +1209,23 @@ async function handleLandProposal(repo) {
    await loadProposals();
   } else if (err.status === 409 && errorCode === "base-moved") {
    showActionBanner("error", "base-moved", "Nothing to land — the baseline moved since this proposal was made.");
+  } else if (err.status === 409 && errorCode === "autoland-escalate") {
+   // Auto-land gate (AD-11): the judge ESCALATED — a red
+   // advisory banner carrying the code-owned blocking
+   // reason codes. No auto-fire, no bypass: the button
+   // stays a human act. The verdict is recorded so the
+   // card re-render (finally) carries the red advisory
+   // chip next to Land.
+   const verdict = landVerdictFromErrorEnvelope(resp) || { verdict: "escalate", setId: resp.setId, blocking: Array.isArray(resp.blocking) ? resp.blocking : [] };
+   const render = renderLandVerdict(verdict);
+   state.landVerdictByRepo[repo] = verdict;
+   showActionBanner("error", render.badgeText || "escalate", render.noticeHtml || "Auto-land verdict: ESCALATE — landing held for human review.");
+  } else if (err.status === 503 && errorCode === "judge-unavailable") {
+   // Fail-closed gate: the judge could not answer, so the
+   // land was blocked server-side. Render the blocked
+   // fact with the server's reason — no bypass exists.
+   const render = renderLandVerdict(landVerdictFromErrorEnvelope(resp) || { error: "judge-unavailable" });
+   showActionBanner("error", render.badgeText || "blocked", render.noticeHtml || "Auto-land gate unavailable — landing blocked (judge-unavailable).");
   } else {
    const msg = err.message || resp.error || "Unexpected landing failure";
    showActionBanner(
