@@ -118,7 +118,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   { "evidence": { "repos": ["agent-3"], "commit": "<sha>",
                   "ancestor": { "agent-3": "<sha>" },
                   "heads": { "base": "<sha>", "repos": { "agent-3": "<sha>" } },
-                  "foldHashX": "<sha256 hex>",
+                  "foldHash": "<sha256 hex>",
                   "checks": ["<check>", "..."], "results": ["<outcome>", "..."],
                   "mergedSha": "<sha256 hex>", "testedSha": "<sha256 hex> | null",
                   "artifactRef": "<string> | null", "at": "<iso>" } }
