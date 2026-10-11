@@ -38,6 +38,48 @@ export const INTENT_INSUFFICIENT_MAX = 0.5; // pS and pC both < 0.5 => insuffici
 export const OVERCLAIM_CONTRADICTS_MIN = 0.74; // overclaim noul >= 0.74
 export const JUDGE_RATE_LIMIT = ROUTE_RATE_LIMITS["/judge"].limit; // requests per caller...
 export const JUDGE_RATE_WINDOW_MS = ROUTE_RATE_LIMITS["/judge"].windowMs; // ...per minute (AD-11 per-caller cap; makes 429 reachable)
+/** Auto-land gate (AD-11 / FR-26): engaged only after the
+ *  injection-testing spike passed and the question set was
+ *  contract-pinned — both recorded in
+ *  porting/calibration/judge-v1/calibration-record.json
+ *  (injectionSpike.pass=true, signoff John 2026-10-10). */
+export const AUTO_LAND_ENGAGED = true;
+/** The versioned question set the gate consults — the same set the
+ *  card chips render (JUDGE_SET_ID). Additive-only: new set ids are
+ *  new constants; v1 never changes meaning. */
+export const AUTO_LAND_SET_ID = JUDGE_SET_ID;
+/** The gate's verdict vocabulary (judge-layer idea 5). */
+export const AUTO_LAND_VERDICTS = ["act", "confirm", "escalate"] as const;
+export type AutoLandVerdictKind = (typeof AUTO_LAND_VERDICTS)[number];
+export interface AutoLandVerdict {
+ setId: string;
+ verdict: AutoLandVerdictKind;
+ blocking: string[]; // code-owned reason codes, never model prose
+}
+/**
+ * The ACT/CONFIRM/ESCALATE mapping over the typed judgments (AD-11:
+ * the judge advises, code decides). Ship-blocking class per the v1
+ * calibration record (risk=senior-security U intent=contradicts)
+ * plus the collision corroborating signal. Pure: no I/O, no env.
+ */
+export function deriveAutoLandVerdict(judgments: JudgeJudgment[]): AutoLandVerdict {
+ const blocking: string[] = [];
+ let cautious = false;
+ for (const j of judgments) {
+  if (j.risk.label === "senior-security") blocking.push(`risk:senior-security:${j.repo}`);
+  if (j.intent.verdict === "contradicts") blocking.push(`intent:contradicts:${j.repo}`);
+  if (j.collision) blocking.push(`collision:${j.repo}`);
+  if (j.intent.verdict === "insufficient" || j.risk.label === "focused") cautious = true;
+ }
+ if (blocking.length > 0) {
+  return { setId: AUTO_LAND_SET_ID, verdict: "escalate", blocking };
+ }
+ return {
+  setId: AUTO_LAND_SET_ID,
+  verdict: cautious ? "confirm" : "act",
+  blocking: [],
+ };
+}
 export const MAX_JUDGE_STATE_CHARS = 60_000;
 export const MAX_JUDGE_PATCH_CHARS = 50_000;
 export const MAX_JUDGE_FILES_PER_REPO = 40;

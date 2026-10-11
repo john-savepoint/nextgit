@@ -24,6 +24,8 @@ import {
  JUDGE_SET_ID,
  PINNED_MODEL_ID,
  MODEL_SELECTOR,
+ AUTO_LAND_ENGAGED,
+ deriveAutoLandVerdict,
  buildJudgeRequest,
  validateJudgeResponse,
  scrubFreeText,
@@ -31,6 +33,7 @@ import {
  isNoulAnswer,
  isPlainObject,
  type JudgeRepoInput,
+ type AutoLandVerdict,
 } from "./judge";
 
 import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
@@ -916,6 +919,37 @@ function auditToken(event: "token-mint" | "token-revoke", fields: Record<string,
  console.log(event, JSON.stringify(fields));
 }
 
+/** AD-8: the platform's route defaults — the ONE place base/ref/baseRef
+ *  defaults live. Pinned in CONTRACT.md § Route defaults. baseRef defaults
+ *  to ref (the read-path coupling pinned by default-resolution.test.mjs
+ *  case 7), never to a second literal. */
+export const DEFAULT_BASE_REPO = "demo";
+export const DEFAULT_REF = "main";
+
+/**
+ * The single resolution point for base/ref/baseRef defaults (AD-8).
+ * Every route parser (query, land body, judge body, startup warmup)
+ * resolves absent params here, so no route carries a private default.
+ * `undefined`/absent -> the pinned default; any supplied value passes
+ * through untouched (the caller validates it against REPO_NAME_RE/REF_RE).
+ * Only the /land body historically defaulted an EMPTY string to the
+ * pinned default (its truthy guard, preserved); the GET query parser
+ * did not (nullish `??` — an empty param is a 400, not the default).
+ * The seam itself defaults only on absence.
+ */
+export function resolveRouteBase(opts: {
+ base?: unknown;
+ ref?: unknown;
+ baseRef?: unknown;
+}): { base: unknown; ref: unknown; baseRef: unknown } {
+ const ref = opts.ref === undefined ? DEFAULT_REF : opts.ref;
+ return {
+  base: opts.base === undefined ? DEFAULT_BASE_REPO : opts.base,
+  ref,
+  baseRef: opts.baseRef === undefined ? ref : opts.baseRef,
+ };
+}
+
 interface ProposalsQuery {
  base: string;
  ref: string;
@@ -935,15 +969,20 @@ interface ProposalsQuery {
  * POST handlers use via `parseLandBody`/`parseJudgeBody`.
  */
 function parseProposalsQuery(url: URL): ProposalsQuery | Response {
- const get = (k: string, def: string) => url.searchParams.get(k) ?? def;
- const base = get("base", "demo");
- if (!REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
- const ref = get("ref", "main");
- if (!REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+ const { base, ref, baseRef } = resolveRouteBase({
+  // Absent (null) -> the pinned default; a present value —
+  // including "" — passes through raw (nullish ??, the base GET
+  // parser's own idiom) so the REPO_NAME_RE/REF_RE guards below
+  // 400 it. The /land body alone historically defaulted "".
+  base: url.searchParams.get("base") ?? undefined,
+  ref: url.searchParams.get("ref") ?? undefined,
+  baseRef: url.searchParams.get("baseRef") ?? undefined,
+ });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
   return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
  }
- const baseRef = get("baseRef", ref);
- if (!REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
+ if (typeof baseRef !== "string" || !REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
   return badRequest(`invalid baseRef: ${JSON.stringify(baseRef)}`);
  }
  const reposParam = url.searchParams.get("repos");
@@ -984,10 +1023,21 @@ interface LandValidation {
 function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: string; ref: string; reviewed?: ReviewedHeads; validation?: LandValidation } | Response {
  if (!raw || typeof raw !== "object") return badRequest("JSON body required");
  const body = raw as LandRequestBody;
- const base = typeof body.base === "string" && body.base ? body.base : "demo";
- const ref = typeof body.ref === "string" && body.ref ? body.ref : "main";
- const baseRef = typeof body.baseRef === "string" && body.baseRef ? body.baseRef : ref;
-
+ // INTENTIONAL, PRE-SEAM ASYMMETRY (trap for the next caller):
+ // /land is the ONLY caller that historically defaulted an empty
+ // string to the pinned default (this truthy guard, preserved for
+ // base parity). parseProposalsQuery and parseJudgeBody default
+ // ONLY on absence (?? / undefined-only — a present "" is a 400,
+ // pinned by GET ?base= 400 and judge.test.mjs case 5). Do not
+ // "unify" the idioms: restoring typeof === "string" here would
+ // be a behavior change (base:123 would stop 400ing at the
+ // DEMO_REPO_RE chokepoint), and the resilience gate already
+ // classified the non-string drift as a safe tightening.
+ const { base, ref, baseRef } = resolveRouteBase({
+  base: body.base || undefined,
+  ref: body.ref || undefined,
+  baseRef: body.baseRef || undefined,
+ });
  if (!Array.isArray(body.repos) || !body.repos.length) return badRequest("repos must be a non-empty array");
  if (body.repos.length > MAX_LAND_REPOS) return badRequest(`at most ${MAX_LAND_REPOS} repos per land`);
  const repos: string[] = [];
@@ -996,11 +1046,12 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
   if (repos.includes(r)) return badRequest(`duplicate repo: ${r}`);
   repos.push(r);
  }
- if (!REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
- for (const r of [ref, baseRef]) {
-  if (!REF_RE.test(r) || r.includes("..") || r.startsWith("/") || r.endsWith("/")) {
-   return badRequest(`invalid ref: ${JSON.stringify(r)}`);
-  }
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ if (typeof baseRef !== "string" || !REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(baseRef)}`);
  }
  // Optional reviewed-state precondition (AD-3). Shape violations are 400;
  // well-formed values are compared against the current heads in handleLand.
@@ -1126,6 +1177,32 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    { status: 409 },
   );
  }
+ // Auto-land gate (AD-11 / FR-26): the server-side ACT/CONFIRM/ESCALATE
+ // verdict from the same pinned Clef question set the cards render.
+ // Advisory-only upstream (POST /judge) becomes a gate HERE: when engaged,
+ // every /land must be answered by the pinned model, and an unanswered
+ // land fails CLOSED (503 judge-unavailable, no fold-derived work, no
+ // push). The verdict is recorded on the landing — clients render it;
+ // they never decide it (the decision is this code, the policy is in
+ // judge.ts, the model is pinned and fail-closed).
+ // The gate's verdict, threaded into the evidence record below.
+ let autoLand: AutoLandVerdict | null = null;
+ if (AUTO_LAND_ENGAGED) {
+  const gate = await judgeLandGate(env, base, baseRef, repos, ref);
+  if (gate instanceof Response) return gate; // 503 judge-unavailable (fail closed)
+  if (gate.verdict === "escalate") {
+   // Content-free log: counts and reason codes only — never state,
+   // answers, or repo content (NFR-3, mirrors the /judge log idiom).
+   console.log("autoland-escalate", JSON.stringify({ setId: gate.setId, blocking: gate.blocking.length }));
+   return Response.json(
+    { ok: false, error: "autoland-escalate", verdict: "escalate", setId: gate.setId, blocking: gate.blocking },
+    { status: 409 },
+   );
+  }
+  // ACT/CONFIRM: the verdict rides the evidence record below.
+  autoLand = gate;
+ }
+
  if (merge.status === "conflict") {
   const detail = merge.files
    .filter((f) => f.result === "conflict")
@@ -1224,6 +1301,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     artifactRef: validation?.artifactRef ?? null,
     at,
     lease: leaseId ? { provider: "do", leaseId } : null,
+    autoLand, // the AutoLandVerdict — additive, served verbatim by GET /landings/{commit}
    };
    // The landing record (FR-18) persists keyed by the returned commit — the
    // address the read surface serves. KV `LIVE` stays single-writer: this is
@@ -1321,6 +1399,376 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
 }
 
 // ---------------------------------------------------------------------------
+// POST /upstream — route a fork's work back to its upstream (CAP-10).
+//
+// The lineage record seam: the provisioning path (fanout) records
+// {repo, forkPoint} per fork at fork time in the CACHE KV namespace
+// (the script-writable durable namespace — the bust-cache.mjs
+// precedent; NFR-7 pins LIVE as worker-single-writer). /upstream
+// and /forks read it. {repo, forkPoint} is verbatim the contract's
+// GET /forks `upstream` payload, so /forks serves the record as-is
+// and /upstream reads lineage.repo as the parent.
+// ---------------------------------------------------------------------------
+
+/** KV key prefix for fork lineage records (the provisioning seam's write). */
+const FORK_KEY_PREFIX = "fork:";
+
+/** The recorded lineage of one fork: its parent repo and fork-point commit. */
+interface ForkLineage {
+ repo: string;
+ forkPoint: string;
+}
+
+/**
+ * The shared read seam for fork lineage: `fork:<name>` in env.CACHE,
+ * `{repo, forkPoint}` JSON. Fail closed — absent or unparseable is
+ * `null` (the caller's typed 400 no-lineage refusal), never a throw.
+ */
+async function readForkLineage(env: Env, name: string): Promise<ForkLineage | null> {
+ try {
+  const raw = await env.CACHE.get(`${FORK_KEY_PREFIX}${name}`);
+  if (!raw) return null;
+  const parsed = JSON.parse(raw) as Partial<ForkLineage>;
+  if (!parsed || typeof parsed !== "object") return null;
+  if (typeof parsed.repo !== "string" || typeof parsed.forkPoint !== "string") return null;
+  return { repo: parsed.repo, forkPoint: parsed.forkPoint };
+ } catch {
+  return null;
+ }
+}
+
+/** Closed request schema for POST /upstream (AD-9): exactly {repo, base?, reviewed?}. */
+interface UpstreamRequestBody {
+ repo?: unknown;
+ base?: unknown;
+ reviewed?: unknown;
+}
+
+/**
+ * Validate the /upstream body — the closed-schema twin of
+ * parseLandBody (unknown field → 400). `repo` is required and
+ * REPO_NAME_RE-checked; `base` defaults to the pinned default via
+ * resolveRouteBase (the AD-8 single-source seam); `reviewed` is
+ * validated exactly as /land's. `ref`/`baseRef` are NOT body
+ * params — both resolve to DEFAULT_REF ("main"), the parent's
+ * default branch.
+ */
+function parseUpstreamBody(raw: unknown): { repo: string; base: string; reviewed?: ReviewedHeads } | Response {
+ if (!raw || typeof raw !== "object") return badRequest("bad-request");
+ const body = raw as UpstreamRequestBody;
+ // Closed schema (AD-9): anything beyond {repo, base,
+ // reviewed} is an unknown field — the uniform 400, the
+ // parseJudgeBody/handleReveal idiom (the contract pins
+ // `400 {ok:false, error:"bad-request"}`).
+ if (!Object.keys(body).every((k) => k === "repo" || k === "base" || k === "reviewed")) {
+  return badRequest("bad-request");
+ }
+ if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(body.repo)}`);
+ }
+ const { base } = resolveRouteBase({ base: body.base });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ let reviewed: ReviewedHeads | undefined;
+ if (body.reviewed !== undefined) {
+  const rawReviewed = body.reviewed;
+  if (!rawReviewed || typeof rawReviewed !== "object" || Array.isArray(rawReviewed)) {
+   return badRequest("reviewed must be an object");
+  }
+  const r = rawReviewed as { baseHead?: unknown; heads?: unknown };
+  const isSha = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 128;
+  reviewed = {};
+  if (r.baseHead !== undefined) {
+   if (!isSha(r.baseHead)) return badRequest("reviewed.baseHead must be a commit sha string");
+   reviewed.baseHead = r.baseHead;
+  }
+  if (r.heads !== undefined) {
+   if (!r.heads || typeof r.heads !== "object" || Array.isArray(r.heads)) return badRequest("reviewed.heads must be an object");
+   const heads: Record<string, string> = {};
+   for (const [name, sha] of Object.entries(r.heads as Record<string, unknown>)) {
+    if (!REPO_NAME_RE.test(name)) return badRequest(`invalid repo name in reviewed.heads: ${JSON.stringify(name)}`);
+    if (name !== body.repo) return badRequest(`reviewed.heads names a repo that is not being landed: ${name}`);
+    if (!isSha(sha)) return badRequest(`reviewed.heads.${name} must be a commit sha string`);
+    heads[name] = sha;
+   }
+   if (!(body.repo in heads)) return badRequest(`reviewed.heads is missing repo: ${body.repo}`);
+   reviewed.heads = heads;
+  }
+ }
+ return { repo: body.repo, base, reviewed };
+}
+
+/**
+ * POST /upstream — the merge-back-to-upstream write (CAP-10).
+ *
+ * Delegates to the SAME machinery as handleLand — computeMerge →
+ * withLandGate → acquireLandLease → pushLand → foldHashOf → the
+ * 12-key evidence → the `landing:<commit>` KV record — so there is
+ * no second writer of the fold/push critical section (AD-1/NFR-4).
+ *
+ * Precondition order (contract-pinned): 400 (shape) → 429 → 403 →
+ * 400 no-lineage → 409 stale → 409 withheld-secret → 409 conflict →
+ * 409 no-changes → 409 base-moved → 200.
+ */
+async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+ const parsed = parseUpstreamBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ const { repo, base, reviewed } = parsed;
+
+ const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
+ if (!rateAllow("/upstream", caller)) return rateLimitedResponse();
+
+ // Demo allowlist (AD-9, handler-side defense-in-depth): the body
+ // carries repo/base, which the dispatcher's query-only
+ // extractScope cannot adjudicate — the /land precedent re-checks
+ // the allowlist here. Fires before any repo read.
+ for (const name of [base, repo]) {
+  if (!DEMO_REPO_RE.test(name)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${name}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+ }
+
+ // Lineage resolution — the seam both /upstream and /forks read.
+ // No record: the caller forked outside the provisioning seam — a
+ // client-state error (400, the order's typed refusal), distinct
+ // from a recorded lineage whose parent differs (409 conflict).
+ const lineage = await readForkLineage(env, repo);
+ if (!lineage) {
+  return Response.json({ ok: false, error: "no-lineage" }, { status: 400 });
+ }
+
+ // Parent identity: a fork can only merge into its RECORDED parent.
+ if (base !== lineage.repo) {
+  return Response.json(
+   { ok: false, error: "conflict", detail: `recorded upstream of ${repo} is ${lineage.repo}, not ${base}` },
+   { status: 409 },
+  );
+ }
+
+ // Pre-fold heads: the reviewed-state precondition compares against
+ // them, and the evidence record uses the same values.
+ const baseHeadNow = await repoHead(env, base, DEFAULT_REF);
+ const forkHead = await repoHead(env, repo, DEFAULT_REF);
+ if (reviewed?.heads && reviewed.heads[repo] !== forkHead) {
+  return Response.json(
+   { ok: false, error: "stale", detail: `reviewed head of ${repo} does not match the current proposal head` },
+   { status: 409 },
+  );
+ }
+ if (reviewed?.baseHead !== undefined && reviewed.baseHead !== baseHeadNow) {
+  return Response.json(
+   { ok: false, error: "stale", detail: "reviewed base head does not match the current base head" },
+   { status: 409 },
+  );
+ }
+
+ // One fold, identical semantics to GET /merge / POST /land.
+ // `ancestors` records the repo's fork point (the 3-way ancestor)
+ // for the evidence record.
+ const ancestors: Record<string, string> = {};
+ const merge = await computeMerge(env, base, DEFAULT_REF, [repo], DEFAULT_REF, ancestors);
+
+ const secretFiles = merge.files.filter((f) => f.result === "withheld-secret").map((f) => f.path);
+ if (secretFiles.length) {
+  // Values must never leave the worker and must never be pushed by it.
+  return Response.json({ ok: false, error: "withheld-secret", files: secretFiles }, { status: 409 });
+ }
+
+ if (merge.status === "conflict") {
+  const detail = merge.files
+   .filter((f) => f.result === "conflict")
+   .map((f) => `${f.path}: ${f.note ?? "conflict"}`)
+   .join("; ");
+  return Response.json({ ok: false, error: "conflict", conflicted: merge.conflicted, detail }, { status: 409 });
+ }
+
+ // Nothing to route: the fold produced no files, so a commit would
+ // be an empty change on the parent. The fold reads the parent at
+ // fold time, so an empty fold can also mean a concurrent land
+ // already applied this change: re-read the head and report the
+ // AD-3 loser outcome (base-moved), never no-changes, when the
+ // parent moved since the reviewed-heads check — the same
+ // conversion the push path applies.
+ if (merge.files.length === 0) {
+  const afterFold = await repoHead(env, base, DEFAULT_REF).catch(() => null);
+  if (afterFold !== null && afterFold !== baseHeadNow) {
+   return Response.json(
+    { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+    { status: 409 },
+   );
+  }
+  return Response.json(
+   { ok: false, error: "no-changes", detail: `fold of ${repo} onto ${base}:${DEFAULT_REF} changes nothing` },
+   { status: 409 },
+  );
+ }
+
+ const writeable: LandFile[] = merge.files
+  .filter((f) => f.action === "write" && typeof f.merged === "string")
+  .map((f) => ({ path: f.path, action: "write", result: f.result, merged: f.merged }));
+ for (const f of merge.files) {
+  if (f.action === "delete") writeable.push({ path: f.path, action: "delete", result: f.result });
+ }
+ const foldHash = await foldHashOf(writeable);
+
+ // Per-isolate single-flight around the clone+push critical section
+ // (withLandGate) — the SAME gate as /land, so the two writes
+ // serialize per isolate. Cross-isolate DO lease (FR-17) acquired
+ // inside so the finally block always releases it.
+ let leaseId: string | null = null;
+ return await withLandGate(async () => {
+  const lease = await acquireLandLease(env, base, 30);
+  if (lease && !lease.acquired) {
+   console.log("lease-denied", JSON.stringify({ base, by: caller }));
+   return Response.json(
+    { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+    { status: 409 },
+   );
+  }
+  if (lease?.leaseId) leaseId = lease.leaseId;
+
+  let baseRepo: ArtifactsRepo | null = null;
+  let token: string | null = null;
+
+  try {
+   baseRepo = await env.ARTIFACTS.get(base);
+   const info = await baseRepo.info();
+   token = await mintWriteToken(baseRepo);
+   auditToken("token-mint", { repo: base, ttl: TOKEN_TTL_SECONDS });
+   const { commit } = await pushLand({
+    remote: info.remote,
+    token,
+    baseRef: DEFAULT_REF,
+    repos: [repo],
+    files: writeable,
+    expectedBaseHead: baseHeadNow,
+    readBaseHead: () => repoHead(env, base, DEFAULT_REF),
+    landingNote: true,
+   });
+   const at = new Date().toISOString();
+   const landed = {
+    repos: [repo],
+    commit,
+    files: writeable.map((f) => f.path).sort(),
+    at,
+   };
+   // The evidence record (AD-3/FR-18): mechanically the 12-key
+   // /land evidence. /upstream carries no `validation` body field
+   // (the closed schema rejects it as unknown), so the ledger is
+   // the degenerate no-validation form — checks is the reserved
+   // merged-sha check alone, results is its "not-recorded" entry,
+   // testedSha/artifactRef are null. `autoLand` is /land-only (the
+   // auto-land gate is not part of the /upstream contract).
+   const evidence = {
+    repos: [repo],
+    commit,
+    ancestor: ancestors,
+    heads: { base: baseHeadNow, repos: { [repo]: forkHead } },
+    foldHash,
+    checks: [MERGED_SHA_CHECK],
+    results: ["not-recorded"],
+    mergedSha: foldHash,
+    testedSha: null,
+    artifactRef: null,
+    at,
+    lease: leaseId ? { provider: "do", leaseId } : null,
+   };
+   // The landing record (FR-18) persists keyed by the returned
+   // commit — the address the read surface serves. KV `LIVE` stays
+   // single-writer: this is its only landing-record writer. The
+   // push already happened, so a storage failure is logged and
+   // degraded, never reported as a failed land.
+   try {
+    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
+   } catch (e) {
+    console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
+   }
+   // The queue consumer records the real repo.pushed event; this
+   // keeps the feed useful even if queue delivery lags behind the
+   // push response (the /land posture, AD-6).
+   ctx.waitUntil(
+    (async () => {
+     try {
+      await recordEvent(env, { type: "repo.pushed", repo: base, ref: DEFAULT_REF, after: commit, at: landed.at });
+     } catch (e) {
+      console.log("feed-lag", String(e));
+     }
+    })(),
+   );
+   return Response.json({ ok: true, landed, evidence });
+  } catch (err) {
+   if (err instanceof BaseMovedError) {
+    return Response.json(
+     { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+     { status: 409 },
+    );
+   }
+   // A push rejected because a concurrent land advanced the ref is
+   // the base-moved loser path, not a server error: re-read and
+   // convert. Ref reads can briefly lag a git push — retry once
+   // before classifying (the /land posture).
+   let after = await repoHead(env, base, DEFAULT_REF).catch(() => null);
+   if (after === baseHeadNow) {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 400);
+    await promise;
+    after = await repoHead(env, base, DEFAULT_REF).catch(() => null);
+   }
+   if (after !== null && after !== baseHeadNow) {
+    return Response.json(
+     { ok: false, error: "base-moved", detail: "base head moved between review and land" },
+     { status: 409 },
+    );
+   }
+   const detail = scrubFreeText(String((err as Error)?.message ?? err));
+   // Credential-free failure (NFR-6): no token, no shell snippets;
+   // the `files` projection carries only path/action/result — never
+   // `merged` content.
+   return Response.json(
+    {
+     ok: false,
+     error: "push-failed",
+     detail,
+     repos: [repo],
+     branch: DEFAULT_REF,
+     files: writeable.map((f) => ({ path: f.path, action: f.action, result: f.result })),
+    },
+    { status: 500 },
+   );
+  } finally {
+   // Worker-minted tokens are single-use: revoke whether the push
+   // landed or failed (the /land posture).
+   if (token) {
+    try {
+     if (baseRepo) {
+      await baseRepo.revokeToken(token);
+      auditToken("token-revoke", { repo: base, phase: "success" });
+     }
+    } catch {
+     // Best-effort; the short TTL still bounds exposure.
+     auditToken("token-revoke", { repo: base, phase: "failed" });
+    }
+   }
+   // Release the per-base DO lease (FR-17): best-effort, only by
+   // owner. AWAITED so the lease is released before withLandGate
+   // resolves — a fire-and-forget release would let the next
+   // /upstream see a stale lease and 409.
+   if (leaseId) {
+    try {
+     await releaseLandLease(env, base, leaseId);
+    } catch {
+     // Best-effort; the 30s TTL still bounds exposure.
+    }
+   }
+  }
+ });
+}
+
+// ---------------------------------------------------------------------------
 // POST /judge — typed advisory judgments for a target set of proposals (AD-11).
 // Advisory only: the route writes nothing and lands nothing.
 // ---------------------------------------------------------------------------
@@ -1364,7 +1812,16 @@ function parseJudgeBody(raw: unknown): { base: string; repos: string[]; ref: str
   return judgeError("bad-request", 400);
  }
 
- const base = target.base === undefined ? "demo" : target.base;
+ // AD-8 seam: absent (undefined) -> the pinned default. A PRESENT value
+ // (including "") passes through to the validation below, preserving the
+ // pre-seam `target.base === undefined ? "demo" : target.base` semantics
+ // (an empty base is a 400, not the default — pinned by judge.test.mjs
+ // case 5 "base empty").
+ const resolved = resolveRouteBase({
+  base: target.base === undefined ? undefined : target.base,
+  ref: (target.refs as unknown[] | undefined)?.[0],
+ });
+ const base = resolved.base;
  if (typeof base !== "string" || !REPO_NAME_RE.test(base)) return judgeError("bad-request", 400);
 
  const requested = target.repos;
@@ -1379,9 +1836,16 @@ function parseJudgeBody(raw: unknown): { base: string; repos: string[]; ref: str
  }
 
  // v1 accepts exactly one ref: base and proposals are read at it.
- const refs = target.refs === undefined ? ["main"] : target.refs;
- if (!Array.isArray(refs) || refs.length !== 1) return judgeError("bad-request", 400);
- const ref = refs[0];
+ // Pre-seam semantics preserved: absent refs -> the DEFAULT_REF
+ // (via the seam); a present value must be a ONE-ENTRY array —
+ // the raw shape check runs on target.refs (400 on any other
+ // shape or length), and the single entry flows through the
+ // seam (whose ref default applies only when refs is absent).
+ const refs = target.refs;
+ if (refs !== undefined && (!Array.isArray(refs) || refs.length !== 1)) {
+  return judgeError("bad-request", 400);
+ }
+ const ref = resolved.ref;
  if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
   return judgeError("bad-request", 400);
  }
@@ -1487,6 +1951,39 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
   judgments: validated.judgments,
   skipped,
  });
+}
+
+/**
+ * The auto-land gate's one Clef call (AD-11). Reuses the /judge
+ * assembly seam verbatim — same fork-point change-set reads, same
+ * AD-4 masking filter, same typed question set (setId `v1`), same
+ * pinned model — so the gate and the card chips can never diverge
+ * in what they asked. Fails closed on every failure mode: no AI
+ * binding, a thrown run, or any validation miss => 503
+ * judge-unavailable with zero repos landed.
+ */
+async function judgeLandGate(env: Env, base: string, baseRef: string, repos: string[], ref: string): Promise<AutoLandVerdict | Response> {
+ if (!env.AI || typeof env.AI.run !== "function") return judgeUnavailable();
+ const judged: JudgeRepoInput[] = [];
+ for (const name of repos) {
+  const changeSet = await computeChangeSet(env, base, baseRef, name, ref, { includeTexts: true });
+  // Mixed repos are judged with the secret file masked; all-secret
+  // repos are named only (same law as /judge).
+  if (changeSet.files.length > 0 && changeSet.files.every((f) => isSecretPath(f.path))) continue;
+  judged.push({ repo: name, intent: changeSet.files.find((f) => f.intent)?.intent, files: changeSet.files });
+ }
+ // Nothing to ask (every repo all-secret or empty): there is no
+ // model answer to gate on — fail closed like every other
+ // unanswered gate (a no-op land cannot self-authorize).
+ if (judged.length === 0) return judgeUnavailable();
+ const { state, questions, plan } = buildJudgeRequest(judged, isSecretPath);
+ const raw = await env.AI.run(PINNED_MODEL_ID, { model: MODEL_SELECTOR, state, questions }).catch(() => null);
+ const validated = validateJudgeResponse(raw, plan);
+ if (!validated.ok) {
+  console.log("judge-unavailable", JSON.stringify({ reason: validated.reason, route: "/land" }));
+  return judgeUnavailable();
+ }
+ return deriveAutoLandVerdict(validated.judgments);
 }
 
 // ---------------------------------------------------------------------------
@@ -1722,6 +2219,111 @@ async function handleEvents(_request: Request, env: Env): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// GET /floors — the Floor / Project entity (AD-14 client protocol): one
+// floor per namespace repo, served from the same bounded `list()` discovery
+// seam /proposals auto-discovery uses. `branch` is the list entry's
+// `defaultBranch` (ArtifactsRepoListResult.repos[] carries it — no per-repo
+// info() call); `cloning` is `status !== "ready"` (importing/forking).
+// `counts.workers` is the discovered `agent-*` fleet size; `busy`/`waiting`
+// are served as 0/count — worker-lifecycle state is client-local (entity 2);
+// the platform serves the observable fleet size, the client synthesizes the
+// rest. Split recorded in CONTRACT.md § Client protocol.
+// ---------------------------------------------------------------------------
+async function handleFloors(request: Request, env: Env): Promise<Response> {
+ const rateDenied = rateGate("/floors", request);
+ if (rateDenied) return rateDenied;
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const agentRepos = list.repos.filter((r) => r.name.startsWith("agent-"));
+ const floors = list.repos.map((r) => ({
+  id: r.name,
+  name: r.name,
+  repo: r.name,
+  branch: r.defaultBranch,
+  cloning: r.status !== "ready",
+  counts: {
+   workers: agentRepos.length,
+   busy: 0,
+   waiting: agentRepos.length,
+  },
+ }));
+ return Response.json({ ok: true, floors });
+}
+// ---------------------------------------------------------------------------
+// GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
+// protocol): the proposal card + its detail, served by driving the SAME
+// compute seam /changes and /merge use (computeChangeSet for the card's
+// commits/stats/files, computeMerge for the merge simulation). The
+// mergeable-class signal is served as merge.status/conflicted — never as a
+// field named `mergeable` (AD-14: adapter-synthesized GitHub semantics are
+// never platform fields). `title` is the intent text, `state` is the
+// landing verdict from the fold, `number` is the repo name. Unknown repos
+// 404 at the handler (the /landings/{commit} precedent); the repo name is
+// re-validated REPO_NAME_RE before any repo read (/reveal precedent).
+// ---------------------------------------------------------------------------
+async function handleProposalDetail(request: Request, env: Env, repoParam: string): Promise<Response> {
+ if (!REPO_NAME_RE.test(repoParam)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(repoParam)}`);
+ }
+
+ // Demo allowlist (AD-9): the path-carried repo is the scope
+ // carrier, readable only here (the dispatcher's extractScope
+ // reads query params only). Same uniform 403 as /land and
+ // /judge, before any computeChangeSet / computeMerge read.
+ if (!DEMO_REPO_RE.test(repoParam)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repoParam}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const parsed = parseProposalsQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef } = parsed;
+ const rateDenied = rateGate("/proposals", request);
+ if (rateDenied) return rateDenied;
+
+ let changeSet;
+ let merge;
+ try {
+  // Unknown repo -> 404 (the /landings/{commit} precedent): the
+  // compute seam's first repo read (env.ARTIFACTS.get) fails for
+  // a name the namespace does not carry, and the handler maps that
+  // to the contract 404 rather than a 500.
+  changeSet = await computeChangeSet(env, base, baseRef, repoParam, ref);
+  merge = await computeMerge(env, base, baseRef, [repoParam], ref);
+ } catch {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const landing = merge.files.some((f) => f.result === "withheld-secret")
+  ? ({ status: "withheld-secret", files: merge.files.length } as const)
+  : merge.status === "conflict"
+   ? ({ status: "conflict", files: merge.conflicted.length } as const)
+   : merge.files.length === 0
+    ? ({ status: "landed", files: 0 } as const)
+    : ({ status: "ready", files: merge.files.length } as const);
+
+ return Response.json({
+  ok: true,
+  proposal: {
+   repo: repoParam,
+   number: repoParam,
+   title: changeSet.files.find((f) => f.intent)?.intent ?? "",
+   state: landing.status,
+   headRef: ref,
+   baseRef,
+   additions: changeSet.stats.additions,
+   deletions: changeSet.stats.deletions,
+   stats: changeSet.stats,
+   checks: [],
+   detail: {
+    body: changeSet.files.find((f) => f.intent)?.intent ?? "",
+    commits: changeSet.commits,
+    merge: { status: merge.status, conflicted: merge.conflicted },
+    files: merge.files,
+   },
+  },
+ });
+}
+
 // Route table (AD-8: single registration point; every route authorizes).
 // ---------------------------------------------------------------------------
 
@@ -1756,8 +2358,15 @@ export const ROUTES: RouteEntry[] = [
  { path: "/health", method: "GET", action: "read", handler: handleHealth },
  { path: "/changes", method: "GET", action: "read", handler: handleChanges },
  { path: "/proposals", method: "GET", action: "read", handler: handleProposals },
+ { path: "/floors", method: "GET", action: "read", handler: handleFloors },
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
+ // Merge-back-to-upstream (CAP-10): a fork's work routed to its
+ // recorded parent. Mutating route — authorize() + the CSRF gate
+ // precede the handler like every POST; the handler re-checks
+ // the AD-9 allowlist on the body-carried repo/base (the /land
+ // defense-in-depth precedent).
+ { path: "/upstream", method: "POST", action: "write", handler: handleUpstream },
  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
  // Reveal — secret-class value behind the explicit authorization rule.
  // The dispatcher runs authorize() (mode gate) + the CSRF gate first;
@@ -1772,6 +2381,11 @@ export const ROUTES: RouteEntry[] = [
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
  { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
+ // /proposals/{repo} — the proposal card + detail entity (AD-14 client
+ // protocol). Static `/proposals` (the set view) wins for the bare
+ // path; `/proposals/<repo>` falls to this prefix (static-before-
+ // dynamic, the dispatcher's exact-then-prefix order).
+ { prefix: "/proposals/", method: "GET", action: "read", handler: (request, env) => handleProposalDetail(request, env, new URL(request.url).pathname.slice("/proposals/".length)) },
 ];
 
 // UI document set (AD-8 boundary discipline): the wrangler-assets
@@ -1782,8 +2396,8 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 // not-found otherwise). Additive-only: a new UI file is added here
 // AND to the route-discipline parity check in the same commit.
 const UI_ASSET_PATHS: Record<string, true> = {
-  "/": true, "": true, "/index.html": true, "/styles.css": true,
-  "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+ "/": true, "": true, "/index.html": true, "/styles.css": true,
+ "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
 };
 
 export default {
@@ -1828,13 +2442,13 @@ export default {
    // handler-level 400/404/409 precedent (a malformed request is
    // rejected at the boundary without reaching the auth chokepoint).
    const knownPath =
-     ROUTES.some((r) => r.path === url.pathname) ||
-     DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
+    ROUTES.some((r) => r.path === url.pathname) ||
+    DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
    if (knownPath) {
-     return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
+    return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
    }
    if (UI_ASSET_PATHS[url.pathname]) {
-     return env.ASSETS.fetch(request);
+    return env.ASSETS.fetch(request);
    }
    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
   } catch (err) {
@@ -1851,14 +2465,18 @@ export default {
      // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
      let gen = "0";
      try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
-     const cacheKey = `cache:proposals:${gen}:demo:main:main:*`;
-     const result = await computeProposals(env, "demo", "main", "main", null);
+     const warmDefaults = resolveRouteBase({});
+     const warmBase = warmDefaults.base as string;
+     const warmBaseRef = warmDefaults.baseRef as string;
+     const warmRef = warmDefaults.ref as string;
+     const cacheKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:*`;
+     const subsetRepos = "agent-1,agent-2,agent-3,agent-4";
+     const result = await computeProposals(env, warmBase, warmBaseRef, warmRef, null);
      await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
      // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
      // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
-     // and would otherwise always miss.
+     const subsetKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:${subsetRepos}`;
      try {
-      const subsetKey = `cache:proposals:${gen}:demo:main:main:agent-1,agent-2,agent-3,agent-4`;
       await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
      } catch (e) {
       console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));

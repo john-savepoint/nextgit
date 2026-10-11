@@ -1,9 +1,24 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.0 (2026-10-11). Additive changes only; if you change a shape, bump this file first.
+Version: v3.1 (2026-10-11). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
-All endpoints JSON. Errors: `{ "ok": false, "error": "..." }` with 4xx/5xx.
+
+## Route defaults (AD-8 — single source)
+
+Every route that accepts `base`, `ref`, or `baseRef` (query or body) resolves an absent parameter through ONE code-owned seam (`resolveRouteBase` in `platform/src/index.ts`) — no route carries a private default:
+
+- `base` — default `demo`
+- `ref` — default `main`
+- `baseRef` — default **follows `ref`** (i.e. `main` when `ref` is also absent; `baseRef=X&ref=Y` keeps `X`)
+
+**Equivalence rule:** a request with `base`/`ref`/`baseRef` omitted resolves to exactly `base=demo, ref=main, baseRef=main` on **every** route — `/changes`, `/proposals`, `/merge` (GET, query params), `/land` (POST body), and `/judge` (`target.base` / `target.refs[0]`). Omitted == explicit. Pinned behaviorally by `porting/tests/default-resolution.test.mjs` (47 checks: per-route omission, negative control, `baseRef`-follows-`ref` coupling, seam single-source, GET empty-param 400).
+
+**Normalization rule:** the seam (`resolveRouteBase`) defaults only on *absence* (`undefined`). A present value — including the empty string `""` — passes through untouched to the caller's `REPO_NAME_RE`/`REF_RE` validation (an empty base/ref is a 400 on every route, not the default — pinned by `judge.test.mjs` case 5). The only caller that defaults an empty string is the `/land` POST body (truthy guard, pre-existing behavior). Non-string `ref`/`baseRef` values are rejected with a 400 by the caller's validation, never a 500.
+
+**The single documented exception:** `GET /changes` additionally requires `repo` (no default — absent `repo` -> `400 {ok:false,error:"repo parameter required"}`). All other params of `/changes` follow the defaults above.
+
+Routes with no default (unchanged, listed for completeness): `/reveal` requires `repo`, `ref`, `path`, `key`; `/land` requires `repos`; `/judge` requires `setId` and `target.repos`; `/events`, `/events/stream`, `/health`, `/landings/{commit}` take no base/ref params.
 
 ## GET /health
 
@@ -54,6 +69,44 @@ The set view + conflict map.
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 
 `kind` ∈ `text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed`
+
+## GET /floors
+
+The Floor / Project entity (AD-14 client protocol, entity 1): one floor per namespace repo, served from the same bounded `list()` discovery seam `/proposals` auto-discovery uses (`env.ARTIFACTS.list({limit:200})`). One bounded `list()` call, zero per-repo reads — `branch` is the list entry's `defaultBranch` (`ArtifactsRepoListResult.repos[]` carries it; no `info()` call), `cloning` is `status !== "ready"` (`importing`/`forking`).
+
+```json
+{ "ok": true, "floors": [ {"id","name","repo","branch","cloning","counts":{"workers","busy","waiting"}} ] }
+```
+
+- `id`/`name`/`repo` — the repo name (the floor's identity is its namespace repo).
+- `branch` — the repo's default branch, straight off the list entry.
+- `cloning` — `true` when the repo's `status` is not `ready`.
+- `counts.workers` — the discovered `agent-*` fleet size (the observable fleet).
+- `counts.busy` — always `0`; `counts.waiting` — the fleet size. Worker-lifecycle state is client-local (entity 2): the platform serves the observable fleet size, the client synthesizes busy/waiting. Split recorded in § Client protocol.
+- Demo-mode allowlist (AD-9): enforced at the `authorize()` chokepoint (the route carries no repo scope, so the mode gate alone applies).
+- Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
+
+## GET /proposals/{repo}
+
+The Pull / Proposal + detail entity (AD-14 client protocol, entities 5 + 6): the proposal card and its detail, served by driving the SAME compute seam `/changes` and `/merge` use — `computeChangeSet` (commits/stats/files/intent) + `computeMerge` (the merge simulation). The mergeable-class signal is served as `detail.merge.status`/`detail.merge.conflicted` — never as a field named `mergeable` (AD-14: adapter-synthesized GitHub semantics are never platform fields).
+
+```json
+{ "ok": true, "proposal": {
+  "repo","number","title","state","headRef","baseRef","additions","deletions","stats","checks",
+  "detail": {"body","commits":[{"hash","message","author","timestamp"}],"merge":{"status","conflicted"},"files":[]}
+}}
+```
+
+- `number` — the repo name (the proposal's identity in the demo namespace).
+- `title` — the intent text (git-notes of the head commit; `""` when absent).
+- `state` — the landing verdict from the fold, ∈ `ready | conflict | landed | withheld-secret` (the same vocabulary `/proposals`' `landing.status` publishes).
+- `headRef`/`baseRef` — the change-set refs (the resolved `ref`/`baseRef`, default `main`).
+- `additions`/`deletions`/`stats` — the change-set stats; `checks` — `[]` (checks are adapter-synthesized, AD-14).
+- `detail.body` — the intent text (the PR body analog); `detail.commits` — the pinned `/changes` commit shape (`hash, message, author, timestamp`), newest-first; `detail.merge` — the `/merge` simulation for this repo alone (`status` ∈ `clean|conflict`, `conflicted` — the conflicting paths); `detail.files` — the fold's file list.
+- No `comments`/`reviews` (adapter-synthesized or client-local).
+- `{repo}` is validated `REPO_NAME_RE` before any repo read (400 on charset-invalid names); a repo the namespace does not carry → `404 {ok:false,error:"not-found"}`.
+- Demo-mode allowlist (AD-9): `{repo}` must match the allowlist — enforced **in the handler** (the path-carried `{repo}` is the scope carrier, as with `/judge` and `/land`), before any repo read.
+- Rate limit (AD-9): shares the `/proposals` budget (one compute-cost class) — per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 
 ## Change-set semantics — fork point
 
@@ -111,6 +164,25 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - `artifactRef` — optional non-empty string (≤512 chars): the evidence-artifact reference.
   - Self-attested: the server verifies content identity (`testedSha` vs the fold that lands), not execution.
   - Shape violations → `400 {ok:false, error:"bad-request"}` (same bucket and precedence as `reviewed`). The reserved check name `merged-sha-equals-tested-sha` must not appear in `checks`.
+- Auto-land gate (AD-11 / FR-26) — **engaged** (the injection-testing spike
+  passed and the question set is contract-pinned:
+  `porting/calibration/judge-v1/calibration-record.json`). When engaged, the
+  gate consults the same pinned question set the cards render (`setId: "v1"`)
+  for the requested `repos` **before** any fold-derived work:
+  - `ESCALATE` — any judgment carries a ship-blocking signal (`risk.label =
+    senior-security`, a corroborated `intent.verdict = contradicts`, or
+    `collision = true`) => `409 {ok:false, error:"autoland-escalate", verdict,
+    setId, blocking[]}`. `blocking[]` carries code-owned reason codes
+    (`risk:senior-security:<repo>` / `intent:contradicts:<repo>` /
+    `collision:<repo>`), never model prose. Nothing is folded or pushed.
+  - `CONFIRM` / `ACT` — the land proceeds; the verdict rides the landing:
+    `evidence.autoLand = {setId, verdict, blocking[]}` (and the `200` body
+    carries the same `evidence`), served verbatim by `GET /landings/{commit}`.
+    Clients render the verdict; they never decide it.
+  - **Fail closed:** when the judge cannot answer (no `AI` binding, a thrown
+    run, a response off the pinned schema, a wrong model echo, or nothing to
+    ask) => `503 {ok:false, error:"judge-unavailable"}` — the same envelope as
+    `POST /judge`, nothing folded or pushed.
 - Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (the concurrent double-land loser path; a push rejected because the ref moved is reported as `base-moved` too). Nothing is pushed.
 - `200` carries `evidence` in addition to `landed` — the landing record (AD-3/FR-18); the returned `commit` is the evidence reference:
 
@@ -121,7 +193,8 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
                   "foldHash": "<sha256 hex>",
                   "checks": ["<check>", "..."], "results": ["<outcome>", "..."],
                   "mergedSha": "<sha256 hex>", "testedSha": "<sha256 hex> | null",
-                  "artifactRef": "<string> | null", "at": "<iso>" } }
+                  "artifactRef": "<string> | null", "at": "<iso>",
+                  "autoLand": { "setId": "v1", "verdict": "act" | "confirm" | "escalate", "blocking": ["<reason-code>", ...] } } }
   ```
 
   - `ancestor` maps each landed repo to the fork-point commit used as its 3-way ancestor; `heads` are the base and proposal heads the fold was computed against.
@@ -132,7 +205,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
-- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
+- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` (the auto-land gate) → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
 ## GET /landings/{commit}
@@ -315,7 +388,7 @@ Body:
 ```
 
 - `repo` — required; the fork repo whose work is routed upstream. Must match the AD-9 allowlist, else `403 {ok:false, error:"repo-not-allowed", detail}`.
-- `base` — optional; the upstream (the repo `repo` forked from); default `"demo"`. Must equal the **recorded** upstream for `repo` — a fork can never merge into a repo it is not a fork of (`base` ≠ recorded upstream → `409 {ok:false, error:"conflict", detail}`); unknown lineage → fail closed (`409 {ok:false, error:"conflict", detail}`).
+- `base` — optional; the upstream (the repo `repo` forked from); default `"demo"`. Lineage is recorded per fork by the provisioning seam (`fork:<name>` → `{repo, forkPoint}` in the CACHE KV namespace — the same record `GET /forks` serves as `upstream`). Two distinct cases: no recorded lineage → `400 {ok:false, error:"no-lineage"}` (the caller forked outside the provisioning seam — a client-state error); a recorded lineage whose `repo` differs from `base` → `409 {ok:false, error:"conflict", detail}` (a fork can never merge into a repo it is not a fork of).
 - `reviewed` — the same optional reviewed-state precondition as `POST /land` (AD-3): `{baseHead, heads}`; same precedence (`400` shape → `409 stale`).
 - Closed schema (AD-9): unknown body fields → `400 {ok:false, error:"bad-request"}`.
 - Fold/merge semantics, the content-identity `foldHash`, and the validation ledger are identical to `POST /land` (diff3 fold, in order, server-side push over the v1 wire protocol).
@@ -370,8 +443,6 @@ data: { "type": "repo.pushed", "repo": "agent-1", "ref": "main", "after": "<40-h
 
 **Errors**: HTTP 200 for the stream. A hub dispatch error that precedes any SSE frame written is `503 { ok: false, error: "events-unavailable" }`.
 
-**Additive only** — no existing route shape changes.
-
 ## UI
 
 `GET /` serves the triage UI (`platform/ui/` via wrangler assets). API routes fall through to the worker.
@@ -382,12 +453,12 @@ The 11-entity protocol + the contract-pinned push-event surface below is THE cli
 
 ### Entities (interface-contract.md order)
 
-1. **Floor / Project** — `id, name, repo, branch, cloning, counts (workers/busy/waiting)` — **Served by the platform (partial)**: namespace repos, branch, proposal counts render from `GET /proposals` (`base`, `proposals[].repo`, `summary`); `cloning`/worker counts client-local until `e11-impl-entity-surface-boundary` lands its route.
+1. **Floor / Project** — `id, name, repo, branch, cloning, counts (workers/busy/waiting)` — **Served by the platform**: `GET /floors` — one floor per namespace repo; `branch` from the list entry's `defaultBranch`, `cloning` = `status !== "ready"`; `counts.workers` = the discovered `agent-*` fleet size, `busy` = 0 / `waiting` = the fleet size (worker-lifecycle state is client-local, entity 2 — the platform serves the observable fleet size, the client synthesizes busy/waiting).
 2. **Worker** — `id, name, provider/model/effort, desk, status, worktree{branch,path,base}, pr, task, activity, usage` — **Client-local** (Agent Office owns worker state; harness dispatch is control-plane, AD-7; no server-side shape invented).
 3. **Task / Queue** — `id, provider/model/effort, issue, title, prompt, status, workerId, branch, outcome, pr` — **Client-local** (task store = bd/beads at `.beads/`, outside the platform API).
 4. **Issue** — `number, title, state, author, labels, assignees, taken?, body` — **Client-local** (GitHub-owned; no platform issue API yet — roadmap).
-5. **Pull / Proposal** — `number, title, state, draft, reviewDecision, headRef, baseRef, checks, additions/deletions, closes[]` — **Served by the platform (partial)**: title/state/stats/checks from `GET /proposals` (`proposals[]`: `repo, head, intent?, stats, landing, files[]`); `reviewDecision`/`draft`/`closes[]` are adapter-synthesized GitHub semantics (AD-14) derived from `landing.status` + `stats`.
-6. **PR / Proposal detail** — `body, mergeable, mergeStateStatus, commits, comments, reviews, checks` — **Served by the platform (partial)**: `commits` from `GET /changes` (`commits[]`: `hash, message, author, timestamp`); merge simulation from `GET /merge` (`status`, `files[]`, `conflicted[]`); `body/comments/reviews` adapter-synthesized or client-local.
+5. **Pull / Proposal** — `number, title, state, draft, reviewDecision, headRef, baseRef, checks, additions/deletions, closes[]` — **Served by the platform**: `GET /proposals/{repo}` — the card (`repo, number, title, state, headRef, baseRef, additions, deletions, stats, checks`) plus its detail; `title` = the intent text, `state` = the landing verdict (∈ `ready | conflict | landed | withheld-secret`); `draft`/`reviewDecision`/`closes[]` are adapter-synthesized GitHub semantics (AD-14) derived from `state` + `stats` — never platform fields.
+6. **PR / Proposal detail** — `body, mergeable, mergeStateStatus, commits, comments, reviews, checks` — **Served by the platform**: `GET /proposals/{repo}`'s `detail` — `body` = the intent text; `commits` from the change-set (`commits[]`: `hash, message, author, timestamp`); the merge simulation as `detail.merge` (`status` ∈ `clean|conflict`, `conflicted[]`) — served as merge.status/conflicted, never as a field named `mergeable`; `mergeStateStatus` is adapter-synthesized (AD-14); `comments`/`reviews` adapter-synthesized or client-local.
 7. **Presence / Peer** — `id, name, position, voice, sharing, doing, floor` — **Client-local** (peer presence is a client overlay; the platform's peer surface is the `peer.*` event family below).
 8. **Whiteboard** — `strokes + cursors per floor` — **Client-local** (per-floor whiteboard state; not persisted by the platform).
 9. **Services** — `worker, branch, page title, local port` — **Client-local** (per-worker preview services; no platform route).
@@ -495,12 +566,14 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the seven bound routes in the table below (`/land`, `/merge`, `/proposals`, `/judge`, `/forks`, `/intents`, `/upstream`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited).
+Edge rate limits cover the nine bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
 | `GET /merge` | 60 | 60 s |
 | `GET /proposals` | 60 | 60 s |
+| `GET /floors` | 60 | 60 s |
+| `GET /proposals/{repo}` | 60 | 60 s (shares the `/proposals` budget — one compute-cost class) |
 | `POST /judge` | 30 | 60 s |
 | `GET /forks` | 60 | 60 s |
 | `POST /intents` | 30 | 60 s |

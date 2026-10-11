@@ -259,7 +259,12 @@ function envFor({ artifacts } = {}) {
     LIVE: fakeKV(),
     CACHE: fakeKV(),
     ASSETS: { fetch: async () => new Response("") },
-    AI: { run: async () => null },
+    // Faithful Clef reply for the no-intent plan [risk_1, content_secret_1]
+    // (the fixture's agent-x registers no intent, so intent_1/overclaim_1 are
+    // absent from the plan; collision_1 only exists for >=2 repos). A valid
+    // ACT reply lets the auto-land gate pass so the land reaches the push
+    // against the unreachable fake remote -> the pinned 500 push-failed.
+    AI: { run: async () => ({ model: "clef", answers: { risk_1: { type: "score", score: 0.4 }, content_secret_1: { type: "noul", noul: 0.0 } }, usage: { neurons: 1 } }) },
     AUTH_MODE: "demo",
   };
 }

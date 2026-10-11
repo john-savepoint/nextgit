@@ -137,7 +137,11 @@ function makeEnvironment() {
   fake.defineRepo("agent-1", { history: [fake.commit(C_A1, tA1), fake.commit(C_FORK, tFork), fake.commit(C_BASE, tBase)], refs: { main: C_A1 } });
   fake.defineRepo("agent-done", { history: [fake.commit(C_DONE, tDone), fake.commit(C_FORK, tFork), fake.commit(C_BASE, tBase)], refs: { main: C_DONE } });
 
-  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, CACHE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { run: async () => null }, AUTH_MODE: "demo" };
+  // AD-11: the engaged auto-land gate answers every POST /land through the
+  // pinned model before the fold — a null AI would fail closed 503 and the
+  // /land legs below would never reach their pinned statuses. Schema-valid
+  // Clef reply for the no-intent plan [risk_1, content_secret_1].
+  const env = { ARTIFACTS: fake.ARTIFACTS, LIVE: {}, CACHE: {}, ASSETS: { fetch: async () => new Response("") }, AI: { async run() { return { model: "clef", answers: { risk_1: { type: "score", score: 0.4 }, content_secret_1: { type: "noul", noul: 0.0 } }, usage: { neurons: 1 } }; } }, AUTH_MODE: "demo" };
   return { fake, env };
 }
 

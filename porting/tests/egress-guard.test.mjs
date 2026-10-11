@@ -115,7 +115,14 @@ const makeFakeKV = () => {
 
 function envFor() {
   // AUTH_MODE:"demo" — auth.ts chokepoint is default-deny; demo opt-in (see judge.test.mjs).
-  return { ARTIFACTS, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: { async run() { return { model: "clef", answers: [], usage: { neurons: 1 } }; } }, AUTH_MODE: "demo" };
+  // Faithful Clef reply for the no-intent plan [risk_1, content_secret_1]
+  // (the fixture's agent-canary registers no intent, so intent_1/overclaim_1
+  // are absent from the plan; collision_1 only exists for >=2 repos).
+  // A valid ACT reply lets the auto-land gate pass so the land reaches
+  // the fold -> push against the unreachable fake remote, exercising the
+  // real 500 push-failed path (the egress assertions below then run on
+  // the genuine failure body instead of passing vacuously on a 503).
+  return { ARTIFACTS, LIVE: makeFakeKV(), CACHE: makeFakeKV(), ASSETS: { fetch: async () => new Response("") }, AI: { async run() { return { model: "clef", answers: { risk_1: { type: "score", score: 0.4 }, content_secret_1: { type: "noul", noul: 0.0 } }, usage: { neurons: 1 } }; } }, AUTH_MODE: "demo" };
 }
 
 // ---------------------------------------------------------------------------
