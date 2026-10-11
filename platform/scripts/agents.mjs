@@ -180,12 +180,11 @@ export function listFlags(): Flag[] {
   return [...flags.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 `;
-      // A realistic env file so the schema-only view can render key names. Values
-      // are fake placeholders; the masking law keeps them out of every response.
-      files["config/.env"] =
-        "DATABASE_URL=postgres://demo:FAKE-SECRET-DO-NOT-USE@db.internal:5432/app\n" +
-        "REDIS_URL=redis://cache.internal:6379\n";
-      return { written: ["src/feature.ts", "config/.env"], deleted: [] };
+      // agent-4 is the tour's "clean & ready to ship" proposal: a single
+      // isolated file (src/feature.ts) that collides with no other agent.
+      // A config/.env here would add/add-collide with agent-5's secret
+      // fixture and break the 2-conflict / 2-clean grid the tour teaches.
+      return { written: ["src/feature.ts"], deleted: [] };
     },
   },
 ];
