@@ -178,11 +178,16 @@ export async function runFleet({
     // directly — main stays untouched until the transactional wave battery (wf-integrate) is
     // green. Wave-8 launches with integrate:false; the orchestrator pins each lane tip
     // (refs/lane/…) and runs wf-integrate open/merge/battery/finalize.
+    // Deferred mode bypasses the merge gate below, so surface the dirty-main fingerprint here:
+    // lane agents' cwd is main — relative-path writes escape into it and must be reconciled
+    // before wf-integrate finalizes.
+    const dirtyFiles = mainDirty ? mainDirty.split("\n").map((l) => l.slice(3).split(" -> ")[0]).slice(0, 12) : [];
+    if (dirtyFiles.length) console.error(`fleet: main tree dirty at wave end — possible lane-write leaks (${dirtyFiles.length} shown): ${dirtyFiles.join(", ")}`);
     for (const r of runs) {
       integration.push({
         id: r.id,
         state: "deferred — O1 transactional integration (integrate:false)",
-        detail: `pin ${fleetRoot}/${r.id} main → refs/lane/<name>; then wf-integrate open/merge/battery/finalize`,
+        detail: `pin ${fleetRoot}/${r.id} main → refs/lane/<name>; then wf-integrate open/merge/battery/finalize${dirtyFiles.length ? `; main-dirty fingerprint: ${dirtyFiles.length} path(s)` : ""}`,
       });
     }
   } else if (spawnCapExceeded) {

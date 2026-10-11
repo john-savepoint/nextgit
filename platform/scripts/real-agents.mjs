@@ -33,12 +33,12 @@ const only = (() => {
 })();
 
 const baseline = /^\d+$/.test(process.argv[3] ?? "") ? process.argv[2] ?? "demo" : "demo";
-// `--check-harness <registry-file>` is a validate-and-exit mode (handler below,
-// before loadRegistry): argv[3] is a FILE path there, never a ttl — skip
-// resolveTtl so the validation path cannot trip the FR-36 ttl policy. Every
-// ttl-bearing runtime call still goes through resolveTtl (default 86400,
-// ceiling 604800).
-const ttl = process.argv.includes("--check-harness") ? null : resolveTtl(process.argv[3]);
+// ttlSeconds is the optional positional arg right after [baseline]. Only consume
+// argv[3] when it is actually numeric (`[baseline] [ttlSeconds] [--only …]`):
+// `--check-harness <file>` and `[baseline] --only <set>` forms land non-numeric
+// values in that slot and must not trip resolveTtl. Every ttl-bearing run still
+// validates through resolveTtl (default 86400, ceiling 604800 — FR-36).
+const ttl = /^\d+$/.test(process.argv[3] ?? "") ? resolveTtl(process.argv[3]) : resolveTtl(undefined);
 const AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS) || 8 * 60_000;
 // An agent killed mid-flight leaves its clone with real work but no commit.
 // The clone is kept so a retry can collect it, and on the first full run
