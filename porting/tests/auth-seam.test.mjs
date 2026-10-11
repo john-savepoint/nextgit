@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 9 entries", ROUTES.length === 9, `got ${ROUTES?.length}`);
+check("C: ROUTES has 10 entries (incl. GET /whoami)", ROUTES.length === 10, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -281,18 +281,18 @@ const DENY403 = (r, name) =>
 // the real dispatcher; denyEnv proves the boundary fires pre-auth.
 // ---------------------------------------------------------------------------
 {
-  // Wrong method: POST on the GET /health route -> 405 method-not-allowed.
-  // (Explicit POST init: the post() helper defaults to GET when body is null.)
-  const r = await post(denyEnv, "/health", {});
-  check("C: POST /health (wrong method) → 405 method-not-allowed",
-   r.status === 405 && r.body?.ok === false && r.body?.error === "method-not-allowed",
-   `got ${r.status} ${J(r.body)}`);
+ // Wrong method: POST on the GET /health route -> 405 method-not-allowed.
+ // (Explicit POST init: the post() helper defaults to GET when body is null.)
+ const r = await post(denyEnv, "/health", {});
+ check("C: POST /health (wrong method) → 405 method-not-allowed",
+  r.status === 405 && r.body?.ok === false && r.body?.error === "method-not-allowed",
+  `got ${r.status} ${J(r.body)}`);
 
-  // Unknown path -> 404 not-found.
-  const u = await get(denyEnv, "/no-such-route");
-  check("C: GET /no-such-route (unknown path) → 404 not-found",
-   u.status === 404 && u.body?.ok === false && u.body?.error === "not-found",
-   `got ${u.status} ${J(u.body)}`);
+ // Unknown path -> 404 not-found.
+ const u = await get(denyEnv, "/no-such-route");
+ check("C: GET /no-such-route (unknown path) → 404 not-found",
+  u.status === 404 && u.body?.ok === false && u.body?.error === "not-found",
+  `got ${u.status} ${J(u.body)}`);
 }
 
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);

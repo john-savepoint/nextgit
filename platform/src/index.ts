@@ -1800,8 +1800,8 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 // not-found otherwise). Additive-only: a new UI file is added here
 // AND to the route-discipline parity check in the same commit.
 const UI_ASSET_PATHS: Record<string, true> = {
-  "/": true, "": true, "/index.html": true, "/styles.css": true,
-  "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+ "/": true, "": true, "/index.html": true, "/styles.css": true,
+ "/app.js": true, "/reveal-decision.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
 };
 
 export default {
@@ -1846,13 +1846,13 @@ export default {
    // handler-level 400/404/409 precedent (a malformed request is
    // rejected at the boundary without reaching the auth chokepoint).
    const knownPath =
-     ROUTES.some((r) => r.path === url.pathname) ||
-     DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
+    ROUTES.some((r) => r.path === url.pathname) ||
+    DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
    if (knownPath) {
-     return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
+    return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
    }
    if (UI_ASSET_PATHS[url.pathname]) {
-     return env.ASSETS.fetch(request);
+    return env.ASSETS.fetch(request);
    }
    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
   } catch (err) {
