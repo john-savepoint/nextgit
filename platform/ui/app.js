@@ -1,5 +1,6 @@
 // nextgit — convergence triage UI (vanilla ES module)
 // Adheres strictly to platform/CONTRACT.md
+import { decideSecretSurface } from "./reveal-decision.js";
 
 /**
  * State container
@@ -28,6 +29,7 @@ const state = {
  streamTimer: null,      // reconnect backoff timer for the SSE stream
  streamBackoffMs: 1000,  // SSE reconnect backoff, doubles to a 30s cap
  streamSeenKeys: new Set(), // SSE `id:` dedup keys seen this page
+ revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
 };
 
 // UI Selectors
@@ -202,6 +204,19 @@ async function loadProposals() {
   state.lastError = err.message || "Failed to fetch /proposals";
   renderConnectionState();
  }
+}
+
+/**
+ * Elevated-reveal capability probe — run once at boot. Reads the
+ * viewer's OWN reveal capability from GET /whoami (the same decision
+ * POST /reveal makes). Fail-open to the DEFAULT posture (reveal:false)
+ * on any error — an unreachable /whoami must never surface an affordance.
+ */
+async function loadRevealCapability() {
+ try {
+  const data = await fetchJson("/whoami");
+  state.revealCapability = { authorized: Boolean(data?.authorized), reveal: Boolean(data?.reveal) };
+ } catch { state.revealCapability = { authorized: false, reveal: false }; }
 }
 
 /**
@@ -907,16 +922,22 @@ async function handleViewDiff(repo, path) {
 
   if (targetFile.secret) {
    const keys = (targetFile.keys || []).map((k) => `<span class="secret-key-tag">${escapeHtml(k)}</span>`).join(" ");
+   const decision = decideSecretSurface({ reveal: state.revealCapability.reveal });
+   const control = decision.showControl
+    ? `<button class="btn-reveal" type="button" data-reveal-repo="${escapeHtml(repo)}" data-reveal-path="${escapeHtml(path)}" data-reveal-keys="${escapeHtml((targetFile.keys || []).join(","))}">reveal</button>`
+    : "";
    openModal(
     `${repo} — ${path}`,
     "secret-typed",
     "badge-secret",
     `
           <div class="empty-state">
-            <div class="empty-state-title">Secret content withheld</div>
+            <div class="empty-state-title">${escapeHtml(decision.noticeHtml ?? "Secret content withheld")}</div>
             <div class="empty-state-desc">Per platform contract, secret file contents and diffs are never exposed.</div>
             ${keys ? `<div style="margin-top: 1rem;">Keys referenced: ${keys}</div>` : ""}
+            ${control ? `<div style="margin-top: 1rem;">${control}</div>` : ""}
           </div>
+          <div class="reveal-value" id="reveal-value" hidden></div>
         `
    );
    return;
@@ -1172,6 +1193,35 @@ async function handleLandProposal(repo) {
 /**
  * Event delegation for proposals grid (view diff, preview merge, and landing)
  */
+/**
+ * Elevated-reveal click: read the value through the audited
+ * POST /reveal seam. The value is rendered ONLY from the 200
+ * response body (escaped); a denied/errored click renders the
+ * withheld notice with no value. The affordance is never a
+ * capability — the server re-runs the reveal rule on every click.
+ */
+async function revealSecret(repo, path, keysCsv) {
+ const valueSlot = document.getElementById("reveal-value");
+ const key = keysCsv.split(",")[0];
+ try {
+  const data = await fetchJson("/reveal", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ repo, ref: "main", path, key }) });
+  if (data?.ok && typeof data.value === "string") {
+   if (valueSlot) { valueSlot.hidden = false; valueSlot.innerHTML = `<div class="reveal-value-line">${escapeHtml(key)} = ${escapeHtml(data.value)}</div>`; }
+   return;
+  }
+  const decision = decideSecretSurface({ reveal: true, revealDenied: data?.error === "reveal-not-authorized", revealFailed: data?.error !== "reveal-not-authorized" });
+  if (valueSlot) { valueSlot.hidden = false; valueSlot.innerHTML = `<div class="empty-state-title">${escapeHtml(decision.noticeHtml ?? "Secret content withheld")}</div>`; }
+ } catch (err) {
+ // fetchJson throws on !res.ok but attaches the parsed body
+ // as err.response — so a 403 reveal-not-authorized maps to
+ // the DENIED cell (not the error cell); any other failure
+ // (network/5xx) maps to the ERROR cell. Both render the
+ // withheld notice with no value.
+ const denied = err?.response?.error === "reveal-not-authorized";
+ const decision = decideSecretSurface({ reveal: true, revealDenied: denied, revealFailed: !denied });
+ if (valueSlot) { valueSlot.hidden = false; valueSlot.innerHTML = `<div class="empty-state-title">${escapeHtml(decision.noticeHtml ?? "Secret content withheld")}</div>`; }
+}}
+
 function setupInteractions() {
  if (el.proposalsGrid) {
   el.proposalsGrid.addEventListener("click", (e) => {
@@ -1215,6 +1265,19 @@ function setupInteractions() {
  }
  if (el.inspectorModal) {
   el.inspectorModal.addEventListener("click", (e) => {
+   // Elevated-reveal affordance: the control lives in the modal
+   // body (#modal-body), not in the proposals grid, so the
+   // delegation is attached here. The affordance is never a
+   // capability — revealSecret re-runs POST /reveal, which
+   // re-runs the server-side reveal rule on every click.
+   const revealBtn = e.target.closest("[data-reveal-repo]");
+   if (revealBtn) {
+    const repo = revealBtn.getAttribute("data-reveal-repo");
+    const path = revealBtn.getAttribute("data-reveal-path");
+    const keys = revealBtn.getAttribute("data-reveal-keys") || "";
+    if (repo && path) revealSecret(repo, path, keys);
+    return;
+   }
    if (e.target === el.inspectorModal) closeModal();
   });
  }
@@ -1304,6 +1367,7 @@ function init() {
  // them the moment the stream opens, so a healthy stream polls
  // zero times.
  startPollers();
+ loadRevealCapability();
  loadProposals();
  loadEvents();
 }

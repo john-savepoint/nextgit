@@ -183,6 +183,7 @@ const json = (res, body, code = 200) => { res.writeHead(code, { "content-type": 
 
 const server = createServer((req, res) => {
   const { pathname } = new URL(req.url, "http://127.0.0.1");
+  if (pathname === "/whoami") return json(res, { ok: true, authorized: false, reveal: false });
   if (pathname === "/proposals") return json(res, PROPOSALS);
   if (pathname === "/events") return json(res, EVENTS);
   if (pathname === "/judge") return json(res, JUDGE);
