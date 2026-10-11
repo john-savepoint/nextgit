@@ -222,7 +222,8 @@ try {
  const a = await land({ base: BASE_REPO, repos: [PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: H0, heads: { [PROPOSAL_REPO]: C1 } } });
  const ev = a.json?.evidence ?? {};
  check("(a) 200 ok", a.status === 200 && a.json?.ok === true);
- check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash", "checks", "results", "mergedSha", "testedSha", "artifactRef", "at", "lease"]), JSON.stringify(Object.keys(ev)));
+ // autoLand rides the engaged AD-11 gate (CONTRACT v3.1): absent only when AUTO_LAND_ENGAGED=false.
+ check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash", "checks", "results", "mergedSha", "testedSha", "artifactRef", "at", "lease", "autoLand"]), JSON.stringify(Object.keys(ev)));
  check("(a) evidence.repos", JSON.stringify(ev.repos) === JSON.stringify([PROPOSAL_REPO]));
  check("(a) evidence.commit === landed.commit", !!ev.commit && ev.commit === a.json?.landed?.commit);
  check("(a) ancestor = fork point H0", ev.ancestor?.[PROPOSAL_REPO] === H0, JSON.stringify(ev.ancestor));

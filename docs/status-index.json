@@ -1,27 +1,22 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-11T04:50:35.149Z",
-  "head": "b43dedf",
+  "generatedAt": "2026-10-11T20:29:25.389Z",
+  "head": "83aace9",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-11 ",
     "branch": "main",
-    "lastCommit": "b43dedf",
+    "lastCommit": "83aace9",
     "standingRedSet": null
   },
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 461,
+      "pending": 454,
       "partial": 1,
-      "done": 199
+      "done": 206
     },
     "items": [
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Auto-land gate live"
-      },
       {
         "status": "pending",
         "priority": "P2",
@@ -2274,31 +2269,6 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Render the CAP-8 elevated-reveal beat with the withheld fallback"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Resolve base/ref/baseRef defaults in one place and pin them in CONTRACT"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Serve the platform-backed client protocol entities with platform-native fields"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify unknown API paths return JSON 404, never the asset handler"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify wrong-method requests are answered by the API routes with a JSON error"
-      },
-      {
-        "status": "pending",
         "priority": "P2",
         "title": "Keep clone, change-set, and fork-point reads unchanged for asset pointers"
       },
@@ -2316,11 +2286,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Route a fork's work back to its upstream with lineage and evidence"
       },
       {
         "status": "pending",
