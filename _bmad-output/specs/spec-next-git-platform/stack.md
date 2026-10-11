@@ -36,6 +36,6 @@ Windows / GPU / macOS workloads (game builds, console toolchains) cannot run on 
 ## Live build state (spike, 2026-10-03)
 
 - namespace `nextgit`: repos `demo` (baseline) + `agent-1..4` (forks, scoped write tokens).
-- queue `nextgit-events` + subscription `nextgit-repo-events` (repo.pushed, repo.forked, repo.created).
+- queue `nextgit-events` + subscription `nextgit-repo-events` (repo.pushed, repo.forked, repo.created, token.created, token.revoked). Token events arrive as `cf.artifacts.token.*` (the live open-beta envelope; normalized `token.*`); the documented `cf.artifacts.repo.token.*` (`repo.token.*`) form is also accepted by the consumer whitelist.
 - worker `nextgit-events` (in `platform/`) consuming the queue.
 - `platform/scripts/fanout.mjs` — provisions N agent forks + tokens in one command.

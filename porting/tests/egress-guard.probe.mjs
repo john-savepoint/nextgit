@@ -178,9 +178,9 @@ try {
   const landingsBad = await getRaw("/landings/not-a-sha");
   scan("/landings/not-a-sha (400 bad-request)", landingsBad.status, landingsBad.text);
 
-  // unknown route -> 404/200 (ASSETS fallback)
+  // unknown route -> 404 JSON (contract boundary, not the asset layer)
   const unknownRoute = await getRaw("/nonexistent-route-404");
-  scan("/nonexistent-route-404 (404/200 ASSETS)", unknownRoute.status, unknownRoute.text);
+  scan("/nonexistent-route-404 (404 JSON)", unknownRoute.status, unknownRoute.text);
 
   const events = await getRaw("/events");
   scan("/events (200 success)", events.status, events.text);

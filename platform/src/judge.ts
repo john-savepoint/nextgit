@@ -3,8 +3,8 @@
 // This module is response-free and env-free: it turns the change-sets the
 // route judged into a typed model request (state + questions + the answer plan
 // the model must return) and validates the model's answers back into the
-// pinned judgment shape. The route in index.ts owns binding access, the
-// per-caller rate cap, logging, and responses.
+// pinned judgment shape. The route in index.ts owns binding access, logging,
+// and responses; the per-caller rate cap is the shared limiter (./rate).
 //
 // Trust law (AD-4): everything that came out of a repository is untrusted
 // data. Free text (intent, patches) is scrubbed, instruction-like lines are
@@ -12,6 +12,8 @@
 // under a code-owned note. Secret-class files contribute key names only —
 // never values, never patches. No content-based secret detection exists here;
 // widening the class list or the scrub is a CONTRACT change.
+
+import { ROUTE_RATE_LIMITS, rateAllow } from "./rate";
 
 export const JUDGE_SET_ID = "v1";
 export const PINNED_MODEL_ID = "@cf/cloudflare/clef";
@@ -22,10 +24,20 @@ export const MODEL_SELECTOR = "clef";
 export const MODEL_ECHOES = new Set(["clef", "@cf/cloudflare/clef"]);
 
 export const RISK_ROUTINE_MAX = 0.75; // score < 0.75  => "routine"
-export const RISK_FOCUSED_MAX = 1.75; // score < 1.75  => "focused"; else "senior-security"
+export const RISK_FOCUSED_MAX = 1.77; // score < 1.77  => "focused"; else "senior-security"
 export const COLLISION_MIN = 0.5; // noul > 0.5    => collision true
-export const JUDGE_RATE_LIMIT = 30; // requests per caller...
-export const JUDGE_RATE_WINDOW_MS = 60_000; // ...per minute (AD-11 per-caller cap; makes 429 reachable)
+// Intent/overclaim cutoffs (calibration nextgit-e5): the model's
+// own per-choice probabilities and the overclaim noul corroborate
+// (or fail to corroborate) a `contradicts` verdict. A contradicts
+// answer counts as ship-blocking ONLY when both clear these
+// cutoffs; otherwise the verdict is code-derived to `insufficient`.
+// Cutoffs fire only when the model supplied the probabilities —
+// absent probabilities pass the raw choice through unchanged.
+export const INTENT_CONTRADICTS_MIN = 0.5; // probabilities.contradicts >= 0.5
+export const INTENT_INSUFFICIENT_MAX = 0.5; // pS and pC both < 0.5 => insufficient
+export const OVERCLAIM_CONTRADICTS_MIN = 0.74; // overclaim noul >= 0.74
+export const JUDGE_RATE_LIMIT = ROUTE_RATE_LIMITS["/judge"].limit; // requests per caller...
+export const JUDGE_RATE_WINDOW_MS = ROUTE_RATE_LIMITS["/judge"].windowMs; // ...per minute (AD-11 per-caller cap; makes 429 reachable)
 export const MAX_JUDGE_STATE_CHARS = 60_000;
 export const MAX_JUDGE_PATCH_CHARS = 50_000;
 export const MAX_JUDGE_FILES_PER_REPO = 40;
@@ -451,6 +463,27 @@ export function validateJudgeResponse(raw: unknown, plan: JudgePlanEntry[]): Jud
     return { ok: false, reason: "answers" };
    }
    judgment.intent.verdict = answer.choice;
+   // Code-owned intent derivation (calibration nextgit-e5):
+   // the model's per-choice probabilities corroborate (or
+   // fail to corroborate) its own choice. A `contradicts`
+   // answer only stands when the model put >=
+   // INTENT_CONTRADICTS_MIN probability on it; when both
+   // `supports` and `contradicts` sit below their cutoffs
+   // the verdict is code-derived to `insufficient`. Fires
+   // only when the model supplied probabilities — absent
+   // probabilities pass the raw choice through unchanged.
+   if ("probabilities" in answer && isPlainObject(answer.probabilities)) {
+    const probs = answer.probabilities as Record<string, unknown>;
+    const pSupports = typeof probs.supports === "number" ? probs.supports : null;
+    const pContradicts = typeof probs.contradicts === "number" ? probs.contradicts : null;
+    const belowContradicts = pContradicts !== null && pContradicts < INTENT_CONTRADICTS_MIN;
+    const belowSupports = pSupports !== null && pSupports < INTENT_INSUFFICIENT_MAX;
+    if (judgment.intent.verdict === "contradicts" && belowContradicts) {
+     judgment.intent.verdict = "insufficient";
+    } else if (belowSupports && belowContradicts) {
+     judgment.intent.verdict = "insufficient";
+    }
+   }
    continue;
   }
 
@@ -470,6 +503,16 @@ export function validateJudgeResponse(raw: unknown, plan: JudgePlanEntry[]): Jud
   if (ordered.length && ordered[ordered.length - 1].repo === entry.repo) continue;
   const judgment = judgments.get(entry.repo)!;
   const value = overclaims.get(entry.repo);
+  // Overclaim corroboration (calibration nextgit-e5): a
+  // `contradicts` verdict is ship-blocking only when the
+  // overclaim noul clears OVERCLAIM_CONTRADICTS_MIN — the
+  // corroborating signal that the intent promises something
+  // the change-set does not deliver. Below the floor the
+  // verdict is code-derived to `insufficient`. Applies only
+  // when the model supplied the overclaim noul.
+  if (judgment.intent.verdict === "contradicts" && value !== undefined && value < OVERCLAIM_CONTRADICTS_MIN) {
+   judgment.intent.verdict = "insufficient";
+  }
   judgment.intent.overclaim = judgment.intent.verdict === "insufficient" || value === undefined ? null : value;
   ordered.push(judgment);
  }
@@ -478,24 +521,10 @@ export function validateJudgeResponse(raw: unknown, plan: JudgePlanEntry[]): Jud
 }
 
 // ---------------------------------------------------------------------------
-// Per-caller rate cap (in-isolate fixed window).
+// Per-caller rate cap (shared in-isolate fixed window, ./rate).
 // ---------------------------------------------------------------------------
-
-const judgeWindows = new Map<string, { start: number; count: number }>();
 
 /** True when the caller may judge now; false when over JUDGE_RATE_LIMIT/min. */
 export function judgeRateAllow(key: string, now = Date.now()): boolean {
- if (judgeWindows.size > 500) {
-  for (const [k, w] of judgeWindows) {
-   if (now - w.start >= JUDGE_RATE_WINDOW_MS) judgeWindows.delete(k);
-  }
- }
- const window = judgeWindows.get(key);
- if (!window || now - window.start >= JUDGE_RATE_WINDOW_MS) {
-  judgeWindows.set(key, { start: now, count: 1 });
-  return true;
- }
- if (window.count >= JUDGE_RATE_LIMIT) return false;
- window.count++;
- return true;
+ return rateAllow("/judge", key, now);
 }

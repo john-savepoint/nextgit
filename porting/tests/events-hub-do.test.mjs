@@ -310,6 +310,74 @@ try {
   check("12 B1: POST subscribe dispatches", false, String(e?.stack ?? e));
 }
 
+// ---------------------------------------------------------------------------
+// 13. FR-36 parity: token events pass DO validation and fan out.
+//     The DO-side whitelist must mirror index.ts VALID_EVENT_TYPES
+//     (the hub re-validates every publish at fetch()). The live
+//     open-beta envelope cf.artifacts.token.* and the documented
+//     cf.artifacts.repo.token.* form (plus normalized twins) must all
+//     return 204, persist normalized to the ring, and emit an
+//     `event:` frame; an unknown token-ish type must still 400.
+// ---------------------------------------------------------------------------
+for (const [label, rawType] of [
+  ["live envelope", "cf.artifacts.token.created"],
+  ["documented envelope", "cf.artifacts.repo.token.created"],
+  ["normalized live", "token.created"],
+  ["normalized documented", "repo.token.created"],
+]) {
+  try {
+    const state = fakeState();
+    const dobj = new EventsHubDO(state, {});
+    const streamRes = await dobj.fetch(new Request("https://internal/events/stream", { method: "GET" }));
+    const reader = streamRes.body.getReader();
+    await reader.read(); // consume the `: connected` comment
+    reader.releaseLock();
+
+    const event = { type: rawType, repo: "demo", at: "2026-10-11T00:00:00Z" };
+    const res = await dobj.fetch(new Request("https://internal/events/hub", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ method: "publish", event }),
+    }));
+    check(`13 FR-36: ${label} publish returns 204`, res.status === 204, `status=${res.status} type=${rawType}`);
+
+    const ring = JSON.parse(state._store.get("ring"));
+    const normType = rawType.replace(/^cf\.artifacts\./, "");
+    check(`13 FR-36: ${label} normalized in ring`, ring[0].type === normType, `type=${ring?.[0]?.type}`);
+
+    const reader2 = streamRes.body.getReader();
+    const decoder = new TextDecoder();
+    let framed = false;
+    for (let i = 0; i < 5 && !framed; i++) {
+      const { value } = await reader2.read();
+      if (value && decoder.decode(value).includes(`event: ${normType}`)) framed = true;
+    }
+    check(`13 FR-36: ${label} fanned out as SSE frame`, framed, `frame for ${normType} not observed`);
+    reader2.releaseLock();
+    streamRes.body.cancel();
+  } catch (e) {
+    check(`13 FR-36: ${label} token event`, false, String(e?.stack ?? e));
+  }
+}
+
+// Negative: the widening must not over-accept — an unknown type
+// still 400s invalid-event at the hub (whitelist parity guard).
+try {
+  const state = fakeState();
+  const dobj = new EventsHubDO(state, {});
+  const res = await dobj.fetch(new Request("https://internal/events/hub", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      method: "publish",
+      event: { type: "token.bogus", repo: "demo", at: "2026-10-11T00:00:00Z" },
+    }),
+  }));
+  check("13 FR-36: unknown token type still 400 invalid-event", res.status === 400, `status=${res.status}`);
+} catch (e) {
+  check("13 FR-36: unknown token type still 400", false, String(e?.stack ?? e));
+}
+
 
 // ---------------------------------------------------------------------------
 

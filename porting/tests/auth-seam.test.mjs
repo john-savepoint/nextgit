@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 8 entries", ROUTES.length === 8, `got ${ROUTES?.length}`);
+check("C: ROUTES has 9 entries", ROUTES.length === 9, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -193,6 +193,7 @@ check("C: /proposals → GET read", routeMap["/proposals"]?.method === "GET" && 
 check("C: /merge → GET read", routeMap["/merge"]?.method === "GET" && routeMap["/merge"]?.action === "read");
 check("C: /land → POST write", routeMap["/land"]?.method === "POST" && routeMap["/land"]?.action === "write");
 check("C: /judge → POST judge", routeMap["/judge"]?.method === "POST" && routeMap["/judge"]?.action === "judge");
+check("C: /reveal → POST reveal (authorize-covered)", routeMap["/reveal"]?.method === "POST" && routeMap["/reveal"]?.action === "reveal", `got ${J(routeMap["/reveal"] ? { method: routeMap["/reveal"].method, action: routeMap["/reveal"].action } : null)}`);
 check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeMap["/events"]?.action === "read");
 // /events/stream MUST be tabled: while it lived in an inline branch it bypassed authorize()
 // (deny mode still streamed). Pinned 2026-10-10.
@@ -204,5 +205,96 @@ check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
 
+// ---------------------------------------------------------------------------
+// Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is
+// enforced at the authorize() chokepoint on EVERY route (FR-45 / AD-9).
+// demoAllowEnv's Artifacts get/list throw "should not be reached": a 403
+// that fails to fire surfaces as 500 (handler reached the binding), never
+// as a silent pass. The allowlist fires BEFORE any env.ARTIFACTS read.
+// ---------------------------------------------------------------------------
+
+const demoAllowEnv = makeEnv("demo");
+
+const DENY403 = (r, name) =>
+ r.status === 403 &&
+ r.body?.ok === false &&
+ r.body?.error === "repo-not-allowed" &&
+ r.body?.detail === `repo "${name}" is outside the demo allowlist`;
+
+// /changes?repo=notdemo-xyz → 403, zero Artifacts reads
+{
+ const r = await get(demoAllowEnv, "/changes", "?repo=notdemo-xyz");
+ check("D: GET /changes?repo=notdemo-xyz → 403 repo-not-allowed", DENY403(r, "notdemo-xyz"), `got ${r.status} ${J(r.body)}`);
+}
+
+// /changes?repo=agent-1&base=notdemo-base → 403 names the base
+{
+ const r = await get(demoAllowEnv, "/changes", "?repo=agent-1&base=notdemo-base");
+ check("D: GET /changes base variant → 403 names notdemo-base", DENY403(r, "notdemo-base"), `got ${r.status} ${J(r.body)}`);
+}
+
+// /proposals?repos=notdemo-xyz → 403, and the body carries NO proposals key
+{
+ const r = await get(demoAllowEnv, "/proposals", "?repos=notdemo-xyz");
+ check("D: GET /proposals?repos=notdemo-xyz → 403 repo-not-allowed", DENY403(r, "notdemo-xyz"), `got ${r.status} ${J(r.body)}`);
+ check("D: GET /proposals 403 body has no proposals key", r.body !== null && !("proposals" in r.body), `keys ${r.body ? Object.keys(r.body).join(",") : "null"}`);
+}
+
+// /merge?base=demo&repos=notdemo-xyz → 403
+{
+ const r = await get(demoAllowEnv, "/merge", "?base=demo&repos=notdemo-xyz");
+ check("D: GET /merge?repos=notdemo-xyz → 403 repo-not-allowed", DENY403(r, "notdemo-xyz"), `got ${r.status} ${J(r.body)}`);
+}
+
+// POST /judge {target:{base:"demo",repos:["notdemo-xyz"]}} → 403 (handler-side allowlist)
+{
+ const r = await post(demoAllowEnv, "/judge", { setId: "v1", target: { base: "demo", repos: ["notdemo-xyz"] } });
+ check("D: POST /judge repos=notdemo-xyz → 403 repo-not-allowed", DENY403(r, "notdemo-xyz"), `got ${r.status} ${J(r.body)}`);
+}
+
+// POST /land {repos:["notdemo-xyz"]} → 403 (handler-side allowlist)
+{
+ const r = await post(demoAllowEnv, "/land", { base: "demo", repos: ["notdemo-xyz"], ref: "main", baseRef: "main" });
+ check("D: POST /land repos=notdemo-xyz → 403 repo-not-allowed", DENY403(r, "notdemo-xyz"), `got ${r.status} ${J(r.body)}`);
+}
+
+// Allowlisted names still pass the chokepoint (reach the handler — the
+// throwing Artifacts fake then 500s, proving the 403 did NOT fire).
+// Scratch chains demo-lh-* / agent-lh-* stay green.
+{
+ const r = await get(demoAllowEnv, "/changes", "?repo=agent-1");
+ check("D: GET /changes?repo=agent-1 passes allowlist (not 403)", r.status !== 403, `got ${r.status} ${J(r.body)}`);
+ const r2 = await get(demoAllowEnv, "/proposals", "?repos=demo-lh-base,agent-lh-1");
+ check("D: GET /proposals scratch chain passes allowlist (not 403)", r2.status !== 403, `got ${r2.status} ${J(r2.body)}`);
+}
+
+// Deny mode still 401s first — the 403 is demo-only by construction.
+{
+ const r = await get(denyEnv, "/changes", "?repo=notdemo-xyz");
+ check("D: deny mode 401s before the allowlist (not 403)", r.status === 401 && r.body?.error === "unauthorized", `got ${r.status} ${J(r.body)}`);
+}
+
+// ---------------------------------------------------------------------------
+// Group C (e11 route discipline) — the API boundary answers a wrong
+// method on a registered path with 405 JSON, and an unknown path with
+// 404 JSON, BEFORE the asset layer (and before authorize()). Both via
+// the real dispatcher; denyEnv proves the boundary fires pre-auth.
+// ---------------------------------------------------------------------------
+{
+  // Wrong method: POST on the GET /health route -> 405 method-not-allowed.
+  // (Explicit POST init: the post() helper defaults to GET when body is null.)
+  const r = await post(denyEnv, "/health", {});
+  check("C: POST /health (wrong method) → 405 method-not-allowed",
+   r.status === 405 && r.body?.ok === false && r.body?.error === "method-not-allowed",
+   `got ${r.status} ${J(r.body)}`);
+
+  // Unknown path -> 404 not-found.
+  const u = await get(denyEnv, "/no-such-route");
+  check("C: GET /no-such-route (unknown path) → 404 not-found",
+   u.status === 404 && u.body?.ok === false && u.body?.error === "not-found",
+   `got ${u.status} ${J(u.body)}`);
+}
+
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);
+

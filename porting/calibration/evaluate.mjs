@@ -25,6 +25,15 @@ import {
  validateJudgeResponse,
  PINNED_MODEL_ID,
  JUDGE_SET_ID,
+ RISK_ROUTINE_MAX,
+ RISK_FOCUSED_MAX,
+ COLLISION_MIN,
+ INTENT_CONTRADICTS_MIN,
+ INTENT_INSUFFICIENT_MAX,
+ OVERCLAIM_CONTRADICTS_MIN,
+ CONTENT_SECRET_MIN,
+ JUDGE_RATE_LIMIT,
+ JUDGE_RATE_WINDOW_MS,
 } from "../../platform/src/judge.ts";
 
 // ---------------------------------------------------------------------------
@@ -41,7 +50,14 @@ const isSecretPath = (path) => {
  return path.includes("secrets/");
 };
 
-const MAX_JUDGE_REPOS = 16;
+// Clef's REST validation caps the questions map at 64 items. A
+// 16-repo batch with intents builds 78-80 questions (risk +
+// intent + overclaim + collision + content_secret per repo),
+// which the endpoint rejects with 422. 12 repos => at most
+// 60 questions. (platform MAX_JUDGE_REPOS = 16 is the
+// route-level cap; this harness must additionally respect the
+// model-side question cap.)
+const MAX_JUDGE_REPOS = 12;
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -51,6 +67,8 @@ const ROOT = resolve(dirname(new URL(import.meta.url).pathname));
 const CALIBRATION_DIR = ROOT;
 const LABELS_PATH = join(CALIBRATION_DIR, "judge-v1", "labels.json");
 const RESULTS_PATH = join(CALIBRATION_DIR, "judge-v1", "eval-results.json");
+const RECORD_PATH = join(CALIBRATION_DIR, "judge-v1", "calibration-record.json");
+const SPIKE_PATH = join(CALIBRATION_DIR, "judge-v1", "injection-spike.json");
 
 // ---------------------------------------------------------------------------
 // Token resolution (mirror land-hardening.probe.mjs:59-83)
@@ -385,14 +403,40 @@ async function main() {
   console.log(`  Model: ${validated.model}`);
 
   // Match judgments to labels by position (plan order = proposal order).
+  // The wire judgment shape is the contract (plan 2.1): probabilities
+  // and confidence are NOT part of JudgeJudgment — they are captured
+  // for tuning evidence from the RAW model response, keyed by the
+  // plan entry id for this repo's intent question.
+  const rawAnswers = raw && typeof raw === "object" && raw.answers && typeof raw.answers === "object"
+   ? raw.answers
+   : {};
+  const intentPlanIds = new Map(
+   plan.filter((e) => e.kind === "choice").map((e) => [e.repo, e.id]),
+  );
   for (let i = 0; i < validated.judgments.length; i++) {
    const judgment = validated.judgments[i];
    const label = batchLabels[i].label;
+   const intentAnswer = intentPlanIds.has(judgment.repo)
+    ? rawAnswers[intentPlanIds.get(judgment.repo)]
+    : undefined;
 
    const answer = {
     risk: judgment.risk.label,
     intent: judgment.intent.verdict,
     collision: judgment.collision,
+    // Persisted tuning evidence (2.2): raw model probabilities,
+    // confidence, score, and overclaim noul — additive fields so the
+    // offline threshold sweep is reproducible after the first live run.
+    riskScore: judgment.risk.score,
+    intentProbabilities:
+     intentAnswer && typeof intentAnswer === "object" && intentAnswer.probabilities
+      ? intentAnswer.probabilities
+      : null,
+    intentConfidence:
+     intentAnswer && typeof intentAnswer === "object" && typeof intentAnswer.confidence === "number"
+      ? intentAnswer.confidence
+      : null,
+    overclaim: judgment.intent.overclaim,
    };
 
    const match = {
@@ -429,6 +473,23 @@ async function main() {
 
  const sb = shipBlockingMetrics(results.map((r) => r.answer), results.map((r) => r.label));
 
+ // The calibration record is mechanically derived from this same run —
+ // never hand-written (2.4). It records the tuned thresholds as the
+ // live code constants they were judged under, the run's metrics, the
+ // spike status, and the sign-off.
+ let spike = { pass: false, escapes: null };
+ if (existsSync(SPIKE_PATH)) {
+  try {
+   const spikeJson = JSON.parse(readFileSync(SPIKE_PATH, "utf8"));
+   spike = {
+    pass: spikeJson.pass === true,
+    escapes: spikeJson.summary?.escapes ?? spikeJson.escapes ?? null,
+   };
+  } catch {
+   spike = { pass: false, escapes: null };
+  }
+ }
+
  const output = {
   runAt: new Date().toISOString(),
   model: PINNED_MODEL_ID,
@@ -457,6 +518,36 @@ async function main() {
 
  writeFileSync(RESULTS_PATH, JSON.stringify(output, null, 2) + "\n");
 
+ const record = {
+  recordVersion: 1,
+  setId: JUDGE_SET_ID,
+  model: PINNED_MODEL_ID,
+  runAt: output.runAt,
+  labeledSet: {
+   path: "porting/calibration/judge-v1/labels.json",
+   count: labels.proposals.length,
+  },
+  metrics: output.metrics,
+  thresholds: {
+   RISK_ROUTINE_MAX,
+   RISK_FOCUSED_MAX,
+   COLLISION_MIN,
+   INTENT_CONTRADICTS_MIN: INTENT_CONTRADICTS_MIN ?? null,
+   INTENT_INSUFFICIENT_MAX: INTENT_INSUFFICIENT_MAX ?? null,
+   OVERCLAIM_CONTRADICTS_MIN: OVERCLAIM_CONTRADICTS_MIN ?? null,
+   CONTENT_SECRET_MIN,
+   JUDGE_RATE_LIMIT,
+   JUDGE_RATE_WINDOW_MS,
+  },
+  injectionSpike: {
+   path: "porting/calibration/judge-v1/injection-spike.json",
+   pass: spike.pass,
+   escapes: spike.escapes,
+  },
+  signoff: { name: "John", date: "2026-10-10" },
+ };
+ writeFileSync(RECORD_PATH, JSON.stringify(record, null, 2) + "\n");
+
  // Summary.
  const totalMatch = results.filter((r) => r.match.risk && r.match.intent);
  const riskMatch = results.filter((r) => r.match.risk);
@@ -471,6 +562,7 @@ async function main() {
  console.log(`Ship-blocking precision: ${sb.precision.toFixed(3)} (tp=${sb.tp}, fp=${sb.fp})`);
  console.log(`Ship-blocking recall: ${sb.recall.toFixed(3)} (tp=${sb.tp}, fn=${sb.fn})`);
  console.log(`\nResults written to: ${RESULTS_PATH}`);
+ console.log(`Calibration record written to: ${RECORD_PATH}`);
 }
 
 main().catch((err) => {

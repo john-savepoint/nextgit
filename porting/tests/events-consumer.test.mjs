@@ -243,20 +243,50 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 9. token.* type is rejected — token.created => zero entries, acked
+// 9. token.created records — the live-emitted envelope
+//    cf.artifacts.token.created => one entry (normalized
+//    token.created), repo mapped, acked (FR-36: the subscription
+//    now carries token events; the live open-beta environment
+//    emits cf.artifacts.token.* — the acceptance copy names
+//    token.created/token.revoked in GET /events)
 // ---------------------------------------------------------------------------
 try {
   const kv = fakeKV();
   const env = envFor(kv);
-  const body = { type: "token.created", source: { namespace: "test", repoName: "my-repo" }, payload: { ref: "main", after: SHA_AFTER } };
+  const body = { type: "cf.artifacts.token.created", source: { namespace: "test", repoName: "my-repo" }, payload: { tokenId: "tok_abc" } };
   const w = fakeMessage(body);
   await dispatchQueue(env, [w]);
   const stored = kv._store.get("recent");
   const parsed = stored ? JSON.parse(stored) : [];
-  check("9 token type: zero entries", parsed.length === 0, `got ${parsed.length}`);
-  check("9 token type: acked", w.acks.count === 1);
+  check("9 token.created: one entry", parsed.length === 1, `got ${parsed.length}`);
+  check("9 token.created: normalized type", parsed[0]?.type === "token.created", `got ${parsed[0]?.type}`);
+  check("9 token.created: repo mapped", parsed[0]?.repo === "my-repo", `got ${parsed[0]?.repo}`);
+  check("9 token.created: ref/after absent", parsed[0]?.ref === undefined && parsed[0]?.after === undefined);
+  check("9 token.created: tokenId not in feed", !stored?.includes("tok_abc"));
+  check("9 token.created: acked", w.acks.count === 1);
 } catch (e) {
   check("9 case threw", false, String(e?.stack ?? e));
+}
+
+// ---------------------------------------------------------------------------
+// 9b. documented repo.token.created form also records —
+//     cf.artifacts.repo.token.created => one entry (normalized
+//     repo.token.created), acked
+// ---------------------------------------------------------------------------
+try {
+  const kv = fakeKV();
+  const env = envFor(kv);
+  const body = { type: "cf.artifacts.repo.token.created", source: { namespace: "test", repoName: "my-repo" }, payload: { tokenId: "tok_def" } };
+  const w = fakeMessage(body);
+  await dispatchQueue(env, [w]);
+  const stored = kv._store.get("recent");
+  const parsed = stored ? JSON.parse(stored) : [];
+  check("9b repo.token.created: one entry", parsed.length === 1, `got ${parsed.length}`);
+  check("9b repo.token.created: normalized type", parsed[0]?.type === "repo.token.created", `got ${parsed[0]?.type}`);
+  check("9b repo.token.created: tokenId not in feed", !stored?.includes("tok_def"));
+  check("9b repo.token.created: acked", w.acks.count === 1);
+} catch (e) {
+  check("9b case threw", false, String(e?.stack ?? e));
 }
 
 // ---------------------------------------------------------------------------

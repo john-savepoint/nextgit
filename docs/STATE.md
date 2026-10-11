@@ -19,7 +19,7 @@ NextGit is the agent-era software platform: many AI agents work concurrently on 
 
 | Subsystem | State | Evidence / next |
 |---|---|---|
-| Platform worker (`platform/src/index.ts`) | shipped | live: `/health /changes /proposals /merge /land /judge /events`; deploys: `69b59673` (land hardening; judge `0518de12`); land hardening: 409 stale/base-moved + evidence record |
+| Platform worker (`platform/src/index.ts`) | shipped | live: `/health /changes /proposals /merge /land /judge /events /reveal (audited seam)`; deploys: `69b59673` (land hardening; judge `0518de12`); land hardening: 409 stale/base-moved + evidence record |
 | Triage UI + tour (`platform/ui/`) | shipped | live at `/` and `/tour.html`; click-to-land verified in real browser; landed-state via `landing.status` |
 | Demo scripts (`platform/scripts/`) | shipped | `seed.mjs` (baseline) · `agents.mjs` (scripted) · `real-agents.mjs` (REAL CLI agents) · `land.mjs` · `secret-fixture.mjs` (agent-5 secret fixture) · `demo-verify.mjs` (canonical live-state check, 25/25) — reproducible reset + pre-recording gate |
 | Real agent fleet | fresh + recording-ready | 4 omp agents live (2026-10-06 reset), all-pending with intents + collision; claude/gemini/opencode remain unauth (standing reds, John) |

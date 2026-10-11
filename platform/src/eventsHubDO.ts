@@ -11,7 +11,7 @@
 // KV write (the durable source of truth) stands and queue messages are acked.
 // Per-repo / per-base subscription is deferred; this is one namespace-wide feed.
 
-// Duplicated from index.ts (lines ~738-781) to avoid a circular import — the hub
+// Duplicated from index.ts (lines ~830-838) to avoid a circular import — the hub
 // must re-validate on publish so a future caller bypassing recordEvent still
 // cannot inject a bad frame. Canonical copies live in platform/src/index.ts.
 const MAX_EVENTS = 50; // ring-buffer cap, matches KV feed cap (index.ts:45)
@@ -19,10 +19,16 @@ const AFTER_RE = /^[0-9a-f]{40}$/;
 const REPO_NAME_RE = /^[A-Za-z0-9._-]+$/;
 const REF_RE = /^[\w./-]+$/;
 
+// Token events (FR-36): dual-listed like the five repo families —
+// the canonical copy at index.ts:830-838 documents the rationale.
 const VALID_EVENT_TYPES: Record<string, true> = {
  "cf.artifacts.repo.pushed": true, "cf.artifacts.repo.forked": true, "cf.artifacts.repo.created": true,
  "cf.artifacts.repo.cloned": true, "cf.artifacts.repo.fetched": true,
+ "cf.artifacts.repo.token.created": true, "cf.artifacts.repo.token.revoked": true,
+ "cf.artifacts.token.created": true, "cf.artifacts.token.revoked": true,
  "repo.pushed": true, "repo.forked": true, "repo.created": true, "repo.cloned": true, "repo.fetched": true,
+ "repo.token.created": true, "repo.token.revoked": true,
+ "token.created": true, "token.revoked": true,
 };
 
 export interface LiveEvent {
