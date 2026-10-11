@@ -34,16 +34,21 @@ const source = read("platform/src/index.ts");
 
 // --- 1. Implemented set: ROUTES path: + DYNAMIC_ROUTES prefix: ---
 // Static entries are literal paths. Dynamic entries are prefixes;
-// normalize `/landings/` to the doc's route form `/landings/{commit}`.
+// normalize a dynamic prefix to its doc route form by replacing
+// the trailing slash with the doc's param segment. The param
+// NAME differs per route (/landings/{commit}, /proposals/{repo}) —
+// canonicalize BOTH sides by stripping the {…} segment so the
+// comparison is on the route root, not the param spelling.
 const staticRoutes = Array.from(source.matchAll(/\{ path: "([^"]+)", method: "(GET|POST)"/g)).map((m) => ({
   route: m[1],
   method: m[2],
 }));
 const dynamicRoutes = Array.from(source.matchAll(/\{ prefix: "([^"]+)", method: "(GET|POST)"/g)).map((m) => ({
-  route: m[1].replace(/\/$/, "/{commit}"),
+  route: m[1].replace(/\/$/, "/{param}"),
   method: m[2],
 }));
 const implemented = [...staticRoutes, ...dynamicRoutes];
+const implList = implemented.map((r) => `${r.method} ${r.route}`).sort();
 
 // Registration completeness — the authorize()-coverage lesson: every
 // implemented route carries method AND action (routes without an
@@ -57,14 +62,16 @@ check(
   `${registered}/${implemented.length} entries complete`
 );
 
-const implList = implemented.map((r) => `${r.method} ${r.route}`).sort();
-
 // --- 2. Documented set: `## GET|POST <route>` headings ---
 // Strip `?query`, keep `{...}` params (e.g. /landings/{commit}),
 // drop trailing descriptors (e.g. "(repos optional …)").
+// Canonicalize the param segment to `{param}` so a doc's
+// /proposals/{repo} compares equal to the source-derived
+// /proposals/{param} (the param NAME is doc-side prose;
+// the route identity is the root).
 const docRoutes = Array.from(contract.matchAll(/^## (GET|POST) (\/[^\s?]+)/gm)).map((m) => ({
   method: m[1],
-  route: m[2],
+  route: m[2].replace(/\/[^/]*\{[^}]*\}/, "/{param}"),
 }));
 const docList = docRoutes.map((r) => `${r.method} ${r.route}`).sort();
 

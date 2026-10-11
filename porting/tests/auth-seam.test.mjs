@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 9 entries", ROUTES.length === 9, `got ${ROUTES?.length}`);
+check("C: ROUTES has 10 entries", ROUTES.length === 10, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -190,6 +190,7 @@ check("C: every ROUTES entry has path|method|action|handler, action ∈ valid se
 check("C: /health → GET read", routeMap["/health"]?.method === "GET" && routeMap["/health"]?.action === "read");
 check("C: /changes → GET read", routeMap["/changes"]?.method === "GET" && routeMap["/changes"]?.action === "read");
 check("C: /proposals → GET read", routeMap["/proposals"]?.method === "GET" && routeMap["/proposals"]?.action === "read");
+check("C: /floors → GET read", routeMap["/floors"]?.method === "GET" && routeMap["/floors"]?.action === "read");
 check("C: /merge → GET read", routeMap["/merge"]?.method === "GET" && routeMap["/merge"]?.action === "read");
 check("C: /land → POST write", routeMap["/land"]?.method === "POST" && routeMap["/land"]?.action === "write");
 check("C: /judge → POST judge", routeMap["/judge"]?.method === "POST" && routeMap["/judge"]?.action === "judge");
@@ -200,10 +201,13 @@ check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeM
 check("C: /events/stream → GET read (authorize-covered)", routeMap["/events/stream"]?.method === "GET" && routeMap["/events/stream"]?.action === "read", `got ${J(routeMap["/events/stream"] ? { method: routeMap["/events/stream"].method, action: routeMap["/events/stream"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 1 entry", DYNAMIC_ROUTES.length === 1, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 2 entries", DYNAMIC_ROUTES.length === 2, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
+check("C: DYNAMIC_ROUTES /proposals/ → GET read",
+ DYNAMIC_ROUTES[1]?.prefix === "/proposals/" && DYNAMIC_ROUTES[1]?.method === "GET" && DYNAMIC_ROUTES[1]?.action === "read",
+ `got ${J(DYNAMIC_ROUTES[1])}`);
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is
@@ -281,18 +285,18 @@ const DENY403 = (r, name) =>
 // the real dispatcher; denyEnv proves the boundary fires pre-auth.
 // ---------------------------------------------------------------------------
 {
-  // Wrong method: POST on the GET /health route -> 405 method-not-allowed.
-  // (Explicit POST init: the post() helper defaults to GET when body is null.)
-  const r = await post(denyEnv, "/health", {});
-  check("C: POST /health (wrong method) → 405 method-not-allowed",
-   r.status === 405 && r.body?.ok === false && r.body?.error === "method-not-allowed",
-   `got ${r.status} ${J(r.body)}`);
+ // Wrong method: POST on the GET /health route -> 405 method-not-allowed.
+ // (Explicit POST init: the post() helper defaults to GET when body is null.)
+ const r = await post(denyEnv, "/health", {});
+ check("C: POST /health (wrong method) → 405 method-not-allowed",
+  r.status === 405 && r.body?.ok === false && r.body?.error === "method-not-allowed",
+  `got ${r.status} ${J(r.body)}`);
 
-  // Unknown path -> 404 not-found.
-  const u = await get(denyEnv, "/no-such-route");
-  check("C: GET /no-such-route (unknown path) → 404 not-found",
-   u.status === 404 && u.body?.ok === false && u.body?.error === "not-found",
-   `got ${u.status} ${J(u.body)}`);
+ // Unknown path -> 404 not-found.
+ const u = await get(denyEnv, "/no-such-route");
+ check("C: GET /no-such-route (unknown path) → 404 not-found",
+  u.status === 404 && u.body?.ok === false && u.body?.error === "not-found",
+  `got ${u.status} ${J(u.body)}`);
 }
 
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);

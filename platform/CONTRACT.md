@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.0 (2026-10-11). Additive changes only; if you change a shape, bump this file first.
+Version: v3.1 (2026-10-11). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -69,6 +69,44 @@ The set view + conflict map.
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 
 `kind` ∈ `text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed`
+
+## GET /floors
+
+The Floor / Project entity (AD-14 client protocol, entity 1): one floor per namespace repo, served from the same bounded `list()` discovery seam `/proposals` auto-discovery uses (`env.ARTIFACTS.list({limit:200})`). One bounded `list()` call, zero per-repo reads — `branch` is the list entry's `defaultBranch` (`ArtifactsRepoListResult.repos[]` carries it; no `info()` call), `cloning` is `status !== "ready"` (`importing`/`forking`).
+
+```json
+{ "ok": true, "floors": [ {"id","name","repo","branch","cloning","counts":{"workers","busy","waiting"}} ] }
+```
+
+- `id`/`name`/`repo` — the repo name (the floor's identity is its namespace repo).
+- `branch` — the repo's default branch, straight off the list entry.
+- `cloning` — `true` when the repo's `status` is not `ready`.
+- `counts.workers` — the discovered `agent-*` fleet size (the observable fleet).
+- `counts.busy` — always `0`; `counts.waiting` — the fleet size. Worker-lifecycle state is client-local (entity 2): the platform serves the observable fleet size, the client synthesizes busy/waiting. Split recorded in § Client protocol.
+- Demo-mode allowlist (AD-9): enforced at the `authorize()` chokepoint (the route carries no repo scope, so the mode gate alone applies).
+- Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
+
+## GET /proposals/{repo}
+
+The Pull / Proposal + detail entity (AD-14 client protocol, entities 5 + 6): the proposal card and its detail, served by driving the SAME compute seam `/changes` and `/merge` use — `computeChangeSet` (commits/stats/files/intent) + `computeMerge` (the merge simulation). The mergeable-class signal is served as `detail.merge.status`/`detail.merge.conflicted` — never as a field named `mergeable` (AD-14: adapter-synthesized GitHub semantics are never platform fields).
+
+```json
+{ "ok": true, "proposal": {
+  "repo","number","title","state","headRef","baseRef","additions","deletions","stats","checks",
+  "detail": {"body","commits":[{"hash","message","author","timestamp"}],"merge":{"status","conflicted"},"files":[]}
+}}
+```
+
+- `number` — the repo name (the proposal's identity in the demo namespace).
+- `title` — the intent text (git-notes of the head commit; `""` when absent).
+- `state` — the landing verdict from the fold, ∈ `ready | conflict | landed | withheld-secret` (the same vocabulary `/proposals`' `landing.status` publishes).
+- `headRef`/`baseRef` — the change-set refs (the resolved `ref`/`baseRef`, default `main`).
+- `additions`/`deletions`/`stats` — the change-set stats; `checks` — `[]` (checks are adapter-synthesized, AD-14).
+- `detail.body` — the intent text (the PR body analog); `detail.commits` — the pinned `/changes` commit shape (`hash, message, author, timestamp`), newest-first; `detail.merge` — the `/merge` simulation for this repo alone (`status` ∈ `clean|conflict`, `conflicted` — the conflicting paths); `detail.files` — the fold's file list.
+- No `comments`/`reviews` (adapter-synthesized or client-local).
+- `{repo}` is validated `REPO_NAME_RE` before any repo read (400 on charset-invalid names); a repo the namespace does not carry → `404 {ok:false,error:"not-found"}`.
+- Demo-mode allowlist (AD-9): `{repo}` must match the allowlist — enforced **in the handler** (the path-carried `{repo}` is the scope carrier, as with `/judge` and `/land`), before any repo read.
+- Rate limit (AD-9): shares the `/proposals` budget (one compute-cost class) — per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 
 ## Change-set semantics — fork point
 
@@ -405,8 +443,6 @@ data: { "type": "repo.pushed", "repo": "agent-1", "ref": "main", "after": "<40-h
 
 **Errors**: HTTP 200 for the stream. A hub dispatch error that precedes any SSE frame written is `503 { ok: false, error: "events-unavailable" }`.
 
-**Additive only** — no existing route shape changes.
-
 ## UI
 
 `GET /` serves the triage UI (`platform/ui/` via wrangler assets). API routes fall through to the worker.
@@ -417,13 +453,12 @@ The 11-entity protocol + the contract-pinned push-event surface below is THE cli
 
 ### Entities (interface-contract.md order)
 
-1. **Floor / Project** — `id, name, repo, branch, cloning, counts (workers/busy/waiting)` — **Served by the platform (partial)**: namespace repos, branch, proposal counts render from `GET /proposals` (`base`, `proposals[].repo`, `summary`); `cloning`/worker counts client-local until `e11-impl-entity-surface-boundary` lands its route.
+1. **Floor / Project** — `id, name, repo, branch, cloning, counts (workers/busy/waiting)` — **Served by the platform**: `GET /floors` — one floor per namespace repo; `branch` from the list entry's `defaultBranch`, `cloning` = `status !== "ready"`; `counts.workers` = the discovered `agent-*` fleet size, `busy` = 0 / `waiting` = the fleet size (worker-lifecycle state is client-local, entity 2 — the platform serves the observable fleet size, the client synthesizes busy/waiting).
 2. **Worker** — `id, name, provider/model/effort, desk, status, worktree{branch,path,base}, pr, task, activity, usage` — **Client-local** (Agent Office owns worker state; harness dispatch is control-plane, AD-7; no server-side shape invented).
 3. **Task / Queue** — `id, provider/model/effort, issue, title, prompt, status, workerId, branch, outcome, pr` — **Client-local** (task store = bd/beads at `.beads/`, outside the platform API).
 4. **Issue** — `number, title, state, author, labels, assignees, taken?, body` — **Client-local** (GitHub-owned; no platform issue API yet — roadmap).
-5. **Pull / Proposal** — `number, title, state, draft, reviewDecision, headRef, baseRef, checks, additions/deletions, closes[]` — **Served by the platform (partial)**: title/state/stats/checks from `GET /proposals` (`proposals[]`: `repo, head, intent?, stats, landing, files[]`); `reviewDecision`/`draft`/`closes[]` are adapter-synthesized GitHub semantics (AD-14) derived from `landing.status` + `stats`.
-6. **PR / Proposal detail** — `body, mergeable, mergeStateStatus, commits, comments, reviews, checks` — **Served by the platform (partial)**: `commits` from `GET /changes` (`commits[]`: `hash, message, author, timestamp`); merge simulation from `GET /merge` (`status`, `files[]`, `conflicted[]`); `body/comments/reviews` adapter-synthesized or client-local.
-7. **Presence / Peer** — `id, name, position, voice, sharing, doing, floor` — **Client-local** (peer presence is a client overlay; the platform's peer surface is the `peer.*` event family below).
+5. **Pull / Proposal** — `number, title, state, draft, reviewDecision, headRef, baseRef, checks, additions/deletions, closes[]` — **Served by the platform**: `GET /proposals/{repo}` — the card (`repo, number, title, state, headRef, baseRef, additions, deletions, stats, checks`) plus its detail; `title` = the intent text, `state` = the landing verdict (∈ `ready | conflict | landed | withheld-secret`); `draft`/`reviewDecision`/`closes[]` are adapter-synthesized GitHub semantics (AD-14) derived from `state` + `stats` — never platform fields.
+6. **PR / Proposal detail** — `body, mergeable, mergeStateStatus, commits, comments, reviews, checks` — **Served by the platform**: `GET /proposals/{repo}`'s `detail` — `body` = the intent text; `commits` from the change-set (`commits[]`: `hash, message, author, timestamp`); the merge simulation as `detail.merge` (`status` ∈ `clean|conflict`, `conflicted[]`) — served as merge.status/conflicted, never as a field named `mergeable`; `mergeStateStatus` is adapter-synthesized (AD-14); `comments`/`reviews` adapter-synthesized or client-local.
 8. **Whiteboard** — `strokes + cursors per floor` — **Client-local** (per-floor whiteboard state; not persisted by the platform).
 9. **Services** — `worker, branch, page title, local port` — **Client-local** (per-worker preview services; no platform route).
 10. **Settings** — `limits, leave-on-merge, default agent, prompts, map/theme` — **Client-local** (client preferences; platform-side limits live in code as AD-8 pinned defaults).
@@ -530,12 +565,14 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the seven bound routes in the table below (`/land`, `/merge`, `/proposals`, `/judge`, `/forks`, `/intents`, `/upstream`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited).
+Edge rate limits cover the nine bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
 | `GET /merge` | 60 | 60 s |
 | `GET /proposals` | 60 | 60 s |
+| `GET /floors` | 60 | 60 s |
+| `GET /proposals/{repo}` | 60 | 60 s (shares the `/proposals` budget — one compute-cost class) |
 | `POST /judge` | 30 | 60 s |
 | `GET /forks` | 60 | 60 s |
 | `POST /intents` | 30 | 60 s |

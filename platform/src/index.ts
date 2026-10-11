@@ -1849,6 +1849,111 @@ async function handleEvents(_request: Request, env: Env): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// GET /floors — the Floor / Project entity (AD-14 client protocol): one
+// floor per namespace repo, served from the same bounded `list()` discovery
+// seam /proposals auto-discovery uses. `branch` is the list entry's
+// `defaultBranch` (ArtifactsRepoListResult.repos[] carries it — no per-repo
+// info() call); `cloning` is `status !== "ready"` (importing/forking).
+// `counts.workers` is the discovered `agent-*` fleet size; `busy`/`waiting`
+// are served as 0/count — worker-lifecycle state is client-local (entity 2);
+// the platform serves the observable fleet size, the client synthesizes the
+// rest. Split recorded in CONTRACT.md § Client protocol.
+// ---------------------------------------------------------------------------
+async function handleFloors(request: Request, env: Env): Promise<Response> {
+ const rateDenied = rateGate("/floors", request);
+ if (rateDenied) return rateDenied;
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const agentRepos = list.repos.filter((r) => r.name.startsWith("agent-"));
+ const floors = list.repos.map((r) => ({
+  id: r.name,
+  name: r.name,
+  repo: r.name,
+  branch: r.defaultBranch,
+  cloning: r.status !== "ready",
+  counts: {
+   workers: agentRepos.length,
+   busy: 0,
+   waiting: agentRepos.length,
+  },
+ }));
+ return Response.json({ ok: true, floors });
+}
+// ---------------------------------------------------------------------------
+// GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
+// protocol): the proposal card + its detail, served by driving the SAME
+// compute seam /changes and /merge use (computeChangeSet for the card's
+// commits/stats/files, computeMerge for the merge simulation). The
+// mergeable-class signal is served as merge.status/conflicted — never as a
+// field named `mergeable` (AD-14: adapter-synthesized GitHub semantics are
+// never platform fields). `title` is the intent text, `state` is the
+// landing verdict from the fold, `number` is the repo name. Unknown repos
+// 404 at the handler (the /landings/{commit} precedent); the repo name is
+// re-validated REPO_NAME_RE before any repo read (/reveal precedent).
+// ---------------------------------------------------------------------------
+async function handleProposalDetail(request: Request, env: Env, repoParam: string): Promise<Response> {
+ if (!REPO_NAME_RE.test(repoParam)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(repoParam)}`);
+ }
+
+ // Demo allowlist (AD-9): the path-carried repo is the scope
+ // carrier, readable only here (the dispatcher's extractScope
+ // reads query params only). Same uniform 403 as /land and
+ // /judge, before any computeChangeSet / computeMerge read.
+ if (!DEMO_REPO_RE.test(repoParam)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repoParam}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const parsed = parseProposalsQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef } = parsed;
+ const rateDenied = rateGate("/proposals", request);
+ if (rateDenied) return rateDenied;
+
+ let changeSet;
+ let merge;
+ try {
+  // Unknown repo -> 404 (the /landings/{commit} precedent): the
+  // compute seam's first repo read (env.ARTIFACTS.get) fails for
+  // a name the namespace does not carry, and the handler maps that
+  // to the contract 404 rather than a 500.
+  changeSet = await computeChangeSet(env, base, baseRef, repoParam, ref);
+  merge = await computeMerge(env, base, baseRef, [repoParam], ref);
+ } catch {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const landing = merge.files.some((f) => f.result === "withheld-secret")
+  ? ({ status: "withheld-secret", files: merge.files.length } as const)
+  : merge.status === "conflict"
+   ? ({ status: "conflict", files: merge.conflicted.length } as const)
+   : merge.files.length === 0
+    ? ({ status: "landed", files: 0 } as const)
+    : ({ status: "ready", files: merge.files.length } as const);
+
+ return Response.json({
+  ok: true,
+  proposal: {
+   repo: repoParam,
+   number: repoParam,
+   title: changeSet.files.find((f) => f.intent)?.intent ?? "",
+   state: landing.status,
+   headRef: ref,
+   baseRef,
+   additions: changeSet.stats.additions,
+   deletions: changeSet.stats.deletions,
+   stats: changeSet.stats,
+   checks: [],
+   detail: {
+    body: changeSet.files.find((f) => f.intent)?.intent ?? "",
+    commits: changeSet.commits,
+    merge: { status: merge.status, conflicted: merge.conflicted },
+    files: merge.files,
+   },
+  },
+ });
+}
+
 // Route table (AD-8: single registration point; every route authorizes).
 // ---------------------------------------------------------------------------
 
@@ -1883,6 +1988,7 @@ export const ROUTES: RouteEntry[] = [
  { path: "/health", method: "GET", action: "read", handler: handleHealth },
  { path: "/changes", method: "GET", action: "read", handler: handleChanges },
  { path: "/proposals", method: "GET", action: "read", handler: handleProposals },
+ { path: "/floors", method: "GET", action: "read", handler: handleFloors },
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
@@ -1899,6 +2005,11 @@ export const ROUTES: RouteEntry[] = [
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
  { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
+ // /proposals/{repo} — the proposal card + detail entity (AD-14 client
+ // protocol). Static `/proposals` (the set view) wins for the bare
+ // path; `/proposals/<repo>` falls to this prefix (static-before-
+ // dynamic, the dispatcher's exact-then-prefix order).
+ { prefix: "/proposals/", method: "GET", action: "read", handler: (request, env) => handleProposalDetail(request, env, new URL(request.url).pathname.slice("/proposals/".length)) },
 ];
 
 // UI document set (AD-8 boundary discipline): the wrangler-assets
