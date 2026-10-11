@@ -82,7 +82,7 @@ if (isMain()) {
   // READ-scoped repo token (narrowest scope) over the git-over-
   // HTTPS remote — the real-agents.mjs/agents.mjs spawnSync
   // idiom; the token rides GIT_CONFIG_VALUE_0, invisible to
-  // ps (the tokens.mjs gitAuthEnv FR-36 argv law).
+  // ps (the FR-36 argv law: credentials ride GIT_CONFIG_*, never argv).
   const recordLineage = async (repoName, readToken) => {
     try {
       const baselineRemote = `https://${ACCOUNT_ID}.artifacts.cloudflare.net/git/${NAMESPACE}/${baseline}.git`;

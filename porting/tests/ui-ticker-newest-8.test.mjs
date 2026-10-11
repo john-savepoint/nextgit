@@ -112,6 +112,13 @@ const server = createServer((req, res) => {
     res.end(readFileSync(join(UI, "app.js"), "utf8"));
     return;
   }
+  if (pathname === "/reveal-decision.js") {
+    // app.js statically imports this module — without the route the whole
+    // module graph 404s and NOTHING renders (vacuous passes on every check).
+    res.writeHead(200, { "content-type": "text/javascript" });
+    res.end(readFileSync(join(UI, "reveal-decision.js"), "utf8"));
+    return;
+  }
   if (pathname === "/styles.css") {
     res.writeHead(200, { "content-type": "text/css" });
     res.end(readFileSync(join(UI, "styles.css"), "utf8"));
