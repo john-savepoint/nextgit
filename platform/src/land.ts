@@ -19,7 +19,7 @@ const LAND_COMMIT_AUTHOR = {
  email: "platform@nextgit.dev",
 } as const;
 
-const TOKEN_TTL_SECONDS = 300; // one push, seconds-scale; revoked in a finally by the caller
+export const TOKEN_TTL_SECONDS = 300; // one push, seconds-scale; revoked in a finally by the caller
 const LAND_WORKDIR = "/repo";
 const NOTES_REF_LOCAL = "refs/notes/commits"; // git-notes ref for landing-decision notes
 const NOTES_BRANCH_LOCAL = "refs/heads/nextgit-notes"; // mirror branch for refs/notes/commits (full ref for isomorphic-git push remoteRef)

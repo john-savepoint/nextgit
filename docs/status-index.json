@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-10T07:29:55.016Z",
-  "head": "d163676",
+  "generatedAt": "2026-10-11T03:37:32.713Z",
+  "head": "4df9df6",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-10 ",
@@ -12,9 +12,9 @@
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 495,
+      "pending": 494,
       "partial": 1,
-      "done": 165
+      "done": 166
     },
     "items": [
       {
@@ -2271,11 +2271,6 @@
         "status": "pending",
         "priority": "P3",
         "title": "Enforce the auto-land engagement interlock"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Tune judge-v1 thresholds and commit the calibration record"
       },
       {
         "status": "pending",

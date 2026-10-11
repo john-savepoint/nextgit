@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-10-09T02:13:29.276Z",
+  "runAt": "2026-10-10T12:59:26.818Z",
   "model": "@cf/cloudflare/clef",
   "setId": "v1",
   "proposals": [
@@ -8,7 +8,15 @@
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": true
+        "collision": false,
+        "riskScore": 1.3989,
+        "intentProbabilities": {
+          "supports": 0.9282,
+          "contradicts": 0.0514,
+          "insufficient": 0.0204
+        },
+        "intentConfidence": 0.797,
+        "overclaim": 0.2193
       },
       "label": {
         "risk": "focused",
@@ -24,7 +32,15 @@
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": true
+        "collision": false,
+        "riskScore": 1.3687,
+        "intentProbabilities": {
+          "supports": 0.7038,
+          "contradicts": 0.2294,
+          "insufficient": 0.0668
+        },
+        "intentConfidence": 0.3287,
+        "overclaim": 0.3418
       },
       "label": {
         "risk": "senior-security",
@@ -40,7 +56,15 @@
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": true
+        "collision": true,
+        "riskScore": 0.9404,
+        "intentProbabilities": {
+          "supports": 0.6442,
+          "contradicts": 0.2297,
+          "insufficient": 0.1261
+        },
+        "intentConfidence": 0.2254,
+        "overclaim": 0.3497
       },
       "label": {
         "risk": "focused",
@@ -56,7 +80,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.5693,
+        "intentProbabilities": {
+          "supports": 0.8156,
+          "contradicts": 0.1183,
+          "insufficient": 0.0661
+        },
+        "intentConfidence": 0.5254,
+        "overclaim": 0.2154
       },
       "label": {
         "risk": "routine",
@@ -72,7 +104,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.3841,
+        "intentProbabilities": {
+          "supports": 0.5154,
+          "contradicts": 0.2917,
+          "insufficient": 0.1929
+        },
+        "intentConfidence": 0.0819,
+        "overclaim": 0.2661
       },
       "label": {
         "risk": "routine",
@@ -88,7 +128,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.4156,
+        "intentProbabilities": {
+          "supports": 0.6727,
+          "contradicts": 0.2373,
+          "insufficient": 0.09
+        },
+        "intentConfidence": 0.2754,
+        "overclaim": 0.2465
       },
       "label": {
         "risk": "routine",
@@ -104,7 +152,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.4811,
+        "intentProbabilities": {
+          "supports": 0.6356,
+          "contradicts": 0.2173,
+          "insufficient": 0.1471
+        },
+        "intentConfidence": 0.2093,
+        "overclaim": 0.284
       },
       "label": {
         "risk": "routine",
@@ -118,16 +174,24 @@
     {
       "id": "agent-extra-15-3b36b691",
       "answer": {
-        "risk": "routine",
+        "risk": "focused",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.8329,
+        "intentProbabilities": {
+          "supports": 0.7887,
+          "contradicts": 0.1428,
+          "insufficient": 0.0685
+        },
+        "intentConfidence": 0.4706,
+        "overclaim": 0.2092
       },
       "label": {
         "risk": "routine",
         "intent": "supports"
       },
       "match": {
-        "risk": true,
+        "risk": false,
         "intent": true
       }
     },
@@ -136,7 +200,15 @@
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": false
+        "collision": true,
+        "riskScore": 1.0241,
+        "intentProbabilities": {
+          "supports": 0.6266,
+          "contradicts": 0.2668,
+          "insufficient": 0.1066
+        },
+        "intentConfidence": 0.2128,
+        "overclaim": 0.2535
       },
       "label": {
         "risk": "focused",
@@ -151,8 +223,16 @@
       "id": "agent-extra-17-1c7e7a2d",
       "answer": {
         "risk": "focused",
-        "intent": "contradicts",
-        "collision": true
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 1.761,
+        "intentProbabilities": {
+          "supports": 0.0585,
+          "contradicts": 0.9045,
+          "insufficient": 0.037
+        },
+        "intentConfidence": 0.7344,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -166,17 +246,25 @@
     {
       "id": "agent-extra-19-d2ba82a2",
       "answer": {
-        "risk": "senior-security",
-        "intent": "contradicts",
-        "collision": false
+        "risk": "focused",
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 1.7467,
+        "intentProbabilities": {
+          "supports": 0.0358,
+          "contradicts": 0.9132,
+          "insufficient": 0.051
+        },
+        "intentConfidence": 0.7566,
+        "overclaim": null
       },
       "label": {
         "risk": "senior-security",
         "intent": "contradicts"
       },
       "match": {
-        "risk": true,
-        "intent": true
+        "risk": false,
+        "intent": false
       }
     },
     {
@@ -184,7 +272,15 @@
       "answer": {
         "risk": "focused",
         "intent": "contradicts",
-        "collision": false
+        "collision": true,
+        "riskScore": 0.8992,
+        "intentProbabilities": {
+          "supports": 0.0289,
+          "contradicts": 0.9031,
+          "insufficient": 0.068
+        },
+        "intentConfidence": 0.7317,
+        "overclaim": 0.8823
       },
       "label": {
         "risk": "focused",
@@ -199,8 +295,16 @@
       "id": "agent-extra-21-957948ae",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.7101,
+        "intentProbabilities": {
+          "supports": 0.1932,
+          "contradicts": 0.251,
+          "insufficient": 0.5558
+        },
+        "intentConfidence": 0.1138,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -208,7 +312,7 @@
       },
       "match": {
         "risk": true,
-        "intent": false
+        "intent": true
       }
     },
     {
@@ -216,7 +320,11 @@
       "answer": {
         "risk": "focused",
         "intent": "insufficient",
-        "collision": true
+        "collision": true,
+        "riskScore": 1.394,
+        "intentProbabilities": null,
+        "intentConfidence": null,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -232,7 +340,15 @@
       "answer": {
         "risk": "senior-security",
         "intent": "supports",
-        "collision": true
+        "collision": true,
+        "riskScore": 1.8196,
+        "intentProbabilities": {
+          "supports": 0.592,
+          "contradicts": 0.3351,
+          "insufficient": 0.0729
+        },
+        "intentConfidence": 0.2021,
+        "overclaim": 0.2471
       },
       "label": {
         "risk": "senior-security",
@@ -247,11 +363,43 @@
       "id": "agent-extra-26-7a1a0927",
       "answer": {
         "risk": "focused",
-        "intent": "supports",
-        "collision": true
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.8513,
+        "intentProbabilities": {
+          "supports": 0.1337,
+          "contradicts": 0.4197,
+          "insufficient": 0.4466
+        },
+        "intentConfidence": 0.0902,
+        "overclaim": null
       },
       "label": {
         "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": false
+      }
+    },
+    {
+      "id": "agent-extra-29-9551a13e",
+      "answer": {
+        "risk": "senior-security",
+        "intent": "supports",
+        "collision": true,
+        "riskScore": 1.8795,
+        "intentProbabilities": {
+          "supports": 0.7427,
+          "contradicts": 0.1561,
+          "insufficient": 0.1012
+        },
+        "intentConfidence": 0.3793,
+        "overclaim": 0.6243
+      },
+      "label": {
+        "risk": "focused",
         "intent": "supports"
       },
       "match": {
@@ -260,27 +408,19 @@
       }
     },
     {
-      "id": "agent-extra-29-9551a13e",
-      "answer": {
-        "risk": "focused",
-        "intent": "contradicts",
-        "collision": false
-      },
-      "label": {
-        "risk": "focused",
-        "intent": "supports"
-      },
-      "match": {
-        "risk": true,
-        "intent": false
-      }
-    },
-    {
       "id": "agent-extra-3-06067ca9",
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": true
+        "collision": true,
+        "riskScore": 1.6063,
+        "intentProbabilities": {
+          "supports": 0.6786,
+          "contradicts": 0.1989,
+          "insufficient": 0.1225
+        },
+        "intentConfidence": 0.2726,
+        "overclaim": 0.3747
       },
       "label": {
         "risk": "senior-security",
@@ -296,7 +436,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.6694,
+        "intentProbabilities": {
+          "supports": 0.852,
+          "contradicts": 0.0784,
+          "insufficient": 0.0696
+        },
+        "intentConfidence": 0.6054,
+        "overclaim": 0.1406
       },
       "label": {
         "risk": "focused",
@@ -310,16 +458,24 @@
     {
       "id": "agent-extra-32-bcebd0f8",
       "answer": {
-        "risk": "focused",
+        "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.6061,
+        "intentProbabilities": {
+          "supports": 0.6932,
+          "contradicts": 0.1574,
+          "insufficient": 0.1494
+        },
+        "intentConfidence": 0.2915,
+        "overclaim": 0.4327
       },
       "label": {
         "risk": "routine",
         "intent": "supports"
       },
       "match": {
-        "risk": false,
+        "risk": true,
         "intent": true
       }
     },
@@ -328,7 +484,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.703,
+        "intentProbabilities": {
+          "supports": 0.6702,
+          "contradicts": 0.1832,
+          "insufficient": 0.1466
+        },
+        "intentConfidence": 0.2563,
+        "overclaim": 0.387
       },
       "label": {
         "risk": "routine",
@@ -344,7 +508,15 @@
       "answer": {
         "risk": "routine",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.7171,
+        "intentProbabilities": {
+          "supports": 0.6729,
+          "contradicts": 0.1736,
+          "insufficient": 0.1535
+        },
+        "intentConfidence": 0.2597,
+        "overclaim": 0.3435
       },
       "label": {
         "risk": "routine",
@@ -358,16 +530,24 @@
     {
       "id": "agent-extra-37-b32ba264",
       "answer": {
-        "risk": "routine",
+        "risk": "focused",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.9041,
+        "intentProbabilities": {
+          "supports": 0.6396,
+          "contradicts": 0.2133,
+          "insufficient": 0.1471
+        },
+        "intentConfidence": 0.2143,
+        "overclaim": 0.2147
       },
       "label": {
         "risk": "routine",
         "intent": "supports"
       },
       "match": {
-        "risk": true,
+        "risk": false,
         "intent": true
       }
     },
@@ -376,7 +556,15 @@
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.8572,
+        "intentProbabilities": {
+          "supports": 0.9071,
+          "contradicts": 0.0555,
+          "insufficient": 0.0374
+        },
+        "intentConfidence": 0.741,
+        "overclaim": 0.1563
       },
       "label": {
         "risk": "focused",
@@ -392,7 +580,15 @@
       "answer": {
         "risk": "focused",
         "intent": "supports",
-        "collision": true
+        "collision": false,
+        "riskScore": 0.8114,
+        "intentProbabilities": {
+          "supports": 0.8496,
+          "contradicts": 0.1155,
+          "insufficient": 0.0349
+        },
+        "intentConfidence": 0.6047,
+        "overclaim": 0.39
       },
       "label": {
         "risk": "focused",
@@ -406,48 +602,72 @@
     {
       "id": "agent-extra-4-9a807196",
       "answer": {
-        "risk": "senior-security",
+        "risk": "focused",
         "intent": "contradicts",
-        "collision": true
+        "collision": false,
+        "riskScore": 1.6475,
+        "intentProbabilities": {
+          "supports": 0.0367,
+          "contradicts": 0.9252,
+          "insufficient": 0.0381
+        },
+        "intentConfidence": 0.7882,
+        "overclaim": 0.9431
       },
       "label": {
         "risk": "senior-security",
         "intent": "supports"
       },
       "match": {
-        "risk": true,
+        "risk": false,
         "intent": false
       }
     },
     {
       "id": "agent-extra-41-f7fe8952",
       "answer": {
-        "risk": "focused",
+        "risk": "senior-security",
         "intent": "contradicts",
-        "collision": false
+        "collision": false,
+        "riskScore": 1.8422,
+        "intentProbabilities": {
+          "supports": 0.0213,
+          "contradicts": 0.9132,
+          "insufficient": 0.0655
+        },
+        "intentConfidence": 0.7579,
+        "overclaim": 0.9143
       },
       "label": {
         "risk": "senior-security",
         "intent": "contradicts"
       },
       "match": {
-        "risk": false,
+        "risk": true,
         "intent": true
       }
     },
     {
       "id": "agent-extra-42-2fcc354b",
       "answer": {
-        "risk": "routine",
+        "risk": "focused",
         "intent": "contradicts",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.9137,
+        "intentProbabilities": {
+          "supports": 0.018,
+          "contradicts": 0.9317,
+          "insufficient": 0.0503
+        },
+        "intentConfidence": 0.8063,
+        "overclaim": 0.9289
       },
       "label": {
         "risk": "focused",
         "intent": "contradicts"
       },
       "match": {
-        "risk": false,
+        "risk": true,
         "intent": true
       }
     },
@@ -456,7 +676,15 @@
       "answer": {
         "risk": "routine",
         "intent": "insufficient",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.1669,
+        "intentProbabilities": {
+          "supports": 0.158,
+          "contradicts": 0.2493,
+          "insufficient": 0.5927
+        },
+        "intentConfidence": 0.1577,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -470,45 +698,17 @@
     {
       "id": "agent-extra-44-56c0b63e",
       "answer": {
-        "risk": "focused",
+        "risk": "routine",
         "intent": "insufficient",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.4987,
+        "intentProbabilities": null,
+        "intentConfidence": null,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
         "intent": "insufficient"
-      },
-      "match": {
-        "risk": false,
-        "intent": true
-      }
-    },
-    {
-      "id": "agent-extra-47-7615903b",
-      "answer": {
-        "risk": "focused",
-        "intent": "supports",
-        "collision": true
-      },
-      "label": {
-        "risk": "senior-security",
-        "intent": "supports"
-      },
-      "match": {
-        "risk": false,
-        "intent": true
-      }
-    },
-    {
-      "id": "agent-extra-48-10cea730",
-      "answer": {
-        "risk": "senior-security",
-        "intent": "supports",
-        "collision": true
-      },
-      "label": {
-        "risk": "senior-security",
-        "intent": "supports"
       },
       "match": {
         "risk": true,
@@ -516,14 +716,22 @@
       }
     },
     {
-      "id": "agent-extra-7-a86cacc7",
+      "id": "agent-extra-47-7615903b",
       "answer": {
-        "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "risk": "focused",
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 1.4064,
+        "intentProbabilities": {
+          "supports": 0.4718,
+          "contradicts": 0.4264,
+          "insufficient": 0.1018
+        },
+        "intentConfidence": 0.1222,
+        "overclaim": null
       },
       "label": {
-        "risk": "focused",
+        "risk": "senior-security",
         "intent": "supports"
       },
       "match": {
@@ -532,11 +740,67 @@
       }
     },
     {
+      "id": "agent-extra-48-10cea730",
+      "answer": {
+        "risk": "focused",
+        "intent": "supports",
+        "collision": true,
+        "riskScore": 1.6263,
+        "intentProbabilities": {
+          "supports": 0.6791,
+          "contradicts": 0.2269,
+          "insufficient": 0.094
+        },
+        "intentConfidence": 0.2822,
+        "overclaim": 0.3701
+      },
+      "label": {
+        "risk": "senior-security",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": false,
+        "intent": true
+      }
+    },
+    {
+      "id": "agent-extra-7-a86cacc7",
+      "answer": {
+        "risk": "focused",
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.8264,
+        "intentProbabilities": {
+          "supports": 0.2224,
+          "contradicts": 0.4738,
+          "insufficient": 0.3038
+        },
+        "intentConfidence": 0.0494,
+        "overclaim": null
+      },
+      "label": {
+        "risk": "focused",
+        "intent": "supports"
+      },
+      "match": {
+        "risk": true,
+        "intent": false
+      }
+    },
+    {
       "id": "agent-extra-9-4d9dfe38",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.6971,
+        "intentProbabilities": {
+          "supports": 0.2555,
+          "contradicts": 0.5839,
+          "insufficient": 0.1606
+        },
+        "intentConfidence": 0.1481,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -552,7 +816,15 @@
       "answer": {
         "risk": "focused",
         "intent": "contradicts",
-        "collision": true
+        "collision": true,
+        "riskScore": 1.5866,
+        "intentProbabilities": {
+          "supports": 0.0547,
+          "contradicts": 0.857,
+          "insufficient": 0.0883
+        },
+        "intentConfidence": 0.6179,
+        "overclaim": 0.8456
       },
       "label": {
         "risk": "routine",
@@ -567,8 +839,16 @@
       "id": "agent-var-51-26762269",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": true
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.7223,
+        "intentProbabilities": {
+          "supports": 0.0344,
+          "contradicts": 0.9042,
+          "insufficient": 0.0614
+        },
+        "intentConfidence": 0.7339,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -576,15 +856,23 @@
       },
       "match": {
         "risk": false,
-        "intent": false
+        "intent": true
       }
     },
     {
       "id": "agent-var-52-910b59c1",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.5545,
+        "intentProbabilities": {
+          "supports": 0.3031,
+          "contradicts": 0.4772,
+          "insufficient": 0.2197
+        },
+        "intentConfidence": 0.0518,
+        "overclaim": null
       },
       "label": {
         "risk": "senior-security",
@@ -599,8 +887,16 @@
       "id": "agent-var-53-770980a5",
       "answer": {
         "risk": "routine",
-        "intent": "supports",
-        "collision": false
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.2908,
+        "intentProbabilities": {
+          "supports": 0.2669,
+          "contradicts": 0.3759,
+          "insufficient": 0.3572
+        },
+        "intentConfidence": 0.0102,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -608,15 +904,23 @@
       },
       "match": {
         "risk": true,
-        "intent": true
+        "intent": false
       }
     },
     {
       "id": "agent-var-54-67fed67e",
       "answer": {
         "risk": "routine",
-        "intent": "supports",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.2165,
+        "intentProbabilities": {
+          "supports": 0.212,
+          "contradicts": 0.2842,
+          "insufficient": 0.5038
+        },
+        "intentConfidence": 0.0693,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -624,7 +928,7 @@
       },
       "match": {
         "risk": false,
-        "intent": true
+        "intent": false
       }
     },
     {
@@ -632,7 +936,15 @@
       "answer": {
         "risk": "focused",
         "intent": "contradicts",
-        "collision": true
+        "collision": true,
+        "riskScore": 1.7086,
+        "intentProbabilities": {
+          "supports": 0.1425,
+          "contradicts": 0.7161,
+          "insufficient": 0.1414
+        },
+        "intentConfidence": 0.3296,
+        "overclaim": 0.8029
       },
       "label": {
         "risk": "senior-security",
@@ -647,8 +959,16 @@
       "id": "agent-var-56-c9f8fe77",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": true
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.3926,
+        "intentProbabilities": {
+          "supports": 0.3019,
+          "contradicts": 0.4409,
+          "insufficient": 0.2572
+        },
+        "intentConfidence": 0.0275,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -656,15 +976,23 @@
       },
       "match": {
         "risk": true,
-        "intent": false
+        "intent": true
       }
     },
     {
       "id": "agent-var-57-50a61c78",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.2005,
+        "intentProbabilities": {
+          "supports": 0.3713,
+          "contradicts": 0.4034,
+          "insufficient": 0.2253
+        },
+        "intentConfidence": 0.027,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -679,8 +1007,16 @@
       "id": "agent-var-58-86e647e0",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.2605,
+        "intentProbabilities": {
+          "supports": 0.3461,
+          "contradicts": 0.3805,
+          "insufficient": 0.2734
+        },
+        "intentConfidence": 0.009,
+        "overclaim": null
       },
       "label": {
         "risk": "senior-security",
@@ -694,16 +1030,24 @@
     {
       "id": "agent-var-59-4fcb72cb",
       "answer": {
-        "risk": "focused",
-        "intent": "contradicts",
-        "collision": true
+        "risk": "routine",
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.6953,
+        "intentProbabilities": {
+          "supports": 0.3255,
+          "contradicts": 0.3567,
+          "insufficient": 0.3178
+        },
+        "intentConfidence": 0.0013,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
         "intent": "supports"
       },
       "match": {
-        "risk": false,
+        "risk": true,
         "intent": false
       }
     },
@@ -712,7 +1056,15 @@
       "answer": {
         "risk": "focused",
         "intent": "contradicts",
-        "collision": true
+        "collision": true,
+        "riskScore": 1.6587,
+        "intentProbabilities": {
+          "supports": 0.218,
+          "contradicts": 0.5792,
+          "insufficient": 0.2028
+        },
+        "intentConfidence": 0.1361,
+        "overclaim": 0.7442
       },
       "label": {
         "risk": "focused",
@@ -726,9 +1078,17 @@
     {
       "id": "agent-var-61-a1dc964b",
       "answer": {
-        "risk": "focused",
-        "intent": "contradicts",
-        "collision": false
+        "risk": "routine",
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.3482,
+        "intentProbabilities": {
+          "supports": 0.365,
+          "contradicts": 0.3607,
+          "insufficient": 0.2743
+        },
+        "intentConfidence": 0.0079,
+        "overclaim": null
       },
       "label": {
         "risk": "senior-security",
@@ -736,15 +1096,23 @@
       },
       "match": {
         "risk": false,
-        "intent": false
+        "intent": true
       }
     },
     {
       "id": "agent-var-62-da183dc8",
       "answer": {
         "risk": "routine",
-        "intent": "supports",
-        "collision": false
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.2155,
+        "intentProbabilities": {
+          "supports": 0.4254,
+          "contradicts": 0.3012,
+          "insufficient": 0.2734
+        },
+        "intentConfidence": 0.0196,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -752,15 +1120,23 @@
       },
       "match": {
         "risk": true,
-        "intent": true
+        "intent": false
       }
     },
     {
       "id": "agent-var-63-c3756bbf",
       "answer": {
         "risk": "routine",
-        "intent": "supports",
-        "collision": true
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.3552,
+        "intentProbabilities": {
+          "supports": 0.3099,
+          "contradicts": 0.4499,
+          "insufficient": 0.2402
+        },
+        "intentConfidence": 0.0342,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -768,7 +1144,7 @@
       },
       "match": {
         "risk": false,
-        "intent": true
+        "intent": false
       }
     },
     {
@@ -776,7 +1152,15 @@
       "answer": {
         "risk": "focused",
         "intent": "contradicts",
-        "collision": false
+        "collision": false,
+        "riskScore": 1.6795,
+        "intentProbabilities": {
+          "supports": 0.0853,
+          "contradicts": 0.7848,
+          "insufficient": 0.1299
+        },
+        "intentConfidence": 0.4601,
+        "overclaim": 0.7698
       },
       "label": {
         "risk": "senior-security",
@@ -790,9 +1174,17 @@
     {
       "id": "agent-var-65-727629f3",
       "answer": {
-        "risk": "senior-security",
+        "risk": "focused",
         "intent": "contradicts",
-        "collision": false
+        "collision": false,
+        "riskScore": 0.9459,
+        "intentProbabilities": {
+          "supports": 0.1912,
+          "contradicts": 0.5564,
+          "insufficient": 0.2524
+        },
+        "intentConfidence": 0.1148,
+        "overclaim": 0.768
       },
       "label": {
         "risk": "routine",
@@ -807,8 +1199,16 @@
       "id": "agent-var-66-1c79d84c",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.677,
+        "intentProbabilities": {
+          "supports": 0.1502,
+          "contradicts": 0.4821,
+          "insufficient": 0.3677
+        },
+        "intentConfidence": 0.0852,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -816,15 +1216,23 @@
       },
       "match": {
         "risk": false,
-        "intent": false
+        "intent": true
       }
     },
     {
       "id": "agent-var-67-71eaa6f7",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.5973,
+        "intentProbabilities": {
+          "supports": 0.2549,
+          "contradicts": 0.404,
+          "insufficient": 0.3411
+        },
+        "intentConfidence": 0.0168,
+        "overclaim": null
       },
       "label": {
         "risk": "senior-security",
@@ -839,8 +1247,16 @@
       "id": "agent-var-68-af660764",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": false
+        "intent": "insufficient",
+        "collision": false,
+        "riskScore": 0.5327,
+        "intentProbabilities": {
+          "supports": 0.2908,
+          "contradicts": 0.431,
+          "insufficient": 0.2782
+        },
+        "intentConfidence": 0.0216,
+        "overclaim": null
       },
       "label": {
         "risk": "routine",
@@ -855,8 +1271,16 @@
       "id": "agent-var-69-6bd0bb5b",
       "answer": {
         "risk": "routine",
-        "intent": "contradicts",
-        "collision": true
+        "intent": "insufficient",
+        "collision": true,
+        "riskScore": 0.3411,
+        "intentProbabilities": {
+          "supports": 0.2096,
+          "contradicts": 0.4175,
+          "insufficient": 0.3729
+        },
+        "intentConfidence": 0.036,
+        "overclaim": null
       },
       "label": {
         "risk": "focused",
@@ -899,94 +1323,94 @@
     "perQuestion": {
       "risk": {
         "routine": {
-          "tp": 14,
-          "fp": 13,
-          "fn": 6,
-          "precision": 0.5185185185185185,
-          "recall": 0.7
+          "tp": 15,
+          "fp": 12,
+          "fn": 5,
+          "precision": 0.5555555555555556,
+          "recall": 0.75
         },
         "focused": {
-          "tp": 9,
-          "fp": 13,
-          "fn": 10,
-          "precision": 0.4090909090909091,
-          "recall": 0.47368421052631576
+          "tp": 10,
+          "fp": 14,
+          "fn": 9,
+          "precision": 0.4166666666666667,
+          "recall": 0.5263157894736842
         },
         "senior-security": {
-          "tp": 4,
+          "tp": 2,
           "fp": 1,
-          "fn": 11,
-          "precision": 0.8,
-          "recall": 0.26666666666666666
+          "fn": 13,
+          "precision": 0.6666666666666666,
+          "recall": 0.13333333333333333
         }
       },
       "intent": {
         "supports": {
-          "tp": 25,
+          "tp": 20,
           "fp": 0,
-          "fn": 13,
+          "fn": 18,
           "precision": 1,
-          "recall": 0.6578947368421053
+          "recall": 0.5263157894736842
         },
         "contradicts": {
-          "tp": 8,
-          "fp": 18,
-          "fn": 0,
-          "precision": 0.3076923076923077,
-          "recall": 1
+          "tp": 7,
+          "fp": 2,
+          "fn": 1,
+          "precision": 0.7777777777777778,
+          "recall": 0.875
         },
         "insufficient": {
-          "tp": 3,
-          "fp": 0,
-          "fn": 5,
-          "precision": 1,
-          "recall": 0.375
+          "tp": 8,
+          "fp": 17,
+          "fn": 0,
+          "precision": 0.32,
+          "recall": 1
         }
       }
     },
     "confusion": {
       "risk": {
         "routine": {
-          "routine": 14,
+          "routine": 15,
           "focused": 5,
-          "senior-security": 1
-        },
-        "focused": {
-          "routine": 10,
-          "focused": 9,
           "senior-security": 0
         },
+        "focused": {
+          "routine": 8,
+          "focused": 10,
+          "senior-security": 1
+        },
         "senior-security": {
-          "routine": 3,
-          "focused": 8,
-          "senior-security": 4
+          "routine": 4,
+          "focused": 9,
+          "senior-security": 2
         }
       },
       "intent": {
         "supports": {
-          "supports": 25,
-          "contradicts": 13,
-          "insufficient": 0
+          "supports": 20,
+          "contradicts": 2,
+          "insufficient": 16
         },
         "contradicts": {
           "supports": 0,
-          "contradicts": 8,
-          "insufficient": 0
+          "contradicts": 7,
+          "insufficient": 1
         },
         "insufficient": {
           "supports": 0,
-          "contradicts": 5,
-          "insufficient": 3
+          "contradicts": 0,
+          "insufficient": 8
         }
       }
     },
     "shipBlocking": {
       "class": "risk=senior-security ∪ intent=contradicts",
-      "precision": 0.5714285714285714,
-      "recall": 0.8,
-      "tp": 16,
-      "fp": 12,
-      "fn": 4
+      "precision": 0.9090909090909091,
+      "recall": 0.5,
+      "tp": 10,
+      "fp": 1,
+      "fn": 10
     }
   }
 }

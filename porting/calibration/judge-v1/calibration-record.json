@@ -1,0 +1,124 @@
+{
+  "recordVersion": 1,
+  "setId": "v1",
+  "model": "@cf/cloudflare/clef",
+  "runAt": "2026-10-10T12:59:26.818Z",
+  "labeledSet": {
+    "path": "porting/calibration/judge-v1/labels.json",
+    "count": 59
+  },
+  "metrics": {
+    "perQuestion": {
+      "risk": {
+        "routine": {
+          "tp": 15,
+          "fp": 12,
+          "fn": 5,
+          "precision": 0.5555555555555556,
+          "recall": 0.75
+        },
+        "focused": {
+          "tp": 10,
+          "fp": 14,
+          "fn": 9,
+          "precision": 0.4166666666666667,
+          "recall": 0.5263157894736842
+        },
+        "senior-security": {
+          "tp": 2,
+          "fp": 1,
+          "fn": 13,
+          "precision": 0.6666666666666666,
+          "recall": 0.13333333333333333
+        }
+      },
+      "intent": {
+        "supports": {
+          "tp": 20,
+          "fp": 0,
+          "fn": 18,
+          "precision": 1,
+          "recall": 0.5263157894736842
+        },
+        "contradicts": {
+          "tp": 7,
+          "fp": 2,
+          "fn": 1,
+          "precision": 0.7777777777777778,
+          "recall": 0.875
+        },
+        "insufficient": {
+          "tp": 8,
+          "fp": 17,
+          "fn": 0,
+          "precision": 0.32,
+          "recall": 1
+        }
+      }
+    },
+    "confusion": {
+      "risk": {
+        "routine": {
+          "routine": 15,
+          "focused": 5,
+          "senior-security": 0
+        },
+        "focused": {
+          "routine": 8,
+          "focused": 10,
+          "senior-security": 1
+        },
+        "senior-security": {
+          "routine": 4,
+          "focused": 9,
+          "senior-security": 2
+        }
+      },
+      "intent": {
+        "supports": {
+          "supports": 20,
+          "contradicts": 2,
+          "insufficient": 16
+        },
+        "contradicts": {
+          "supports": 0,
+          "contradicts": 7,
+          "insufficient": 1
+        },
+        "insufficient": {
+          "supports": 0,
+          "contradicts": 0,
+          "insufficient": 8
+        }
+      }
+    },
+    "shipBlocking": {
+      "class": "risk=senior-security ∪ intent=contradicts",
+      "precision": 0.9090909090909091,
+      "recall": 0.5,
+      "tp": 10,
+      "fp": 1,
+      "fn": 10
+    }
+  },
+  "thresholds": {
+    "RISK_ROUTINE_MAX": 0.75,
+    "RISK_FOCUSED_MAX": 1.77,
+    "COLLISION_MIN": 0.5,
+    "INTENT_CONTRADICTS_MIN": 0.5,
+    "INTENT_INSUFFICIENT_MAX": 0.5,
+    "OVERCLAIM_CONTRADICTS_MIN": 0.74,
+    "CONTENT_SECRET_MIN": 0.5,
+    "JUDGE_RATE_LIMIT": 30,
+    "JUDGE_RATE_WINDOW_MS": 60000
+  },
+  "injectionSpike": {
+    "path": "porting/calibration/judge-v1/injection-spike.json",
+    "pass": true,
+    "escapes": 0
+  },
+  "signoff": {
+    "name": "John",
+    "date": "2026-10-10"
+  }
+}

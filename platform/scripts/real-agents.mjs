@@ -16,7 +16,7 @@ import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFi
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { ensureWorkspaceFiles } from "./workspace-manifest.mjs";
-import { loadRegistry, buildArgs } from "./harness-registry.mjs";
+import { loadRegistry, buildArgs, checkRegistry } from "./harness-registry.mjs";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
@@ -124,6 +124,28 @@ async function forkFresh(name) {
 // it is never dispatched a task.
 // ---------------------------------------------------------------------------
 
+
+// ---------------------------------------------------------------------------
+// --check-harness <registry-file>: validate a registry file end-to-end and
+// exit. Validates ONLY the named file — ambient NEXTGIT_HARNESSES can
+// neither pollute the verdict nor the exit code. Inserted before
+// loadRegistry() so the runtime dispatch path is untouched.
+// ---------------------------------------------------------------------------
+const checkHarnessTarget = (() => {
+ const idx = process.argv.indexOf("--check-harness");
+ if (idx === -1) return null;
+ const target = process.argv[idx + 1];
+ if (!target) {
+  console.error("--check-harness requires a registry file argument");
+  process.exit(2);
+ }
+ return target;
+})();
+if (checkHarnessTarget) {
+ const report = checkRegistry(checkHarnessTarget);
+ console.log(JSON.stringify(report, null, 2));
+ process.exit(report.ok ? 0 : 1);
+}
 
 const { harnesses: CANDIDATES, errors: registryErrors } = loadRegistry();
 if (registryErrors.length) {

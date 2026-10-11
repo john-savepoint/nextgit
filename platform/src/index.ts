@@ -15,7 +15,7 @@
 
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
-import { BaseMovedError, foldHashOf, mintWriteToken, pushLand, type LandFile } from "./land";
+import { BaseMovedError, foldHashOf, mintWriteToken, pushLand, TOKEN_TTL_SECONDS, type LandFile } from "./land";
 import { LandLeaseDO, acquireLandLease, releaseLandLease } from "./landLeaseDO";
 export { LandLeaseDO };
 import { EventsHubDO, publishEventToHub } from "./eventsHubDO";
@@ -26,7 +26,6 @@ import {
  MODEL_SELECTOR,
  buildJudgeRequest,
  validateJudgeResponse,
- judgeRateAllow,
  scrubFreeText,
  CONTENT_SECRET_MIN,
  isNoulAnswer,
@@ -34,7 +33,10 @@ import {
  type JudgeRepoInput,
 } from "./judge";
 
-import { authorize, type ActionType } from "./auth";
+import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
+
+import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
+
 interface Env {
  ARTIFACTS: Artifacts;
  LIVE: KVNamespace;
@@ -45,6 +47,10 @@ interface Env {
  LAND_LEASE: DurableObjectNamespace;
  EVENTS_HUB: DurableObjectNamespace;
  AUTH_MODE?: string;
+ /** Explicit reveal allowlist (FR-31) — absent ⇒ default-deny. */
+ REVEAL_ALLOW?: unknown;
+ /** Best-effort KV audit sink for POST /reveal decisions (content-free). */
+ REVEAL_AUDIT?: KVNamespace;
 }
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
@@ -811,10 +817,24 @@ async function handleSSEStream(request: Request, env: Env): Promise<Response> {
 }
 
 // Event type whitelist + validation helpers for the queue consumer.
+// Token events (FR-36): dual-listed like the five repo families.
+// The Artifacts envelope carries the `cf.artifacts.` prefix;
+// normalizeEventType strips only that prefix. Token events are
+// accepted in BOTH documented and live-emitted forms: the docs
+// show `cf.artifacts.repo.token.*` (normalized `repo.token.*`),
+// while the live open-beta environment emits `cf.artifacts.token.*`
+// (normalized `token.*`) — the consumer accepts both so a
+// token event is never dropped as validation-failed. Not in
+// CACHE_INVALIDATING_TYPES: token lifecycle never changes a
+// change-set (same reasoning that keeps repo.cloned/fetched out).
 const VALID_EVENT_TYPES: Record<string, true> = {
  "cf.artifacts.repo.pushed": true, "cf.artifacts.repo.forked": true, "cf.artifacts.repo.created": true,
  "cf.artifacts.repo.cloned": true, "cf.artifacts.repo.fetched": true,
+ "cf.artifacts.repo.token.created": true, "cf.artifacts.repo.token.revoked": true,
+ "cf.artifacts.token.created": true, "cf.artifacts.token.revoked": true,
  "repo.pushed": true, "repo.forked": true, "repo.created": true, "repo.cloned": true, "repo.fetched": true,
+ "repo.token.created": true, "repo.token.revoked": true,
+ "token.created": true, "token.revoked": true,
 };
 
 function normalizeEventType(type: string): string {
@@ -833,40 +853,20 @@ const CACHE_INVALIDATING_TYPES: Record<string, true> = {
 
 const MAX_LAND_REPOS = 16;
 
-/** Repo names are used in a remote path, so keep them to a safe charset. */
-const REPO_NAME_RE = /^[A-Za-z0-9._-]+$/;
+// Repo-name charset: imported from the auth seam (REPO_NAME_RE) so the
+// charset guard lives in one place (the chokepoint defers charset-invalid
+// names to the handlers' own 400s).
 
 // Refs go into a remote refspec; reject anything that could forge one. A
 // `..` segment would escape the branch namespace on the push.
 const REF_RE = /^[\w./-]+$/;
-
 // Demo allowlist (AD-9): the demo namespace is `demo` + `agent-*`, scratch
-// chains (`demo-lh-base` / `agent-lh-1`) included. The full auth seam is its
-// own work order; until it lands the allowlist is enforced unconditionally on
-// /land, and the edge rate limit's closest documented substitute (the
-// in-isolate fixed window /judge already uses) guards the write path.
-const DEMO_REPO_RE = /^(demo|agent)(-[A-Za-z0-9._-]+)?$/;
-const LAND_RATE_LIMIT = 20; // requests per caller...
-const LAND_RATE_WINDOW_MS = 60_000; // ...per minute (AD-9 per-caller cap; makes 429 reachable)
-
-const landWindows = new Map<string, { start: number; count: number }>();
-
-/** True when the caller may land now; false when over LAND_RATE_LIMIT/min. */
-function landRateAllow(key: string, now = Date.now()): boolean {
- if (landWindows.size > 500) {
-  for (const [k, w] of landWindows) {
-   if (now - w.start >= LAND_RATE_WINDOW_MS) landWindows.delete(k);
-  }
- }
- const window = landWindows.get(key);
- if (!window || now - window.start >= LAND_RATE_WINDOW_MS) {
-  landWindows.set(key, { start: now, count: 1 });
-  return true;
- }
- if (window.count >= LAND_RATE_LIMIT) return false;
- window.count++;
- return true;
-}
+// chains (`demo-lh-base` / `agent-lh-1`) included. The allowlist lives in
+// the authorize() chokepoint (./auth, DEMO_REPO_RE) and is enforced on every
+// route; /land re-checks it below (defense-in-depth — its body is parsed by
+// parseLandBody, not extractScope). The full auth seam is its own work order;
+// until it lands the edge rate limit's closest documented substitute (the
+// in-isolate fixed window in ./rate) guards the write path.
 
 // Concurrency posture for POST /land (BF-1): one clone+push at a time per
 // isolate. isomorphic-git funnels every operation through one module-wide
@@ -902,6 +902,20 @@ async function repoHead(env: Env, name: string, ref: string): Promise<string> {
 function badRequest(error: string): Response {
  return Response.json({ ok: false, error }, { status: 400 });
 }
+
+/**
+ * Content-free token-lifecycle audit (FR-36): one `console.log` line
+ * per mint/revoke, matching the existing `console.log(event,
+ * JSON.stringify(fields))` idiom (the "judge" log above). Every caller
+ * passes a closed literal — `{repo,ttl}` or `{repo,phase}` — so the
+ * token string and its request body can never reach Worker logs
+ * (NFR-3); `fields` is `Record<string,unknown>` only to keep the seam
+ * uniform, not to invite free-form payloads.
+ */
+function auditToken(event: "token-mint" | "token-revoke", fields: Record<string, unknown>): void {
+ console.log(event, JSON.stringify(fields));
+}
+
 interface ProposalsQuery {
  base: string;
  ref: string;
@@ -1055,7 +1069,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
  const { base, repos, baseRef, ref, reviewed, validation } = parsed;
 
  const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
- if (!landRateAllow(caller)) return Response.json({ ok: false, error: "rate-limited" }, { status: 429 });
+ if (!rateAllow("/land", caller)) return rateLimitedResponse();
 
  // Demo allowlist (AD-9): only the demo namespace is landable while the
  // platform is demo-open; the full auth seam ships as its own work order.
@@ -1171,6 +1185,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    baseRepo = await env.ARTIFACTS.get(base);
    const info = await baseRepo.info();
    token = await mintWriteToken(baseRepo);
+   auditToken("token-mint", { repo: base, ttl: TOKEN_TTL_SECONDS });
    const { commit } = await pushLand({
     remote: info.remote,
     token,
@@ -1282,9 +1297,13 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    // Worker-minted tokens are single-use: revoke whether the push landed or failed.
    if (token) {
     try {
-     if (baseRepo) { await baseRepo.revokeToken(token); }
+     if (baseRepo) {
+      await baseRepo.revokeToken(token);
+      auditToken("token-revoke", { repo: base, phase: "success" });
+     }
     } catch {
      // Best-effort; the short TTL still bounds exposure.
+     auditToken("token-revoke", { repo: base, phase: "failed" });
     }
    }
    // Release the per-base DO lease (FR-17): best-effort, only by owner.
@@ -1373,9 +1392,21 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
  const parsed = parseJudgeBody(await request.json().catch(() => null));
  if (parsed instanceof Response) return parsed;
 
- const caller = request.headers.get("CF-Connecting-IP") ?? "unknown";
- if (!judgeRateAllow(caller)) return Response.json({ ok: false, error: "rate-limited" }, { status: 429 });
+ const rateDenied = rateGate("/judge", request);
+ if (rateDenied) return rateDenied;
  if (!env.AI || typeof env.AI.run !== "function") return judgeUnavailable();
+
+ // Demo allowlist (AD-9) — the POST /judge body is the scope carrier,
+ // readable only here. Same uniform 403 as the authorize() chokepoint,
+ // before any computeChangeSet / computeMerge / env.AI.run read.
+ for (const name of [parsed.base, ...parsed.repos]) {
+  if (!DEMO_REPO_RE.test(name)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${name}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+ }
 
  const skipped: Array<{ repo: string; reason: "secret-class" | "empty-change-set" | "content-detected-secret" }> = [];
  const judged: JudgeRepoInput[] = [];
@@ -1482,6 +1513,142 @@ async function handleLandingsRead(commit: string, env: Env): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// POST /reveal — read a secret-class VALUE through the authorized,
+// audited seam rule (FR-31).
+//
+// Defense-in-depth: the dispatcher already ran authorize() (mode gate:
+// deny 401 / demo allowlist 403) and the CSRF gate before this handler.
+// This handler layers the EXPLICIT reveal rule (authorizeReveal) on top,
+// then — and only then — reads the value server-side from Artifacts for
+// the secret-class path. The value appears in exactly one place: the
+// authorized 200 response. Every decision (grant AND denial) writes a
+// content-free audit record; the record type has no `value` field, so
+// the stored JSON cannot carry the secret.
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the value for `key` from `KEY=VALUE` env-style text: the
+ * substring after the first `=` on the matching line. Shares
+ * SECRET_KEY_RE with secretKeys(). Returns null when the key is absent.
+ */
+function revealKeyValue(text: string, key: string): string | null {
+ for (const line of text.split("\n")) {
+  if (!SECRET_KEY_RE.test(line)) continue;
+  const eq = line.indexOf("=");
+  if (line.slice(0, eq) === key) return line.slice(eq + 1);
+ }
+ return null;
+}
+
+/**
+ * Best-effort audit write to env.REVEAL_AUDIT. The KV key is
+ * content-free (decision metadata only) and the stored JSON is a
+ * RevealAuditRecord — by type it carries no `value`, so the secret
+ * cannot be persisted here. A KV failure never fails the request
+ * (mirrors the SKIP_RECORD precedent, index.ts handleJudge).
+ */
+async function writeRevealAudit(env: Env, rec: RevealAuditRecord): Promise<void> {
+ if (!env.REVEAL_AUDIT) return;
+ const k = `reveal-audit:${rec.at}:${rec.identity}:${rec.repo}:${rec.path}:${rec.key}`;
+ await env.REVEAL_AUDIT.put(k, JSON.stringify(rec)).catch(() => { });
+}
+
+/** Closed request schema for POST /reveal (mirrors parseJudgeBody's unknown-field 400). */
+interface RevealRequestBody {
+ repo?: unknown;
+ ref?: unknown;
+ path?: unknown;
+ key?: unknown;
+}
+
+async function handleReveal(request: Request, env: Env): Promise<Response> {
+ // Belt-and-braces seam precondition: non-demo is already 401 via the
+ // dispatcher's authorize(); assert here so the handler cannot run
+ // outside the demo seam (fail closed before any binding read).
+ try {
+  assertSeamEnabled(env);
+ } catch {
+  return unauthorizedResponse();
+ }
+
+ // Closed schema + field validation. 400 (shape) precedes 403
+ // (authorization), the same precedence class as parseLandBody.
+ const raw = await request.json().catch(() => null);
+ if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+  return Response.json({ ok: false, error: "bad-request" }, { status: 400 });
+ }
+ const body = raw as RevealRequestBody;
+ if (!Object.keys(body).every((k) => k === "repo" || k === "ref" || k === "path" || k === "key")) {
+  return Response.json({ ok: false, error: "bad-request" }, { status: 400 });
+ }
+ const repo = body.repo;
+ const ref = body.ref;
+ const path = body.path;
+ const key = body.key;
+ if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
+  return Response.json({ ok: false, error: "invalid repo name" }, { status: 400 });
+ }
+
+ // Demo allowlist (AD-9) — the POST /reveal body is the scope
+ // carrier, readable only here (the dispatcher's extractScope
+ // reads query params only). Same uniform 403 as /land and
+ // /judge, before any Artifacts read.
+ if (!DEMO_REPO_RE.test(repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return Response.json({ ok: false, error: "invalid ref" }, { status: 400 });
+ }
+ if (typeof path !== "string" || path === "" || path.startsWith("/") || path.split("/").includes("..")) {
+  return Response.json({ ok: false, error: "invalid path" }, { status: 400 });
+ }
+ if (typeof key !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+  return Response.json({ ok: false, error: "invalid key" }, { status: 400 });
+ }
+
+ // Identity: the opaque Bearer token (Authorization header), normalized.
+ const identity = (request.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+
+ // THE explicit authorization rule. Denied ⇒ audit a denial, then 403
+ // with NO value — the value is never read for an unauthorized caller.
+ const decision = authorizeReveal(env, { identity, repo });
+ if (!decision.ok) {
+  await writeRevealAudit(env, revealAuditRecord(identity, repo, path, key, "denied", new Date().toISOString()));
+  return revealDenial();
+ }
+
+ // Authorized. The grant is audited AT THE AUTHORIZATION DECISION
+ // POINT (Q1): the authorization event happened, so a granted record
+ // is written even when a later step 400s (non-secret-class) or 404s
+ // (missing file / key). Denials are audited above; grants here.
+ await writeRevealAudit(env, revealAuditRecord(identity, repo, path, key, "granted", new Date().toISOString()));
+
+ // The reveal surface is secret-class only.
+ if (!isSecretPath(path)) {
+  return Response.json({ ok: false, error: "not-secret-class" }, { status: 400 });
+ }
+
+ // Value read — only now, only for an authorized caller, only server-side.
+ using artifactsRepo = await env.ARTIFACTS.get(repo);
+ const content = await readContent(artifactsRepo, ref, path);
+ if (!content) {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ if (content.binary) {
+  return Response.json({ ok: false, error: "binary" }, { status: 415 });
+ }
+ const value = revealKeyValue(content.text ?? "", key);
+ if (value === null) {
+  return Response.json({ ok: false, error: "key-not-found" }, { status: 404 });
+ }
+
+ // The grant was audited at the authorization decision point (Q1).
+ return Response.json({ ok: true, repo, ref, path, key, value });
+}
+// ---------------------------------------------------------------------------
 // GET /health — liveness probe.
 // ---------------------------------------------------------------------------
 async function handleHealth(_request: Request, env: Env): Promise<Response> {
@@ -1511,6 +1678,8 @@ async function handleProposals(request: Request, env: Env): Promise<Response> {
  const parsed = parseProposalsQuery(url);
  if (parsed instanceof Response) return parsed;
  const { base, ref, baseRef, repoList } = parsed;
+ const rateDenied = rateGate("/proposals", request);
+ if (rateDenied) return rateDenied;
  // Perf (measured 2026-10-08: full recompute = 13–17s live at 5 forks — the UI's
  // 20s cap kept aborting John's browser). Generation-keyed KV cache: every pushed
  // event bumps `cache:gen` (see recordEvent), so any push/land invalidates every
@@ -1539,6 +1708,8 @@ async function handleMerge(request: Request, env: Env): Promise<Response> {
  if (parsed instanceof Response) return parsed;
  const { base, ref, baseRef, repoList } = parsed;
  if (!repoList || !repoList.length) return Response.json({ ok: false, error: "repos parameter required" }, { status: 400 });
+ const rateDenied = rateGate("/merge", request);
+ if (rateDenied) return rateDenied;
  const merge = await computeMerge(env, base, baseRef, repoList, ref);
  return Response.json({ ok: true, merge });
 }
@@ -1562,12 +1733,22 @@ interface RouteEntry {
  handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
 }
 
-/** Extract the scope (repo/base) to authorize, for routes that carry them. */
-function extractScope(request: Request): { repo?: string; base?: string } {
+/**
+ * Extract the repo scope (repo/base/repos) to authorize, for routes
+ * that carry them. GET /changes, /proposals, /merge pass `repo`/`base`
+ * query params; `repos` is the comma-split list parseProposalsQuery
+ * also applies (trimmed, empties dropped) so the chokepoint allowlist
+ * fires pre-handler with the same names the handler will read.
+ */
+function extractScope(request: Request): AuthorizeScope {
  const url = new URL(request.url);
  const repo = url.searchParams.get("repo") ?? undefined;
  const base = url.searchParams.get("base") ?? undefined;
- return { repo, base };
+ const reposParam = url.searchParams.get("repos");
+ const repos = reposParam
+  ? reposParam.split(",").map((s) => s.trim()).filter(Boolean)
+  : undefined;
+ return { repo, base, repos };
 }
 
 /** Static API routes — every entry authorizes before its handler runs. */
@@ -1578,6 +1759,10 @@ export const ROUTES: RouteEntry[] = [
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
+ // Reveal — secret-class value behind the explicit authorization rule.
+ // The dispatcher runs authorize() (mode gate) + the CSRF gate first;
+ // the handler layers authorizeReveal() on top (defense-in-depth).
+ { path: "/reveal", method: "POST", action: "reveal", handler: handleReveal },
  { path: "/events", method: "GET", action: "read", handler: handleEvents },
  // SSE hub proxy — tabled like every other route so the authorize() chokepoint covers it
  // (it previously sat in an inline branch below the tables and bypassed authorize: in
@@ -1589,6 +1774,18 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
  { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
 ];
 
+// UI document set (AD-8 boundary discipline): the wrangler-assets
+// binding (env.ASSETS) serves exactly platform/ui/'s documents.
+// The dispatcher's terminal fallthrough hands a request to ASSETS
+// only when the path is in this whitelist; anything else is a JSON
+// contract error (405 method-not-allowed on a registered path, 404
+// not-found otherwise). Additive-only: a new UI file is added here
+// AND to the route-discipline parity check in the same commit.
+const UI_ASSET_PATHS: Record<string, true> = {
+  "/": true, "": true, "/index.html": true, "/styles.css": true,
+  "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+};
+
 export default {
  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -1598,6 +1795,13 @@ export default {
     if (url.pathname === route.path && request.method === route.method) {
      const denied = authorize(request, env, route.action, extractScope(request));
      if (denied) return denied;
+     // CSRF precondition (FR-45): mutating routes run the cookie-identity
+     // gate after authorize() (so 401 and 403 repo-not-allowed keep
+     // precedence) and before the handler. GET routes are unaffected.
+     if (request.method === "POST") {
+      const csrf = csrfGate(request);
+      if (csrf) return csrf;
+     }
      return await route.handler(request, env, ctx);
     }
    }
@@ -1607,15 +1811,32 @@ export default {
     if (url.pathname.startsWith(route.prefix) && request.method === route.method) {
      const denied = authorize(request, env, route.action, extractScope(request));
      if (denied) return denied;
+     if (request.method === "POST") {
+      const csrf = csrfGate(request);
+      if (csrf) return csrf;
+     }
      return await route.handler(request, env, ctx);
     }
    }
 
-   // (Inline route duplicates removed 2026-10-10 — the tables above handle every API path.
-   // The block here was unreachable except /events/stream, now a tabled route covered by
-   // authorize(). The e11 route-discipline order builds on this single registration point.)
-   // Everything else is the triage UI from platform/ui via wrangler assets.
-   return env.ASSETS.fetch(request);
+
+   // API boundary discipline (AD-8): a known path with the wrong
+   // method, and any unknown path, must not reach the asset layer —
+   // they answer with the contract JSON error. 405-before-404: a
+   // wrong method on a registered path is more specific than an
+   // unknown path. Both fire before authorize()/CSRF, matching the
+   // handler-level 400/404/409 precedent (a malformed request is
+   // rejected at the boundary without reaching the auth chokepoint).
+   const knownPath =
+     ROUTES.some((r) => r.path === url.pathname) ||
+     DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
+   if (knownPath) {
+     return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
+   }
+   if (UI_ASSET_PATHS[url.pathname]) {
+     return env.ASSETS.fetch(request);
+   }
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
   } catch (err) {
    return Response.json({ ok: false, error: scrubFreeText(String((err as Error)?.message ?? err)) }, { status: 500 });
   }
