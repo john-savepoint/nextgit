@@ -401,6 +401,13 @@ function markStreamDown() {
 
 function openEventStream() {
  if (state.stream) return; // one EventSource per page load
+ // Live-render probe (`?probe=1`): the probe dumps the DOM under
+ // --virtual-time-budget, which never settles while the never-ending SSE
+ // fetch is open (Chrome waits for network quiet; the dump only fires after
+ // the budget elapses). In probe mode stay on the deterministic polling
+ // path — the gate reads the RENDERED page; SSE behavior is covered
+ // end-to-end by the loopback suite (ui-event-stream-consume).
+ if (new URLSearchParams(location.search).has("probe")) return;
  const source = new EventSource("/events/stream");
  state.stream = source;
  // : connected — the hub's first frame is a comment, never an event frame
