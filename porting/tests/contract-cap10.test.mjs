@@ -148,13 +148,20 @@ const statusSeq = (body) => {
   const i = toks.indexOf("200");
   return i >= 0 ? toks.slice(0, i + 1) : toks;
 };
-const LAND_ORDER = ["400", "429", "403", "409 stale", "409 withheld-secret", "409 conflict", "409 no-changes", "409 base-moved", "200"];
+// The /land sequence carries the AD-11 auto-land gate's three codes
+// (409 content-detected-secret / 503 judge-unavailable / 409 autoland-escalate)
+// between the withheld-secret and conflict steps — that gate lives INSIDE
+// POST /land only; /upstream has no model gate, so 6d compares /upstream
+// against the /land sequence MINUS the gate codes.
+const LAND_ORDER = ["400", "429", "403", "409 stale", "409 withheld-secret", "409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 conflict", "409 no-changes", "409 base-moved", "200"];
+const LAND_ONLY_GATE_CODES = new Set(["409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate"]);
 const landSeq = statusSeq(landEvidenceBlock);
 const upstreamSeq = statusSeq(upstreamKeysDeclared);
 check("6a /land precondition order line present", landSeq !== null && landSeq.length > 0);
 check("6b /upstream precondition order line present", upstreamSeq !== null && upstreamSeq.length > 0);
 check("6c /land order matches the pinned sequence", landSeq !== null && LAND_ORDER.every((v, i) => landSeq[i] === v), `land=[${(landSeq || []).join(",")}]`);
-check("6d /upstream status-ordering sequence equals /land's", landSeq !== null && upstreamSeq !== null && landSeq.length === upstreamSeq.length && landSeq.every((v, i) => v === upstreamSeq[i]), `land=[${(landSeq || []).join(",")}] upstream=[${(upstreamSeq || []).join(",")}]`);
+const landCore = landSeq === null ? null : landSeq.filter((v) => !LAND_ONLY_GATE_CODES.has(v));
+check("6d /upstream status-ordering sequence equals /land's (minus the /land-only auto-land gate codes)", landCore !== null && upstreamSeq !== null && landCore.length === upstreamSeq.length && landCore.every((v, i) => v === upstreamSeq[i]), `land-core=[${(landCore || []).join(",")}] upstream=[${(upstreamSeq || []).join(",")}]`);
 
 // ---- Group 7: fork-community.md referenced ----
 const refs = [

@@ -339,7 +339,12 @@ function landEnv() {
       return true;
     },
   };
-  return { env: { ARTIFACTS, LIVE: kv, CACHE: kv, ASSETS: { fetch: async () => new Response("") }, AUTH_MODE: "demo" }, kv };
+  // The AD-11 auto-land gate runs inside every engaged POST /land: the
+  // land must be answered by the pinned model (a null/absent AI fails
+  // closed 503 BEFORE the mint/revoke critical section this suite
+  // exercises). Schema-valid Clef reply for the no-intent plan
+  // [risk_1, content_secret_1] — routine risk, no content-secret flag.
+  return { env: { ARTIFACTS, LIVE: kv, CACHE: kv, ASSETS: { fetch: async () => new Response("") }, AI: { async run() { return { model: "clef", answers: { risk_1: { type: "score", score: 0.4 }, content_secret_1: { type: "noul", noul: 0.0 } }, usage: { neurons: 1 } }; } }, AUTH_MODE: "demo" }, kv };
 }
 
 // Capture console.log while a land runs.
