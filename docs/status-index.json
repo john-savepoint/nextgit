@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-11T03:37:32.713Z",
-  "head": "4df9df6",
+  "generatedAt": "2026-10-11T04:50:35.149Z",
+  "head": "b43dedf",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-10 ",
+    "lastUpdated": "2026-10-11 ",
     "branch": "main",
-    "lastCommit": "1e77ce3",
+    "lastCommit": "b43dedf",
     "standingRedSet": null
   },
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 494,
+      "pending": 461,
       "partial": 1,
-      "done": 166
+      "done": 199
     },
     "items": [
       {
@@ -2264,11 +2264,6 @@
       },
       {
         "status": "pending",
-        "priority": "P0",
-        "title": "Consume the event stream in the UI; keep polling as the degraded fallback"
-      },
-      {
-        "status": "pending",
         "priority": "P3",
         "title": "Enforce the auto-land engagement interlock"
       },
@@ -2280,132 +2275,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Prove a landing records its baseline move in the live feed"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Publish the BYO harness onboarding standard and validate declarations"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Cross-link the operator runbook from the root README"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Enforce the demo repo allowlist on every base/repos param"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Fail closed on cookie identities and gate non-demo data on the seam"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Enforce repo git token TTLs: 24 h default, 7 d max"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Render the CAP-8 elevated-reveal beat with the withheld fallback"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Reveal secret values only through an authorized, audited seam rule"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Rate-limit /land, /merge, /proposals and /judge"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Audit token mint/use/revoke in Worker logs and Artifacts token events"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Write token manifests 0600 and keep tokens out of logs and argv"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify tour degradation: fetch failure falls back and the tour continues"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify <=720px single-column stacking and <=640px grid collapse"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify step 6 fetches and annotates the real proposal grid"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify step 7 grades quiz answers over the real proposal set"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify the 10-tab stepper, progress fill and narrow-width scroll"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify steps 0-2 teach with core terms and simulations 1-2"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify steps 3-5: annotated card, collision sim and shipping sim"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify steps 8-9 state non-goals and frame the operator with the CTA"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the colliding-land refusal: 409 conflict, files named, preview-merge guidance"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify failure UI states: exact banner copy, card back to default, dismiss-only persistence"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the one-click landing beat lands server-side with a receipt"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Prove the demo path is the live Cloudflare Worker + Artifacts namespace"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the REAL CLI agent run: N≥4 concurrent agents and a genuine pre-land collision"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify the secret-touching land refusal: 409 withheld-secret, files named, values held back"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Enforce route methods and JSON 404s at the API boundary"
       },
       {
         "status": "pending",
@@ -2419,43 +2289,13 @@
       },
       {
         "status": "pending",
-        "priority": "P3",
-        "title": "Pin the 11-entity client protocol and push-event vocabulary in CONTRACT"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify CONTRACT"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify base/ref/baseRef default resolution is pinned to demo/main on every route"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Verify frozen enums, ISO-8601 UTC timestamps, and the land"
-      },
-      {
-        "status": "pending",
         "priority": "P1",
         "title": "Verify unknown API paths return JSON 404, never the asset handler"
       },
       {
         "status": "pending",
-        "priority": "P0",
-        "title": "Verify /judge pin, repo/ref caps, and the per-caller rate limit"
-      },
-      {
-        "status": "pending",
         "priority": "P1",
         "title": "Verify wrong-method requests are answered by the API routes with a JSON error"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Verify all seven documented routes live, with documented error shapes"
       },
       {
         "status": "pending",
@@ -2476,11 +2316,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Pin the CAP-10 contract: intent/matcher, fork signals, upstream route"
       },
       {
         "status": "pending",
