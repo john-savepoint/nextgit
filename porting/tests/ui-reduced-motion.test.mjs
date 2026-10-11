@@ -84,6 +84,15 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify(EVENTS));
     return;
   }
+  if (pathname === "/events/stream") {
+    // FR-22 push path: the page opens this EventSource on load. Hold the
+    // connection open so the app reaches its push-connected state (default
+    // green pulse, pollers stopped) — R3/R5 pin the static-tint register,
+    // not the fallback state a missing stream would produce.
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+    res.write(": connected\n\n");
+    return;
+  }
   if (pathname === "/judge") {
     res.writeHead(503, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: false, error: "judge unavailable in fixture" }));

@@ -91,7 +91,7 @@ const bgOf = (el) => { let n = el; while (n) { const b = getComputedStyle(n).bac
 const read = (el) => (el ? { color: getComputedStyle(el).color, bg: bgOf(el), text: (el.textContent || "").trim().slice(0, 120), cls: el.className } : null);
 const reads = (sel) => [...document.querySelectorAll(sel)].map(read);
 const vars = {};
-for (const k of ["--text-primary", "--text-secondary", "--text-muted", "--text-dim"]) vars[k] = getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+for (const k of ["--text-primary", "--text-secondary", "--text-muted", "--text-dim", "--status-amber"]) vars[k] = getComputedStyle(document.documentElement).getPropertyValue(k).trim();
 const R = { mode: MODE, vars, s: {} };
 document.addEventListener("DOMContentLoaded", async () => {
   try {
@@ -177,8 +177,12 @@ function legDegraded(dom) {
   const R = parse(dom); if (!R) return check("4 degraded: scenario output present", false, "no #test-out");
   if (R.err) return check("4 degraded: scenario threw", false, R.err);
   const dim = hexToRgb(R.vars["--text-dim"]);
+  // FR-22 pulse machine (e4): a down stream carries is-fallback → the amber
+  // register; is-stale (dim) is the quiet poll-failure register. This fixture
+  // trips both and the cascade resolves to amber — pin the visible register.
+  const amber = hexToRgb(R.vars["--status-amber"]);
   check("4 stale pulse rendered (ticker degraded on /events failure)", !!R.s.pulse && String(R.s.pulse.cls || "").includes("is-stale"), JSON.stringify(R.s.pulse));
-  if (R.s.pulse) check("4 stale pulse stays dim", R.s.pulse.bg === dim, `bg=${R.s.pulse.bg} expected=${dim}`);
+  if (R.s.pulse) check("4 degraded pulse resolves to the fallback (amber) register", R.s.pulse.bg === amber, `bg=${R.s.pulse.bg} expected=${amber}`);
   expectCount("4 ticker empty rendered x1", R.s.tickerEmpty, 1);
   (R.s.tickerEmpty || []).forEach((s, i) => expectColor(`4 ticker-empty[${i}] stays dim`, s, dim));
   expectCount("4 empty states still render while degraded", R.s.empty, 2);

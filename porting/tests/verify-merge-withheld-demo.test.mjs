@@ -138,20 +138,21 @@ function uiContract() {
   const secretIdx = appJs.indexOf('result === "withheld-secret"');
   check("UI: app.js has a result==='withheld-secret' branch in renderMergeContent", secretIdx >= 0, "branch not found");
 
-  // The exact line range cited in the work order: app.js:876-877.
-  // Line 876 is the `if (isSecret)` guard; line 877 carries "Secret content withheld".
-  const lines = appJs.split("\n");
-  const line876 = lines[875] ?? ""; // 0-indexed
-  const line877 = lines[876] ?? "";
+  // The work order cited app.js:876-877; those absolute lines drifted when the
+  // FR-22 SSE integration shifted the file, so these two checks anchor on the
+  // branch content instead (same assertions: the isSecret guard, then the copy).
+  const branch = appJs.slice(secretIdx, secretIdx + 4000);
+  const guardLine = branch.split("\n").find((l) => l.includes("if (isSecret)")) ?? "";
   check(
-    "UI: app.js:876 enters the withheld-secret branch (if isSecret)",
-    line876.includes("if (isSecret)"),
-    JSON.stringify(line876),
+    "UI: withheld branch enters via the `if (isSecret)` guard",
+    guardLine.includes("if (isSecret)"),
+    JSON.stringify(guardLine),
   );
+  const copyLine = branch.split("\n").find((l) => l.includes("Secret content withheld")) ?? "";
   check(
-    "UI: app.js:877 renders Secret content withheld",
-    line877.includes("Secret content withheld"),
-    JSON.stringify(line877),
+    "UI: withheld branch renders \"Secret content withheld\"",
+    copyLine.includes("Secret content withheld"),
+    JSON.stringify(copyLine),
   );
 
   // Confirm the withheld branch produces NO merged/conflictText injection.

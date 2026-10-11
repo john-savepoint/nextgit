@@ -5,11 +5,12 @@
 // CONTRACT.md is the single source of route truth: the set of routes
 // implemented in platform/src/index.ts (ROUTES `path:` + DYNAMIC_ROUTES
 // `prefix:` registration tables) must equal the set of documented
-// `## GET|POST <route>` headings — a route added in code without a
-// same-slice CONTRACT.md entry (or a documented route the worker does
-// not implement) fails the check. Also guards the version line and the
-// additive-only law, and per-route method agreement between the tables
-// and the doc headings.
+// `## GET|POST <route>` headings — modulo the CAP-10 pins declared below
+// (e13 contract-pins three routes ahead of their handlers). A route added
+// in code without a same-slice CONTRACT.md entry, or a documented,
+// unpinned route the worker does not implement, fails the check. Also
+// guards the version line and the additive-only law, and per-route method
+// agreement between the tables and the doc headings.
 //
 // Static filesystem reads only; guards the file surface, not runtime
 // behavior. No mock.module, no live worker, no env deps — full-suite
@@ -68,15 +69,25 @@ const docRoutes = Array.from(contract.matchAll(/^## (GET|POST) (\/[^\s?]+)/gm)).
 const docList = docRoutes.map((r) => `${r.method} ${r.route}`).sort();
 
 // --- 3. Set equality (route+method pairs) ---
-const implJson = JSON.stringify(implList);
-const docJson = JSON.stringify(docList);
-const equal = implJson === docJson;
 const implOnly = implList.filter((r) => !docList.includes(r));
 const docOnly = docList.filter((r) => !implList.includes(r));
+// e13 (CAP-10) intentionally contract-pins three routes AHEAD of their
+// handlers — the contract declares the wire shape + rate rows now; the
+// handlers land with their own implementation orders. This is the ONLY
+// sanctioned documented-but-unimplemented set: keep it exact, and drop an
+// entry here the moment its handler lands.
+const PINNED = ["GET /forks", "POST /intents", "POST /upstream"];
+const pinnedOnly = docOnly.filter((r) => PINNED.includes(r));
+const docOnlyUnexpected = docOnly.filter((r) => !PINNED.includes(r));
 check(
-  "2 implemented routes == documented headings (single source)",
-  equal,
-  `code-only: [${implOnly.join(", ")}] doc-only: [${docOnly.join(", ")}]`
+  "2 implemented routes + CAP-10 pins == documented headings (single source)",
+  implOnly.length === 0 && docOnlyUnexpected.length === 0,
+  `code-only: [${implOnly.join(", ")}] doc-only-unpinned: [${docOnlyUnexpected.join(", ")}]`
+);
+check(
+  "2b the CAP-10 pin set is still exactly the documented-unimplemented set",
+  JSON.stringify(pinnedOnly.slice().sort()) === JSON.stringify(PINNED.slice().sort()),
+  `pinned-in-doc: [${pinnedOnly.join(", ")}]`
 );
 console.log(`impl: ${JSON.stringify(implList)}`);
 console.log(`doc:  ${JSON.stringify(docList)}`);

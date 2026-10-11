@@ -33,7 +33,12 @@ const only = (() => {
 })();
 
 const baseline = /^\d+$/.test(process.argv[3] ?? "") ? process.argv[2] ?? "demo" : "demo";
-const ttl = resolveTtl(process.argv[3]);
+// `--check-harness <registry-file>` is a validate-and-exit mode (handler below,
+// before loadRegistry): argv[3] is a FILE path there, never a ttl — skip
+// resolveTtl so the validation path cannot trip the FR-36 ttl policy. Every
+// ttl-bearing runtime call still goes through resolveTtl (default 86400,
+// ceiling 604800).
+const ttl = process.argv.includes("--check-harness") ? null : resolveTtl(process.argv[3]);
 const AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS) || 8 * 60_000;
 // An agent killed mid-flight leaves its clone with real work but no commit.
 // The clone is kept so a retry can collect it, and on the first full run
