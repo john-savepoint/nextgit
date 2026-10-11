@@ -313,6 +313,30 @@ export function authorizeReveal(
 }
 
 /**
+ * The viewer's elevated-reveal capability — the same decision
+ * POST /reveal makes (single source of truth: this is NOT a
+ * second rule; it calls authorizeReveal and reads the same
+ * REVEAL_ALLOW + presented identity). Pure: no I/O beyond
+ * REVEAL_ALLOW, never throws, never returns a value.
+ *
+ * `authorized` and `reveal` are the same boolean (alias) —
+ * one canonical decision. Default (absent REVEAL_ALLOW or
+ * absent identity) => { authorized:false, reveal:false } — the
+ * live default today. GET /whoami reports this to the UI so
+ * the triage app knows whether to render the reveal affordance;
+ * the affordance is never a capability — the server re-runs
+ * authorizeReveal on every POST /reveal click.
+ */
+export function revealCapability(
+ env: AuthEnv & { REVEAL_ALLOW?: unknown },
+ input: RevealDecisionInput,
+): { authorized: boolean; reveal: boolean } {
+ const decision = authorizeReveal(env, input);
+ const reveal = decision.ok;
+ return { authorized: reveal, reveal };
+}
+
+/**
  * Content-free audit record for a reveal decision. BY CONSTRUCTION
  * there is no `value` field — the stored JSON cannot carry the secret.
  * `at` is supplied by the caller so tests pin it.

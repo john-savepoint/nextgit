@@ -365,6 +365,12 @@
           clean additions, and changes that have already landed.
         </p>
 
+        <div class="callout">
+          <strong>Secret-typed files</strong> render schema-only — key names, never values. An authorized viewer
+          sees a <em>reveal</em> control that reads the value through the platform's audited seam; everyone else
+          sees only "Secret content withheld". The value is never in the card, the change-set, or the merge preview.
+        </div>
+
         <div id="live-proposals-status" class="callout">
           Fetching live proposal state from platform worker...
         </div>

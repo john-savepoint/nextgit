@@ -848,6 +848,51 @@ html, body {
   font-size: 0.625rem;
 }
 
+/* Elevated-reveal affordance (CAP-8): the control renders only for an
+   authorized viewer (reveal:true from /whoami); the value slot renders only
+   from the audited POST /reveal response. 44px touch target, focus ring,
+   hover — tokens match the neighboring badge/secret blocks; no new hue. */
+.btn-reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-reveal:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+.btn-reveal:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+.reveal-value {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.reveal-value[hidden] {
+  display: none;
+}
+.reveal-value-line {
+  white-space: pre-wrap;
+}
+
 /* Modals / Drawers for Diff and Merge Preview */
 .modal-backdrop {
   position: fixed;

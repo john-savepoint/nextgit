@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 10 entries", ROUTES.length === 10, `got ${ROUTES?.length}`);
+check("C: ROUTES has 12 entries (base 9 + GET /floors, POST /upstream, GET /whoami)", ROUTES.length === 12, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;

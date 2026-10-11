@@ -38,7 +38,7 @@ import {
 
 import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 
-import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
+import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealCapability, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
 
 interface Env {
  ARTIFACTS: Artifacts;
@@ -2151,6 +2151,21 @@ async function handleReveal(request: Request, env: Env): Promise<Response> {
 async function handleHealth(_request: Request, env: Env): Promise<Response> {
  return Response.json({ ok: true, service: "nextgit-platform", namespace: "nextgit" });
 }
+// ---------------------------------------------------------------------------
+// GET /whoami?repo=... — the viewer's elevated-reveal capability.
+// Read-only; carries no secret content. Reuses the SAME decision as
+// POST /reveal (revealCapability → authorizeReveal) so the UI and the
+// seam can never disagree about who may reveal. The affordance is
+// never a capability: POST /reveal re-runs the rule on every click.
+// ---------------------------------------------------------------------------
+async function handleWhoami(request: Request, env: Env): Promise<Response> {
+ try { assertSeamEnabled(env); } catch { return unauthorizedResponse(); }
+ const identity = (request.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+ const repoParam = new URL(request.url).searchParams.get("repo");
+ const repo = repoParam ?? "demo";
+ const capability = revealCapability(env, { identity, repo });
+ return Response.json({ ok: true, authorized: capability.authorized, reveal: capability.reveal });
+}
 
 // ---------------------------------------------------------------------------
 // GET /changes?repo=...&base=demo&ref=main&baseRef=main
@@ -2377,6 +2392,9 @@ export const ROUTES: RouteEntry[] = [
  // (it previously sat in an inline branch below the tables and bypassed authorize: in
  // AUTH_MODE=deny the stream still opened, contradicting CONTRACT.md. Fixed 2026-10-10.)
  { path: "/events/stream", method: "GET", action: "read", handler: handleSSEStream },
+ // Whoami — the viewer's elevated-reveal capability probe (read-only,
+ // no secret content; the reveal affordance renders only when reveal:true).
+ { path: "/whoami", method: "GET", action: "read", handler: handleWhoami },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
@@ -2397,7 +2415,7 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 // AND to the route-discipline parity check in the same commit.
 const UI_ASSET_PATHS: Record<string, true> = {
  "/": true, "": true, "/index.html": true, "/styles.css": true,
- "/app.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+ "/app.js": true, "/reveal-decision.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
 };
 
 export default {

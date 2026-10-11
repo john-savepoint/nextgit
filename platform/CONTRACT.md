@@ -265,6 +265,18 @@ The three signals the card chips render — the complete judge vocabulary the UI
 
 Thresholds, weights, and labels live in code (AD-11): the wire carries typed answers, never prose. Cards for `skipped` proposals render no judge chips; a skip is not a verdict. **The judge advises; code decides; humans still own irreversible acts.**
 
+## GET /whoami
+
+The viewer's elevated-reveal capability probe — read-only, carries no secret content. Reports whether the CALLER'S OWN presented identity may reveal secret-class values for the queried repo, so the UI knows whether to render the reveal affordance.
+
+`GET /whoami?repo=...` → `{ ok: true, authorized, reveal }`.
+
+- `reveal` — the viewer's elevated-reveal capability: **default `false`**; `true` only when the presented identity (Bearer token, the same carrier as `/reveal`) is authorized under `REVEAL_ALLOW` for `repo` (the same rule as `POST /reveal` — `revealCapability` reuses `authorizeReveal`, the single source of truth). Absent/blank identity or absent/malformed `REVEAL_ALLOW` ⇒ `false`.
+- `authorized` — the same decision (alias; one canonical boolean).
+- `repo` — the demo-namespace repo the capability is adjudicated for (default `demo`); the dispatcher's demo allowlist (403) applies to it like every `read` route.
+- Runs through the `authorize()` mode gate (deny ⇒ `401 {ok:false,error:"unauthorized"}`) and the demo allowlist (`403 {ok:false,error:"repo-not-allowed"}`), same as every route. GET ⇒ no CSRF gate.
+- Relationship: the UI renders the reveal affordance only when `reveal:true`; `POST /reveal` remains the only route that returns a value. The affordance is never a capability — the server re-runs the rule on every `POST /reveal` click.
+
 ## POST /reveal
 
 Read a secret-class VALUE through the authorized, audited seam rule (FR-31) — the only route that returns a secret-class value, and only to an explicitly authorized identity, only for a secret-class path, only server-side from Artifacts.
