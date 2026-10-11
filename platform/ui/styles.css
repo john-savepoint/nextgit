@@ -412,6 +412,9 @@ html, body {
 .ticker-pulse.is-stale {
   background-color: var(--text-dim);
 }
+.ticker-pulse.is-fallback {
+  background-color: var(--status-amber);
+}
 .ticker-events {
   display: flex;
   align-items: center;
