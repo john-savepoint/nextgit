@@ -3,7 +3,7 @@
 // The PARITY_TABLE contract consumed by platform/ui/parity.js.
 // Strings are escaped at RENDER time (parity.js), not at generation.
 export const PARITY_TABLE = {
-  "generated": "2026-10-12T17:08:18Z",
+  "generated": "2026-10-12T23:45:27Z",
   "dimensions": [
     {
       "id": "session-steering",

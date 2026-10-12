@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-12T12:40:53.190Z",
-  "head": "15c88ec",
+  "generatedAt": "2026-10-12T23:48:02.254Z",
+  "head": "6e79950",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-12 ",
     "branch": "main",
-    "lastCommit": "1decabf",
+    "lastCommit": "6e79950",
     "standingRedSet": null
   },
   "queue": {
-    "total": 666,
+    "total": 674,
     "byStatus": {
-      "pending": 449,
+      "pending": 451,
       "partial": 1,
-      "done": 216
+      "done": 222
     },
     "items": [
       {
@@ -2240,32 +2240,42 @@
       {
         "status": "pending",
         "priority": "P2",
-        "title": "Capability parity harness vs GitHub baseline"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
         "title": "Runner: standing-red highs must not force heals"
       },
       {
         "status": "pending",
-        "priority": "P0",
-        "title": "Worker read API for repo browsing"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Split platform/ui/app"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Design system foundations"
+        "priority": "P2",
+        "title": "Parity gap vs GitHub: Steer/track individual agent sessions live"
       },
       {
         "status": "pending",
         "priority": "P2",
-        "title": "Tour fixes"
+        "title": "Parity gap vs GitHub: Agent access policies managed like developers"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Parity gap vs GitHub: Inline per-line review comments on a change"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Parity gap vs GitHub: Third-party agents hosted inside the platform"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Parity gap vs GitHub: File/repo browser"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Parity gap vs GitHub: Issue tracker"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Parity gap vs GitHub: CI/CD pipeline integration"
       }
     ]
   },

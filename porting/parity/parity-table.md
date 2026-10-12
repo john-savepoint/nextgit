@@ -1,6 +1,6 @@
 # Capability parity — NextGit vs GitHub baseline
 
-Generated: 2026-10-12T17:08:18Z — derived by `bun porting/parity/compare.mjs` (verdicts are computed, never hand-authored).
+Generated: 2026-10-12T23:45:27Z — derived by `bun porting/parity/compare.mjs` (verdicts are computed, never hand-authored).
 
 Verdicts: **exceeds** = NextGit shipped where GitHub has none · **parity** = both sides (or both absent) · **below** = GitHub shipped/partial where NextGit has none (or only a partial capability).
 
