@@ -13,6 +13,9 @@ import "./globals";
 import git from "isomorphic-git";
 import { createMemFs } from "./memfs";
 import { createGitHttpClient } from "./githttp";
+import { collectReferencedBlobIds, deleteUnreferenced } from "./asset-gc";
+import type { AssetPointer } from "./assets";
+import type { Env } from "./index";
 
 const LAND_COMMIT_AUTHOR = {
  name: "nextgit-platform",
@@ -42,6 +45,14 @@ export interface LandInput {
  readBaseHead?: () => Promise<string>;
  /** When true, attach a landing-decision git note to the landed commit and mirror it. */
  landingNote?: boolean;
+ /** R2 asset pointers carried by the fold's pointer rows (AD-10) —
+  * the post-push reference-counted reclamation set. Absent on
+  * pointer-free folds; the GC step is then a no-op. */
+ assetPointers?: AssetPointer[];
+ /** The worker's Env (the ARTIFACTS + ASSET_BLOB bindings the
+  * reference-counted reclamation reads). Required exactly when
+  * `assetPointers` is non-empty; the GC step is a no-op otherwise. */
+ env?: Env;
 }
 
 /** Raised when the base ref moved between the fold and the push (AD-3). */
@@ -169,10 +180,31 @@ export async function pushLand(input: LandInput): Promise<{ commit: string; remo
  if (remoteTipAtPush !== null && input.expectedBaseHead !== undefined && remoteTipAtPush !== input.expectedBaseHead) {
   throw new BaseMovedError(remoteTipAtPush);
  }
-
  const refResult = result.refs[`refs/heads/${input.baseRef}`];
  if (!refResult?.ok) {
   throw new Error(`land: push rejected: ${refResult?.error ?? "unknown ref result"}`);
+ }
+
+ // Reference-counted blob reclamation (e12 lifecycle): the
+ // base-branch push is durable, so the fold's removed pointer
+ // paths are gone from the base tree. For each asset pointer
+ // the fold touched, re-read the namespace's manifest union
+ // (the walk includes the just-pushed commit) and delete the
+ // blob ONLY when no surviving pointer references it — shared
+ // blobs are retained. Best-effort + non-blocking: wrapped in
+ // its own try/catch (logs asset-gc-failed, content-free) so
+ // a binding failure degrades to the lifecycle-rule backstop
+ // (platform/r2-lifecycle.json) rather than failing a land
+ // that already pushed. Mirrors the landing-note posture.
+ if (input.assetPointers && input.assetPointers.length > 0 && input.env) {
+  try {
+   const referenced = await collectReferencedBlobIds(input.env);
+   for (const pointer of input.assetPointers) {
+    await deleteUnreferenced(input.env, pointer.blobId, referenced);
+   }
+  } catch (e: unknown) {
+   console.log("asset-gc-failed", JSON.stringify({ commit, error: String(e) }));
+  }
  }
 
  // Push the notes ref to its mirror branch — NOT a base-branch write.

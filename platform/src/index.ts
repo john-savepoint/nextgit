@@ -405,12 +405,24 @@ export async function computeMerge(
     fold.secretKeys = secretKeys((await readContent(repo, at, f.path))?.text ?? "");
     continue;
    }
-   if (f.asset !== undefined || isAssetPointer(f.path)) {
+   if (isAssetPointer(f.path)) {
     // Pointer row: mirror the `f.binary` precedent. The fold
     // carries the pointer so the emission loop renders metadata
     // only — pointer JSON can never leak into a merge response
     // body (the info-disclosure class adversarial-review F12
     // named).
+    if (f.status === "removed") {
+     // A removed pointer is a real deletion: the base carried the
+     // pointer and the proposal dropped it, so the land removes it
+     // from the base and reclaims its blob (the e12 lifecycle
+     // seam). The deleted pointer is the BASE side's — the head
+     // has no text for a removed path.
+     fold.deleted = true;
+     fold.conflicted = false;
+     fold.asset = fold.baseText ? (parseAssetPointer(fold.baseText) ?? undefined) : undefined;
+     fold.note = `removed by ${repoName}`;
+     continue;
+    }
     fold.asset = f.asset;
     continue;
    }
@@ -456,7 +468,7 @@ export async function computeMerge(
   if (fold.deleted) {
    // Removing a file the base no longer has is also a no-op.
    if (fold.baseText === null) continue;
-   files.push({ path, action, result: "merged", note: fold.note ?? "removed by a proposal" });
+   files.push({ path, action, result: "merged", ...(fold.asset ? { asset: fold.asset } : {}), note: fold.note ?? "removed by a proposal" });
    continue;
   }
   if (fold.binary) {
@@ -1340,6 +1352,13 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
  for (const f of merge.files) {
   if (f.action === "delete") writeable.push({ path: f.path, action: "delete", result: f.result });
  }
+ // R2 asset pointers carried by this fold's pointer rows (both
+ // write and delete folds carry the parsed pointer — the
+ // reference-counted reclamation set for the post-push GC
+ // step). Bounded by the fold's own file count (NFR-1).
+ const foldPointers: AssetPointer[] = merge.files
+  .filter((f) => f.asset !== undefined)
+  .map((f) => f.asset as AssetPointer);
  const foldHash = await foldHashOf(writeable);
 
  // Per-isolate single-flight around the clone+push critical section (withLandGate).
@@ -1375,6 +1394,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     expectedBaseHead: baseHeadNow,
     readBaseHead: () => repoHead(env, base, baseRef),
     landingNote: true,
+    ...(foldPointers.length > 0 ? { assetPointers: foldPointers, env } : {}),
    });
    const at = new Date().toISOString();
    const landed = {
@@ -1716,6 +1736,13 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
  for (const f of merge.files) {
   if (f.action === "delete") writeable.push({ path: f.path, action: "delete", result: f.result });
  }
+ // The same fold-pointer seam as /land — /upstream delegates to
+ // the same pushLand critical section, so the reference-counted
+ // reclamation must see the same set (no behavioral divergence
+ // between the two land surfaces).
+ const foldPointers: AssetPointer[] = merge.files
+  .filter((f) => f.asset !== undefined)
+  .map((f) => f.asset as AssetPointer);
  const foldHash = await foldHashOf(writeable);
 
  // Per-isolate single-flight around the clone+push critical section
@@ -1751,6 +1778,7 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
     expectedBaseHead: baseHeadNow,
     readBaseHead: () => repoHead(env, base, DEFAULT_REF),
     landingNote: true,
+    ...(foldPointers.length > 0 ? { assetPointers: foldPointers, env } : {}),
    });
    const at = new Date().toISOString();
    const landed = {

@@ -20,6 +20,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveTtl, mintRepoToken } from "./lib/tokens.mjs";
+import { apiToken } from "./lib/api-token.mjs";
 export { resolveTtl };
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
@@ -32,21 +33,6 @@ if (!localFile || !assetName) {
   process.exit(2);
 }
 
-function apiToken() {
-  if (process.env.CLOUDFLARE_API_TOKEN) return process.env.CLOUDFLARE_API_TOKEN;
-  const candidates = [
-    `${process.env.HOME ?? ""}/.config/.wrangler/config/default.toml`,
-    `${process.env.LOCALAPPDATA ?? ""}\\.wrangler\\config\\default.toml`,
-  ];
-  for (const p of candidates) {
-    try {
-      const toml = readFileSync(p, "utf8");
-      const m = toml.match(/oauth_token\s*=\s*"([^"]+)"/);
-      if (m) return m[1];
-    } catch { /* next candidate */ }
-  }
-  throw new Error("No API token: set CLOUDFLARE_API_TOKEN or run `wrangler login`.");
-}
 
 const isMain = () => {
   const argv1 = process.argv[1];

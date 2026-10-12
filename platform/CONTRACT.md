@@ -606,6 +606,14 @@ The note write is best-effort: a failure is logged as `landing-note-push-failed`
 
 Reader surface: `GET /changes` intent and `GET /proposals` card read intent from the mirror branch per the recipe above; the landing-decision note is readable via standard git-notes readers (e.g. `git notes --ref=refs/notes/commits show <commit>` after fetching the mirror).
 
+The land also performs the reference-counted blob reclamation for the
+removed asset-pointer paths it carried (see §R2 asset tier — Lifecycle):
+after the base-branch push, each fold-touched pointer whose blob is no
+longer referenced by any repo's manifests is deleted via the `ASSET_BLOB`
+binding. It is best-effort and log-observable (`asset-blob-deleted` /
+`asset-blob-retained` / `asset-blob-delete-failed`), never fails the land,
+and changes no response field — the 12-key evidence record is unchanged.
+
 ### Token audit log lines (FR-36)
 
 Every worker-minted token is audited at two surfaces: the Worker logs (observability) and the Artifacts token events (`token.created` / `token.revoked`, delivered through the queue subscription and surfaced in `GET /events`). The log surface emits exactly two content-free lines via the `console.log(event, JSON.stringify(fields))` idiom:
@@ -724,6 +732,25 @@ Any future materialization path that needs bytes MUST call it (the
 zero-outside-reads gate is pinned by `porting/tests/r2-integrity.test.mjs`
 and the instrumented-bucket suite `porting/tests/r2-git-invariance.test.mjs`).
 
+**Lifecycle (reference-counted reclamation):** the bucket carries a
+committed lifecycle rule — `platform/r2-lifecycle.json`, rule
+`expire-orphaned-asset-blobs`, all prefixes, delete objects with no
+PUT/POST activity for **90 days** — applied with the lockfile-pinned
+wrangler (`cd platform && ./node_modules/.bin/wrangler r2 bucket
+lifecycle set nextgit-asset-blobs r2-lifecycle.json`; verified by
+`wrangler r2 bucket lifecycle list`). It is the bucket-side backstop for
+the reference-counted delete path. `POST /land` (and `/upstream`)
+reclaims a removed pointer's blob **only** when the union of every repo's
+surviving `*.asset.json` pointer manifests no longer references its
+`blobId` (shared blobs are never deleted) — best-effort, log-observable
+(`asset-blob-deleted` / `asset-blob-retained` / `asset-blob-delete-failed`),
+never failing a land that already pushed. Bulk reclamation is the
+out-of-band audit/sweep `platform/scripts/r2-orphan-sweep.mjs`
+(grace-window default 7 days; an orphan inside the window is reported,
+never deleted; non-zero exit while any orphan remains). The 90-day rule
+is strictly later than the sweep's grace window, so the two layers are
+ordered, not competing. Additive to the shapes above — no existing field
+changes.
 
 ## Land lease (DO coordination)
 
