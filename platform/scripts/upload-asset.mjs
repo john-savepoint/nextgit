@@ -76,18 +76,19 @@ if (isMain()) {
   })();
   const pointer = { v: 1, blobId: sha256, sha256, size, ...(contentType ? { contentType } : {}) };
 
-  // 2. R2 PUT under the operator's account auth (control plane
-  //    owns credentials, AD-7). The blob key is the
-  //    content-addressed sha256 hex — never a URL, never a
-  //    presigned target.
-  const putUrl = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/r2/buckets/${BUCKET}/objects/${encodeURIComponent(sha256)}`;
-  const putRes = await fetch(putUrl, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, ...(contentType ? { "Content-Type": contentType } : {}) },
-    body: blob,
+  // 2. R2 PUT under the OPERATOR's wrangler auth (control plane owns credentials,
+  //    AD-7). There is no "PUT object" route on api.cloudflare.com (verified live
+  //    2026-10-12: the direct-API PUT answers 7000 "No route for that URI"), so the
+  //    operator path is `wrangler r2 object put <bucket>/<key> --file <path> --remote`
+  //    — the same credential surface as every deploy. The blob key is the
+  //    content-addressed sha256 hex — never a URL, never a presigned target.
+  const putKey = `${BUCKET}/${sha256}`;
+  const put = spawnSync("npx", ["wrangler", "r2", "object", "put", putKey, "--file", localFile, "--remote"], {
+    cwd: new URL("..", import.meta.url).pathname, // platform/ — the wrangler.jsonc home
+    encoding: "utf8",
   });
-  if (!putRes.ok) throw new Error(`R2 PUT HTTP ${putRes.status}: ${await putRes.text()}`);
-  console.log(`r2-put  ${BUCKET}/${sha256} (${size} bytes)`);
+  if (put.status !== 0) throw new Error(`R2 PUT failed (rc=${put.status}): ${(put.stderr || put.stdout || "").slice(0, 400)}`);
+  console.log(`r2-put  ${putKey} (${size} bytes)`);
 
   // 3. Commit the pointer file into the scratch repo over
   //    git-over-HTTPS. The repo-scoped write token rides
