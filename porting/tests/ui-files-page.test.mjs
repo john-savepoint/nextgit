@@ -17,9 +17,9 @@
 //   /proposals?base=demo -> { ok, base, proposals: 2 repos }
 //   /tree (root)         -> src/ dir, README.md, config/.env
 //   /tree (src/)         -> main.ts
-//   /file README.md      -> kind:'text' + text
-//   /file logo.png       -> kind:'binary' + note
-//   /file config/.env    -> kind:'secret' + note (key names only)
+//   /file README.md      -> classification:'text' + text
+//   /file logo.png       -> classification:'binary' + note
+//   /file config/.env    -> classification:'secret' + keys (key names only)
 //   /file missing.md     -> ok:false 404 shape
 //
 // Eight observable DOM legs (each fails loudly on a plausible
@@ -341,23 +341,23 @@ const server = createServer((req, res) => {
     const repo = searchParams.get("repo");
     const path = searchParams.get("path") ?? "";
     if (repo === "agent-1" && path === "README.md") {
-      j(res, { ok: true, kind: "text", text: "README fixture body" });
+      j(res, { ok: true, classification: "text", text: "README fixture body" });
       return;
     }
     if (repo === "agent-1" && path === "src/main.ts") {
-      j(res, { ok: true, kind: "text", text: "export const x = 1;" });
+      j(res, { ok: true, classification: "text", text: "export const x = 1;" });
       return;
     }
     if (repo === "agent-1" && path === "logo.png") {
-      j(res, { ok: true, kind: "binary", note: "image/png, 128 bytes" });
+      j(res, { ok: true, classification: "binary", note: "image/png, 128 bytes" });
       return;
     }
     if (repo === "agent-1" && path === "config/.env") {
-      // The server-side authority answers kind:'secret' +
-      // key names only. The fixture ALSO simulates a buggy
-      // server that leaked the value into `text` — the
+      // The server-side authority answers classification:'secret' +
+      // key names only (contract keys[]). The fixture ALSO simulates a
+      // buggy server that leaked the value into `text` — the
       // masking acceptance is that the UI never renders it.
-      j(res, { ok: true, kind: "secret", note: "STRIPE_SECRET_KEY, DATABASE_URL", text: SECRET_VALUE });
+      j(res, { ok: true, classification: "secret", keys: ["STRIPE_SECRET_KEY", "DATABASE_URL"], text: SECRET_VALUE });
       return;
     }
     j(res, { ok: false, error: "not-found" });
@@ -438,8 +438,8 @@ function legSecret(R) {
   const meta = R.legs?.secretMeta ?? "";
   const content = R.legs?.secretContent ?? "";
   const dom = R.legs?.domHtml ?? "";
-  // The note (key names) renders in the key-names-only
-  // panel (#file-content); #file-meta carries the posture.
+  // The key names (contract keys[]) render in the
+  // key-names-only panel (#file-content); #file-meta carries the posture.
   check("5 secret leg shows key names (STRIPE_SECRET_KEY)", content.includes("STRIPE_SECRET_KEY"), `content=${JSON.stringify(content)}`);
   check("5 secret leg shows key names (DATABASE_URL)", content.includes("DATABASE_URL"), `content=${JSON.stringify(content)}`);
   check("5 secret VALUE never reaches the DOM (masking law)", !dom.includes(SECRET_VALUE), "fixture secret value found in DOM");

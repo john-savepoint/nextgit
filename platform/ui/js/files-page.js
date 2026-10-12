@@ -7,11 +7,11 @@
 //   GET /tree?repo=&ref=&path=
 //     -> { ok, entries:[{name, type:'file'|'dir', size, blobHash}] }
 //   GET /file?repo=&ref=&path=
-//     -> { ok, kind:'text'|'binary'|'secret', text?|note? }
+//     -> { ok, classification:'text'|'binary'|'secret', text?|keys? }
 //   GET /raw/{repo}/{ref}/{path}  (raw bytes, linked not fetched here)
 //
 // Secret-class law (CONTRACT masking law): /file is the server-side
-// authority — it answers kind:'secret' + a key-names-only note and
+// authority — it answers classification:'secret' + a key-names-only keys[] and
 // NEVER the value. The isSecretPath() mirror below is display-only
 // defense-in-depth (identical to the worker's classifier); the page
 // renders secret-class paths as key names only regardless, so the law
@@ -267,7 +267,7 @@ function renderBreadcrumb() {
 }
 
 /**
- * File viewer — branches on the contract's `kind`:
+ * File viewer — branches on the contract's `classification`:
  *   text    -> <pre> body + raw link built from the encoded tuple
  *   binary  -> metadata panel + note, no content
  *   secret  -> key-names-only panel from `note` — the value never
@@ -285,11 +285,11 @@ async function loadFile(path) {
 
  try {
   const data = await fetchJson(fileUrl(state.repo, state.ref, path));
-  const kind = data?.kind;
+  const classification = data?.classification;
   // Raw link: built from the encoded tuple, never echoed from input.
   // Secret-class paths get NO raw link — the page must not hand out a URL
   // that fetches the unmasked value (and /raw refuses them server-side).
-  if (kind === "secret") {
+  if (classification === "secret") {
    el.rawLink.hidden = true;
   } else {
    el.rawLink.hidden = false;
@@ -297,28 +297,31 @@ async function loadFile(path) {
    el.rawLink.textContent = "raw";
   }
 
-  if (kind === "text" && typeof data.text === "string") {
+  if (classification === "text" && typeof data.text === "string") {
    el.meta.textContent = `text — ${path}`;
    el.content.textContent = data.text;
    return;
   }
-  if (kind === "binary") {
+  if (classification === "binary") {
    // Metadata panel only — binary bodies are never inlined
    // (and #file-content stays empty: no content renders here).
    el.meta.textContent =
     `binary — ${path} (metadata only)${typeof data.note === "string" ? ` · ${data.note}` : ""}`;
    return;
   }
-  if (kind === "secret") {
-   // Key names only. The server never sends the value; the panel
-   // renders `note` alone even if a future bug put a value in `text`.
+  if (classification === "secret") {
+   // Key names only (contract: `keys[]`; the server never sends the
+   // value — the panel renders keys alone even if a future bug put a
+   // value in `text`).
    el.meta.textContent = `secret — ${path} (key names only)`;
-   el.content.textContent =
-    typeof data.note === "string" ? data.note : "Secret-class file — values never leave the worker.";
+   const keys = Array.isArray(data.keys) ? data.keys : [];
+   el.content.textContent = keys.length
+    ? keys.join(", ")
+    : "Secret-class file — values never leave the worker.";
    return;
   }
   // Unknown shape — do not invent content.
-  el.meta.textContent = `${kind || "unknown"} — ${path}`;
+  el.meta.textContent = `${classification || "unknown"} — ${path}`;
   el.content.textContent = "";
  } catch (err) {
   showError(`Could not load file: ${err.message || "unknown error"}`);
