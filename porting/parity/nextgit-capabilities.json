@@ -1,0 +1,224 @@
+[
+  {
+    "id": "session-steering",
+    "dimension": "Steer/track individual agent sessions live",
+    "nextgit": {
+      "status": "none",
+      "evidence": "No live session-steering surface exists; the platform reviews the set, not the agents' sessions themselves.",
+      "sources": [
+        "docs/HANDOFF-PLATFORM.md:37",
+        "docs/STATE.md:19"
+      ]
+    }
+  },
+  {
+    "id": "concurrent-workspace-provisioning",
+    "dimension": "N isolated workspaces from one baseline",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Artifacts forks per proposal (N=4 proven with the demo fleet agent-1..5); repo-scoped tokens with narrow scopes; per-agent repo isolation.",
+      "sources": [
+        "platform/CONTRACT.md:415",
+        "docs/HANDOFF-PLATFORM.md:42"
+      ]
+    }
+  },
+  {
+    "id": "change-set-capture",
+    "dimension": "Per-change diffs vs baseline, server-side",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Fork-point change-sets computed server-side via the binding (no clones); a proposal's change-set is vs its fork point (first shared commit) and stays stable while the base moves.",
+      "sources": [
+        "platform/CONTRACT.md:55",
+        "platform/CONTRACT.md:139",
+        "docs/HANDOFF-PLATFORM.md:42"
+      ]
+    }
+  },
+  {
+    "id": "cross-change-conflict-detection",
+    "dimension": "Conflict map across concurrent changes",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Pairwise diff3 conflict map across the whole concurrent set (the /proposals summary), plus the fold preview (/merge) with per-file clean/conflict before anything lands.",
+      "sources": [
+        "platform/CONTRACT.md:80",
+        "platform/CONTRACT.md:145",
+        "docs/HANDOFF-PLATFORM.md:43"
+      ]
+    }
+  },
+  {
+    "id": "set-level-triage",
+    "dimension": "N concurrent proposals as one comparable set",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "The set view: all proposals as one comparable canvas (/proposals) with per-proposal stats, landing verdicts and the conflict map; auto-discovers agent-* repos.",
+      "sources": [
+        "platform/CONTRACT.md:80",
+        "docs/HANDOFF-PLATFORM.md:43"
+      ]
+    }
+  },
+  {
+    "id": "intent-provenance",
+    "dimension": "Per-change intent record, durable across rebases",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "git-notes intent plumbing (refs/notes/commits) mirrored to a notes branch so intent is durable and survives the moving base; landing-decision notes recorded after each land.",
+      "sources": [
+        "platform/CONTRACT.md:372",
+        "platform/CONTRACT.md:551",
+        "docs/HANDOFF-PLATFORM.md:42"
+      ]
+    }
+  },
+  {
+    "id": "event-pipeline",
+    "dimension": "Push-style event feed driving the UI",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "SSE hub (/events/stream) + KV durable feed (/events, last 50 pushes written by the queue consumer); the UI renders chips from the stream.",
+      "sources": [
+        "platform/CONTRACT.md:368",
+        "platform/CONTRACT.md:467",
+        "docs/HANDOFF-PLATFORM.md:47"
+      ]
+    }
+  },
+  {
+    "id": "landing-path",
+    "dimension": "Land a chosen change with validation evidence",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Server-side fold-merge + push (/land) carrying evidence {repos, commit, ancestor, heads, foldHash} — mergedSha == testedSha; advisory judge (fail-closed) before landing.",
+      "sources": [
+        "platform/CONTRACT.md:163",
+        "docs/HANDOFF-PLATFORM.md:45"
+      ]
+    }
+  },
+  {
+    "id": "secret-typing",
+    "dimension": "Secret-class files as typed objects, masked by default",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Path-based secret-class masking law (secret:true + keys[] only, no patch, no intent anywhere), schema-only views, and the audited /reveal seam — the only route that returns a value, gated and recorded.",
+      "sources": [
+        "platform/CONTRACT.md:651",
+        "platform/CONTRACT.md:324",
+        "docs/HANDOFF-PLATFORM.md:54"
+      ]
+    }
+  },
+  {
+    "id": "agent-identity-policy",
+    "dimension": "Agent access policies managed like developers",
+    "nextgit": {
+      "status": "partial",
+      "evidence": "Bearer-token allowlist on mutating routes (the /land 403 path) — but no developer-like agent identity or policy-management surface exists.",
+      "sources": [
+        "platform/CONTRACT.md:581",
+        "docs/HANDOFF-PLATFORM.md:59"
+      ]
+    }
+  },
+  {
+    "id": "set-level-advisory",
+    "dimension": "Typed advisory judgments over the set",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Clef judge (/judge, setId v1): typed judgments risk{label,score} / intent{verdict,overclaim} / collision with fail-closed 503 and egress masking; advisory-only.",
+      "sources": [
+        "platform/CONTRACT.md:266",
+        "platform/CONTRACT.md:302",
+        "docs/HANDOFF-PLATFORM.md:46"
+      ]
+    }
+  },
+  {
+    "id": "inline-review-comments",
+    "dimension": "Inline per-line review comments on a change",
+    "nextgit": {
+      "status": "none",
+      "evidence": "No inline per-line review-comment surface exists; review is the set-level conflict map, not per-line threads.",
+      "sources": [
+        "docs/HANDOFF-PLATFORM.md:80",
+        "docs/STATE.md:19"
+      ]
+    }
+  },
+  {
+    "id": "agent-federation",
+    "dimension": "Third-party agents hosted inside the platform",
+    "nextgit": {
+      "status": "partial",
+      "evidence": "BYO harness onboarding (bring-your-own agents push via the git-over-HTTPS protocol) — but no hosted third-party-agent marketplace.",
+      "sources": [
+        "platform/CONTRACT.md:563",
+        "docs/HANDOFF-PLATFORM.md:415"
+      ]
+    }
+  },
+  {
+    "id": "repo-browsing",
+    "dimension": "File/repo browser",
+    "nextgit": {
+      "status": "none",
+      "evidence": "No browser surface in the tree; the worker read API for repo browsing (GET /tree, GET /file, GET /raw/{repo}) is in flight — tracked by the existing P0 row nextgit-e14-impl-tree-and-file-read-api (referenced, not duplicated).",
+      "sources": [
+        "docs/HANDOFF-PLATFORM.md:80",
+        "docs/STATE.md:19"
+      ]
+    }
+  },
+  {
+    "id": "issues",
+    "dimension": "Issue tracker",
+    "nextgit": {
+      "status": "none",
+      "evidence": "No issue tracker; task tracking is the loop's own bd store, not a product surface.",
+      "sources": [
+        "docs/HANDOFF-PLATFORM.md:80",
+        "docs/STATE.md:19"
+      ]
+    }
+  },
+  {
+    "id": "ci",
+    "dimension": "CI/CD pipeline integration",
+    "nextgit": {
+      "status": "none",
+      "evidence": "No CI/CD pipeline integration; validation is the platform's own fold simulation + advisory judge.",
+      "sources": [
+        "docs/HANDOFF-PLATFORM.md:80",
+        "docs/STATE.md:19"
+      ]
+    }
+  },
+  {
+    "id": "merge-queue",
+    "dimension": "Ordered merge queue",
+    "nextgit": {
+      "status": "shipped",
+      "evidence": "Ordered fold of the set (/merge, /land): the set lands as one ordered merge in declared order — a different model than a queue, but an ordered merge path.",
+      "sources": [
+        "platform/CONTRACT.md:145",
+        "docs/HANDOFF-PLATFORM.md:44"
+      ]
+    }
+  },
+  {
+    "id": "stacked-diffs",
+    "dimension": "Native stacked diffs",
+    "nextgit": {
+      "status": "none",
+      "evidence": "No stacked-diff surface; the set view is side-by-side concurrent proposals, not a dependency stack.",
+      "sources": [
+        "docs/HANDOFF-PLATFORM.md:80",
+        "docs/STATE.md:19"
+      ]
+    }
+  }
+]

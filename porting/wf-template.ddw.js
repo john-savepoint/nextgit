@@ -112,6 +112,15 @@ export function normalizeVerdict(lens, v, err) {
     // Findings may be objects (severity|level|issue) or strings ("HIGH: ...") — both severity-routed.
     const oc = String(v.overall_correctness ?? "").toUpperCase();
     const pinVerdict = String(v.verdict ?? "").toUpperCase();
+    // Competitor mode (parity gate): preserve the below-baseline
+    // finding through normalization so it round-trips into
+    // report.parity.competitor and the persisted artifact — on BOTH
+    // branches (the pinned-shape adapter and the general object
+    // form), so a pinned gate that also returns a competitor payload
+    // cannot drop the below-baseline provenance.
+    const competitor = v.competitor && typeof v.competitor === "object" && !Array.isArray(v.competitor)
+      ? { baseline: String(v.competitor.baseline ?? ""), below: Array.isArray(v.competitor.below) ? v.competitor.below.map(String) : [] }
+      : undefined;
     if ((["PASS", "WARN", "FAIL"].includes(pinVerdict) && Array.isArray(v.findings)) || oc) {
       const findings = asArr(v.findings);
       const sevOf = (f) => typeof f === "string"
@@ -126,7 +135,7 @@ export function normalizeVerdict(lens, v, err) {
       const notes = [];
       if (v.reportPath) notes.push(`reportPath: ${v.reportPath}`);
       if (oc && oc !== "CORRECT" && oc !== "INCORRECT") notes.push(`unrecognized overall_correctness: ${oc}`);
-      return { lens, verdict: failed || crit.length > 0 ? "BLOCK" : "SHIP", shipBlockers, highs: [], mediums: nonHigh.slice(0, 12), notes };
+      return { lens, verdict: failed || crit.length > 0 ? "BLOCK" : "SHIP", shipBlockers, highs: [], mediums: nonHigh.slice(0, 12), notes, ...(competitor ? { competitor } : {}) };
     }
     const shipBlockers = [...strs(v.shipBlockers ?? v.ship_blockers), ...(v.verdict == null ? ["lens returned no verdict field"] : [])];
     const highs = strs(v.highs);
@@ -136,7 +145,9 @@ export function normalizeVerdict(lens, v, err) {
     const verdict = saidShip && shipBlockers.length === 0 && highs.length === 0 ? "SHIP" : "BLOCK";
     const notes = strs(v.notes);
     if (saidShip && verdict === "BLOCK") notes.push("lens said SHIP but listed findings — runner enforced the block rule");
-    return { lens, verdict, shipBlockers, highs, mediums: strs(v.mediums), notes };
+    return competitor === undefined
+      ? { lens, verdict, shipBlockers, highs, mediums: strs(v.mediums), notes }
+      : { lens, verdict, shipBlockers, highs, mediums: strs(v.mediums), notes, competitor };
   }
   // Fail CLOSED. Nothing in a non-conforming shape is trusted as prose: a bare verdict
   // token decides the verdict only when it is alone, and every other string is routed by

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — Capability Parity vs GitHub</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Parity dashboard — self-contained presentation (no shared stylesheet
+       change; the parity surface is a static information page). */
+    .parity-wrap { max-width: 72rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    .parity-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.75rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1rem; margin-bottom: 1.25rem; }
+    .parity-title { font-size: 1.5rem; font-weight: 700; margin: 0; }
+    .parity-title .sep { color: var(--accent-blue); }
+    .parity-title .sub { font-weight: 500; color: var(--text-secondary); font-size: 1.05rem; }
+    .parity-generated { color: var(--text-secondary); font-size: 0.78rem; }
+    .parity-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 1.25rem; }
+    .parity-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.28rem 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; border: 1px solid transparent; }
+    .parity-chip .n { font-variant-numeric: tabular-nums; }
+    .parity-chip.exceeds { color: var(--status-green); background: var(--status-green-bg); border-color: var(--status-green-border); }
+    .parity-chip.parity { color: var(--text-secondary); background: var(--bg-surface); border-color: var(--border-subtle); }
+    .parity-chip.below { color: var(--status-amber); background: var(--status-amber-bg); border-color: var(--status-amber-border); }
+    .parity-legend { display: flex; gap: 1.25rem; flex-wrap: wrap; margin: 0 0 1rem; font-size: 0.78rem; color: var(--text-secondary); }
+    .parity-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .parity-swatch { width: 0.7rem; height: 0.7rem; border-radius: 2px; display: inline-block; }
+    .parity-swatch.exceeds { background: var(--status-green); }
+    .parity-swatch.parity { background: var(--status-neutral); }
+    .parity-swatch.below { background: var(--status-amber); }
+    .parity-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: 0.5rem; }
+    table.parity-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .parity-table th, .parity-table td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+    .parity-table thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); background: var(--bg-inset); }
+    .parity-table tbody tr:last-child td { border-bottom: none; }
+    .parity-table td.dim { font-weight: 600; }
+    .parity-table td.status { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .verdict-cell { font-weight: 700; white-space: nowrap; }
+    .verdict-exceeds { color: var(--status-green); }
+    .verdict-parity { color: var(--text-secondary); }
+    .verdict-below { color: var(--status-amber); }
+    tr.verdict-below td { background: var(--status-amber-bg); }
+    tr.verdict-below td:first-child { border-left: 3px solid var(--status-amber); }
+    .parity-foot { margin-top: 1rem; font-size: 0.72rem; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <div class="parity-wrap"><main>
+    <header class="parity-head">
+      <h1 class="parity-title">NextGit<span class="sep">/</span><span class="sub">Capability parity vs GitHub</span></h1>
+      <div class="parity-generated" id="parity-generated">generated —</div>
+    </header>
+
+    <div class="parity-chips" id="parity-chips" role="group" aria-label="Verdict summary">
+      <span class="parity-chip exceeds">exceeds <span class="n" id="chip-exceeds">0</span></span>
+      <span class="parity-chip parity">parity <span class="n" id="chip-parity">0</span></span>
+      <span class="parity-chip below">below <span class="n" id="chip-below">0</span></span>
+    </div>
+
+    <div class="parity-legend">
+      <span><i class="parity-swatch exceeds" aria-hidden="true"></i> exceeds — NextGit ships it, GitHub does not</span>
+      <span><i class="parity-swatch parity" aria-hidden="true"></i> parity — both ship it (or neither does)</span>
+      <span><i class="parity-swatch below" aria-hidden="true"></i> below — GitHub ships it, NextGit does not (or only partially)</span>
+    </div>
+
+    <div class="parity-table-wrap">
+      <table class="parity-table" id="parity-table">
+        <thead>
+          <tr>
+            <th scope="col">Verdict</th>
+            <th scope="col">Capability dimension</th>
+            <th scope="col">GitHub</th>
+            <th scope="col">NextGit</th>
+            <th scope="col">GitHub evidence</th>
+            <th scope="col">NextGit evidence</th>
+          </tr>
+        </thead>
+        <tbody id="parity-tbody">
+          <!-- Rendered by parity.js from ./parity-data.js -->
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="parity-foot">
+      Verdicts are derived by <code>porting/parity/compare.mjs</code> from the structured baselines
+      (<code>porting/parity/baseline-github.json</code> + <code>porting/parity/nextgit-capabilities.json</code>) — never hand-authored.
+      Below-baseline areas are filed as store rows (source <code>harvest:parity-github</code>).
+    </footer>
+    </main>
+  </div>
+  <script type="module" src="parity.js"></script>
+</body>
+</html>

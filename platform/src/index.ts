@@ -2794,6 +2794,7 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 const UI_ASSET_PATHS: Record<string, true> = {
  "/": true, "": true, "/index.html": true, "/styles.css": true,
  "/app.js": true, "/reveal-decision.js": true, "/land-verdict.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+ "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
 };
 
 export default {
