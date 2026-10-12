@@ -352,6 +352,7 @@ export async function computeMerge(
  repoList: string[],
  ref: string,
  ancestorOut?: Record<string, string>,
+ opts?: { forLand?: boolean },
 ) {
  using baseRepo = await env.ARTIFACTS.get(baseName);
  interface Fold {
@@ -368,6 +369,12 @@ export async function computeMerge(
   secretKeys?: string[];
   /** R2 asset pointer (AD-10) — pointer rows never merge text. */
   asset?: AssetPointer;
+  /**
+   * Raw pointer JSON bytes the land fold pushes (AD-10). Only the
+   * forLand caller reads it — the /merge and /proposals callers keep
+   * pointer rows `merged`-free (rendering law).
+   */
+  pointerText?: string;
   note?: string;
  }
  const folds = new Map<string, Fold>();
@@ -424,6 +431,11 @@ export async function computeMerge(
      continue;
     }
     fold.asset = f.asset;
+    // Land fold only: carry the raw pointer text so pushLand
+    // writes the exact bytes. The /merge and /proposals callers
+    // omit `merged` (rendering law) — see the emission's
+    // `forLand` gate below.
+    fold.pointerText = (await readContent(headRepo, ref, f.path))?.text ?? "";
     continue;
    }
    if (f.binary) {
@@ -476,7 +488,20 @@ export async function computeMerge(
    continue;
   }
   if (fold.asset !== undefined || isAssetPointer(path)) {
-   files.push({ path, action, result: "merged", asset: fold.asset, note: "asset pointer; metadata only" });
+   // Land fold only: a pointer whose bytes already match the base head is
+   // not a change — an already-landed pointer must re-fold to no-changes,
+   // not re-push (mirrors the text no-change drop below; the change-set is
+   // fork-point-anchored, so it keeps listing the landed pointer). /merge
+   // still renders the row: the metadata-only rendering law is unchanged.
+   if (opts?.forLand && fold.pointerText === fold.baseText) continue;
+   files.push({
+    path,
+    action,
+    result: "merged",
+    asset: fold.asset,
+    ...(opts?.forLand ? { merged: fold.pointerText } : {}),
+    note: "asset pointer; metadata only",
+   });
    continue;
   }
   if (fold.conflicted) {
@@ -569,8 +594,13 @@ export async function computeChangeSet(
   // binary check, so a hostile pointer with NUL bytes still
   // renders its metadata row instead of being silently skipped.
   // No blob bytes are ever read: pointer metadata is egress
-  // (AD-4), blob materialization is e12's chokepoint.
-  if (isAssetPointer(f.path)) {
+  // (AD-4), blob materialization is e12's chokepoint. The
+  // secret-class check wins (CONTRACT §Secret classes: key
+  // names only): a pointer planted at a secret-class path masks
+  // to key names — no asset metadata egress (STRIDE-I1). Mirrors
+  // the fold (computeMerge), which already checks isSecretPath
+  // before isAssetPointer.
+  if (!isSecretPath(f.path) && isAssetPointer(f.path)) {
    const pointerText = (await readContent(headRepo, ref, f.path))?.text ?? "";
    const parsed = parseAssetPointer(pointerText);
    f.asset = parsed ?? undefined;
@@ -1237,8 +1267,12 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
  }
  // One fold, identical semantics to GET /merge. `ancestors` records each
  // repo's fork point (the 3-way ancestor) for the evidence record.
+ // forLand: pointer rows carry the raw pointer text so the push set
+ // below includes them (the pointer rides the fold — STRIDE-I2). The
+ // /merge and /proposals callers omit the flag, so their responses keep
+ // pointer rows `merged`-free (rendering law).
  const ancestors: Record<string, string> = {};
- const merge = await computeMerge(env, base, baseRef, repos, ref, ancestors);
+ const merge = await computeMerge(env, base, baseRef, repos, ref, ancestors, { forLand: true });
 
 
  const secretFiles = merge.files.filter((f) => f.result === "withheld-secret").map((f) => f.path);
