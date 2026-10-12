@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-12T08:39:28.191Z",
-  "head": "a14858e",
+  "generatedAt": "2026-10-12T12:40:53.190Z",
+  "head": "15c88ec",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-12 ",
     "branch": "main",
-    "lastCommit": "a14858e",
+    "lastCommit": "1decabf",
     "standingRedSet": null
   },
   "queue": {
-    "total": 662,
+    "total": 666,
     "byStatus": {
       "pending": 449,
       "partial": 1,
-      "done": 212
+      "done": 216
     },
     "items": [
       {
@@ -2249,23 +2249,23 @@
       },
       {
         "status": "pending",
-        "priority": "P2",
-        "title": "Keep clone, change-set, and fork-point reads unchanged for asset pointers"
+        "priority": "P0",
+        "title": "Worker read API for repo browsing"
+      },
+      {
+        "status": "pending",
+        "priority": "P0",
+        "title": "Split platform/ui/app"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Design system foundations"
       },
       {
         "status": "pending",
         "priority": "P2",
-        "title": "Fail closed on blob integrity checks at every materialization path"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Prove landing, masking, and fork-point contracts unchanged with asset pointers"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
+        "title": "Tour fixes"
       }
     ]
   },

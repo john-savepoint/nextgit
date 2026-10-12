@@ -1,25 +1,26 @@
-// porting/wave13.mjs — WAVE 13 LANE PLAN (UX PROGRAM, infrastructure-first).
+// porting/wave13.mjs — WAVE 13 LANE PLAN (UX PROGRAM, infrastructure-first — 5 lanes).
 //
-// John's mandate (2026-10-12): a significant UX upgrade that represents everything built
-// and planned — file visibility first — at higher concurrency. This wave is the
-// ENABLER set: the four workstreams that unlock the wave-14 fan-out (8-10 lanes).
+// John's mandate (2026-10-12): significant UX upgrade representing everything built and
+// planned, file visibility first, at 5-10x concurrency; run orders in WORKTREES and MERGE
+// (worktree-parallel batches are the default posture; conflicts resolve at integration).
 //
-// Scope (4 lanes, 5 orders):
-//   - lane-1 `read-api`  : nextgit-e14-impl-tree-and-file-read-api — worker read API
-//     (/tree, /file, /raw) so files/repos become VISIBLE (the GitHub floor).
-//   - lane-2 `ui-split`  : nextgit-e14-infra-ui-module-split — app.js -> platform/ui/js/*
-//     (behavior-preserving; the single-writer bottleneck remover for wave 14).
-//   - lane-3 `tokens`    : nextgit-e14-infra-design-tokens — token layer + dual typography
-//     in styles.css only (no index.html / app.js contention with lane-2).
-//   - lane-4 `tour-parity`: nextgit-e14-impl-tour-fixes (parallel 2) + the EXISTING
-//     nextgit-capability-parity-vs-github audit row (read-only; ranks the wave-14 set).
+// Scope (5 lanes, 6 orders):
+//   - lane-1 `read-api`  : nextgit-e14-impl-tree-and-file-read-api — /tree, /file, /raw.
+//   - lane-2 `files-page`: nextgit-e14-impl-files-page — NEW page (files.html + js/files-page.js;
+//     no app.js contention) consuming the read-api contract in parallel (contract-first in
+//     the order descriptions; loopback fixture tests per the pinned shapes).
+//   - lane-3 `ui-split`  : nextgit-e14-infra-ui-module-split — app.js -> js/* (enabler).
+//   - lane-4 `tokens`    : nextgit-e14-infra-design-tokens — styles.css token layer + dual type.
+//   - lane-5 `tour-parity` (parallel: 2): nextgit-e14-impl-tour-fixes + the EXISTING
+//     nextgit-capability-parity-vs-github audit (read-only; ranks the wave-14 set).
 //
-// LENSES: UI/UX lanes carry the `ux: "designer"` lens (already in the runner's default
-// lens map, pinned by normalize.test.mjs) alongside quality/spec-fit.
+// LENSES: UI/UX lanes carry `ux: "designer"` (in the runner's default lens map, pinned by
+// normalize.test.mjs) alongside quality/spec-fit. Platform/secret writers keep 4 lenses.
 //
-// CONCURRENCY: 4 lanes x (up to 4 concurrent lens gates) ≈ 12-16 agents in flight —
-// the 5x step before wave 14's 8-10 lanes. RAM guard: ~13G available; spawns are
-// staggered by the runner; if free RAM < ~10G, hold lane-4.
+// CONCURRENCY POSTURE (John's directive): worktree-parallel batches, merge at integration.
+// 5 lanes x up to 4 concurrent lens gates ≈ 15-20 agents in flight (5x wave-12). Resources
+// verified: cgroup uncapped (memory.max=max, cpu.max=max), 16 cores, swap 99G idle — the
+// honest headroom for wave 14's 8-10 lanes (20-30 agents).
 //
 // PREFLIGHT: main clean; reclaim; demo-verify 25/25; deployed 83b7f63b.
 // POSTFLIGHT: six-probe deploy gate + demo reset + tick + regenerate views + commit.
@@ -30,8 +31,8 @@
 //   await runFleet({ root: process.cwd(), ...plan, integrate: false });
 
 export const plan = {
-  lanes: 4,
-  limit: 5,
+  lanes: 5,
+  limit: 6,
   parallel: 1,
   spawnCap: 240,
   plans: [
@@ -41,6 +42,13 @@ export const plan = {
       limit: 1,
       lenses: ["quality", "spec-fit", "security", "resilience"],
       ids: ["nextgit-e14-impl-tree-and-file-read-api"],
+    },
+    {
+      name: "files-page",
+      parallel: 1,
+      limit: 1,
+      lenses: ["quality", "spec-fit", "ux"],
+      ids: ["nextgit-e14-impl-files-page"],
     },
     {
       name: "ui-split",
