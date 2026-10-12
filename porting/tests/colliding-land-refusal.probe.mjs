@@ -324,19 +324,28 @@ try {
   check("(g) conflictText carries <<<ours / ===== / >>>theirs", typeof row?.conflictText === "string" && row.conflictText.includes("<<<<<<< ours") && row.conflictText.includes("=======") && row.conflictText.includes(">>>>>>> theirs"), String(row?.conflictText).slice(0, 120));
   check("(g) row note names the colliding repo", typeof row?.note === "string" && /agent-cr-[12]/.test(row.note), String(row?.note));
 
-  // 6. The shipped UI: the deployed /app.js must be the tree build and carry
-  //    both conflict-banner copy strings (app.js:1027-1029, :628).
-  console.log("\n(3) deployed /app.js — conflict banner copy present");
-  const appRes = await fetch(`${PLATFORM}/app.js`, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(30_000) });
-  const appText = await appRes.text();
-  check("(h) GET /app.js -> 200", appRes.status === 200, `HTTP ${appRes.status}`);
-  check("(h) deployed /app.js contains \"Conflicted files:\"", appText.includes("Conflicted files:"));
-  check("(h) deployed /app.js contains \"(preview merge first)\"", appText.includes("(preview merge first)"));
+  // 6. The shipped UI: the deployed module set must be the tree
+  //    build. The wave-13 module split moved the conflict-banner
+  //    copy out of app.js into ./js/land.js ("Conflicted files:",
+  //    the 409-conflict banner) and ./js/proposals.js ("(preview
+  //    merge first)", the conflict-state action button) — so the
+  //    copy-string assertions verify the DEPLOYED module set, and
+  //    the sha256 fingerprint pins /app.js itself to the tree.
+  console.log("\n(3) deployed module set — conflict banner copy present");
   const sha256 = (s) => createHash("sha256").update(s).digest("hex");
-  const treeApp = readFileSync(new URL("../../platform/ui/app.js", import.meta.url), "utf8");
-  const deployedSha = sha256(appText);
-  const treeSha = sha256(treeApp);
-  check("(h) deployed /app.js sha256-identical to tree platform/ui/app.js", deployedSha === treeSha, `deployed=${deployedSha} tree=${treeSha}`);
+  const fetchText = async (asset) => {
+    const r = await fetch(`${PLATFORM}${asset}`, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(30_000) });
+    check(`(h) GET ${asset} -> 200`, r.status === 200, `HTTP ${r.status}`);
+    return { status: r.status, text: await r.text() };
+  };
+  const app = await fetchText("/app.js");
+  check("(h) deployed /app.js sha256-identical to tree platform/ui/app.js", sha256(app.text) === sha256(readFileSync(new URL("../../platform/ui/app.js", import.meta.url), "utf8")), "app.js fingerprint mismatch");
+  const landJs = await fetchText("/js/land.js");
+  check("(h) deployed /js/land.js contains \"Conflicted files:\"", landJs.text.includes("Conflicted files:"));
+  const proposalsJs = await fetchText("/js/proposals.js");
+  check("(h) deployed /js/proposals.js contains \"(preview merge first)\"", proposalsJs.text.includes("(preview merge first)"));
+  check("(h) deployed /js/land.js sha256-identical to tree platform/ui/js/land.js", sha256(landJs.text) === sha256(readFileSync(new URL("../../platform/ui/js/land.js", import.meta.url), "utf8")), "land.js fingerprint mismatch");
+  check("(h) deployed /js/proposals.js sha256-identical to tree platform/ui/js/proposals.js", sha256(proposalsJs.text) === sha256(readFileSync(new URL("../../platform/ui/js/proposals.js", import.meta.url), "utf8")), "proposals.js fingerprint mismatch");
 } catch (err) {
   fails++;
   console.error(`PROBE ERROR — ${err?.stack ?? err}`);

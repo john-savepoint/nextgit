@@ -126,6 +126,15 @@ const server = createServer((req, res) => {
     res.end(readFileSync(join(UI, "land-verdict.js"), "utf8"));
     return;
   }
+  if (pathname.startsWith("/js/") && pathname.endsWith(".js")) {
+    // Wave-9/10 lesson (module-split): app.js statically imports the
+    // ./js/* domain modules — without the route the whole module
+    // graph 404s and NOTHING renders (vacuous passes on every check).
+    const rel = pathname.slice(1); // "js/state.js" etc.
+    res.writeHead(200, { "content-type": "text/javascript" });
+    res.end(readFileSync(join(UI, rel), "utf8"));
+    return;
+  }
   if (pathname === "/styles.css") {
     res.writeHead(200, { "content-type": "text/css" });
     res.end(readFileSync(join(UI, "styles.css"), "utf8"));

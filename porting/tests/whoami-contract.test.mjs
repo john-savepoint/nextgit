@@ -12,6 +12,7 @@
 // full-suite-safe (a fresh env per request).
 
 import { readFile } from "node:fs/promises";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import worker, { ROUTES } from "../../platform/src/index.ts";
 import { revealCapability } from "../../platform/src/auth.ts";
@@ -295,9 +296,16 @@ const post = async (env, path, body, headers = {}) =>
  check("registration: ROUTES registers GET /whoami",
   ROUTES.some((r) => r.path === "/whoami" && r.method === "GET" && r.action === "read"),
   J(ROUTES.filter((r) => r.path === "/whoami")));
- const appJs = await readFile(fileURLToPath(new URL("../../platform/ui/app.js", import.meta.url)), "utf8");
- check("registration: app.js consumes /whoami (fetchJson)",
-  /fetch(?:Json)?\(\s*["'`]\/whoami["'`]/.test(appJs));
+// Wave-13 module split: the /whoami fetch moved from app.js
+ // into the ./js/* domain modules (loadRevealCapability in
+ // js/proposals.js). Check the whole module graph — app.js plus
+ // every ./js/*.js module — for the /whoami consumption.
+ const uiDir = fileURLToPath(new URL("../../platform/ui/", import.meta.url));
+ const jsDir = fileURLToPath(new URL("../../platform/ui/js/", import.meta.url));
+ const graphFiles = ["app.js", ...readdirSync(jsDir).filter((f) => f.endsWith(".js")).map((f) => "js/" + f)];
+ const graph = graphFiles.map((f) => readFileSync(uiDir + f, "utf8")).join("\n");
+ check("registration: UI module graph consumes /whoami (fetchJson)",
+  /fetch(?:Json)?\(\s*["'`]\/whoami["'`]/.test(graph));
 }
 
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);

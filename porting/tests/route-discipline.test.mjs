@@ -11,7 +11,7 @@
 // worker; a fresh envFor() per request; the live group is gated on
 // NEXTGIT_PLATFORM and otherwise prints one SKIP line.
 
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import worker, { ROUTES, DYNAMIC_ROUTES } from "../../platform/src/index.ts";
 
 let pass = 0, fail = 0;
@@ -100,7 +100,7 @@ const drive = async (method, path) => {
 // Group 3 — UI-serve law: whitelisted UI documents -> 200 + ASSETS-SERVED.
 // ---------------------------------------------------------------------------
 {
-  for (const p of ["/", "/index.html", "/styles.css", "/app.js", "/reveal-decision.js", "/land-verdict.js", "/tour.html", "/tour.css", "/tour.js"]) {
+  for (const p of ["/", "/index.html", "/styles.css", "/app.js", "/reveal-decision.js", "/land-verdict.js", "/tour.html", "/tour.css", "/tour.js", "/js/state.js", "/js/api.js", "/js/conflicts.js", "/js/ticker.js", "/js/proposals.js", "/js/modal.js", "/js/land.js", "/js/reveal.js", "/js/interactions.js"]) {
     const r = await drive("GET", p);
     check(`UI: GET ${p} -> 200`, r.status === 200, `got ${r.status}`);
     check(`UI: GET ${p} body ASSETS-SERVED`, r.text === "ASSETS-SERVED", `got ${JSON.stringify(r.text)}`);
@@ -149,9 +149,14 @@ const drive = async (method, path) => {
   // /landings/{commit} normalizes to its prefix "/landings/".
   contract.add("/landings/");
 
-  // UI-consumed set: fetchJson("/x") and fetch(".../x"...) in app.js + tour.js.
+  // UI-consumed set: fetchJson("/x") and fetch(".../x"...) across the
+  // module graph — app.js + tour.js + every ./js/*.js module (the split
+  // moved all app.js fetch sites into ./js/*; a future module calling
+  // an undocumented route is the regression this set guards).
   const uiApi = new Set();
-  for (const f of ["app.js", "tour.js"]) {
+  const jsDir = new URL("../../platform/ui/js/", import.meta.url);
+  const uiFiles = ["app.js", "tour.js", ...(await readdir(jsDir)).filter((f) => f.endsWith(".js")).map((f) => `js/${f}`)];
+  for (const f of uiFiles) {
     const text = await readFile(new URL(`../../platform/ui/${f}`, import.meta.url), "utf8");
     for (const m of text.matchAll(/fetch(?:Json)?\(\s*["'`]([^"'`]+)["'`]/g)) {
       let p = m[1];
