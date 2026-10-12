@@ -78,6 +78,14 @@ const MAX_ARTIFACT_REF = 512;
 const MERGED_SHA_CHECK = "merged-sha-equals-tested-sha"; // reserved ledger check name
 const LANDING_KEY_PREFIX = "landing:"; // KV LIVE: landing record keyed by commit
 
+// Repo-browsing read API bounds (CONTRACT.md §GET /tree, §GET /raw).
+// MAX_TREE_DEPTH caps the resolved subdirectory depth of a /tree
+// path (a deeper path is a 400, never a walk). MAX_RAW_BYTES caps
+// /raw byte egress — a blob above the cap is a 413 before the body
+// is assembled.
+const MAX_TREE_DEPTH = 32;
+const MAX_RAW_BYTES = 8 * 1024 * 1024;
+
 type FileMap = Map<string, string>; // path -> blob hash
 
 interface ChangeFile {
@@ -2703,6 +2711,255 @@ async function handleProposalDetail(request: Request, env: Env, repoParam: strin
  });
 }
 
+// ---------------------------------------------------------------------------
+// Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file,
+// §GET /raw) — the file tree + file content surface for the demo
+// and agent repos, over HTTP. All three routes read through the
+// EXISTING seams only: repo.log({ref,limit:1}) resolves a ref to
+// its head commit, repo.readTree(hash) lists a directory level,
+// repo.readFile({ref,path}) fetches one blob (via the readContent
+// helper for /file). No new binding methods, no clone, no memfs
+// write, no recursive walk.
+// ---------------------------------------------------------------------------
+
+interface ReadQuery {
+ repo: string;
+ ref: string;
+ path: string;
+}
+
+/**
+ * Validates the /tree + /file query params. Mirrors
+ * parseProposalsQuery's REPO_NAME_RE / REF_RE guards (the same
+ * pair every GET read route enforces) with resolveRouteBase
+ * supplying the pinned ref default (absent -> main; the AD-8
+ * seam, so omitted == explicit). `path` is optional ("" = the
+ * repo root) and rejects .. segments plus leading/trailing "/"
+ * — the traversal law POST /reveal's path validation enforces.
+ * Returns a ReadQuery when valid, or the 400 Response.
+ */
+function parseReadQuery(url: URL): ReadQuery | Response {
+ const { ref } = resolveRouteBase({ ref: url.searchParams.get("ref") ?? undefined });
+ const repo = url.searchParams.get("repo");
+ if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+ }
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ const path = url.searchParams.get("path") ?? "";
+ if (path.startsWith("/") || path.endsWith("/") || path.split("/").includes("..")) {
+  return badRequest(`invalid path: ${JSON.stringify(path)}`);
+ }
+ if (path.split("/").filter(Boolean).length > MAX_TREE_DEPTH) {
+  return badRequest("path too deep");
+ }
+ return { repo, ref, path };
+}
+
+/**
+ * GET /tree — one directory level of a repo at a ref. `entries`
+ * is the direct child set of `path`, tree-order preserved
+ * (deterministic: the same (repo, ref, path) always yields the
+ * same entries). Every entry documents size:0 — the Artifacts
+ * readTree surface carries no entry sizes (subtree or blob), and
+ * the route documents the zero rather than fabricating a value
+ * (no size oracle; CONTRACT §GET /tree). Unknown repo /
+ * unresolvable ref / a file at `path` (not a directory) -> the
+ * uniform 404.
+ */
+async function handleTree(request: Request, env: Env): Promise<Response> {
+ const parsed = parseReadQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { repo, ref, path } = parsed;
+
+ // The repo is query-carried, so the dispatcher's authorize()
+ // chokepoint (extractScope) already adjudicated it against the
+ // demo allowlist pre-read (the /changes posture) — the handler
+ // trusts the chokepoint and reads.
+ try {
+  using artifactsRepo = await env.ARTIFACTS.get(repo);
+  const commits = await artifactsRepo.log({ ref, limit: 1 });
+  if (!commits.length) {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  // Resolve the tree AT `path` (not the root): walk the head
+  // tree's children down to the requested directory.
+  let treeHash = commits[0].treeHash;
+  if (path !== "") {
+   for (const part of path.split("/")) {
+    const entries = await artifactsRepo.readTree(treeHash);
+    const child = entries?.find((e) => e.name === part && e.type === "tree");
+    if (!child) {
+     return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+    }
+    treeHash = child.hash;
+   }
+  }
+  const entries = await artifactsRepo.readTree(treeHash);
+  if (!entries) {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  return Response.json({
+   ok: true,
+   repo,
+   ref,
+   path,
+   entries: entries.map((entry) => ({
+    name: entry.name,
+    type: entry.type,
+    size: 0, // the readTree surface carries no entry sizes — documented zero, not fabricated
+    blobHash: entry.hash,
+   })),
+  });
+ } catch {
+  // Unknown repo (the namespace does not carry it) -> 404, the
+  // /proposals/{repo} mapping (a failed repo read is the
+  // contract 404, never a 500).
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+}
+
+/**
+ * GET /file — one file's content, classified. Drives the
+ * EXISTING readContent seam (the same repo.readFile({ref,path})
+ * read /reveal uses). The masking law (AD-4): a secret-class
+ * path yields keys[] ONLY — the value is read server-side and
+ * never egresses; a binary file yields no inline text (use
+ * GET /raw for the bytes).
+ */
+async function handleFile(request: Request, env: Env): Promise<Response> {
+ const parsed = parseReadQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { repo, ref, path } = parsed;
+ if (path === "") {
+  return badRequest("path required");
+ }
+
+ // Rate row (the compute-cost class; the contract's /file
+ // 60/60s cap). GET precondition order: 400 (param parse) ->
+ // 429 -> compute.
+ const rateDenied = rateGate("/file", request);
+ if (rateDenied) return rateDenied;
+
+ try {
+  using artifactsRepo = await env.ARTIFACTS.get(repo);
+  const content = await readContent(artifactsRepo, ref, path);
+  if (!content) {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  // Secret class (AD-4 masking law): keys only, never values.
+  // isSecretPath + secretKeys are the existing seam; the raw
+  // text is read server-side for key extraction and never
+  // leaves the worker.
+  if (isSecretPath(path)) {
+   const keys = content.text === null ? [] : secretKeys(content.text);
+   return Response.json({
+    ok: true,
+    repo,
+    ref,
+    path,
+    classification: "secret",
+    size: content.size,
+    keys,
+   });
+  }
+  if (content.binary) {
+   return Response.json({
+    ok: true,
+    repo,
+    ref,
+    path,
+    classification: "binary",
+    size: content.size,
+   });
+  }
+  return Response.json({
+   ok: true,
+   repo,
+   ref,
+   path,
+   classification: "text",
+   size: content.size,
+   text: content.text,
+  });
+ } catch {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+}
+
+/**
+ * GET /raw/{repo}/{ref}/{path...} — raw blob bytes,
+ * application/octet-stream. The path is split on the FIRST TWO
+ * "/" separators only (repo, ref, path), so a ref that itself
+ * contains slashes (a future refs/heads/*) still routes.
+ * Authorization: the path-carried repo cannot be adjudicated by
+ * the dispatcher's query-only extractScope (the /reveal
+ * carve-out), so this handler re-checks the AD-9 demo allowlist
+ * (DEMO_REPO_RE) BEFORE any binding read — fail-closed.
+ * Secret-class paths are REFUSED (403) before any binding read:
+ * a secret blob never materializes on this route; values surface
+ * only through the authorized, audited POST /reveal seam.
+ */
+async function handleRaw(request: Request, env: Env): Promise<Response> {
+ const remainder = new URL(request.url).pathname.slice("/raw/".length);
+ // Split on the first two "/" separators: [repo, ref, path...].
+ const first = remainder.indexOf("/");
+ if (first === -1) return badRequest("bad-request");
+ const second = remainder.indexOf("/", first + 1);
+ if (second === -1) return badRequest("bad-request");
+ const repo = remainder.slice(0, first);
+ const ref = remainder.slice(first + 1, second);
+ const path = remainder.slice(second + 1);
+
+ if (!REPO_NAME_RE.test(repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+ }
+ if (!REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ if (path === "" || path.startsWith("/") || path.endsWith("/") || path.split("/").includes("..")) {
+  return badRequest(`invalid path: ${JSON.stringify(path)}`);
+ }
+
+ // Demo allowlist re-check (the /reveal carve-out): the
+ // dispatcher's extractScope reads query params only, so the
+ // path-carried repo is adjudicated HERE, before any read.
+ if (!DEMO_REPO_RE.test(repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+
+ // Secret-class refusal — fail-closed BEFORE any binding read
+ // (the /reveal posture: a secret-class blob never egresses
+ // through the raw route).
+ if (isSecretPath(path)) {
+  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+ }
+
+ // Rate row (the byte-egress cost class; the contract's
+ // /raw 60/60s cap).
+ const rateDenied = rateGate("/raw", request);
+ if (rateDenied) return rateDenied;
+
+ try {
+  using artifactsRepo = await env.ARTIFACTS.get(repo);
+  const blob = await artifactsRepo.readFile({ ref, path });
+  if (!blob) {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (bytes.byteLength > MAX_RAW_BYTES) {
+   return Response.json({ ok: false, error: "too-large" }, { status: 413 });
+  }
+  return new Response(bytes, { headers: { "content-type": "application/octet-stream" } });
+ } catch {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+}
+
 // Route table (AD-8: single registration point; every route authorizes).
 // ---------------------------------------------------------------------------
 
@@ -2765,6 +3022,15 @@ export const ROUTES: RouteEntry[] = [
  // Whoami — the viewer's elevated-reveal capability probe (read-only,
  // no secret content; the reveal affordance renders only when reveal:true).
  { path: "/whoami", method: "GET", action: "read", handler: handleWhoami },
+ // Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file).
+ // GET, read-only: the authorize() chokepoint covers them (demo
+ // mode gate; extractScope adjudicates the query-carried repo
+ // against the demo allowlist pre-read, the /changes posture).
+ // /tree is deliberately unbound (the /changes posture —
+ // ROUTE_RATE_LIMITS carries no /tree row); /file is capped
+ // 60/60s (rateGate inside the handler).
+ { path: "/tree", method: "GET", action: "read", handler: handleTree },
+ { path: "/file", method: "GET", action: "read", handler: handleFile },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
@@ -2782,6 +3048,15 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
  // through readVerifiedBlob, the single byte-returning
  // ASSET_BLOB.get (CONTRACT.md §GET /asset/{blobId}).
  { prefix: "/asset/", method: "GET", action: "read", handler: (request, env) => handleAssetDownload(request, env) },
+ // /raw/{repo}/{ref}/{path} — the repo-browsing raw-byte read
+ // (CONTRACT.md §GET /raw). GET, read-only: the authorize()
+ // chokepoint covers the route, but its repo is PATH-carried,
+ // which the query-only extractScope cannot adjudicate (the
+ // /reveal carve-out) — the handler re-checks the demo
+ // allowlist (DEMO_REPO_RE) and refuses secret-class paths (403)
+ // BEFORE any binding read, fail-closed. Capped 60/60s
+ // (rateGate in the handler).
+ { prefix: "/raw/", method: "GET", action: "read", handler: (request, env) => handleRaw(request, env) },
 ];
 
 // UI document set (AD-8 boundary discipline): the wrangler-assets

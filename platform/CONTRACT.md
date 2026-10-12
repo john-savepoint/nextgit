@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.2 (2026-10-12). Additive changes only; if you change a shape, bump this file first.
+Version: v3.3 (2026-10-12). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -47,6 +47,93 @@ variant the caller passes the pointer's recorded `sha256` as the expectation)
 **and** `actualSha256 === blobId` (content-addressed key != stored digest —
 the substitution case). Either mismatch fails closed: zero bytes materialize,
 no fallback to another key, no cache.
+
+## GET /tree?repo=...&ref=main&path=...
+
+Deterministic directory listing for one path of a repo at a ref
+(repo browsing; the read API's tree half). `repo` (required, the
+AD-9 charset + demo allowlist), `ref` (defaults to `main` via
+`resolveRouteBase` — the AD-8 seam, so omitted == explicit) and
+`path` (defaults to the repo root `""`; a directory walk rooted
+at `path`, never a recursive walk).
+
+- **200** — `{ ok:true, repo, ref, path, entries:[{name,type,size,blobHash}] }`.
+  `entries` is the DIRECT child set of `path` at `ref`, in the
+  tree's own order (deterministic: the same (repo, ref, path)
+  always yields the same entries). `type` ∈ `tree | blob | exec`
+  (the Artifacts tree-entry union); `blobHash` is the entry's
+  content hash. `size` is `0` for `tree` entries — the Artifacts
+  binding carries no size for subtrees, and the contract documents
+  the zero rather than fabricating a value (no size oracle).
+- **400** — `invalid repo name` / `invalid ref` / `invalid path`
+  (charset guards: `REPO_NAME_RE`/`REF_RE`, and `path` rejecting
+  `..` segments and leading/trailing `/` — the read-validation
+  law every GET route enforces pre-read).
+- **401 / 403** — the `authorize()` chokepoint (deny mode / demo
+  allowlist), before any Artifacts read.
+- **404** — `{ok:false,error:"not-found"}` — uniform existence
+  posture: unknown repo, unresolvable ref, or a `path` that is
+  not a directory (a FILE at `path` is not a tree) answer the
+  same body.
+
+Rate: deliberately UNBOUND (the `/changes` posture — a bounded
+directory listing is a cheap read; `ROUTE_RATE_LIMITS` carries no
+`/tree` row by design, documented here so the omission reads as
+policy, not oversight).
+
+## GET /file?repo=...&ref=main&path=...
+
+One file's content, classified (repo browsing; the read API's
+content half). Reads the EXISTING `readContent` seam (the same
+`repo.readFile({ref,path})` read `/changes`/`/reveal` drive) —
+no new binding method. `repo`/`ref`/`path` validation is the
+`/tree` law above (`ref` defaults to `main` through
+`resolveRouteBase`).
+
+- **200** — `{ ok:true, repo, ref, path, classification, size }`
+  with:
+  - `classification:"text"` → `text` (the decoded UTF-8 content)
+    and `size` (byte length);
+  - `classification:"binary"` → NO `text` field (the content is
+    not served inline; use `GET /raw` for the bytes);
+  - `classification:"secret"` → `keys[]` ONLY (the AD-4 masking
+    law: key names, never values — the existing `isSecretPath` +
+    `secretKeys` seam decides the class and extracts the keys
+    server-side; the raw value never leaves the worker).
+- **400 / 401 / 403** — the `/tree` validation + authorize law.
+- **404** — `{ok:false,error:"not-found"}` (unknown repo/ref/path).
+- **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/file"]`
+  — the `/merge`/`/proposals` compute-cost class).
+
+## GET /raw/{repo}
+
+Raw file bytes, `application/octet-stream` (repo browsing; the
+binary half of the content API). The path is split on the FIRST
+TWO `/` separators only — `repo`, `ref` (which may itself contain
+slashes, so a future `refs/heads/*` ref still routes), and the
+remainder is the file path. `repo` and `ref` are validated with
+the same `REPO_NAME_RE`/`REF_RE` guards as every other route.
+
+Authorization: the path-carried `repo` cannot be adjudicated by
+the dispatcher's query-only `extractScope` (the `/reveal`
+carve-out), so the handler re-checks the AD-9 demo allowlist
+(`DEMO_REPO_RE`) BEFORE any binding read — fail-closed, the
+`/reveal` posture.
+
+- **200** — the exact blob bytes, `content-type:
+  application/octet-stream`, capped at 8 MiB (`MAX_RAW_BYTES`).
+- **403** — secret-class path (`isSecretPath`) — REFUSED BEFORE
+  any Artifacts read (fail-closed: a secret-class blob never
+  materializes on this route; values surface only through the
+  authorized, audited `POST /reveal` seam).
+- **404** — `{ok:false,error:"not-found"}` (unknown repo/ref/path).
+- **400** — charset-invalid repo/ref or a path violating the
+  traversal law (`..` segment, leading/trailing `/`, empty).
+- **413** — `{ok:false,error:"too-large"}` when the blob exceeds
+  `MAX_RAW_BYTES` (the size is known from the binding's byte
+  length; the cap is enforced before the body is assembled).
+- **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/raw"]`
+  — the byte-egress cost class).
 
 ## GET /health
 
@@ -630,7 +717,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the nine bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited).
+Edge rate limits cover the eleven bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -642,6 +729,8 @@ Edge rate limits cover the nine bound routes in the table below (`/land`, `/merg
 | `GET /forks` | 60 | 60 s |
 | `POST /intents` | 30 | 60 s |
 | `POST /upstream` | 20 | 60 s |
+| `GET /file` | 60 | 60 s |
+| `GET /raw/{repo}/{ref}/{path}` | 60 | 60 s |
 
 - **Caller key:** `CF-Connecting-IP` (set by Cloudflare's edge in production; client-supplied in local dev), fallback `"unknown"` when absent. Each route's window is independent per caller — a flood on one route cannot evict another route's windows.
 - **Uniform 429 body:** `{ok:false,error:"rate-limited"}` — no caller echo, no remaining-count leak (NFR-3 posture preserved).
