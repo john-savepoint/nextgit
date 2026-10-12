@@ -196,6 +196,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.afterNext = {
       step7Active: !!(step7 && step7.classList.contains("is-active")),
       quizOptionCount: document.querySelectorAll(".quiz-option-btn").length,
+      continueLabel: (document.getElementById("btn-continue") || {}).textContent?.trim() ?? null,
     };
   } catch (e) { R.errors.push(String((e && e.stack) || e)); }
   const d = document.createElement("div"); d.id = "test-out"; d.textContent = encodeURIComponent(JSON.stringify(R)); document.body.appendChild(d);
@@ -280,6 +281,7 @@ function legNoErrors(R) {
 function legTourContinues(R) {
   check("6 tour advances to step 7 after the fallback", R.afterNext?.step7Active === true, `afterNext=${JSON.stringify(R.afterNext)}`);
   check("6 step 7 quiz renders 4 options", R.afterNext?.quizOptionCount === 4, `quizOptions=${R.afterNext?.quizOptionCount}`);
+  check("6 Continue CTA is present and labelled after the fallback", R.afterNext?.continueLabel === "Continue", `continueLabel=${R.afterNext?.continueLabel}`);
 }
 
 try {

@@ -224,6 +224,13 @@ try {
       `count=${termCount} names=${JSON.stringify(termNames)}`,
     );
 
+    const termsHeading = await evl(`document.querySelector("#step-0 .sim-title")?.textContent.trim() || ""`);
+    check(
+      "S0 step 0 term heading matches the four cards",
+      termsHeading === "Four core terms decoded",
+      `heading="${termsHeading}"`,
+    );
+
     const glossaryCount = await evl(`document.querySelectorAll(".glossary-term .glossary-tooltip").length`);
     check("S0 glossary tooltips are present in the DOM (>= 3)", glossaryCount >= 3, `count=${glossaryCount}`);
 
