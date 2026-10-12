@@ -24,17 +24,18 @@ import {
  JUDGE_SET_ID,
  PINNED_MODEL_ID,
  MODEL_SELECTOR,
- AUTO_LAND_ENGAGED,
  deriveAutoLandVerdict,
  buildJudgeRequest,
  validateJudgeResponse,
  scrubFreeText,
+ stripInstructionLike,
  CONTENT_SECRET_MIN,
  isNoulAnswer,
  isPlainObject,
  type JudgeRepoInput,
  type AutoLandVerdict,
 } from "./judge";
+import { AUTO_LAND_ENGAGED, autoLandEligible, hasCleanCorroboratingSignal } from "./autoland";
 
 import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 
@@ -315,7 +316,7 @@ function renderMerge(ours: string, ancestor: string, theirs: string): { text: st
  return { text: parts.join("\n"), conflict };
 }
 
-async function computeMerge(
+export async function computeMerge(
  env: Env,
  baseName: string,
  baseRef: string,
@@ -1004,6 +1005,7 @@ interface LandRequestBody {
  ref?: unknown;
  reviewed?: unknown;
  validation?: unknown;
+ gate?: unknown;
 }
 
 /** Reviewed-state precondition (AD-3): heads as the caller saw them. */
@@ -1111,6 +1113,11 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
    artifactRef: v.artifactRef as string | undefined,
   };
  }
+ // Engagement is a server-side, record-gated constant (AD-11 / FR-26) —
+ // never a client-supplied flag. A `gate` field is rejected outright.
+ if (body.gate !== undefined) {
+  return badRequest("gate is not a client-supplied field (engagement is server-side and record-gated)");
+ }
  return { base, repos, baseRef, ref, reviewed, validation };
 }
 
@@ -1179,15 +1186,27 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
  }
  // Auto-land gate (AD-11 / FR-26): the server-side ACT/CONFIRM/ESCALATE
  // verdict from the same pinned Clef question set the cards render.
- // Advisory-only upstream (POST /judge) becomes a gate HERE: when engaged,
- // every /land must be answered by the pinned model, and an unanswered
- // land fails CLOSED (503 judge-unavailable, no fold-derived work, no
- // push). The verdict is recorded on the landing — clients render it;
- // they never decide it (the decision is this code, the policy is in
- // judge.ts, the model is pinned and fail-closed).
- // The gate's verdict, threaded into the evidence record below.
+ // Engagement is the record-gated switch in ./autoland (OFF by default);
+ // while unengaged this route makes NO judge call and behaves exactly as
+ // it did before the gate existed. When engaged, every /land must be
+ // answered by the pinned model (fail closed), and a favorable verdict
+ // alone never auto-lands — the non-model corroborating interlock below
+ // (fold status / conflict map) must also be clean (AD-11: code decides).
  let autoLand: AutoLandVerdict | null = null;
  if (AUTO_LAND_ENGAGED) {
+  // Eligibility: the calibration record must pass record-check. The
+  // record is enforced at DEPLOY/VERIFICATION time by
+  // porting/calibration/engagement-check.mjs (runs record-check.mjs
+  // as a subprocess; fails the repo non-zero when AUTO_LAND_ENGAGED
+  // is true and the record is absent/failing). Workers have no
+  // filesystem (AD-11), so the runtime constant IS the gate — the
+  // record outcome is not readable at request time; this guard is
+  // fail-closed defense-in-depth should the predicate ever gain a
+  // real record input.
+  if (!autoLandEligible(true)) {
+   console.log("autoland-ineligible", JSON.stringify({ route: "/land", reason: "calibration-record-failing" }));
+   return judgeUnavailable();
+  }
   const gate = await judgeLandGate(env, base, baseRef, repos, ref);
   if (gate instanceof Response) return gate; // 503 judge-unavailable (fail closed)
   if (gate.verdict === "escalate") {
@@ -1199,7 +1218,29 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     { status: 409 },
    );
   }
-  // ACT/CONFIRM: the verdict rides the evidence record below.
+  // Non-model corroboration interlock: a favorable judge verdict (ACT/
+  // CONFIRM) alone never auto-lands. The fold status and conflict map
+  // (the non-model signals computeMerge already produced above at the
+  // `merge` binding) must be clean — a non-empty conflict map or an
+  // unclean fold status blocks the land regardless of the judge's
+  // answers (AD-11). This refusal fires BEFORE the generic conflict 409
+  // so the refusal is attributable to the interlock, not the fold.
+  if (!hasCleanCorroboratingSignal(merge)) {
+   console.log("autoland-blocked", JSON.stringify({ setId: gate.setId, foldStatus: merge.status, conflicted: merge.conflicted.length }));
+   return Response.json(
+    {
+     ok: false,
+     error: "autoland-blocked",
+     verdict: gate.verdict,
+     setId: gate.setId,
+     foldStatus: merge.status,
+     conflicted: merge.conflicted,
+    },
+    { status: 409 },
+   );
+  }
+  // ACT/CONFIRM with a clean non-model signal: the verdict rides the
+  // evidence record below.
   autoLand = gate;
  }
 
@@ -1301,7 +1342,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     artifactRef: validation?.artifactRef ?? null,
     at,
     lease: leaseId ? { provider: "do", leaseId } : null,
-    autoLand, // the AutoLandVerdict — additive, served verbatim by GET /landings/{commit}
+    ...(autoLand ? { autoLand } : {}), // engaged-only; unengaged evidence is byte-identical to the pre-gate 12-key shape
    };
    // The landing record (FR-18) persists keyed by the returned commit — the
    // address the read surface serves. KV `LIVE` stays single-writer: this is
@@ -1956,13 +1997,13 @@ async function handleJudge(request: Request, env: Env): Promise<Response> {
 /**
  * The auto-land gate's one Clef call (AD-11). Reuses the /judge
  * assembly seam verbatim — same fork-point change-set reads, same
- * AD-4 masking filter, same typed question set (setId `v1`), same
  * pinned model — so the gate and the card chips can never diverge
  * in what they asked. Fails closed on every failure mode: no AI
  * binding, a thrown run, or any validation miss => 503
- * judge-unavailable with zero repos landed.
+ * judge-unavailable with zero repos landed. Exported so the
+ * engaged-posture suite drives the real gate at the seam.
  */
-async function judgeLandGate(env: Env, base: string, baseRef: string, repos: string[], ref: string): Promise<AutoLandVerdict | Response> {
+export async function judgeLandGate(env: Env, base: string, baseRef: string, repos: string[], ref: string): Promise<AutoLandVerdict | Response> {
  if (!env.AI || typeof env.AI.run !== "function") return judgeUnavailable();
  const judged: JudgeRepoInput[] = [];
  for (const name of repos) {
@@ -1984,6 +2025,238 @@ async function judgeLandGate(env: Env, base: string, baseRef: string, repos: str
   return judgeUnavailable();
  }
  return deriveAutoLandVerdict(validated.judgments);
+}
+
+// ---------------------------------------------------------------------------
+// POST /intents — declare an intent before building; the platform
+// matches it against the fork ecosystem and returns the CAP-10
+// three-state verdict (merge-it | use-as-context | ignore) plus
+// the candidate forks whose signals drove it (CONTRACT.md §POST
+// /intents; companion fork-community.md). Advisory only: the route
+// writes nothing and lands nothing (mirrors /judge).
+// ---------------------------------------------------------------------------
+
+/** Intent is untrusted caller text (AD-4) — cap it before it reaches any state. */
+const MAX_INTENTS_CHARS = 2048; // the contract-pinned body cap
+
+/** The six-cluster signal vector one candidate fork carries (CAP-10). */
+interface SixClusterSignals {
+ fitOverlap: number | null;
+ peopleTrust: number | null;
+ liveness: number | null;
+ proof: number | null;
+ distance: number | null;
+ costToAdoptVsRegenerate: number | null;
+}
+
+/** The matcher's three-state verdict vocabulary — the pinned wire tokens. */
+type MatcherVerdict = "merge-it" | "use-as-context" | "ignore";
+
+/** Closed request schema for POST /intents (AD-9): exactly {intent, base?}. */
+interface IntentsRequestBody {
+ intent?: unknown;
+ base?: unknown;
+}
+
+/**
+ * Validate the /intents body — the closed-schema twin of
+ * parseJudgeBody / parseUpstreamBody (unknown field → 400).
+ * `intent` is required, non-empty, ≤2048 chars; `base` resolves
+ * through resolveRouteBase (the AD-8 single-source seam) and is
+ * REPO_NAME_RE-checked. The AD-9 demo-allowlist check happens in
+ * the handler (the body is parsed only there — the /judge
+ * defense-in-depth precedent).
+ */
+function parseIntentsBody(raw: unknown): { intent: string; base: string } | Response {
+ if (!raw || typeof raw !== "object" || Array.isArray(raw)) return badRequest("bad-request");
+ const body = raw as IntentsRequestBody;
+ if (!Object.keys(body).every((k) => k === "intent" || k === "base")) {
+  return badRequest("bad-request");
+ }
+ const intent = body.intent;
+ if (typeof intent !== "string" || !intent || intent.length > MAX_INTENTS_CHARS) {
+  return badRequest("bad-request");
+ }
+ const { base } = resolveRouteBase({ base: body.base });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest("bad-request");
+ }
+ return { intent, base };
+}
+
+/**
+ * The shared six-cluster computation seam (CAP-10): per candidate
+ * fork, a pure extraction over the EXISTING read seams —
+ * computeChangeSet (fit/distance over the fork-point change-set),
+ * computeMerge (the fold's conflict surface), the fork repo's own
+ * log (liveness/proof). Every cluster is a typed number or null
+ * (unmeasured) — the wire carries values, never prose. This is the
+ * single computation surface both POST /intents (this order) and
+ * the future GET /forks (wave-11) consume — one writer, no
+ * divergence.
+ *
+ * Trust law (AD-4): repo content is untrusted. Secret-class paths
+ * contribute key names only (computeChangeSet's own masking); no
+ * secret-class value may enter matcher state or any log.
+ */
+async function computeSixClusterSignals(
+ env: Env,
+ base: string,
+ ref: string,
+ name: string,
+): Promise<SixClusterSignals> {
+ // fitOverlap: the fork-point change-set's size against the
+ // platform's per-change-set patch budget — a fork that changed
+ // few files against the base overlaps more of the declared work.
+ const changeSet = await computeChangeSet(env, base, ref, name, ref);
+ const fileCount = changeSet.stats.files;
+ const fitOverlap = fileCount === 0 ? null : Math.max(0, 1 - fileCount / MAX_FILES_WITH_PATCH);
+ // liveness: commit cadence over the fork's first-parent log
+ // (recency of the newest commit; a stale fork drifts toward 0).
+ using forkRepo = await env.ARTIFACTS.get(name);
+ const forkLog = await forkRepo.log({ ref, limit: FORK_LOG_LIMIT });
+ const newestAt = forkLog.length ? forkLog[0].authoredAt : 0;
+ const ageDays = newestAt ? (Date.now() / 1000 - newestAt) / 86400 : Infinity;
+ const liveness = forkLog.length === 0 ? null : Math.max(0, 1 - ageDays / 30);
+ // proof: the session trail the change-set carries (commit count).
+ const proof = changeSet.commits.length === 0 ? null : Math.min(1, changeSet.commits.length / 10);
+ // distance: the fold's conflict surface — the share of merged
+ // files that conflict (the join's conflict cost).
+ const fold = await computeMerge(env, base, ref, [name], ref);
+ const foldFiles = fold.files.length;
+ const conflictShare = foldFiles === 0 ? 0 : fold.conflicted.length / foldFiles;
+ const distance = Math.min(1, conflictShare * 2);
+ // costToAdoptVsRegenerate: the adopt cost (conflict surface plus
+ // the non-overlapping share of the change-set) against the
+ // regenerate cost (rebuild from scratch).
+ const adoptCost = distance * 0.6 + (fitOverlap === null ? 0 : (1 - fitOverlap) * 0.4);
+ const costToAdoptVsRegenerate = Math.max(0, Math.min(1, 1 - adoptCost));
+ // peopleTrust: unmeasured in the platform (no signed-identity
+ // seam yet) — null by the typed-null law, never a fabricated 0.
+ const peopleTrust = null;
+ return {
+  fitOverlap,
+  peopleTrust,
+  liveness,
+  proof,
+  distance,
+  costToAdoptVsRegenerate,
+ };
+}
+
+/**
+ * The matcher-confidence rank (thresholds in code per AD-11) — the single
+ * ordering function shared by deriveMatcherVerdict and the /intents
+ * response order: CONTRACT.md §POST /intents pins the candidates
+ * "ordered by the matcher's confidence".
+ */
+const rankSignals = (s: SixClusterSignals) =>
+ (s.fitOverlap ?? 0) - (s.distance ?? 0) + (s.liveness ?? 0) * 0.1 + (s.proof ?? 0) * 0.1;
+
+/**
+ * The three-state derivation over the per-candidate cluster
+ * vectors (thresholds in code per AD-11) — the pure-derivation
+ * twin of deriveAutoLandVerdict: the strongest candidate drives
+ * the verdict. Fit-driven (high overlap, low distance) →
+ * merge-it; partial fit → use-as-context; non-aligned → ignore.
+ * No single signal auto-selects: every cluster is advisory
+ * (the flip property — the verdict is the aggregate, not one
+ * signal).
+ */
+function deriveMatcherVerdict(
+ candidates: Array<{ repo: string; signals: SixClusterSignals }>,
+): MatcherVerdict {
+ let best: { repo: string; signals: SixClusterSignals } | null = null;
+ for (const candidate of candidates) {
+  if (!best || rankSignals(candidate.signals) > rankSignals(best.signals)) best = candidate;
+ }
+ if (!best) return "ignore";
+ const { fitOverlap, distance } = best.signals;
+ // fitOverlap is null only on the zero-file change-set degenerate (the
+ // /judge "empty-change-set" case — a change-set /proposals would have
+ // skipped); distance is never null (conflictShare falls back to 0). The
+ // null arm is single-source: keep it for that one degenerate, never as a
+ // general path — wave-11's GET /forks consumes computeSixClusterSignals
+ // directly and inherits this reasoning.
+ if (fitOverlap === null || distance === null) return "use-as-context";
+ if (fitOverlap >= 0.6 && distance <= 0.4) return "merge-it";
+ if (fitOverlap >= 0.3) return "use-as-context";
+ return "ignore";
+}
+
+/**
+ * POST /intents — the intent matcher (CAP-10). Precondition
+ * order mirrors /judge: 400 (shape) → 429 → 403 → 200. The
+ * dispatcher's authorize() + csrfGate() precede this handler
+ * for free (the same posture as /judge); the handler re-checks
+ * the AD-9 allowlist on the body-carried base (the /judge
+ * defense-in-depth precedent — the body is parsed only here).
+ * Advisory-only: writes nothing, lands nothing. Content-free
+ * log counts only — never the intent text.
+ */
+async function handleIntents(request: Request, env: Env): Promise<Response> {
+ const parsed = parseIntentsBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+
+ // AD-4 seam wire (CONTRACT.md §POST /intents): the untrusted intent is
+ // stripped + scrubbed where it enters matcher state — the judge.ts
+ // cleanUntrustedText twin (stripInstructionLike(scrubFreeText(...))).
+ // The matcher is intent-structural today (the verdict is a pure function
+ // of the discovered forks' structure, so the normalized intent does not
+ // change it); wave-11's GET /forks inherits this wired seam.
+ const intent = stripInstructionLike(scrubFreeText(parsed.intent));
+
+ const rateDenied = rateGate("/intents", request);
+ if (rateDenied) return rateDenied;
+
+ // Demo allowlist (AD-9) — the POST /intents body is the scope
+ // carrier, readable only here. Same uniform 403 as the
+ // authorize() chokepoint, before any repo read.
+ if (!DEMO_REPO_RE.test(parsed.base)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: "repo " + JSON.stringify(parsed.base) + " is outside the demo allowlist" },
+   { status: 403 },
+  );
+ }
+
+ // Candidate discovery: the same bounded list() seam /proposals
+ // auto-discovery uses (agent-* forks, status ready).
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const candidates: Array<{ repo: string; signals: SixClusterSignals }> = [];
+ for (const entry of list.repos) {
+  if (!entry.name.startsWith("agent-") || entry.status !== "ready") continue;
+  // A candidate the base cannot read (unresolvable ref, missing
+  // repo) contributes no signals — the matcher skips it, never
+  // fails the whole request (per-candidate fail-closed).
+  let signals: SixClusterSignals;
+  try {
+   signals = await computeSixClusterSignals(env, parsed.base, DEFAULT_REF, entry.name);
+  } catch {
+   continue;
+  }
+  candidates.push({ repo: entry.name, signals });
+ }
+
+ // Wire order (CONTRACT.md §POST /intents): candidates are presented
+ // strongest-first by the matcher's own confidence — the same rankSignals
+ // the verdict derivation consumes (one ordering function, no divergence).
+ candidates.sort((a, b) => rankSignals(b.signals) - rankSignals(a.signals));
+
+ const verdict = deriveMatcherVerdict(candidates);
+ // Platform-generated rationale only — the untrusted intent text
+ // never echoes into any response field (AD-4).
+ const rationale = "verdict " + verdict + " over " + candidates.length + " candidate fork(s)";
+ // Content-free log: counts only — never the intent, never content.
+ console.log("intents", JSON.stringify({ verdict, candidates: candidates.length }));
+ return Response.json({
+  ok: true,
+  verdict,
+  candidates: candidates.map((c) => ({
+   repo: c.repo,
+   rationale,
+   signals: c.signals,
+  })),
+ });
 }
 
 // ---------------------------------------------------------------------------
@@ -2383,6 +2656,12 @@ export const ROUTES: RouteEntry[] = [
  // defense-in-depth precedent).
  { path: "/upstream", method: "POST", action: "write", handler: handleUpstream },
  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
+ // Intent matcher (CAP-10): advisory POST — the dispatcher's
+ // authorize() (mode gate) + the CSRF gate precede the handler
+ // for free (the /judge posture); the handler re-checks the AD-9
+ // allowlist on the body-carried base (the /judge
+ // defense-in-depth precedent).
+ { path: "/intents", method: "POST", action: "judge", handler: handleIntents },
  // Reveal — secret-class value behind the explicit authorization rule.
  // The dispatcher runs authorize() (mode gate) + the CSRF gate first;
  // the handler layers authorizeReveal() on top (defense-in-depth).

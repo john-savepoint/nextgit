@@ -32,6 +32,7 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  "/floors": { limit: 60, windowMs: 60_000 },
  "/judge": { limit: 30, windowMs: 60_000 },
  "/upstream": { limit: 20, windowMs: 60_000 },
+ "/intents": { limit: 30, windowMs: 60_000 },
 };
 
 /** One fixed window per (route, caller). */

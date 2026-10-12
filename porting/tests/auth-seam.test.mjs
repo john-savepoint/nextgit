@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 12 entries (base 9 + GET /floors, POST /upstream, GET /whoami)", ROUTES.length === 12, `got ${ROUTES?.length}`);
+check("C: ROUTES has 13 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami)", ROUTES.length === 13, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -194,6 +194,7 @@ check("C: /floors → GET read", routeMap["/floors"]?.method === "GET" && routeM
 check("C: /merge → GET read", routeMap["/merge"]?.method === "GET" && routeMap["/merge"]?.action === "read");
 check("C: /land → POST write", routeMap["/land"]?.method === "POST" && routeMap["/land"]?.action === "write");
 check("C: /judge → POST judge", routeMap["/judge"]?.method === "POST" && routeMap["/judge"]?.action === "judge");
+check("C: /intents → POST judge (authorize-covered)", routeMap["/intents"]?.method === "POST" && routeMap["/intents"]?.action === "judge", `got ${J(routeMap["/intents"] ? { method: routeMap["/intents"].method, action: routeMap["/intents"].action } : null)}`);
 check("C: /reveal → POST reveal (authorize-covered)", routeMap["/reveal"]?.method === "POST" && routeMap["/reveal"]?.action === "reveal", `got ${J(routeMap["/reveal"] ? { method: routeMap["/reveal"].method, action: routeMap["/reveal"].action } : null)}`);
 check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeMap["/events"]?.action === "read");
 // /events/stream MUST be tabled: while it lived in an inline branch it bypassed authorize()

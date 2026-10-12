@@ -38,12 +38,6 @@ export const INTENT_INSUFFICIENT_MAX = 0.5; // pS and pC both < 0.5 => insuffici
 export const OVERCLAIM_CONTRADICTS_MIN = 0.74; // overclaim noul >= 0.74
 export const JUDGE_RATE_LIMIT = ROUTE_RATE_LIMITS["/judge"].limit; // requests per caller...
 export const JUDGE_RATE_WINDOW_MS = ROUTE_RATE_LIMITS["/judge"].windowMs; // ...per minute (AD-11 per-caller cap; makes 429 reachable)
-/** Auto-land gate (AD-11 / FR-26): engaged only after the
- *  injection-testing spike passed and the question set was
- *  contract-pinned — both recorded in
- *  porting/calibration/judge-v1/calibration-record.json
- *  (injectionSpike.pass=true, signoff John 2026-10-10). */
-export const AUTO_LAND_ENGAGED = true;
 /** The versioned question set the gate consults — the same set the
  *  card chips render (JUDGE_SET_ID). Additive-only: new set ids are
  *  new constants; v1 never changes meaning. */

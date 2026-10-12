@@ -86,8 +86,10 @@ const docOnly = docList.filter((r) => !implList.includes(r));
 // an entry here the moment its handler lands.
 // POST /upstream's handler landed with
 // nextgit-e13-impl-merge-back-upstream (dropped from the
-// pin set); GET /forks and POST /intents remain pinned.
-const PINNED = ["GET /forks", "POST /intents"];
+// pin set); POST /intents's handler landed with
+// nextgit-return-matcher-verdicts-merge-context-or-ignore
+// (dropped from the pin set); GET /forks remains pinned.
+const PINNED = ["GET /forks"];
 const pinnedOnly = docOnly.filter((r) => PINNED.includes(r));
 const docOnlyUnexpected = docOnly.filter((r) => !PINNED.includes(r));
 check(
