@@ -737,7 +737,7 @@ committed lifecycle rule — `platform/r2-lifecycle.json`, rule
 `expire-orphaned-asset-blobs`, all prefixes, delete objects with no
 PUT/POST activity for **90 days** — applied with the lockfile-pinned
 wrangler (`cd platform && ./node_modules/.bin/wrangler r2 bucket
-lifecycle set nextgit-asset-blobs r2-lifecycle.json`; verified by
+lifecycle set nextgit-asset-blobs --file r2-lifecycle.json`; verified by
 `wrangler r2 bucket lifecycle list`). It is the bucket-side backstop for
 the reference-counted delete path. `POST /land` (and `/upstream`)
 reclaims a removed pointer's blob **only** when the union of every repo's

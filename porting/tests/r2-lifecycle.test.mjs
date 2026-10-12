@@ -60,7 +60,7 @@ const check = (name, ok, detail = "") => {
  if (doc) {
   const rule = doc.rules?.[0];
   check("4a exactly one committed rule", Array.isArray(doc.rules) && doc.rules.length === 1, JSON.stringify(doc.rules));
-  check("4b the rule is the expire-orphaned-asset-blobs rule, enabled, all prefixes", rule?.name === "expire-orphaned-asset-blobs" && rule?.enabled === true && rule?.conditions?.prefix === "", JSON.stringify(rule));
+  check("4b the rule is the expire-orphaned-asset-blobs rule, enabled, all prefixes", rule?.id === "expire-orphaned-asset-blobs" && rule?.enabled === true && rule?.conditions?.prefix === "", JSON.stringify(rule));
   const cond = rule?.deleteObjectsTransition?.condition;
   check("4c the rule expires objects by Age at 90 days (7,776,000 s)", cond?.type === "Age" && cond?.maxAge === 7776000, JSON.stringify(cond));
   check("4d the lifecycle layer is later than any sweep grace window (90d > 7d)", cond?.maxAge > 7 * 86400, String(cond?.maxAge));

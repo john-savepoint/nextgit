@@ -115,7 +115,7 @@ blob the sweep missed) still expires server-side.
 - **Apply:**
 
 ```bash
-cd platform && ./node_modules/.bin/wrangler r2 bucket lifecycle set nextgit-asset-blobs r2-lifecycle.json
+cd platform && ./node_modules/.bin/wrangler r2 bucket lifecycle set nextgit-asset-blobs --file r2-lifecycle.json
 ```
 
 - **Verify:**

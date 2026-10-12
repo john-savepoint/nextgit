@@ -1,7 +1,7 @@
 {
   "rules": [
     {
-      "name": "expire-orphaned-asset-blobs",
+      "id": "expire-orphaned-asset-blobs",
       "enabled": true,
       "conditions": { "prefix": "" },
       "deleteObjectsTransition": {
