@@ -132,7 +132,10 @@ function apiContract(name, res) {
 // "Secret content withheld" with no patch / merged / conflictText text in that branch.
 // ---------------------------------------------------------------------------
 function uiContract() {
-  const appJs = readFileSync(join(process.cwd(), "platform/ui/app.js"), "utf8");
+  // Wave-13 module split: renderMergeContent (the merge-preview
+  // handler) moved from app.js into js/modal.js — the source proof
+  // reads the module that owns the branch.
+  const appJs = readFileSync(join(process.cwd(), "platform/ui/js/modal.js"), "utf8");
 
   // Locate the withheld-secret branch inside renderMergeContent (the merge-modal path).
   const secretIdx = appJs.indexOf('result === "withheld-secret"');
