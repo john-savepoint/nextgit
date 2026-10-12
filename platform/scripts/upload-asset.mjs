@@ -13,6 +13,7 @@
 // 3. Write the pointer file `assets/<name>.asset.json` into the
 //    scratch `agent-r2e-*` repo over git-over-HTTPS (one commit,
 //    repo-scoped write token).
+import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
