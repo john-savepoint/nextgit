@@ -247,6 +247,18 @@ defineRepo("agent-hot", { history: [f6, c1], refs: { main: f6.hash }, intents: {
 const fSecret = commit("c-agent-secret", tree({ ...BASE_FILES, "config/.env": `# demo env v2\nAPI_TOKEN=rotated_${SECRET_VALUE}\n` }));
 defineRepo("agent-secret", { history: [fSecret, c1], refs: { main: fSecret.hash }, intents: { [fSecret.hash]: "Rotate the env keys." } });
 
+// Add-only clean fork: adds a brand-new file, touches nothing
+// else. A clean single-sided add folds without conflict —
+// distance must be 0, never a fabricated add/add severity-4.
+const fAdd = commit("c-agent-add", tree({ ...BASE_FILES, "src/new-file.ts": "export const fresh = 1;\n" }));
+defineRepo("agent-add", { history: [fAdd, c1], refs: { main: fAdd.hash }, intents: { [fAdd.hash]: INTENT_FIT } });
+
+// Remove-only clean fork: removes src/b.ts, touches nothing
+// else. A clean single-sided remove folds without conflict —
+// distance must be 0, never a fabricated modify/delete severity-4.
+const fRem = commit("c-agent-remove", tree({ "src/a.ts": A0, "config/.env": SECRET_ENV_TEXT }));
+defineRepo("agent-remove", { history: [fRem, c1], refs: { main: fRem.hash }, intents: { [fRem.hash]: INTENT_FIT } });
+
 // ---------------------------------------------------------------------------
 // Fake KV (CACHE — the advisory-only write probe) + env factory.
 // ---------------------------------------------------------------------------
@@ -463,6 +475,33 @@ try {
     moved.distance > static_.distance, `${moved.distance} vs ${static_.distance}`);
 } catch (e) {
   check("6 case threw", false, String(e?.stack ?? e));
+}
+
+// ---------------------------------------------------------------------------
+// 6b. Single-sided change-sets keep clean distance semantics: a
+//     clean add-only or remove-only fork folds without conflict
+//     (distance 0, merge-it eligible), never a fabricated
+//     severity-4 add/add or modify/delete. Pins the flip property
+//     for the shapes group 6 does not exercise.
+// ---------------------------------------------------------------------------
+try {
+  const addOnly = await directSignals("demo", "agent-add");
+  check("6b-i add-only clean fork → distance 0 (no phantom add/add)",
+    addOnly.distance === 0, J(addOnly));
+  check("6b-ii add-only clean fork stays merge-it eligible (fit high, distance 0)",
+    addOnly.fitOverlap !== null && addOnly.fitOverlap >= 0.6 && addOnly.distance <= 0.4, J(addOnly));
+  const remOnly = await directSignals("demo", "agent-remove");
+  check("6b-iii remove-only clean fork → distance 0 (no phantom modify/delete)",
+    remOnly.distance === 0, J(remOnly));
+  check("6b-iv remove-only clean fork stays merge-it eligible",
+    remOnly.fitOverlap !== null && remOnly.fitOverlap >= 0.6 && remOnly.distance <= 0.4, J(remOnly));
+  // The concurrent fixture must STILL classify text-conflict through
+  // the typed surface (the wave-10 carry, now genuinely load-bearing).
+  const conc = await directSignals("demo-moved", "agent-concurrent");
+  check("6b-v concurrent edit → text-conflict-derived distance >= 0.5",
+    conc.distance !== null && conc.distance >= 0.5, J(conc));
+} catch (e) {
+  check("6b case threw", false, String(e?.stack ?? e));
 }
 
 // ---------------------------------------------------------------------------

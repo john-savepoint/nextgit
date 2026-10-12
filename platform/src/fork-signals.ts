@@ -4,25 +4,22 @@
 // future GET /forks (wave-11) consume — one writer, no divergence.
 // The computation moved here verbatim from index.ts (nextgit-e13-impl-
 // six-cluster-fork-signals) with one structural fix: `distance` now
-// reuses `forkPoint()`'s resolved fork point (exposed as
-// `computeChangeSet().base.sha` — distance reads that SHA and never
-// re-walks the log) and the `classifyPair()` conflict kinds (the
-// inline version only read computeMerge's aggregate `conflicted[]`,
-// never the typed conflict-kind surface). No behavior change to the
-// other five clusters: fit/liveness/proof/cost formulas move as-is.
+// mirrors `computeMerge`'s per-file 3-way fold (ancestor = the
+// fork-point base text, ours = the CURRENT base head, theirs = the
+// fork head — the exact three sides computeMerge reads) instead of
+// the inline version's aggregate `conflicted[]`, and consults the
+// `classifyPair()` conflict kinds. No behavior change to the other
+// five clusters: fit/liveness/proof/cost formulas move as-is.
 
 import {
  computeChangeSet,
  computeMerge,
- forkPoint,
  classifyPair,
  KIND_SEVERITY,
- type ConflictKind,
  type ProposalEntry,
  MAX_FILES_WITH_PATCH,
  FORK_LOG_LIMIT,
  type Env,
- DEFAULT_REF,
 } from "./index";
 
 /** The six-cluster signal vector one candidate fork carries (CAP-10). */
@@ -72,27 +69,50 @@ export async function computeSixClusterSignals(
  // classifyPair conflict kinds — the conflict cost of joining
  // the fork onto the base, aggregated as the MAX over the
  // fork's changed files (the surface is driven by its worst
- // file). The fork point is the one forkPoint() resolved
- // inside computeChangeSet (exposed as changeSet.base.sha —
- // distance reads that SHA and never re-walks the log). The
- // pair is the exact one computeProposals constructs for a
- // shared file: base-side at the fork point's base text
- // (changeSet.texts[path].base), fork-side at its head text
- // (changeSet.texts[path].head). Files with no pair (secret-
- // class / binary / pointer rows keep no texts entry) fall
- // back to the fold's aggregate conflicted share, so
- // single-sided change-sets keep today's distance semantics.
+ // file). The fork point is the one computeChangeSet resolved
+ // (the fold reads the same fork point). The pair is the one
+ // the fold uses for this file: the CURRENT base head (ours)
+ // against the fork-point base (ancestor) and the fork head
+ // (theirs) — the exact 3-way computeMerge performs. Files
+ // with no text pair (secret/binary/pointer rows keep no texts
+ // entry) fall back to the fold's aggregate conflicted share.
  const fold = await computeMerge(env, base, ref, [name], ref);
  const foldFiles = fold.files.length;
  const foldShare = foldFiles === 0 ? 0 : fold.conflicted.length / foldFiles;
  let worst = 0;
+ // The pair is the one computeMerge's fold uses for this file:
+ // the CURRENT base head (ours) against the fork-point base
+ // (ancestor) and the fork head (theirs) — the exact 3-way the
+ // fold performs (mirrors computeMerge, index.ts:368-378,411;
+ // NOT a base-vs-fork synthetic pair — computeProposals never
+ // pairs against the base).
+ using baseRepo = await env.ARTIFACTS.get(base);
  for (const f of changeSet.files) {
   const texts = changeSet.texts[f.path];
   if (!texts) continue; // no text pair (secret/binary/pointer row) — fold share carries it
-  const baseEntry: ProposalEntry = { repo: base, status: f.status === "added" ? "added" : "modified", texts: { base: texts.base, head: texts.base } };
-  const forkEntry: ProposalEntry = { repo: name, status: f.status === "removed" ? "removed" : f.status, texts: { base: texts.base, head: texts.head } };
+  // `ours` = the CURRENT base head's text (the reviewer's
+  // frame); null when the base no longer has the path.
+  // `ancestor` = the fork-point base text (the 3-way
+  // ancestor the fold uses).
+  const ancestor = f.status === "added" ? "" : (texts.base ?? "");
+  const baseBlob = await baseRepo.readFile({ ref, path: f.path });
+  const oursBytes = baseBlob ? new Uint8Array(await baseBlob.arrayBuffer()) : null;
+  const ours = oursBytes && !(oursBytes.subarray(0, Math.min(oursBytes.length, 8000)).some((b) => b === 0))
+   ? new TextDecoder().decode(oursBytes)
+   : null;
+  // A clean single-sided change folds without conflict:
+  //   removed — base still has it (computeMerge: fold.conflicted=false)
+  //   added   — base lacks it (genuinely new file, no add/add)
+  if (f.status === "removed") continue;
+  if (f.status === "added" && ours === null) continue;
+  // Build the two real sides the fold pairs: base (ours) vs fork
+  // (theirs), both against the shared ancestor. A side the base
+  // no longer has is a removal on that side -> modify/delete (the
+  // real conflict class).
+  const baseEntry: ProposalEntry = { repo: base, status: ours === null ? "removed" : "modified", texts: { base: ancestor, head: ours } };
+  const forkEntry: ProposalEntry = { repo: name, status: "modified", texts: { base: ancestor, head: texts.head } };
   const { kind } = classifyPair(baseEntry, forkEntry);
-  const severity = KIND_SEVERITY[kind as ConflictKind] / 4;
+  const severity = KIND_SEVERITY[kind] / 4;
   if (severity > worst) worst = severity;
  }
  const distance = Math.min(1, Math.max(worst, foldShare * 2));
