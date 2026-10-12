@@ -39,7 +39,7 @@ import { AUTO_LAND_ENGAGED, autoLandEligible, hasCleanCorroboratingSignal } from
 
 import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 
-import { isAssetPointer, parseAssetPointer, type AssetPointer } from "./assets";
+import { isAssetPointer, parseAssetPointer, readVerifiedBlob, BlobIntegrityError, type AssetPointer } from "./assets";
 import { computeSixClusterSignals, type SixClusterSignals } from "./fork-signals";
 import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealCapability, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
 
@@ -167,6 +167,26 @@ async function commitHead(repo: ArtifactsRepo, sha: string, ref: string): Promis
  return { hash: commit.hash, treeHash: commit.treeHash, files, sha, ref, proposalLog: [] };
 }
 
+/**
+ * The pure fork-point walk core: given two newest-first logs
+ * (base first, proposal second), return the newest hash shared
+ * by both — the first hit in the PROPOSAL's log (newest by
+ * position, since `log` is newest-first). `undefined` when
+ * nothing is shared. Extracted from `forkPoint` verbatim (the
+ * `baseShas` Set + `proposalLog.find` walk) so the walk is
+ * directly testable — pointer files in either tree cannot
+ * change the walk's input (the logs are commit metadata,
+ * never tree contents), which is the G3 invariance proof.
+ */
+export function findSharedFirstParent(
+ baseLog: ArtifactsCommitMetadata[],
+ proposalLog: ArtifactsCommitMetadata[],
+): string | undefined {
+ const baseShas = new Set(baseLog.map((c) => c.hash));
+ // Newest-first in the proposal's own log, so the first hit is the fork point.
+ return proposalLog.find((c) => baseShas.has(c.hash))?.hash;
+}
+
 export async function forkPoint(
  baseRepo: ArtifactsRepo,
  baseRef: string,
@@ -179,11 +199,9 @@ export async function forkPoint(
    baseRepo.log({ ref: baseRef, limit: FORK_LOG_LIMIT }),
    proposalRepo.log({ ref: proposalRef, limit: FORK_LOG_LIMIT }),
   ]);
-  const baseShas = new Set(baseLog.map((c) => c.hash));
-  // Newest-first in the proposal's own log, so the first hit is the fork point.
-  const shared = proposalLog.find((c) => baseShas.has(c.hash));
+  const shared = findSharedFirstParent(baseLog, proposalLog);
   if (shared) {
-   const head = await commitHead(proposalRepo, shared.hash, proposalRef);
+   const head = await commitHead(proposalRepo, shared, proposalRef);
    head.proposalLog = proposalLog;
    return head;
   }
@@ -2413,6 +2431,43 @@ async function handleWhoami(request: Request, env: Env): Promise<Response> {
  const capability = revealCapability(env, { identity, repo });
  return Response.json({ ok: true, authorized: capability.authorized, reveal: capability.reveal });
 }
+// ---------------------------------------------------------------------------
+// GET /asset/{blobId} — the asset download route (e12 integrity row;
+// FR-47). The pointer-less content-addressed read: the blobId key IS
+// the content hash, so the expectation is the key itself. The
+// readVerifiedBlob chokepoint verifies both directions before any byte
+// egress; a BlobIntegrityError maps to the contract's non-2xx
+// {ok:false,error:"integrity"} (422) — a digest-class failure, not a
+// key-existence oracle and not an unexpected 500.
+// ---------------------------------------------------------------------------
+async function handleAssetDownload(request: Request, env: Env): Promise<Response> {
+ // The prefix-stripped remainder of the path, the /landings/ idiom
+ // (the registration below slices "/asset/".length).
+ const blobId = new URL(request.url).pathname.slice("/asset/".length);
+ if (!/^[0-9a-f]{64}$/.test(blobId)) {
+  return Response.json({ ok: false, error: "bad-request" }, { status: 400 });
+ }
+ try {
+  const bytes = await readVerifiedBlob(env, blobId, blobId);
+  // readVerifiedBlob returned only verified bytes (actual ===
+  // expectedSha256 === blobId) and is the single byte-returning
+  // ASSET_BLOB.get in platform/src/** — the handler never
+  // re-fetches (a second .get would break the chokepoint's
+  // exactly-one-read property). The pointer-mediated variant
+  // carries the pointer's contentType at the caller layer; the
+  // pointer-less download serves the binary default. A fresh
+  // ArrayBuffer-backed view makes the verified bytes a valid
+  // BodyInit (the assetPointerFor:96-103 idiom).
+  const body = new Uint8Array(bytes.byteLength);
+  body.set(bytes);
+  return new Response(body, { headers: { "content-type": "application/octet-stream" } });
+ } catch (err) {
+  if (err instanceof BlobIntegrityError) {
+   return Response.json({ ok: false, error: "integrity" }, { status: 422 });
+  }
+  throw err;
+ }
+}
 
 // ---------------------------------------------------------------------------
 // GET /changes?repo=...&base=demo&ref=main&baseRef=main
@@ -2657,6 +2712,14 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
  // path; `/proposals/<repo>` falls to this prefix (static-before-
  // dynamic, the dispatcher's exact-then-prefix order).
  { prefix: "/proposals/", method: "GET", action: "read", handler: (request, env) => handleProposalDetail(request, env, new URL(request.url).pathname.slice("/proposals/".length)) },
+ // /asset/{blobId} — the asset download route (e12 integrity row;
+ // FR-47). GET, read-only: the authorize() chokepoint covers it
+ // (demo mode gate; `read` action, no repo param — extractScope
+ // yields nothing to adjudicate). The handler validates the
+ // 64-hex content-addressed key and funnels the byte fetch
+ // through readVerifiedBlob, the single byte-returning
+ // ASSET_BLOB.get (CONTRACT.md §GET /asset/{blobId}).
+ { prefix: "/asset/", method: "GET", action: "read", handler: (request, env) => handleAssetDownload(request, env) },
 ];
 
 // UI document set (AD-8 boundary discipline): the wrangler-assets

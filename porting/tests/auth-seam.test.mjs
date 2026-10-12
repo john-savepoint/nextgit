@@ -202,13 +202,16 @@ check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeM
 check("C: /events/stream → GET read (authorize-covered)", routeMap["/events/stream"]?.method === "GET" && routeMap["/events/stream"]?.action === "read", `got ${J(routeMap["/events/stream"] ? { method: routeMap["/events/stream"].method, action: routeMap["/events/stream"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 2 entries", DYNAMIC_ROUTES.length === 2, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 3 entries (landings, proposals, asset)", DYNAMIC_ROUTES.length === 3, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
 check("C: DYNAMIC_ROUTES /proposals/ → GET read",
  DYNAMIC_ROUTES[1]?.prefix === "/proposals/" && DYNAMIC_ROUTES[1]?.method === "GET" && DYNAMIC_ROUTES[1]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[1])}`);
+check("C: DYNAMIC_ROUTES /asset/ → GET read (the e12 asset download route)",
+ DYNAMIC_ROUTES[2]?.prefix === "/asset/" && DYNAMIC_ROUTES[2]?.method === "GET" && DYNAMIC_ROUTES[2]?.action === "read",
+ `got ${J(DYNAMIC_ROUTES[2])}`);
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is
