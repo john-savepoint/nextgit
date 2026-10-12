@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — Repo files</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header: back-link to the triage surface -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-group">
+          <a href="/" class="btn-card-action files-back-link">&larr; Back to triage</a>
+          <h1 class="brand-title">NextGit<span class="sep">/</span><span class="brand-subtitle">Repo files</span></h1>
+        </div>
+      </div>
+    </header>
+
+    <!-- Error banner (fetched route failed / contract error) -->
+    <div id="files-banner" class="action-banner banner-error" hidden role="alert">
+      <div class="action-banner-content">
+        <span id="files-banner-msg" class="action-banner-msg">Could not load repo files.</span>
+      </div>
+    </div>
+
+    <main>
+      <!-- Repo picker: options come from GET /proposals (server-side AD-9 allowlist) -->
+      <div class="files-controls">
+        <label class="files-picker-label" for="repo-picker">Repo</label>
+        <select id="repo-picker" class="files-picker">
+          <option value="">loading…</option>
+        </select>
+      </div>
+
+      <!-- Breadcrumb: repo / ref / path segments (dirs are clickable) -->
+      <nav id="breadcrumb" class="files-breadcrumb" aria-label="File path"></nav>
+
+      <!-- Directory listing: dirs render as links, files as clickable rows -->
+      <ul id="file-tree" class="files-tree" aria-label="Files"></ul>
+
+      <!-- File viewer: text bodies land in the <pre>; binary/secret render metadata only -->
+      <div id="file-viewer" class="files-viewer" hidden>
+        <div id="file-meta" class="files-meta"></div>
+        <pre id="file-content" class="files-content"></pre>
+        <a id="raw-link" class="files-raw-link" href="#">raw</a>
+      </div>
+    </main>
+
+    <!-- Minimal footer -->
+    <footer class="app-footer">
+      <span>nextgit — repo files</span>
+      <span>secret-class paths render key names only</span>
+    </footer>
+  </div>
+
+  <script type="module" src="js/files-page.js"></script>
+</body>
+</html>
