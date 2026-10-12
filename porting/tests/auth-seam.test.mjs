@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 13 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami)", ROUTES.length === 13, `got ${ROUTES?.length}`);
+check("C: ROUTES has 15 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file)", ROUTES.length === 15, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -202,7 +202,7 @@ check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeM
 check("C: /events/stream → GET read (authorize-covered)", routeMap["/events/stream"]?.method === "GET" && routeMap["/events/stream"]?.action === "read", `got ${J(routeMap["/events/stream"] ? { method: routeMap["/events/stream"].method, action: routeMap["/events/stream"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 3 entries (landings, proposals, asset)", DYNAMIC_ROUTES.length === 3, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 4 entries (landings, proposals, asset, raw)", DYNAMIC_ROUTES.length === 4, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
@@ -212,6 +212,9 @@ check("C: DYNAMIC_ROUTES /proposals/ → GET read",
 check("C: DYNAMIC_ROUTES /asset/ → GET read (the e12 asset download route)",
  DYNAMIC_ROUTES[2]?.prefix === "/asset/" && DYNAMIC_ROUTES[2]?.method === "GET" && DYNAMIC_ROUTES[2]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[2])}`);
+check("C: DYNAMIC_ROUTES /raw/ → GET read (the repo-browsing raw-byte read; authorize-covered, the handler re-checks the path-carried repo)",
+ DYNAMIC_ROUTES[3]?.prefix === "/raw/" && DYNAMIC_ROUTES[3]?.method === "GET" && DYNAMIC_ROUTES[3]?.action === "read",
+ `got ${J(DYNAMIC_ROUTES[3])}`);
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is
