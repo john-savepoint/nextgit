@@ -86,7 +86,7 @@ The worker requires all of the following bindings (configured in `platform/wrang
 - `LIVE` and `CACHE` — two KV namespaces.
 - `LAND_LEASE` — Durable Object (`LandLeaseDO` class) serializing concurrent `/land` calls per base repo.
 - `nextgit-events` — the Queues consumer that fans push events into the live UI.
-- `./ui` — static assets directory (triage canvas + tour).
+- `ASSET_BLOB` — R2 bucket `nextgit-asset-blobs` (the content-addressed asset tier, AD-10/FR-47).
 
 **Verify the deploy before proceeding:**
 
@@ -101,6 +101,99 @@ Expected response:
 ```
 
 If any of `ok`, `service`, or `namespace` is missing or non-200, the worker is not correctly bound. Re-check `wrangler.jsonc`, run `wrangler tail`, and resolve the deploy error before continuing.
+
+### R2 asset bucket lifecycle
+
+The asset bucket carries a committed lifecycle rule — the bucket-side
+backstop for the reference-counted delete path (`platform/src/asset-gc.ts`):
+a pointer removed without an immediate blob delete (a land that raced, or a
+blob the sweep missed) still expires server-side.
+
+- **Bucket:** `nextgit-asset-blobs` (the `ASSET_BLOB` binding).
+- **Committed rule file:** `platform/r2-lifecycle.json` — rule `expire-orphaned-asset-blobs`,
+  all prefixes (`""`), delete objects with no PUT/POST activity for **90 days** (7,776,000 s).
+- **Apply:**
+
+```bash
+cd platform && ./node_modules/.bin/wrangler r2 bucket lifecycle set nextgit-asset-blobs r2-lifecycle.json
+```
+
+- **Verify:**
+
+```bash
+cd platform && ./node_modules/.bin/wrangler r2 bucket lifecycle list nextgit-asset-blobs
+```
+
+The 90-day expiry is far greater than the orphan sweep's grace window
+(default 7 d — see [Orphan sweep](#orphan-sweep)), so the lifecycle rule never
+deletes a blob the sweep would have kept inside its grace window: the two
+reclamation layers are ordered (sweep at days, lifecycle at months), not
+competing. No `storageClassTransitions` (no Infrequent Access tier this
+phase); no `abortMultipartUploadsTransition` (the upload path is single-PUT,
+`upload-asset.mjs`).
+
+---
+
+## Orphan sweep
+
+The out-of-band bucket audit + sweep — the whole-bucket
+complement to `/land`'s reference-counted delete path. `/land`
+reclaims a removed pointer's blob at land time, only when the
+union of every repo's pointer manifests no longer references it
+(shared blobs are never deleted). This script audits the WHOLE
+bucket against the same union, out-of-band.
+
+**Run** (from the repo root):
+
+```bash
+node platform/scripts/r2-orphan-sweep.mjs [--grace-days N] [--dry-run] [--json]
+```
+
+**Semantics:**
+
+**Surface per operation** (verified live 2026-10-12):
+
+- **List** — the account REST API `GET
+  …/r2/buckets/{bucket}/objects` (cursor-paginated),
+  under the operator's API token. Live-verified on the
+  demo account: `GET …/r2/buckets/nextgit-asset-blobs/objects`
+  → `200 success:true` (wrangler has no `r2 object
+  list` — workers-sdk #13008 is open, so list cannot
+  follow delete/put onto the CLI).
+- **Delete** — `wrangler r2 object delete <bucket>/<key>
+  --remote` under the operator's wrangler auth — the
+  proven surface `upload-asset.mjs` adopted in the
+  `a14858e` hotfix (the direct api.cloudflare.com
+  object routes answer `7000 "No route for that URI"`
+  on this account, live-verified 2026-10-12). The
+  unverified mutating REST `DELETE` route is NOT used.
+
+- Every bucket key minus the manifest union is an **orphan**.
+- An orphan **inside the grace window** (no PUT/POST activity
+  within `--grace-days`, default 7, env `ORPHAN_GRACE_DAYS`)
+  is **reported but not deleted** — a land that raced, or a
+  blob whose delete lagged, must not be swept mid-flight.
+- An orphan **older than the grace window** is **deleted**
+  (batched at `SWEEP_BATCH_LIMIT`, default 500).
+- **Exit codes:** `0` when the post-sweep audit reports zero
+  orphans; `1` when any orphan remains after the sweep (delete
+  failures, or fresh orphans awaiting grace — the sweep is
+  fail-closed: it must never silently claim a clean bucket);
+  `2` for usage/token errors. `--dry-run` reports without
+  deleting (exit classification is the hypothetical
+  post-sweep state). `--json` emits the machine-readable
+  report (`{bucket, listed, referenced, orphans:[{key,
+  ageDays, deleted|grace}], deleted, remaining}`).
+
+**Env:** `CLOUDFLARE_ACCOUNT_ID` (default the demo account),
+`ARTIFACTS_NAMESPACE` (default `nextgit`), `R2_BUCKET`
+(default `nextgit-asset-blobs`), `ORPHAN_GRACE_DAYS`
+(default 7), `SWEEP_BATCH_LIMIT` (default 500).
+
+The grace window is far smaller than the [R2 asset bucket
+lifecycle](#r2-asset-bucket-lifecycle) rule (90 days): the
+sweep reclaims at days, the lifecycle rule at months — the
+two layers are ordered, not competing.
 
 ---
 

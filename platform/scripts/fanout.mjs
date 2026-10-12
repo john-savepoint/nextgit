@@ -13,34 +13,16 @@
 // Auth:   CLOUDFLARE_API_TOKEN if set, else the wrangler OAuth token on this machine.
 // Output: /tmp/nextgit-agents.json — [{ name, remote, token, scope, expires_at }]
 
-import { readFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveTtl, mintRepoToken, writeAgentManifest, formatAgentRow } from "./lib/tokens.mjs";
+import { apiToken } from "./lib/api-token.mjs";
 export { resolveTtl };
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
 const OUT_FILE = process.env.AGENTS_OUT ?? "/tmp/nextgit-agents.json";
 const CACHE_ID = process.env.CACHE_NAMESPACE_ID ?? "55d973240e2d4770a07ddc0faedf757c"; // platform/wrangler.jsonc CACHE
-
-function apiToken() {
-  if (process.env.CLOUDFLARE_API_TOKEN) return process.env.CLOUDFLARE_API_TOKEN;
-  const candidates = [
-    join(homedir(), ".config/.wrangler/config/default.toml"),
-    join(homedir(), ".wrangler/config/default.toml"),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) {
-      const m = readFileSync(p, "utf8").match(/oauth_token\s*=\s*"([^"]+)"/);
-      if (m) return m[1];
-    }
-  }
-  throw new Error("No API token: set CLOUDFLARE_API_TOKEN or run `wrangler login`.");
-}
-
 
 const count = Number(process.argv[2] ?? 4);
 const baseline = process.argv[3] ?? "demo";
