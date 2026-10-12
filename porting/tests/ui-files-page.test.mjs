@@ -187,6 +187,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.legs.srcBreadcrumb = document.getElementById("breadcrumb").textContent;
     R.legs.srcTreeText = document.getElementById("file-tree").textContent;
 
+    // Leg 3b: nested depth-2 navigation — enter src/sub/, then click the
+    // MIDDLE "src" crumb (regression leg for the slice off-by-one blocker).
+    const subRow = [...document.querySelectorAll("#file-tree a")].find((a) => a.textContent === "sub/");
+    if (subRow) subRow.click();
+    for (let i = 0; i < 100 && !document.getElementById("file-tree").textContent.includes("inner.ts"); i++) {
+      await sleep(50);
+    }
+    await sleep(100);
+    R.legs.nestedBreadcrumb = document.getElementById("breadcrumb").textContent;
+    const srcCrumb = [...document.querySelectorAll("#breadcrumb a")].find((a) => a.textContent === "src");
+    if (srcCrumb) srcCrumb.click();
+    for (let i = 0; i < 100 && !document.getElementById("file-tree").textContent.includes("main.ts"); i++) {
+      await sleep(50);
+    }
+    await sleep(100);
+    R.legs.backBreadcrumb = document.getElementById("breadcrumb").textContent;
+    R.legs.backTreeText = document.getElementById("file-tree").textContent;
+
     // Leg 4: back to root, click README.md -> #file-content text + raw link.
     const rootCrumb0 = [...document.querySelectorAll("#breadcrumb a")][0];
     if (rootCrumb0) rootCrumb0.click();
@@ -217,7 +235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await sleep(50);
     }
     await sleep(100);
-    const envRow = [...document.querySelectorAll("#file-tree a")].find((a) => a.textContent === ".env");
+    const envRow = [...document.querySelectorAll("#file-tree a")].find((a) => a.textContent.startsWith(".env"));
     if (envRow) envRow.click();
     for (let i = 0; i < 100 && !document.getElementById("file-meta").textContent.includes("secret"); i++) {
       await sleep(50);
@@ -225,6 +243,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await sleep(100);
     R.legs.secretMeta = document.getElementById("file-meta").textContent;
     R.legs.secretContent = document.getElementById("file-content").textContent;
+    R.legs.secretRawHidden = document.getElementById("raw-link").hidden || !document.getElementById("raw-link").getAttribute("href");
+    R.legs.envRowText = envRow ? envRow.textContent : "";
     R.legs.domHtml = document.documentElement.outerHTML;
 
     // Leg 6: back to root, click logo.png -> binary metadata, no content.
@@ -296,7 +316,17 @@ const server = createServer((req, res) => {
       return;
     }
     if (repo === "agent-1" && path === "src") {
-      j(res, { ok: true, entries: [{ name: "main.ts", type: "file", size: 9, blobHash: "1".repeat(40) }] });
+      j(res, {
+        ok: true,
+        entries: [
+          { name: "sub", type: "dir", size: 0, blobHash: "9".repeat(40) },
+          { name: "main.ts", type: "file", size: 9, blobHash: "1".repeat(40) },
+        ],
+      });
+      return;
+    }
+    if (repo === "agent-1" && path === "src/sub") {
+      j(res, { ok: true, entries: [{ name: "inner.ts", type: "file", size: 7, blobHash: "8".repeat(40) }] });
       return;
     }
     if (repo === "agent-1" && path === "config") {
@@ -383,6 +413,16 @@ function legDirClick(R) {
   check("3 dir click lists main.ts", tree.includes("main.ts"), `tree=${JSON.stringify(tree)}`);
 }
 
+function legNested(R) {
+  // Depth-2 breadcrumb regression: the middle "src" crumb must target
+  // path "src" (not the repo root — the slice(2, i+1) off-by-one).
+  const nested = R.legs?.nestedBreadcrumb ?? "";
+  const back = R.legs?.backBreadcrumb ?? "";
+  const tree = R.legs?.backTreeText ?? "";
+  check("3b nested dir click reaches src/sub", nested.includes("src") && nested.includes("sub"), `crumb=${JSON.stringify(nested)}`);
+  check("3b middle crumb returns to src (not root)", back.endsWith("src") && tree.includes("main.ts"), `crumb=${JSON.stringify(back)} tree=${JSON.stringify(tree.slice(0, 120))}`);
+}
+
 function legFileClick(R) {
   const content = R.legs?.readmeContent ?? "";
   const href = R.legs?.readmeRawHref ?? "";
@@ -404,6 +444,8 @@ function legSecret(R) {
   check("5 secret leg shows key names (DATABASE_URL)", content.includes("DATABASE_URL"), `content=${JSON.stringify(content)}`);
   check("5 secret VALUE never reaches the DOM (masking law)", !dom.includes(SECRET_VALUE), "fixture secret value found in DOM");
   check("5 secret panel is key-names-only posture", meta.includes("secret"), `meta=${JSON.stringify(meta)}`);
+  check("5 secret row carries the word, not color alone", (R.legs?.envRowText ?? "").includes("secret"), `row=${JSON.stringify(R.legs?.envRowText)}`);
+  check("5 no raw link on secret-class paths", R.legs?.secretRawHidden === true, `hidden=${JSON.stringify(R.legs?.secretRawHidden)}`);
 }
 
 function legBinary(R) {
@@ -478,6 +520,7 @@ try {
     legPicker(R);
     legTree(R);
     legDirClick(R);
+    legNested(R);
     legFileClick(R);
     legSecret(R);
     legBinary(R);

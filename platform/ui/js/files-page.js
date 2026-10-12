@@ -211,12 +211,12 @@ async function loadTree() {
     li.appendChild(link);
    } else {
     const fullPath = joinPath(state.path, name);
+    const secret = isSecretPath(fullPath);
     const link = document.createElement("a");
     link.href = "javascript:void 0";
-    link.className = isSecretPath(fullPath)
-     ? "files-row files-file files-secret"
-     : "files-row files-file";
-    link.textContent = name;
+    link.className = secret ? "files-row files-file files-secret" : "files-row files-file";
+    // Status is never color-alone: the word carries the secret-typed state too.
+    link.textContent = secret ? `${name} — secret` : name;
     link.addEventListener("click", () => loadFile(fullPath));
     li.appendChild(link);
    }
@@ -250,11 +250,12 @@ function renderBreadcrumb() {
   const part = document.createElement(isLeaf ? "span" : "a");
   if (isLeaf) {
    part.className = "files-crumb-current";
+   part.setAttribute("aria-current", "location");
   } else {
    part.className = "files-crumb";
    part.href = "javascript:void 0";
    // Segment i > 0 maps to path segments 0..i-1 (crumb 0 is repo / ref).
-   const target = crumbs.slice(2, i + 1).join("/");
+   const target = crumbs.slice(1, i + 1).join("/");
    part.addEventListener("click", () => {
     state.path = target;
     loadTree();
@@ -286,8 +287,15 @@ async function loadFile(path) {
   const data = await fetchJson(fileUrl(state.repo, state.ref, path));
   const kind = data?.kind;
   // Raw link: built from the encoded tuple, never echoed from input.
-  el.rawLink.href = rawUrl(state.repo, state.ref, path);
-  el.rawLink.textContent = "raw";
+  // Secret-class paths get NO raw link — the page must not hand out a URL
+  // that fetches the unmasked value (and /raw refuses them server-side).
+  if (kind === "secret") {
+   el.rawLink.hidden = true;
+  } else {
+   el.rawLink.hidden = false;
+   el.rawLink.href = rawUrl(state.repo, state.ref, path);
+   el.rawLink.textContent = "raw";
+  }
 
   if (kind === "text" && typeof data.text === "string") {
    el.meta.textContent = `text — ${path}`;
