@@ -367,7 +367,7 @@ Body:
 ```
 
 - `verdict` ∈ `merge-it | use-as-context | ignore` — one verdict per declared intent.
-- `candidates` — the forks whose signals drove the verdict, ordered by the matcher's confidence; each carries `repo`, `rationale` (platform-generated, no caller echo), and the six-cluster `signals` object — `fitOverlap`, `peopleTrust`, `liveness`, `proof`, `distance`, `costToAdoptVsRegenerate` (typed numbers/null; thresholds in code per AD-11).
+- `candidates` — the forks whose signals drove the verdict, ordered by the matcher's confidence; each carries `repo`, `rationale` (platform-generated, no caller echo), and the six-cluster `signals` object — `fitOverlap`, `peopleTrust`, `liveness`, `proof`, `distance`, `costToAdoptVsRegenerate` (typed numbers/null; thresholds in code per AD-11). The `signals` are computed by `platform/src/fork-signals.ts` — the single computation surface both `/intents` and the future `/forks` consume (one writer, no divergence): `distance` derives from the `classifyPair` conflict kinds (L71 vocabulary) over the fork-point change-set, aggregated as the MAX over the fork's changed files; `peopleTrust` is `null` until a signed-identity seam exists (the typed-null law: unmeasured is `null`, never a fabricated `0`).
 
 ### Matcher verdict vocabulary (CAP-10)
 
@@ -630,6 +630,46 @@ Masking is **path-driven by design** in this version: a secret value placed in a
 - **v1 path-driven limitation (unchanged):** the paragraph above states that a value in a non-secret-class *file path* is not redacted by path masking. Content-class secrets are a separate, judge-gated signal layered on top; they do not alter the path-driven masking behavior — secret-class paths continue to render `keys[]` only, and a content-detected secret in a non-secret-class path is caught by the judge gate, not by the path-masker. No value is ever emitted from a `content-detected-secret` skip.
 
 **The detection unit ships only after this record exists in CONTRACT.md and never implicitly.** No code, no fixtures, no UI ships in this slice — this CONTRACT decision is the deliverable.
+
+## R2 asset tier — pointer format (AD-10; FR-47)
+
+Large/binary assets live as content-addressed blobs in the R2 bucket
+`nextgit-asset-blobs` (`ASSET_BLOB` binding, `platform/wrangler.jsonc`);
+git carries a **pointer** file in Artifacts. The pointer format is owned
+by this first slice — later R2 slices conform additively (`v` is the
+format generation).
+
+**Pointer path convention:** `assets/<name>.asset.json` carries the
+asset `assets/<name>`. A file whose path ends in `.asset.json` is an
+asset pointer (single classifier: `isAssetPointer`).
+
+**Pointer file shape** (JSON, ≤ 1 MiB; all fields REQUIRED unless `?`):
+```json
+{ "v": 1, "blobId": "<R2 object key — opaque, never a URL>",
+  "sha256": "<hex-64 content hash of the blob bytes>",
+  "size": 0, "contentType": "<mime>" }
+```
+
+**Rendering law (non-diffable):** pointer files render **metadata only** —
+`/changes` and `/proposals` carry the parsed pointer on the file row
+(`asset: {v, blobId, sha256, size, contentType?}`) with a `note`; pointer
+rows carry **no** `patch`, **no** `additions`/`deletions`, and never enter
+merge text (`/merge` renders `result:"merged"`, `note:"asset pointer;
+metadata only"`, no `merged` field). Pointer contents never enter judge
+state, folds, or logs (AD-4 — pointer metadata is egress).
+
+**Integrity:** `sha256` is the content anchor — blob bytes must hash to it
+at every materialization path (the e12 integrity row owns the verified-read
+chokepoint; fail-closed `BlobIntegrityError` / `{ok:false,error:"integrity"}`).
+
+**No URL egress:** `blobId` is an opaque R2 key. Presigned URLs are minted
+at read time by the binding, never stored in pointers, never rendered
+(credential-adjacent values follow the masking law).
+
+**Fail-closed parse:** a pointer whose `v`, `sha256`, `size`, or `blobId`
+violates the shape (or whose text is not JSON, or exceeds 1 MiB) parses to
+`null`; the row stays visible with the note `asset pointer; unparseable
+metadata (format violation)` — never a 500, never the raw text.
 
 ## Land lease (DO coordination)
 

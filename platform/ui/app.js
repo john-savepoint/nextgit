@@ -719,6 +719,9 @@ function renderProposals() {
      const status = escapeHtml(f.status || "modified");
      const statusClass = `status-${status.toLowerCase()}`;
      const isSecret = Boolean(f.secret);
+     // R2 asset pointer (AD-10): pointer rows carry no
+     // patch to view — same condition as isSecret/binary.
+     const isAsset = Boolean(f.asset);
      const keys = Array.isArray(f.keys) ? f.keys : [];
      const additions = f.additions != null ? `+${f.additions}` : "";
      const deletions = f.deletions != null ? `-${f.deletions}` : "";
@@ -744,7 +747,7 @@ function renderProposals() {
                   ${additions ? `<span class="adds">${additions}</span>` : ""}
                   ${deletions ? `<span class="dels">${deletions}</span>` : ""}
                 </div>
-                ${!isSecret
+                ${!isSecret && !isAsset
        ? `<button class="btn-file-diff" type="button" data-repo="${repo}" data-path="${path}">view diff</button>`
        : ""
       }
@@ -1262,15 +1265,16 @@ async function revealSecret(repo, path, keysCsv) {
   const decision = decideSecretSurface({ reveal: true, revealDenied: data?.error === "reveal-not-authorized", revealFailed: data?.error !== "reveal-not-authorized" });
   if (valueSlot) { valueSlot.hidden = false; valueSlot.innerHTML = `<div class="empty-state-title">${escapeHtml(decision.noticeHtml ?? "Secret content withheld")}</div>`; }
  } catch (err) {
- // fetchJson throws on !res.ok but attaches the parsed body
- // as err.response — so a 403 reveal-not-authorized maps to
- // the DENIED cell (not the error cell); any other failure
- // (network/5xx) maps to the ERROR cell. Both render the
- // withheld notice with no value.
- const denied = err?.response?.error === "reveal-not-authorized";
- const decision = decideSecretSurface({ reveal: true, revealDenied: denied, revealFailed: !denied });
- if (valueSlot) { valueSlot.hidden = false; valueSlot.innerHTML = `<div class="empty-state-title">${escapeHtml(decision.noticeHtml ?? "Secret content withheld")}</div>`; }
-}}
+  // fetchJson throws on !res.ok but attaches the parsed body
+  // as err.response — so a 403 reveal-not-authorized maps to
+  // the DENIED cell (not the error cell); any other failure
+  // (network/5xx) maps to the ERROR cell. Both render the
+  // withheld notice with no value.
+  const denied = err?.response?.error === "reveal-not-authorized";
+  const decision = decideSecretSurface({ reveal: true, revealDenied: denied, revealFailed: !denied });
+  if (valueSlot) { valueSlot.hidden = false; valueSlot.innerHTML = `<div class="empty-state-title">${escapeHtml(decision.noticeHtml ?? "Secret content withheld")}</div>`; }
+ }
+}
 
 function setupInteractions() {
  if (el.proposalsGrid) {
