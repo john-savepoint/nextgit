@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-11T20:29:25.389Z",
-  "head": "83aace9",
+  "generatedAt": "2026-10-12T01:58:25.389Z",
+  "head": "585227c",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-11 ",
+    "lastUpdated": "2026-10-12 ",
     "branch": "main",
-    "lastCommit": "83aace9",
+    "lastCommit": "585227c4",
     "standingRedSet": null
   },
   "queue": {
     "total": 661,
     "byStatus": {
-      "pending": 454,
+      "pending": 451,
       "partial": 1,
-      "done": 206
+      "done": 209
     },
     "items": [
       {
@@ -591,11 +591,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "Require declare-before-touch and completion receipts"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Return matcher verdicts: merge, context, or ignore"
       },
       {
         "status": "pending",
@@ -2256,16 +2251,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Runner: standing-red highs must not force heals"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Enforce the auto-land engagement interlock"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Render auto-land verdicts behind the Land button"
       },
       {
         "status": "pending",
