@@ -39,9 +39,11 @@ import { AUTO_LAND_ENGAGED, autoLandEligible, hasCleanCorroboratingSignal } from
 
 import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 
+import { isAssetPointer, parseAssetPointer, type AssetPointer } from "./assets";
+import { computeSixClusterSignals, type SixClusterSignals } from "./fork-signals";
 import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealCapability, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
 
-interface Env {
+export interface Env {
  ARTIFACTS: Artifacts;
  LIVE: KVNamespace;
  CACHE: KVNamespace;
@@ -50,6 +52,11 @@ interface Env {
  SKIP_RECORD?: KVNamespace;
  LAND_LEASE: DurableObjectNamespace;
  EVENTS_HUB: DurableObjectNamespace;
+ /** R2 asset-blob bucket (AD-10; FR-47). Declared here; read only by
+  * the upload path and the round-trip test — change-set/merge/fork-point
+  * paths never fetch blob bytes (blob materialization is e12's
+  * readVerifiedBlob chokepoint). */
+ ASSET_BLOB?: R2Bucket;
  AUTH_MODE?: string;
  /** Explicit reveal allowlist (FR-31) — absent ⇒ default-deny. */
  REVEAL_ALLOW?: unknown;
@@ -59,7 +66,7 @@ interface Env {
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
 const MAX_PATCH_CHARS = 30_000; // truncate inline patches
-const MAX_FILES_WITH_PATCH = 50; // patch budget per change-set
+export const MAX_FILES_WITH_PATCH = 50; // patch budget per change-set
 const NOTES_REF = "refs/notes/commits"; // git-notes for commit intent
 const EVENTS_KEY = "recent"; // KV key: recent event feed
 const MAX_EVENTS = 50; // event feed cap
@@ -86,6 +93,8 @@ interface ChangeFile {
  keys?: string[];
  note?: string;
  patch?: string;
+ /** R2 asset pointer (AD-10) — pointer rows render metadata only. */
+ asset?: AssetPointer;
 }
 interface CommitMeta {
  hash: string;
@@ -138,7 +147,7 @@ async function snapshot(repo: ArtifactsRepo, ref: string): Promise<{ treeHash: s
 // is the legacy "everything is new relative to the base" behaviour.
 // ---------------------------------------------------------------------------
 
-const FORK_LOG_LIMIT = 200;
+export const FORK_LOG_LIMIT = 200;
 
 interface CommitHead {
  hash: string;
@@ -158,7 +167,7 @@ async function commitHead(repo: ArtifactsRepo, sha: string, ref: string): Promis
  return { hash: commit.hash, treeHash: commit.treeHash, files, sha, ref, proposalLog: [] };
 }
 
-async function forkPoint(
+export async function forkPoint(
  baseRepo: ArtifactsRepo,
  baseRef: string,
  proposalRepo: ArtifactsRepo,
@@ -297,6 +306,8 @@ interface MergeFile {
  merged?: string;
  conflictText?: string;
  note?: string;
+ /** R2 asset pointer (AD-10) — pointer rows render metadata only. */
+ asset?: AssetPointer;
 }
 
 function renderMerge(ours: string, ancestor: string, theirs: string): { text: string; conflict: boolean } {
@@ -337,6 +348,8 @@ export async function computeMerge(
   conflicted: boolean;
   conflictText?: string;
   secretKeys?: string[];
+  /** R2 asset pointer (AD-10) — pointer rows never merge text. */
+  asset?: AssetPointer;
   note?: string;
  }
  const folds = new Map<string, Fold>();
@@ -372,6 +385,15 @@ export async function computeMerge(
     const repo = f.status === "removed" ? baseRepo : headRepo;
     const at = f.status === "removed" ? cs.base.sha : ref;
     fold.secretKeys = secretKeys((await readContent(repo, at, f.path))?.text ?? "");
+    continue;
+   }
+   if (f.asset !== undefined || isAssetPointer(f.path)) {
+    // Pointer row: mirror the `f.binary` precedent. The fold
+    // carries the pointer so the emission loop renders metadata
+    // only — pointer JSON can never leak into a merge response
+    // body (the info-disclosure class adversarial-review F12
+    // named).
+    fold.asset = f.asset;
     continue;
    }
    if (f.binary) {
@@ -423,6 +445,10 @@ export async function computeMerge(
    files.push({ path, action, result: "merged", note: "binary file; text merge skipped" });
    continue;
   }
+  if (fold.asset !== undefined || isAssetPointer(path)) {
+   files.push({ path, action, result: "merged", asset: fold.asset, note: "asset pointer; metadata only" });
+   continue;
+  }
   if (fold.conflicted) {
    conflicted.push(path);
    files.push({ path, action, result: "conflict", conflictText: fold.conflictText ?? "", note: fold.note });
@@ -445,7 +471,7 @@ export async function computeMerge(
  };
 }
 
-async function computeChangeSet(
+export async function computeChangeSet(
  env: Env,
  baseName: string,
  baseRef: string,
@@ -508,6 +534,21 @@ async function computeChangeSet(
  const texts: Record<string, FileTexts> = {};
  let patchBudget = MAX_FILES_WITH_PATCH;
  for (const f of files) {
+  // R2 asset pointer (AD-10) — classification runs BEFORE the
+  // text reads (the F12 fix): a pointer row never enters the
+  // binary check, so a hostile pointer with NUL bytes still
+  // renders its metadata row instead of being silently skipped.
+  // No blob bytes are ever read: pointer metadata is egress
+  // (AD-4), blob materialization is e12's chokepoint.
+  if (isAssetPointer(f.path)) {
+   const pointerText = (await readContent(headRepo, ref, f.path))?.text ?? "";
+   const parsed = parseAssetPointer(pointerText);
+   f.asset = parsed ?? undefined;
+   f.note = parsed
+    ? `asset pointer → R2 ${parsed.blobId} (${parsed.size} bytes, sha256 ${parsed.sha256.slice(0, 12)}…)`
+    : "asset pointer; unparseable metadata (format violation)";
+   continue; // no binary read, no diff, no patch, no texts entry, no additions/deletions
+  }
   const [oldSide, newSide] = await Promise.all([
    f.status !== "added" ? readContent(baseRepo, fork.sha, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
    f.status !== "removed" ? readContent(headRepo, ref, f.path) : Promise.resolve({ text: "", size: 0, binary: false }),
@@ -574,7 +615,7 @@ async function computeChangeSet(
 // Conflict detection — pairwise diff3 over concurrent proposals.
 // ---------------------------------------------------------------------------
 
-type ConflictKind =
+export type ConflictKind =
  | "text-conflict"
  | "modify/delete"
  | "add/add"
@@ -583,13 +624,13 @@ type ConflictKind =
  | "identical-add"
  | "both-removed";
 
-interface ProposalEntry {
+export interface ProposalEntry {
  repo: string;
  status: "added" | "modified" | "removed";
  texts: FileTexts | null;
 }
 
-const KIND_SEVERITY: Record<ConflictKind, number> = {
+export const KIND_SEVERITY: Record<ConflictKind, number> = {
  "text-conflict": 4,
  "modify/delete": 4,
  "add/add": 4,
@@ -599,7 +640,7 @@ const KIND_SEVERITY: Record<ConflictKind, number> = {
  "both-removed": 1,
 };
 
-function classifyPair(a: ProposalEntry, b: ProposalEntry): {
+export function classifyPair(a: ProposalEntry, b: ProposalEntry): {
  kind: ConflictKind;
  conflict: boolean | null;
  region?: { baseLines: number; aLines: number; bLines: number };
@@ -657,6 +698,8 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
    secret?: boolean;
    keys?: string[];
    note?: string;
+   /** R2 asset pointer (AD-10) — pointer rows render metadata only. */
+   asset?: AssetPointer;
   }>;
   error?: string;
  }> = [];
@@ -694,6 +737,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
      secret: f.secret,
      keys: f.keys,
      note: f.note,
+     asset: f.asset,
     })),
     landing,
    });
@@ -2039,16 +2083,6 @@ export async function judgeLandGate(env: Env, base: string, baseRef: string, rep
 /** Intent is untrusted caller text (AD-4) — cap it before it reaches any state. */
 const MAX_INTENTS_CHARS = 2048; // the contract-pinned body cap
 
-/** The six-cluster signal vector one candidate fork carries (CAP-10). */
-interface SixClusterSignals {
- fitOverlap: number | null;
- peopleTrust: number | null;
- liveness: number | null;
- proof: number | null;
- distance: number | null;
- costToAdoptVsRegenerate: number | null;
-}
-
 /** The matcher's three-state verdict vocabulary — the pinned wire tokens. */
 type MatcherVerdict = "merge-it" | "use-as-context" | "ignore";
 
@@ -2082,66 +2116,6 @@ function parseIntentsBody(raw: unknown): { intent: string; base: string } | Resp
   return badRequest("bad-request");
  }
  return { intent, base };
-}
-
-/**
- * The shared six-cluster computation seam (CAP-10): per candidate
- * fork, a pure extraction over the EXISTING read seams —
- * computeChangeSet (fit/distance over the fork-point change-set),
- * computeMerge (the fold's conflict surface), the fork repo's own
- * log (liveness/proof). Every cluster is a typed number or null
- * (unmeasured) — the wire carries values, never prose. This is the
- * single computation surface both POST /intents (this order) and
- * the future GET /forks (wave-11) consume — one writer, no
- * divergence.
- *
- * Trust law (AD-4): repo content is untrusted. Secret-class paths
- * contribute key names only (computeChangeSet's own masking); no
- * secret-class value may enter matcher state or any log.
- */
-async function computeSixClusterSignals(
- env: Env,
- base: string,
- ref: string,
- name: string,
-): Promise<SixClusterSignals> {
- // fitOverlap: the fork-point change-set's size against the
- // platform's per-change-set patch budget — a fork that changed
- // few files against the base overlaps more of the declared work.
- const changeSet = await computeChangeSet(env, base, ref, name, ref);
- const fileCount = changeSet.stats.files;
- const fitOverlap = fileCount === 0 ? null : Math.max(0, 1 - fileCount / MAX_FILES_WITH_PATCH);
- // liveness: commit cadence over the fork's first-parent log
- // (recency of the newest commit; a stale fork drifts toward 0).
- using forkRepo = await env.ARTIFACTS.get(name);
- const forkLog = await forkRepo.log({ ref, limit: FORK_LOG_LIMIT });
- const newestAt = forkLog.length ? forkLog[0].authoredAt : 0;
- const ageDays = newestAt ? (Date.now() / 1000 - newestAt) / 86400 : Infinity;
- const liveness = forkLog.length === 0 ? null : Math.max(0, 1 - ageDays / 30);
- // proof: the session trail the change-set carries (commit count).
- const proof = changeSet.commits.length === 0 ? null : Math.min(1, changeSet.commits.length / 10);
- // distance: the fold's conflict surface — the share of merged
- // files that conflict (the join's conflict cost).
- const fold = await computeMerge(env, base, ref, [name], ref);
- const foldFiles = fold.files.length;
- const conflictShare = foldFiles === 0 ? 0 : fold.conflicted.length / foldFiles;
- const distance = Math.min(1, conflictShare * 2);
- // costToAdoptVsRegenerate: the adopt cost (conflict surface plus
- // the non-overlapping share of the change-set) against the
- // regenerate cost (rebuild from scratch).
- const adoptCost = distance * 0.6 + (fitOverlap === null ? 0 : (1 - fitOverlap) * 0.4);
- const costToAdoptVsRegenerate = Math.max(0, Math.min(1, 1 - adoptCost));
- // peopleTrust: unmeasured in the platform (no signed-identity
- // seam yet) — null by the typed-null law, never a fabricated 0.
- const peopleTrust = null;
- return {
-  fitOverlap,
-  peopleTrust,
-  liveness,
-  proof,
-  distance,
-  costToAdoptVsRegenerate,
- };
 }
 
 /**

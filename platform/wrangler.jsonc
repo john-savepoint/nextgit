@@ -35,6 +35,9 @@
       "id": "55d973240e2d4770a07ddc0faedf757c"
     }
   ],
+  "r2_buckets": [
+    { "binding": "ASSET_BLOB", "bucket_name": "nextgit-asset-blobs" }
+  ],
   "triggers": {
     "crons": ["*/5 * * * *"]
   },
