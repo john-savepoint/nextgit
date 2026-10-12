@@ -57,7 +57,8 @@ colors:
   diff-meta-bg: 'rgba(88, 166, 255, 0.08)'  # alias of diff-hunk-bg
 typography:
   base:
-    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace'
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+    fontFamilyMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace'  # machine-token reservation (paths/hashes/diffs/IDs)
     fontSize: 13px
     lineHeight: '1.5'
   brand-title:
@@ -388,7 +389,7 @@ components:
 
 ## Brand & Style
 
-NextGit is the convergence surface for agent fleets: "the place where many AI agents work on your code at once — you see everything, catch the collisions, ship what you want" (tour voice). The visual identity is **a tool an engineer trusts**: near-black canvas (`{colors.bg-app}`, the `#0a0e14` range), tone-stepped surfaces, 1px hairline borders, monospace type at a small consistent size, generous whitespace, and color reserved exclusively for state — never for decoration. No emoji. No heavy gradients. The posture is calm and institutional while the content is loud: concurrent agents, collisions, landings. The UI stays quiet so the signal is carried by order and color discipline, not ornament.
+NextGit is the convergence surface for agent fleets: "the place where many AI agents work on your code at once — you see everything, catch the collisions, ship what you want" (tour voice). The visual identity is **a tool an engineer trusts**: near-black canvas (`{colors.bg-app}`, the `#0a0e14` range), tone-stepped surfaces, 1px hairline borders, dual type at a small consistent size (sans UI copy, monospace for paths/hashes/diffs/IDs), generous whitespace, and color reserved exclusively for state — never for decoration. No emoji. No heavy gradients. The posture is calm and institutional while the content is loud: concurrent agents, collisions, landings. The UI stays quiet so the signal is carried by order and color discipline, not ornament.
 
 This is an operator's instrument, not a dashboard to be admired. Every screen answers three questions in the same order: what is the set, what collides, what can land. The layout delivers them in that order, top to bottom, on one canvas — no tab-hopping, no per-item paging (the whole set at a glance is the product).
 
@@ -469,7 +470,7 @@ Off-palette findings from the source: the `#fff` hover literal (resolved — `{c
 
 ## Typography
 
-[ASSUMPTION] Mono-only is canon until a decision says otherwise. The entire UI renders in one stack — `{typography.base.fontFamily}` (ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace) — at a **13px base** (html/body root), line-height 1.5, `-webkit-font-smoothing: antialiased`. A sans stack is declared in the source (`--font-sans`) but never referenced; treat it as dead code, not an invitation. Every rem in this spine is an expression of that 13px root.
+[DECISION 2026-10-12] Dual typography is canon. The UI renders in the sans stack (`--font-sans`: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif) at a **13px base** (html/body root), line-height 1.5, `-webkit-font-smoothing: antialiased`. Mono (`{typography.base.fontFamily}`) is reserved for the machine tokens — paths, hashes, diffs, and IDs — via an explicit reservation on `.commit-sha`, `.file-path`, `.merge-file-tab`, `.diff-viewer`, `.diff-line`, `.merge-pane`, `.reveal-value`, `.ref-spec .val`. Everything else (brand, section titles, summary chips, proposal titles, intent, stats, landed banner, conflict file/pairs/repo-tags, ticker events, badges, all buttons except the nine explicitly-mono control affordances listed below, modal title, empty states, footer, toggle label, banners) inherits the sans root. The decision the old "mono-only until a decision says otherwise" clause was waiting for. Every rem in this spine is an expression of that 13px root.
 
 The ramp, by role:
 
@@ -621,7 +622,7 @@ The extension keeps the badge/chip language exactly. All three render at `{typog
 | Step tone or border for depth (app → surface → card/elevated; subtle → default → focus) | Add shadows beyond the two (conflict card, modal), or any blur/glow/glass |
 | Keep the 1px hairline as the default border everywhere | Thicken borders except the 4px severity band and 2px intent rule |
 | Keep corners square (`{rounded.DEFAULT}`); radius only for the six physical exceptions | Round cards, buttons, chips, badges, modals, or panes |
-| Render everything in `{typography.base.fontFamily}` at the 13px-rooted ramp — mono-only until a decision says otherwise | Introduce the declared-but-unreferenced sans stack (or any second family) |
+| Render UI copy in the sans stack at the 13px-rooted ramp; reserve mono for the machine tokens (`.commit-sha`, `.file-path`, `.merge-file-tab`, `.diff-viewer`, `.diff-line`, `.merge-pane`, `.reveal-value`, `.ref-spec .val`) | Render paths, hashes, diffs, or IDs in sans, or body copy in mono |
 | Reserve uppercase for micro-labels and section titles (0.04–0.06em) | Use uppercase for body, titles, or emphasis |
 | Use dashed borders for terminal/inert states (landed, empty) | Use dashed borders as decoration or hover treatment |
 | Keep `{colors.text-bright}` as hover text on tinted fills only | Set resting text or body copy in `#ffffff` |
