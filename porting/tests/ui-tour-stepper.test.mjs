@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 // Contract suite: the tour stepper — 10 tabs, progress fill, Next/Prev/Restart,
-// and 360px horizontal scroll (nextgit-e9-verify-stepper-nav).
+// and 360px horizontal scroll (nextgit-e9-verify-stepper-nav); the bottom-right
+// Continue CTA (#btn-continue) advances like #btn-next and reads "Continue to
+// the Triage App" on step 9.
 // Run: bun porting/tests/ui-tour-stepper.test.mjs   (exit 0 = pass)
 //
 // Real construction: the shipped platform/ui (tour.html + tour.js + tour.css) is
@@ -37,8 +39,8 @@ const UI = join(ROOT, "platform/ui");
 const SETTLE_MS = 350; // re-layout after a device-metrics override must settle before reads
 const STEPS = 10;
 const TAB_LABELS = [
-  "0. Intro", "1. The Problem", "2. Workspaces", "3. Proposals", "4. Collisions",
-  "5. Shipping", "6. Real Platform", "7. Exercise", "8. Scope", "9. Your Role",
+  "1. Intro", "2. The Problem", "3. Workspaces", "4. Proposals", "5. Collisions",
+  "6. Shipping", "7. Real Platform", "8. Exercise", "9. Scope", "10. Your Role",
 ];
 
 let fails = 0;
@@ -234,11 +236,12 @@ try {
       hasDisplay: !!document.getElementById("step-display-indicator"),
       hasPrev: !!document.getElementById("btn-prev"),
       hasNext: !!document.getElementById("btn-next"),
+      hasContinue: !!document.getElementById("btn-continue"),
       hasRestart: !!document.getElementById("btn-restart-tour"),
     };
   })()`);
   check(
-    "fixture renders 10 tabs with the exact 0..9 labels",
+    "fixture renders 10 tabs with the exact 1..10 labels",
     fixtureState &&
     fixtureState.tabCount === STEPS &&
     JSON.stringify(fixtureState.labels) === JSON.stringify(TAB_LABELS),
@@ -250,12 +253,13 @@ try {
     `cards=${fixtureState && fixtureState.cardCount}`,
   );
   check(
-    "fixture exposes progress fill, indicator, and Prev/Next/Restart controls",
+    "fixture exposes progress fill, indicator, and Prev/Next/Continue/Restart controls",
     fixtureState &&
     fixtureState.hasFill &&
     fixtureState.hasDisplay &&
     fixtureState.hasPrev &&
     fixtureState.hasNext &&
+    fixtureState.hasContinue &&
     fixtureState.hasRestart,
     JSON.stringify(fixtureState),
   );
@@ -309,6 +313,24 @@ try {
   check("Next reads 'Finish Tour' on step 9", at9 && at9.next === "Finish Tour", `was "${at9 && at9.next}"`);
   check("step 9 panel is active after walking Next to the end", at9 && at9.card === "step-9", JSON.stringify(at9));
   check("progress fill is 100% on step 9", at9 && at9.fill === "100%", `was "${at9 && at9.fill}"`);
+
+  // Leg 3b — continue CTA: same advance as Next; primary label parity at step 9
+  await click("#btn-restart-tour");
+  await click("#btn-continue");
+  const afterContinue = await evl(`(() => ({
+    card: document.querySelector(".step-card.is-active")?.id ?? null,
+    display: document.getElementById("step-display-indicator").textContent.trim(),
+    label: document.getElementById("btn-continue").textContent.trim(),
+  }))()`);
+  check("Continue moves step 0 -> 1", afterContinue && afterContinue.card === "step-1", JSON.stringify(afterContinue));
+  check("Continue indicator reads 'Step 2 of 10'", afterContinue && afterContinue.display === "Step 2 of 10", JSON.stringify(afterContinue));
+  check("Continue reads 'Continue' mid-tour", afterContinue && afterContinue.label === "Continue", JSON.stringify(afterContinue));
+  for (let i = 0; i < STEPS - 2; i++) await click("#btn-continue");
+  const at9Continue = await evl(`(() => ({
+    card: document.querySelector(".step-card.is-active")?.id ?? null,
+    label: document.getElementById("btn-continue").textContent.trim(),
+  }))()`);
+  check("Continue reads 'Continue to the Triage App' on step 9", at9Continue && at9Continue.card === "step-9" && at9Continue.label === "Continue to the Triage App", JSON.stringify(at9Continue));
 
   // Leg 4 — restart
   await click("#btn-restart-tour");
