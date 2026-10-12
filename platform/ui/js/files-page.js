@@ -28,6 +28,11 @@ const state = {
  lastError: null, // last fetch error (surfaces in #files-banner)
 };
 
+// Monotonic load tokens: tree and file fetches can overlap (fast clicks,
+// slow edge); only the LATEST request may write the DOM (stale responses
+// are dropped — the live duplicate-rows class, 2026-10-12).
+const loadSeq = { tree: 0, file: 0 };
+
 // UI selectors
 const el = {
  picker: document.getElementById("repo-picker"),
@@ -173,6 +178,7 @@ async function loadRepos() {
  */
 async function loadTree() {
  clearError();
+ const token = ++loadSeq.tree; // overlapping loads must not interleave renders
  el.tree.textContent = "";
  el.viewer.hidden = true;
  el.content.textContent = "";
@@ -183,23 +189,32 @@ async function loadTree() {
 
  try {
   const data = await fetchJson(treeUrl(state.repo, state.ref, state.path));
+  if (token !== loadSeq.tree) return; // a newer navigation won
   const entries = Array.isArray(data?.entries) ? data.entries : [];
+  const frag = document.createDocumentFragment();
   if (!entries.length) {
    const li = document.createElement("li");
    li.className = "files-empty";
    li.textContent = "(empty directory)";
-   el.tree.appendChild(li);
+   frag.appendChild(li);
+   el.tree.replaceChildren(frag);
    return;
   }
   // Stable order: directories first, then files, each alphabetical.
+  // Contract types (CONTRACT /tree): `tree` is a directory; `blob`/`exec`
+  // are files. (The earlier file|dir expectation was page-side drift from
+  // the pinned Artifacts union — live-verified 2026-10-12.)
+  const isDirEntry = (e) => e?.type === "tree";
   const sorted = [...entries].sort((a, b) => {
-   if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+   const da = isDirEntry(a) ? 0 : 1;
+   const db = isDirEntry(b) ? 0 : 1;
+   if (da !== db) return da - db;
    return String(a.name).localeCompare(String(b.name));
   });
   for (const entry of sorted) {
    const name = String(entry?.name ?? "");
    const li = document.createElement("li");
-   if (entry?.type === "dir") {
+   if (isDirEntry(entry)) {
     const link = document.createElement("a");
     link.href = "javascript:void 0"; // SPA-style; the click handler navigates
     link.className = "files-row files-dir";
@@ -220,9 +235,11 @@ async function loadTree() {
     link.addEventListener("click", () => loadFile(fullPath));
     li.appendChild(link);
    }
-   el.tree.appendChild(li);
+   frag.appendChild(li);
   }
+  el.tree.replaceChildren(frag);
  } catch (err) {
+  if (token !== loadSeq.tree) return;
   showError(`Could not load tree: ${err.message || "unknown error"}`);
  }
 }
@@ -275,6 +292,7 @@ function renderBreadcrumb() {
  */
 async function loadFile(path) {
  clearError();
+ const token = ++loadSeq.file; // overlapping loads must not interleave renders
  el.viewer.hidden = false;
  el.content.textContent = "";
  el.meta.textContent = "";
@@ -285,6 +303,7 @@ async function loadFile(path) {
 
  try {
   const data = await fetchJson(fileUrl(state.repo, state.ref, path));
+  if (token !== loadSeq.file) return; // a newer file click won
   const classification = data?.classification;
   // Raw link: built from the encoded tuple, never echoed from input.
   // Secret-class paths get NO raw link — the page must not hand out a URL
@@ -324,6 +343,7 @@ async function loadFile(path) {
   el.meta.textContent = `${classification || "unknown"} — ${path}`;
   el.content.textContent = "";
  } catch (err) {
+  if (token !== loadSeq.file) return;
   showError(`Could not load file: ${err.message || "unknown error"}`);
  }
 }

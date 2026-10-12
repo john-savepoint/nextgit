@@ -307,10 +307,10 @@ const server = createServer((req, res) => {
       j(res, {
         ok: true,
         entries: [
-          { name: "src", type: "dir", size: 0, blobHash: "d".repeat(40) },
-          { name: "README.md", type: "file", size: 21, blobHash: "e".repeat(40) },
-          { name: "logo.png", type: "file", size: 128, blobHash: "f".repeat(40) },
-          { name: "config", type: "dir", size: 0, blobHash: "0".repeat(40) },
+          { name: "src", type: "tree", size: 0, blobHash: "d".repeat(40) },
+          { name: "README.md", type: "blob", size: 21, blobHash: "e".repeat(40) },
+          { name: "logo.png", type: "blob", size: 128, blobHash: "f".repeat(40) },
+          { name: "config", type: "tree", size: 0, blobHash: "0".repeat(40) },
         ],
       });
       return;
@@ -319,18 +319,18 @@ const server = createServer((req, res) => {
       j(res, {
         ok: true,
         entries: [
-          { name: "sub", type: "dir", size: 0, blobHash: "9".repeat(40) },
-          { name: "main.ts", type: "file", size: 9, blobHash: "1".repeat(40) },
+          { name: "sub", type: "tree", size: 0, blobHash: "9".repeat(40) },
+          { name: "main.ts", type: "blob", size: 9, blobHash: "1".repeat(40) },
         ],
       });
       return;
     }
     if (repo === "agent-1" && path === "src/sub") {
-      j(res, { ok: true, entries: [{ name: "inner.ts", type: "file", size: 7, blobHash: "8".repeat(40) }] });
+      j(res, { ok: true, entries: [{ name: "inner.ts", type: "blob", size: 7, blobHash: "8".repeat(40) }] });
       return;
     }
     if (repo === "agent-1" && path === "config") {
-      j(res, { ok: true, entries: [{ name: ".env", type: "file", size: 44, blobHash: "2".repeat(40) }] });
+      j(res, { ok: true, entries: [{ name: ".env", type: "blob", size: 44, blobHash: "2".repeat(40) }] });
       return;
     }
     j(res, { ok: false, error: "not-found" });
