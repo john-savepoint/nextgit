@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.1 (2026-10-11). Additive changes only; if you change a shape, bump this file first.
+Version: v3.2 (2026-10-12). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -19,6 +19,34 @@ Every route that accepts `base`, `ref`, or `baseRef` (query or body) resolves an
 **The single documented exception:** `GET /changes` additionally requires `repo` (no default — absent `repo` -> `400 {ok:false,error:"repo parameter required"}`). All other params of `/changes` follow the defaults above.
 
 Routes with no default (unchanged, listed for completeness): `/reveal` requires `repo`, `ref`, `path`, `key`; `/land` requires `repos`; `/judge` requires `setId` and `target.repos`; `/events`, `/events/stream`, `/health`, `/landings/{commit}` take no base/ref params.
+
+## GET /asset/{blobId}
+
+Download a raw asset blob from the R2 asset tier (AD-10; FR-47). The path
+param is the **64-hex content-addressed key** — the blob's own sha256 (the
+pointer-less content-addressed read: the key IS the content hash, so the
+download route carries the expectation in the key itself).
+
+- **200** — the exact blob bytes, verified **before** they egress, served
+  `content-type: application/octet-stream` (the binary default — the
+  pointer-less download carries no pointer, so no `contentType` is in
+  scope; the pointer-mediated materialization path passes the pointer's
+  `contentType` at its caller layer).
+- **Integrity failure (non-2xx)** — `{ok:false,error:"integrity"}` (422).
+  Thrown as `BlobIntegrityError` by the `readVerifiedBlob` chokepoint
+  (`platform/src/assets.ts`) and mapped at the route seam: the stored bytes
+  hash to a different digest than the blobId key (substitution), the object
+  is missing at a content-addressed key (a missing object **is** an integrity
+  failure — the route does not oracle key existence), or the binding is
+  unbound. Error detail carries digests only, never blob bytes (AD-4).
+- **400** — `bad-request`: the blobId is not `/^[0-9a-f]{64}$/`.
+
+The chokepoint verifies **both directions** on every read: `actualSha256 ===
+expectedSha256` (pointer/content divergence — for the pointer-mediated
+variant the caller passes the pointer's recorded `sha256` as the expectation)
+**and** `actualSha256 === blobId` (content-addressed key != stored digest —
+the substitution case). Either mismatch fails closed: zero bytes materialize,
+no fallback to another key, no cache.
 
 ## GET /health
 
@@ -661,6 +689,8 @@ state, folds, or logs (AD-4 — pointer metadata is egress).
 **Integrity:** `sha256` is the content anchor — blob bytes must hash to it
 at every materialization path (the e12 integrity row owns the verified-read
 chokepoint; fail-closed `BlobIntegrityError` / `{ok:false,error:"integrity"}`).
+The chokepoint serves the asset download route (`GET /asset/{blobId}` above)
+and is the only byte-returning `ASSET_BLOB.get` in `platform/src/**`.
 
 **No URL egress:** `blobId` is an opaque R2 key. Presigned URLs are minted
 at read time by the binding, never stored in pointers, never rendered
@@ -670,6 +700,30 @@ at read time by the binding, never stored in pointers, never rendered
 violates the shape (or whose text is not JSON, or exceeds 1 MiB) parses to
 `null`; the row stays visible with the note `asset pointer; unparseable
 metadata (format violation)` — never a 500, never the raw text.
+
+**Git surfaces are pointer-blind (invariance law):** clone/checkout,
+change-set computation, fork-point selection, and the `/changes` +
+`/proposals` read paths operate on Artifacts only and perform
+**zero** `ASSET_BLOB` reads — pointer metadata is the complete
+egress (AD-4). Blob bytes materialize only at the e12
+materialization chokepoint (`readVerifiedBlob`), never in a git
+path. The zero-read property is pinned by the instrumented-bucket
+suite `porting/tests/r2-git-invariance.test.mjs` (a stub whose
+`get()` records and fails the suite if any git read path calls
+it), which also proves a cloned pointer file round-trips
+byte-identically and that a pointer-only change-set renders file
+rows with stats and fork point identical to the same tree with an
+ordinary text file — the tier adds a pointer layer, never drift
+(FR-47).
+
+**Integrity chokepoint:** `readVerifiedBlob` (`platform/src/assets.ts`)
+re-fetches and re-verifies on every call — no cache, no fallback, no second
+key ever tried. Pointer-mediated reads pass the pointer's recorded hash as
+the expectation: `readVerifiedBlob(env, pointer.blobId, pointer.sha256)`.
+Any future materialization path that needs bytes MUST call it (the
+zero-outside-reads gate is pinned by `porting/tests/r2-integrity.test.mjs`
+and the instrumented-bucket suite `porting/tests/r2-git-invariance.test.mjs`).
+
 
 ## Land lease (DO coordination)
 

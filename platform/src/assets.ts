@@ -10,8 +10,11 @@
 //     are credential-adjacent; minted at read time by the binding,
 //     never stored — AD-4/AD-10).
 //   - sha256 is the integrity anchor: blob bytes must hash to it at
-//     every materialization path (the e12 integrity row owns the
-//     verified-read chokepoint; fail-closed there).
+//     every materialization path. The e12 integrity row owns the
+//     verified-read chokepoint (readVerifiedBlob below) — the ONLY
+//     byte-returning ASSET_BLOB.get in platform/src/**, dual-direction
+//     (pointer hash AND content-addressed key), fail-closed
+//     BlobIntegrityError on any mismatch (digests only — AD-4).
 //   - Pointer files render METADATA ONLY: no patch, no
 //     additions/deletions, never merge text (AD-4 — pointer metadata
 //     is egress; raw contents never leave the worker).
@@ -106,3 +109,94 @@ export async function assetPointerFor(blob: Uint8Array, contentType?: string): P
  return pointer;
 }
 
+// ---------------------------------------------------------------------------
+// Verified-read chokepoint (e12 integrity row; FR-47).
+//
+// readVerifiedBlob is the ONLY byte-returning ASSET_BLOB.get in
+// platform/src/** — every materialization path that needs blob
+// bytes funnels through here (CONTRACT.md §R2 asset tier).
+// Fail-closed: any integrity violation throws BlobIntegrityError
+// carrying digests only (never bytes — AD-4). No cache, no
+// fallback, no second key ever tried.
+// ---------------------------------------------------------------------------
+
+/**
+ * Integrity failure at the verified-read chokepoint. Fields are
+ * digests only — never blob bytes, never a URL (AD-4/NFR-5).
+ */
+export class BlobIntegrityError extends Error {
+ /** The object key that was requested (content-addressed key). */
+ readonly blobId: string;
+ /** The digest the caller expected (pointer-recorded or key). */
+ readonly expectedSha256: string;
+ /** The digest of the bytes actually fetched ("" when none). */
+ readonly actualSha256: string;
+
+ constructor(message: string, fields: { blobId: string; expectedSha256: string; actualSha256?: string }) {
+  super(message);
+  this.name = "BlobIntegrityError";
+  this.blobId = fields.blobId;
+  this.expectedSha256 = fields.expectedSha256;
+  this.actualSha256 = fields.actualSha256 ?? "";
+ }
+}
+
+/**
+ * hex-64 sha256 over the exact bytes (WebCrypto — the
+ * assetPointerFor idiom; no node: builtin in worker code,
+ * globals.ts posture).
+ */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+ // Fresh ArrayBuffer-backed view: crypto.subtle.digest takes a
+ // BufferSource, and a generic Uint8Array<ArrayBufferLike> is
+ // not assignable (assetPointerFor:96-103 precedent).
+ const view = new Uint8Array(bytes.byteLength);
+ view.set(bytes);
+ const digest = await crypto.subtle.digest("SHA-256", view);
+ return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The verified-read chokepoint: fetch one blob from the asset
+ * bucket and prove its bytes hash to BOTH the caller's expected
+ * digest AND the content-addressed key before returning them.
+ *
+ * Dual-direction verification:
+ *   - `actual !== expectedSha256` — pointer/content divergence
+ *     (the bytes no longer match the recorded hash);
+ *   - `actual !== blobId` — the stored object's digest differs
+ *     from its content-addressed key (the substitution case).
+ * Either direction fails closed: BlobIntegrityError, zero bytes
+ * returned, no fallback to another key.
+ *
+ * `env` is typed structurally (not imported from index.ts —
+ * index.ts imports this module; a type import would be circular).
+ */
+export async function readVerifiedBlob(
+ env: { ASSET_BLOB?: R2Bucket },
+ blobId: string,
+ expectedSha256: string,
+): Promise<Uint8Array> {
+ // 1. Fail closed on a missing binding — never a silent null.
+ const bucket = env.ASSET_BLOB;
+ if (!bucket) {
+  throw new BlobIntegrityError("asset bucket unbound", { blobId, expectedSha256 });
+ }
+ // 2. The only byte-returning ASSET_BLOB.get in platform/src/**.
+ const obj = await bucket.get(blobId);
+ // 3. A missing object at a content-addressed key IS an integrity
+ //    failure — no key-existence oracle, no fallback.
+ if (!obj) {
+  throw new BlobIntegrityError("blob not found", { blobId, expectedSha256 });
+ }
+ // 4. Materialize the exact fetched bytes.
+ const bytes = new Uint8Array(await obj.arrayBuffer());
+ // 5. Digest the exact fetched bytes.
+ const actualSha256 = await sha256Hex(bytes);
+ // 6. Verify BOTH directions; digests only in the error (AD-4).
+ if (actualSha256 !== expectedSha256 || actualSha256 !== blobId) {
+  throw new BlobIntegrityError("blob integrity mismatch", { blobId, expectedSha256, actualSha256 });
+ }
+ // 7. Bytes are verified: actual === expectedSha256 === blobId.
+ return bytes;
+}
