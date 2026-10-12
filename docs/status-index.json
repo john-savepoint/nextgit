@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-12T05:03:52.437Z",
-  "head": "38eabc1",
+  "generatedAt": "2026-10-12T08:39:28.191Z",
+  "head": "a14858e",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-12 ",
     "branch": "main",
-    "lastCommit": "585227c4",
+    "lastCommit": "a14858e",
     "standingRedSet": null
   },
   "queue": {
-    "total": 661,
+    "total": 662,
     "byStatus": {
-      "pending": 451,
+      "pending": 449,
       "partial": 1,
-      "done": 209
+      "done": 212
     },
     "items": [
       {
@@ -96,11 +96,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "Event consumer: sole recorder + dedupe + payload validation"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "R2 asset tier + first-slice manifest/pointer format"
       },
       {
         "status": "pending",
@@ -2271,11 +2266,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Delete asset pointers lifecycle-safely with bucket rules and no orphan blobs"
-      },
-      {
-        "status": "pending",
-        "priority": "P3",
-        "title": "Compute six-cluster fork signals and feed matcher verdicts"
       }
     ]
   },
