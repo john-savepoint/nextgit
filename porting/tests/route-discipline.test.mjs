@@ -100,7 +100,7 @@ const drive = async (method, path) => {
 // Group 3 — UI-serve law: whitelisted UI documents -> 200 + ASSETS-SERVED.
 // ---------------------------------------------------------------------------
 {
-  for (const p of ["/", "/index.html", "/styles.css", "/app.js", "/reveal-decision.js", "/land-verdict.js", "/tour.html", "/tour.css", "/tour.js"]) {
+  for (const p of ["/", "/index.html", "/styles.css", "/app.js", "/reveal-decision.js", "/land-verdict.js", "/tour.html", "/tour.css", "/tour.js", "/parity.html", "/parity.js", "/parity-data.js"]) {
     const r = await drive("GET", p);
     check(`UI: GET ${p} -> 200`, r.status === 200, `got ${r.status}`);
     check(`UI: GET ${p} body ASSETS-SERVED`, r.text === "ASSETS-SERVED", `got ${JSON.stringify(r.text)}`);

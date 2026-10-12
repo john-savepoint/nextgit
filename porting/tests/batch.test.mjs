@@ -51,7 +51,7 @@ const defaultReply = (label) => {
 globalThis.phase = () => { };
 globalThis.log = () => { };
 globalThis.agent = (_prompt, opts = {}) => {
-  calls.push({ label: opts.label ?? "?", spawn: opts.agent, prompt: String(_prompt) });
+  calls.push({ label: opts.label ?? "?", spawn: opts.agent, prompt: String(_prompt), schema: opts.schema });
   return { wait: async () => reply(opts.label ?? "") };
 };
 globalThis.wait = async (handles) => Promise.all(handles.map((h) => Promise.resolve(h.wait()).catch((e) => e)));
@@ -77,8 +77,13 @@ function fixture(rows = [], preclaimed = []) {
   tmps.push(tmp);
   const root = join(tmp, "fixture");
   mkdirSync(join(root, "porting/runs"), { recursive: true });
+  mkdirSync(join(root, "porting/parity"), { recursive: true });
   mkdirSync(join(root, "docs"), { recursive: true });
   for (const f of ["porting/wf-template.ddw.js", "porting/tasks.mjs", "docs/STATE.md", "docs/NEXT-ACTIONS.md"])
+    symlinkSync(join(ROOT, f), join(root, f));
+  // The parity pack (competitor mode reads the baseline as data;
+  // the gate artifact hashes it at gate time).
+  for (const f of ["porting/parity/baseline-github.json", "porting/parity/nextgit-capabilities.json"])
     symlinkSync(join(ROOT, f), join(root, f));
   const git = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8", timeout: 10000 });
   git(["init", "-q"]);
@@ -304,6 +309,67 @@ try {
     check("9 batch reports BLOCKED", r.next.startsWith("BLOCKED"), r.next.slice(0, 60));
   }
 } catch (e) { check("9 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 11. parity-gate competitor mode ----------------------------------
+// (a) PARITY_SCHEMA carries the optional `competitor` property;
+// (b) the parity prompt names the baseline file path (interpolated,
+//     never the file's content);
+// (c) a stub parity-auditor return carrying `competitor` round-trips
+//     into report.parity.competitor AND the persisted
+//     gate-parity-competitor.json artifact (with the baseline's
+//     sha256 at gate time).
+try {
+  const a11 = `${ID_PREFIX}s11-a`;
+  const o = await scenario([a11], {
+    limit: 1,
+    mode: (label, dflt) => {
+      if (label.startsWith("gate:parity:")) {
+        return {
+          verdict: "SHIP", shipBlockers: [], highs: [], notes: [],
+          competitor: { baseline: "porting/parity/baseline-github.json", below: ["session-steering", "issues"] },
+        };
+      }
+      return dflt(label);
+    },
+  });
+  if (o.error) check("11 competitor-mode scenario completes", false, String(o.error.message).slice(0, 200));
+  else {
+    const r = o.report;
+    check("11 competitor return passes through to report.parity.competitor",
+      r.parity?.competitor?.baseline === "porting/parity/baseline-github.json" &&
+      Array.isArray(r.parity.competitor.below) && r.parity.competitor.below.length === 2,
+      JSON.stringify(r.parity?.competitor));
+    // The persisted artifact carries the provenance: baseline path,
+    // the named below dimensions, the baseline file's sha256, a stamp.
+    const compPath = join(o.batchDir, "gate-parity-competitor.json");
+    check("11 gate-parity-competitor.json persisted", existsSync(compPath), compPath);
+    // (a)+(b): the schema and the prompt, read off the captured
+    // parity-gate call (the composition's inbound boundary).
+    const parityCall = o.calls.find((c) => c.label.startsWith("gate:parity:"));
+    check("11 PARITY_SCHEMA carries the optional competitor property",
+      !!parityCall?.schema?.properties?.competitor &&
+      parityCall.schema.properties.competitor.properties?.baseline?.type === "string" &&
+      parityCall.schema.properties.competitor.properties?.below?.type === "array" &&
+      parityCall.schema.properties.competitor.properties?.below?.items?.type === "string",
+      JSON.stringify(parityCall?.schema?.properties?.competitor));
+    check("11 parity prompt names the baseline path (never its content)",
+      !!parityCall && parityCall.prompt.includes("porting/parity/baseline-github.json") &&
+      parityCall.prompt.includes("porting/parity/parity-table.md") &&
+      !parityCall.prompt.includes('"dimension"'),
+      parityCall ? "baseline path missing from prompt" : "no parity call captured");
+    if (existsSync(compPath)) {
+      const artifact = gateFile(o, "gate-parity-competitor.json");
+      const { createHash } = await import("node:crypto");
+      const expectedSha = createHash("sha256").update(readFileSync(join(ROOT, "porting/parity/baseline-github.json"))).digest("hex");
+      check("11 artifact carries baseline + below + sha256",
+        artifact.baseline === "porting/parity/baseline-github.json" &&
+        JSON.stringify(artifact.below) === JSON.stringify(["session-steering", "issues"]) &&
+        artifact.baselineSha256 === expectedSha &&
+        typeof artifact.at === "string",
+        JSON.stringify({ baseline: artifact.baseline, below: artifact.below, sha: artifact.baselineSha256?.slice(0, 12) }));
+    }
+  }
+} catch (e) { check("11 competitor-mode case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {
