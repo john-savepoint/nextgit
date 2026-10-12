@@ -380,7 +380,8 @@ a:hover {
   visibility: visible;
 }
 
-/* Three Cards Grid (Decoded terms in Step 0) */
+/* Four Cards Grid (Decoded terms in Step 0) */
+/* #btn-continue shares the .btn-ctrl.btn-primary treatment with #btn-next. */
 .terms-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

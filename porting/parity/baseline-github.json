@@ -1,0 +1,208 @@
+[
+  {
+    "id": "session-steering",
+    "dimension": "Steer/track individual agent sessions live",
+    "github": {
+      "status": "shipped",
+      "evidence": "Agent HQ 'mission control': assign, steer mid-session, monitor live session logs, track active sessions; Agents tab in a repo + the Agents page (github.com/copilot/agents); review and merge agent code by jumping to the pull request.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8"
+      ]
+    }
+  },
+  {
+    "id": "concurrent-workspace-provisioning",
+    "dimension": "N isolated workspaces from one baseline",
+    "github": {
+      "status": "shipped",
+      "evidence": "Multiple agent sessions run concurrently; each cloud agent session gets its own environment.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:30"
+      ]
+    }
+  },
+  {
+    "id": "change-set-capture",
+    "dimension": "Per-change diffs vs baseline, server-side",
+    "github": {
+      "status": "shipped",
+      "evidence": "Per-pull-request diffs: every agent session lands as a PR whose Files changed view is the per-change diff against the base.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10"
+      ]
+    }
+  },
+  {
+    "id": "cross-change-conflict-detection",
+    "dimension": "Conflict map across concurrent changes",
+    "github": {
+      "status": "none",
+      "evidence": "One-click merge-conflict resolution within a single PR only; no cross-change conflict map across concurrent agent changes was found this run.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:14"
+      ]
+    }
+  },
+  {
+    "id": "set-level-triage",
+    "dimension": "N concurrent proposals as one comparable set",
+    "github": {
+      "status": "none",
+      "evidence": "The human review/integration surface is one pull request at a time ('jump to the pull request to review'); no surface compares or integrates multiple independent agent-produced changes together.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:14",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:60"
+      ]
+    }
+  },
+  {
+    "id": "intent-provenance",
+    "dimension": "Per-change intent record, durable across rebases",
+    "github": {
+      "status": "none",
+      "evidence": "No GitHub surface ships a per-change intent record; the only announced provenance layer (Entire's Checkpoints) is a different vendor, announced-not-shipped for the platform.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:76",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:57"
+      ]
+    }
+  },
+  {
+    "id": "event-pipeline",
+    "dimension": "Push-style event feed driving the UI",
+    "github": {
+      "status": "shipped",
+      "evidence": "Push events drive the platform; live session logs stream in mission control.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10"
+      ]
+    }
+  },
+  {
+    "id": "landing-path",
+    "dimension": "Land a chosen change with validation evidence",
+    "github": {
+      "status": "shipped",
+      "evidence": "Per-PR merge with one-click conflict resolution; agents' code is reviewed and merged via the pull request.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11"
+      ]
+    }
+  },
+  {
+    "id": "secret-typing",
+    "dimension": "Secret-class files as typed objects, masked by default",
+    "github": {
+      "status": "none",
+      "evidence": "No secret-class typing, masking, or audited reveal surface was found in the GitHub baseline this run.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:77"
+      ]
+    }
+  },
+  {
+    "id": "agent-identity-policy",
+    "dimension": "Agent access policies managed like developers",
+    "github": {
+      "status": "shipped",
+      "evidence": "Agent identity features: control which agent builds a task; manage agent access/policies 'just like any other developer'.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11"
+      ]
+    }
+  },
+  {
+    "id": "set-level-advisory",
+    "dimension": "Typed advisory judgments over the set",
+    "github": {
+      "status": "none",
+      "evidence": "No typed advisory/judgment surface over a set of concurrent changes was found in the GitHub baseline this run.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:77"
+      ]
+    }
+  },
+  {
+    "id": "inline-review-comments",
+    "dimension": "Inline per-line review comments on a change",
+    "github": {
+      "status": "shipped",
+      "evidence": "Pull-request review with inline per-line comments is the core GitHub flow an agent PR enters.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10"
+      ]
+    }
+  },
+  {
+    "id": "agent-federation",
+    "dimension": "Third-party agents hosted inside the platform",
+    "github": {
+      "status": "shipped",
+      "evidence": "Third-party coding agents from Anthropic, OpenAI, Google, Cognition and xAI run inside GitHub under the existing paid Copilot subscription; Google's Jules becomes a native assignee.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13"
+      ]
+    }
+  },
+  {
+    "id": "repo-browsing",
+    "dimension": "File/repo browser",
+    "github": {
+      "status": "shipped",
+      "evidence": "GitHub is a file/repo browser first — every repo serves a browsable tree, blame, and history natively.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10"
+      ]
+    }
+  },
+  {
+    "id": "issues",
+    "dimension": "Issue tracker",
+    "github": {
+      "status": "shipped",
+      "evidence": "GitHub Issues is the incumbent's native task tracker that agent sessions are assigned from.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8"
+      ]
+    }
+  },
+  {
+    "id": "ci",
+    "dimension": "CI/CD pipeline integration",
+    "github": {
+      "status": "shipped",
+      "evidence": "GitHub Actions: branch controls over when CI runs on agent code.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11"
+      ]
+    }
+  },
+  {
+    "id": "merge-queue",
+    "dimension": "Ordered merge queue",
+    "github": {
+      "status": "shipped",
+      "evidence": "Per-PR merge ordering is the native landing path; one-click merge after review.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10"
+      ]
+    }
+  },
+  {
+    "id": "stacked-diffs",
+    "dimension": "Native stacked diffs",
+    "github": {
+      "status": "none",
+      "evidence": "No native stacked diffs on GitHub; stacked PRs are third-party (Graphite) on top.",
+      "sources": [
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:26",
+        "_bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:27"
+      ]
+    }
+  }
+]

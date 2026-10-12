@@ -3069,11 +3069,12 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
 const UI_ASSET_PATHS: Record<string, true> = {
  "/": true, "": true, "/index.html": true, "/styles.css": true,
  "/app.js": true, "/reveal-decision.js": true, "/land-verdict.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
- // Wave-13: the files page + the app.js module split.
+ // Wave-13: the files page + the app.js module split + the parity pages.
  "/files.html": true, "/js/files-page.js": true,
  "/js/state.js": true, "/js/api.js": true, "/js/conflicts.js": true,
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
+ "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
 };
 
 export default {

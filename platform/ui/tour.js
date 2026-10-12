@@ -63,6 +63,7 @@ const el = {
  stepCards: Array.from(document.querySelectorAll(".step-card")),
  btnPrev: document.getElementById("btn-prev"),
  btnNext: document.getElementById("btn-next"),
+ btnContinue: document.getElementById("btn-continue"),
  stepDisplay: document.getElementById("step-display-indicator"),
  btnRestartTour: document.getElementById("btn-restart-tour"),
 
@@ -166,6 +167,9 @@ function goToStep(index) {
   } else {
    el.btnNext.textContent = "Next";
   }
+ }
+ if (el.btnContinue) {
+  el.btnContinue.textContent = index === state.totalSteps - 1 ? "Continue to the Triage App" : "Continue";
  }
  if (el.stepDisplay) {
   el.stepDisplay.textContent = `Step ${index + 1} of ${state.totalSteps}`;
@@ -583,13 +587,15 @@ function handleQuizChoice(repoKey) {
 function initEventListeners() {
  // Navigation
  el.btnPrev?.addEventListener("click", () => goToStep(state.currentStep - 1));
- el.btnNext?.addEventListener("click", () => {
+ const advanceStep = () => {
   if (state.currentStep === state.totalSteps - 1) {
    window.location.href = "index.html";
   } else {
    goToStep(state.currentStep + 1);
   }
- });
+ };
+ el.btnNext?.addEventListener("click", advanceStep);
+ el.btnContinue?.addEventListener("click", advanceStep);
  el.btnRestartTour?.addEventListener("click", () => goToStep(0));
 
  // Stepper tab buttons
