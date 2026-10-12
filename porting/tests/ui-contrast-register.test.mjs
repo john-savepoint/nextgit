@@ -88,7 +88,7 @@ const CHANGES = {
 const clientScript = (mode) => `const MODE = ${JSON.stringify(mode)};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const bgOf = (el) => { let n = el; while (n) { const b = getComputedStyle(n).backgroundColor; if (b && b !== "rgba(0, 0, 0, 0)" && b !== "transparent") return b; n = n.parentElement; } return null; };
-const read = (el) => (el ? { color: getComputedStyle(el).color, bg: bgOf(el), text: (el.textContent || "").trim().slice(0, 120), cls: el.className } : null);
+const read = (el) => (el ? { color: getComputedStyle(el).color, font: getComputedStyle(el).fontFamily, bg: bgOf(el), text: (el.textContent || "").trim().slice(0, 120), cls: el.className } : null);
 const reads = (sel) => [...document.querySelectorAll(sel)].map(read);
 const vars = {};
 for (const k of ["--text-primary", "--text-secondary", "--text-muted", "--text-dim", "--status-amber"]) vars[k] = getComputedStyle(document.documentElement).getPropertyValue(k).trim();
@@ -107,6 +107,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       R.s.landed = reads(".landed-banner"); R.s.landedSpans = reads(".landed-banner > span");
       R.s.eventTime = reads(".ticker-event .event-time"); R.s.pairRegion = reads(".pair-region");
+      // Dual-typography guard (heal-1): computed font-family over a
+      // control sample + the body + a machine-token class. The nine
+      // control affordances keep an EXPLICIT mono declaration (value-
+      // preserving), so they compute to the mono stack even though the
+      // sans root flipped — the tightened doc claims exactly this.
+      R.s.bodyFont = getComputedStyle(document.body).fontFamily;
+      R.s.controlFonts = reads(".btn-refresh, .btn-card-action, .btn-file-diff");
+      R.s.machineTokenFont = reads(".reveal-value, .file-path, .diff-line, .merge-file-tab, .commit-sha");
+      R.s.sansCopyFont = reads(".section-title, .empty-state-title");
       R.s.diffButtons = document.querySelectorAll(".btn-file-diff").length;
       const first = document.querySelector('#proposals-grid [data-path="src/auth.ts"]');
       R.s.firstBtn = !!first; if (first) { first.click(); await sleep(700); }
@@ -187,6 +196,23 @@ function legDegraded(dom) {
   (R.s.tickerEmpty || []).forEach((s, i) => expectColor(`4 ticker-empty[${i}] stays dim`, s, dim));
   expectCount("4 empty states still render while degraded", R.s.empty, 2);
 }
+// Dual-typography guard (heal-1): computed font-family over a
+// control sample proves the tightened doc — body and sans copy
+// compute to the sans stack; the machine-token classes AND the
+// nine explicitly-mono control affordances compute to the mono
+// stack. Guards the false "all buttons are sans" claim the old
+// smoke let through. Purely additive: no existing assertion
+// reads font-family.
+const MONO_HEAD = "ui-monospace";
+const SANS_HEAD = "-apple-system";
+function legTypography(dom) {
+  const R = parse(dom); if (!R) return check("5 typography: scenario output present", false, "no #test-out");
+  if (R.err) return check("5 typography: scenario threw", false, R.err);
+  check("5 body computes to the sans stack", String(R.s.bodyFont || "").startsWith(SANS_HEAD), `body=${R.s.bodyFont}`);
+  (R.s.sansCopyFont || []).forEach((s, i) => check(`5 sans-copy[${i}] (${s.cls}) computes to the sans stack`, String(s.font || "").startsWith(SANS_HEAD), `cls=${s.cls} font=${s.font}`));
+  (R.s.controlFonts || []).forEach((s, i) => check(`5 control[${i}] (${s.cls}) computes to the mono stack`, String(s.font || "").startsWith(MONO_HEAD), `cls=${s.cls} font=${s.font}`));
+  (R.s.machineTokenFont || []).forEach((s, i) => check(`5 machine-token[${i}] (${s.cls}) computes to the mono stack`, String(s.font || "").startsWith(MONO_HEAD), `cls=${s.cls} font=${s.font}`));
+}
 
 let mode = "cold";
 const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
@@ -211,7 +237,7 @@ try {
   const url = `http://127.0.0.1:${port}/`;
   try { mode = "cold"; legCold(await dumpDom(url, 4000)); } catch (e) { check("1 cold case threw", false, String(e?.stack ?? e)); }
   try { mode = "empty"; legEmpty(await dumpDom(url)); } catch (e) { check("2 empty case threw", false, String(e?.stack ?? e)); }
-  try { mode = "full"; legFull(await dumpDom(url)); } catch (e) { check("3 full case threw", false, String(e?.stack ?? e)); }
+  try { mode = "full"; const fullDom = await dumpDom(url); legFull(fullDom); legTypography(fullDom); } catch (e) { check("3 full case threw", false, String(e?.stack ?? e)); }
   try { mode = "degraded"; legDegraded(await dumpDom(url)); } catch (e) { check("4 degraded case threw", false, String(e?.stack ?? e)); }
 } finally {
   if (typeof server.closeAllConnections === "function") server.closeAllConnections();

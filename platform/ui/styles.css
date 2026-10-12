@@ -1,5 +1,7 @@
 /* nextgit — convergence triage UI
-   Aesthetic: near-black (#0a0e14 range), subtle 1px borders, ui-monospace accents, generous whitespace, no emoji, no heavy gradients
+   Aesthetic: near-black (#0a0e14 range), subtle 1px borders, dual type
+   (sans UI copy, ui-monospace for paths/hashes/diffs/IDs), generous
+   whitespace, no emoji, no heavy gradients
 */
 
 :root {
@@ -59,6 +61,45 @@
 
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Spacing scale — 2xs→5xl, rooted at the 13px base (DESIGN.md "spacing").
+     Values are today's literals, tokenized verbatim; every rem in the
+     component rules below is an expression of these tokens. */
+  --space-2xs: 0.1rem;
+  --space-xs: 0.15rem;
+  --space-sm: 0.25rem;
+  --space-sm-plus: 0.375rem;
+  --space-md: 0.5rem;
+  --space-md-plus: 0.625rem;
+  --space-lg: 0.75rem;
+  --space-lg-plus: 0.875rem;
+  --space-xl: 1rem;
+  --space-xl-plus: 1.125rem;
+  --space-2xl: 1.25rem;
+  --space-2xl-plus: 1.5rem;
+  --space-3xl: 2rem;
+  --space-3xl-plus: 2.5rem;
+  --space-4xl: 3rem;
+  --space-5xl: 4rem;
+
+  /* Shapes — square by default; radius only for the physical exceptions
+     (status indicators, toggle track; circles draw 50% direct). */
+  --radius: 0;
+  --radius-sm: 2px;
+  --radius-full: 999px;
+
+  /* Elevation — the only two shadows in the spine (conflict card, modal). */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  /* Motion — the only two durations in the spine. 0.15s standard, 0.12s
+     fast (card actions). Under prefers-reduced-motion the kill-switch at
+     the file foot zeroes every transition/animation, so these tokens
+     carry the normal-mode values only. Durations are pinned by
+     ui-reduced-motion.test.mjs — do not retune. */
+  --motion-fast: 0.12s;
+  --motion-std: 0.15s;
+  --motion-ease: ease;
 }
 
 /* Action banner */
@@ -66,12 +107,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 1rem;
+  padding: var(--space-md-plus) var(--space-xl);
   border: 1px solid var(--border-default);
   font-size: 0.8125rem;
-  margin-bottom: 1.25rem;
-  gap: 1rem;
-  transition: all 0.15s ease;
+  margin-bottom: var(--space-2xl);
+  gap: var(--space-xl);
+  transition: all var(--motion-std) var(--motion-ease);
 }
 .action-banner[hidden] {
   display: none;
@@ -94,7 +135,7 @@
 .action-banner-content {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-lg);
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -105,13 +146,13 @@
   font-weight: 600;
   font-family: var(--font-mono);
   color: var(--text-primary);
-  padding: 0.1rem 0.35rem;
+  padding: var(--space-2xs) 0.35rem;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
 }
 .action-banner-msg .action-hint {
   color: var(--text-secondary);
-  margin-left: 0.5rem;
+  margin-left: var(--space-md);
 }
 .action-banner-close {
   background: transparent;
@@ -137,17 +178,37 @@ html, body {
   min-height: 100vh;
   background-color: var(--bg-app);
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Machine tokens render mono under the dual-typography regime:
+   paths, hashes, diffs, and merge panes stay monospace; all
+   other copy (brand, titles, chips, badges, banners, empty
+   states, footer) inherits the sans root; the nine control
+   affordances (.action-banner-close, .connection-banner-action,
+   .btn-refresh, .btn-tour-header, .btn-tour-help, .btn-card-action,
+   .btn-file-diff, .btn-reveal, .btn-close-modal) keep an explicit
+   mono declaration — a deliberate instrument aesthetic, preserved
+   value-for-value. */
+.commit-sha,
+.file-path,
+.merge-file-tab,
+.diff-viewer,
+.diff-line,
+.merge-pane,
+.reveal-value,
+.ref-spec .val {
+  font-family: var(--font-mono);
 }
 
 /* App container */
 .app-container {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 1.5rem 2rem 4rem;
+  padding: var(--space-2xl-plus) var(--space-3xl) var(--space-5xl);
 }
 
 /* Connection banner */
@@ -155,12 +216,12 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 1rem;
+  padding: var(--space-md-plus) var(--space-xl);
   background-color: var(--status-red-bg);
   border: 1px solid var(--status-red-border);
   color: var(--status-red);
   font-size: 0.8125rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--space-2xl);
 }
 .connection-banner[hidden] {
   display: none;
@@ -181,21 +242,21 @@ html, body {
 /* Header */
 .app-header {
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 1.25rem;
-  margin-bottom: 1.25rem;
+  padding-bottom: var(--space-2xl);
+  margin-bottom: var(--space-2xl);
 }
 .header-top {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 0.875rem;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-lg-plus);
 }
 .brand-group {
   display: flex;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: var(--space-lg);
 }
 .brand-title {
   font-size: 1.125rem;
@@ -206,7 +267,7 @@ html, body {
 .brand-title .sep {
   color: var(--text-muted);
   font-weight: 400;
-  margin: 0 0.15rem;
+  margin: 0 var(--space-xs);
 }
 .brand-subtitle {
   color: var(--text-secondary);
@@ -216,7 +277,7 @@ html, body {
 .ref-spec {
   color: var(--text-muted);
   font-size: 0.8125rem;
-  padding: 0.15rem 0.5rem;
+  padding: var(--space-xs) var(--space-md);
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
 }
@@ -227,12 +288,12 @@ html, body {
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 0.875rem;
+  gap: var(--space-lg-plus);
 }
 .toggle-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-md);
   color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
@@ -244,10 +305,10 @@ html, body {
   height: 1.125rem;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-default);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   position: relative;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background var(--motion-std) var(--motion-ease), border-color var(--motion-std) var(--motion-ease);
 }
 .toggle-input::after {
   content: "";
@@ -258,7 +319,7 @@ html, body {
   height: 0.875rem;
   background: var(--text-muted);
   border-radius: 50%;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform var(--motion-std) var(--motion-ease), background var(--motion-std) var(--motion-ease);
 }
 .toggle-input:checked {
   background: var(--status-green-bg);
@@ -273,11 +334,11 @@ html, body {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   color: var(--text-primary);
-  padding: 0.3rem 0.75rem;
+  padding: 0.3rem var(--space-lg);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background var(--motion-std) var(--motion-ease), border-color var(--motion-std) var(--motion-ease);
 }
 .btn-refresh:hover {
   background: var(--bg-surface-elevated);
@@ -294,13 +355,13 @@ html, body {
   background: var(--accent-blue-bg);
   border: 1px solid var(--accent-blue-border);
   color: var(--accent-blue);
-  padding: 0.3rem 0.75rem;
+  padding: 0.3rem var(--space-lg);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   text-decoration: none;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background var(--motion-std) var(--motion-ease), border-color var(--motion-std) var(--motion-ease), color var(--motion-std) var(--motion-ease);
 }
 .btn-tour-header:hover {
   background: rgba(88, 166, 255, 0.2);
@@ -323,7 +384,7 @@ html, body {
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--motion-std) var(--motion-ease);
 }
 .btn-tour-help:hover {
   background: var(--bg-surface-elevated);
@@ -336,18 +397,18 @@ html, body {
 .header-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-md);
 }
 .summary-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.625rem;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md-plus);
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   font-size: 0.75rem;
   min-height: 28px;
-  transition: all 0.15s ease;
+  transition: all var(--motion-std) var(--motion-ease);
 }
 .summary-chip .chip-label {
   color: var(--text-muted);
@@ -387,10 +448,10 @@ html, body {
   align-items: center;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  padding: 0.35rem 0.75rem;
-  margin-bottom: 1.25rem;
+  padding: 0.35rem var(--space-lg);
+  margin-bottom: var(--space-2xl);
   overflow: hidden;
-  gap: 0.75rem;
+  gap: var(--space-lg);
 }
 .ticker-label {
   font-size: 0.6875rem;
@@ -418,7 +479,7 @@ html, body {
 .ticker-events {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-xl);
   overflow-x: auto;
   white-space: nowrap;
   scrollbar-width: none;
@@ -437,7 +498,7 @@ html, body {
 .ticker-event .event-type {
   color: var(--accent-blue);
   background: var(--accent-blue-bg);
-  padding: 0.1rem 0.35rem;
+  padding: var(--space-2xs) 0.35rem;
   font-size: 0.6875rem;
 }
 .ticker-event .event-repo {
@@ -457,7 +518,7 @@ html, body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 0.875rem;
+  margin-bottom: var(--space-lg-plus);
 }
 .section-title {
   font-size: 0.8125rem;
@@ -473,21 +534,21 @@ html, body {
 
 /* Conflict panel */
 .conflicts-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-3xl);
 }
 .conflicts-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-lg);
 }
 .conflict-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-default);
-  padding: 1rem 1.125rem;
+  padding: var(--space-xl) var(--space-xl-plus);
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  gap: var(--space-md-plus);
+  box-shadow: var(--shadow-card);
 }
 .conflict-card.severity-red {
   border-left: 4px solid var(--status-red);
@@ -506,7 +567,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-md);
 }
 .conflict-file {
   font-weight: 600;
@@ -515,12 +576,12 @@ html, body {
 .conflict-badge-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-md);
 }
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.15rem 0.5rem;
+  padding: var(--space-xs) var(--space-md);
   font-size: 0.6875rem;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
@@ -561,25 +622,25 @@ html, body {
 .conflict-repos-involved .repo-tag {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
-  padding: 0.1rem 0.4rem;
+  padding: var(--space-2xs) 0.4rem;
   color: var(--text-primary);
 }
 
 .conflict-pairs {
   background-color: var(--bg-inset);
   border: 1px solid var(--border-subtle);
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-md) var(--space-lg);
   font-size: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--space-sm-plus);
 }
 .conflict-pair-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-md);
   color: var(--text-secondary);
 }
 .pair-endpoints {
@@ -592,21 +653,21 @@ html, body {
 
 /* Proposals grid */
 .proposals-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-3xl);
 }
 .proposals-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
-  gap: 1.25rem;
+  gap: var(--space-2xl);
 }
 .proposal-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  padding: 1rem 1.125rem;
+  padding: var(--space-xl) var(--space-xl-plus);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  transition: border-color 0.15s ease, opacity 0.15s ease;
+  gap: var(--space-lg);
+  transition: border-color var(--motion-std) var(--motion-ease), opacity var(--motion-std) var(--motion-ease);
 }
 .proposal-card:hover {
   border-color: var(--border-default);
@@ -632,9 +693,9 @@ html, body {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-md);
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 0.5rem;
+  padding-bottom: var(--space-md);
 }
 .proposal-repo-title {
   font-size: 0.875rem;
@@ -645,7 +706,7 @@ html, body {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-md);
 }
 .proposal-badges .chip-label {
   color: var(--text-muted);
@@ -660,7 +721,7 @@ html, body {
 .proposal-actions {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--space-sm-plus);
   flex-wrap: wrap;
 }
 .btn-card-action {
@@ -669,9 +730,9 @@ html, body {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-sm) var(--space-md);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: all var(--motion-fast) var(--motion-ease);
   line-height: 1.2;
 }
 .btn-card-action:hover:not(:disabled) {
@@ -715,7 +776,7 @@ html, body {
 .proposal-intent {
   background: var(--bg-surface);
   border-left: 2px solid var(--accent-blue);
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-md) var(--space-lg);
   color: var(--text-primary);
   font-size: 0.8125rem;
   font-style: normal;
@@ -734,7 +795,7 @@ html, body {
 
 .proposal-stats {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-lg);
   color: var(--text-muted);
   font-size: 0.6875rem;
 }
@@ -746,7 +807,7 @@ html, body {
 .stat-item.deletions .stat-num { color: var(--diff-del-text); }
 
 .landed-banner {
-  padding: 0.75rem 1rem;
+  padding: var(--space-lg) var(--space-xl);
   background-color: var(--bg-inset);
   border: 1px dashed var(--border-subtle);
   color: var(--text-secondary);
@@ -754,7 +815,7 @@ html, body {
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-sm);
 }
 .landed-banner .landed-status {
   color: var(--text-secondary);
@@ -764,7 +825,7 @@ html, body {
 .proposal-files-list {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--space-sm-plus);
 }
 .file-row {
   display: flex;
@@ -772,14 +833,14 @@ html, body {
   justify-content: space-between;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  padding: 0.375rem 0.625rem;
+  padding: var(--space-sm-plus) var(--space-md-plus);
   font-size: 0.75rem;
-  gap: 0.5rem;
+  gap: var(--space-md);
 }
 .file-path-col {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-md);
   min-width: 0;
   flex: 1;
 }
@@ -792,7 +853,7 @@ html, body {
 .file-status-indicator {
   font-size: 0.625rem;
   padding: 0.05rem 0.3rem;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 .file-status-indicator.status-added {
@@ -811,7 +872,7 @@ html, body {
 .file-actions-col {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-md);
   flex-shrink: 0;
 }
 .file-counts {
@@ -826,7 +887,7 @@ html, body {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  padding: 0.15rem 0.45rem;
+  padding: var(--space-xs) 0.45rem;
   cursor: pointer;
 }
 .btn-file-diff:hover {
@@ -838,7 +899,7 @@ html, body {
 .secret-keys-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: var(--space-sm);
 }
 .secret-key-tag {
   background: rgba(210, 153, 34, 0.12);
@@ -857,7 +918,7 @@ html, body {
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0.5rem 1rem;
+  padding: var(--space-md) var(--space-xl);
   font-size: 0.75rem;
   font-family: var(--font-mono);
   color: var(--accent-blue);
@@ -875,8 +936,8 @@ html, body {
   outline-offset: 2px;
 }
 .reveal-value {
-  margin-top: 1rem;
-  padding: 0.75rem;
+  margin-top: var(--space-xl);
+  padding: var(--space-lg);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--text-primary);
@@ -902,7 +963,7 @@ html, body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1.5rem;
+  padding: var(--space-2xl-plus);
 }
 .modal-backdrop[hidden] {
   display: none;
@@ -915,20 +976,20 @@ html, body {
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-modal);
 }
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.875rem 1.25rem;
+  padding: var(--space-lg-plus) var(--space-2xl);
   border-bottom: 1px solid var(--border-subtle);
   background-color: var(--bg-surface-elevated);
 }
 .modal-title-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-lg);
   min-width: 0;
 }
 .modal-title {
@@ -954,7 +1015,7 @@ html, body {
 }
 
 .modal-body {
-  padding: 1.25rem;
+  padding: var(--space-2xl);
   overflow-y: auto;
   flex: 1;
 }
@@ -969,7 +1030,7 @@ html, body {
 }
 .diff-line {
   display: flex;
-  padding: 0 0.5rem;
+  padding: 0 var(--space-md);
   white-space: pre;
 }
 .diff-line.line-add {
@@ -988,7 +1049,7 @@ html, body {
   color: var(--text-muted);
 }
 .diff-placeholder {
-  padding: 2rem;
+  padding: var(--space-3xl);
   text-align: center;
   color: var(--text-secondary);
   font-style: italic;
@@ -999,15 +1060,15 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-lg);
 }
 .merge-files-tabs {
   display: flex;
-  gap: 0.25rem;
-  margin-bottom: 0.75rem;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
   overflow-x: auto;
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 0.25rem;
+  padding-bottom: var(--space-sm);
 }
 .merge-file-tab {
   background: transparent;
@@ -1015,7 +1076,7 @@ html, body {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-sm) var(--space-md);
   cursor: pointer;
 }
 .merge-file-tab.active {
@@ -1026,7 +1087,7 @@ html, body {
 .merge-pane {
   background-color: var(--bg-inset);
   border: 1px solid var(--border-subtle);
-  padding: 0.75rem 1rem;
+  padding: var(--space-lg) var(--space-xl);
   font-size: 0.75rem;
   line-height: 1.45;
   white-space: pre;
@@ -1040,7 +1101,7 @@ html, body {
 
 /* Empty states */
 .empty-state {
-  padding: 2.5rem 1rem;
+  padding: var(--space-3xl-plus) var(--space-xl);
   text-align: center;
   border: 1px dashed var(--border-subtle);
   background-color: var(--bg-surface);
@@ -1049,7 +1110,7 @@ html, body {
 .empty-state-title {
   color: var(--text-secondary);
   font-size: 0.875rem;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-sm);
 }
 .empty-state-desc {
   font-size: 0.75rem;
@@ -1064,8 +1125,8 @@ html, body {
 
 /* Footer info */
 .app-footer {
-  margin-top: 3rem;
-  padding-top: 1rem;
+  margin-top: var(--space-4xl);
+  padding-top: var(--space-xl);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: space-between;
