@@ -164,11 +164,17 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - `artifactRef` — optional non-empty string (≤512 chars): the evidence-artifact reference.
   - Self-attested: the server verifies content identity (`testedSha` vs the fold that lands), not execution.
   - Shape violations → `400 {ok:false, error:"bad-request"}` (same bucket and precedence as `reviewed`). The reserved check name `merged-sha-equals-tested-sha` must not appear in `checks`.
-- Auto-land gate (AD-11 / FR-26) — **engaged** (the injection-testing spike
-  passed and the question set is contract-pinned:
-  `porting/calibration/judge-v1/calibration-record.json`). When engaged, the
-  gate consults the same pinned question set the cards render (`setId: "v1"`)
-  for the requested `repos` **before** any fold-derived work:
+- Auto-land gate (AD-11 / FR-26) — **record-gated and OFF
+  by default** (`AUTO_LAND_ENGAGED=false` in
+  `platform/src/autoland.ts`). Engagement requires the
+  calibration record to pass
+  `porting/calibration/engagement-check.mjs` (which runs
+  `record-check.mjs`). While unengaged, `/land` makes **no
+  judge call** (zero AI binding use) and behaves exactly as
+  the pre-gate route (the `autoLand` evidence key is absent).
+  When engaged, the gate consults the same pinned question
+  set the cards render (`setId: "v1"`) for the requested
+  `repos` **before** any fold-derived work:
   - `ESCALATE` — any judgment carries a ship-blocking signal (`risk.label =
     senior-security`, a corroborated `intent.verdict = contradicts`, or
     `collision = true`) => `409 {ok:false, error:"autoland-escalate", verdict,
@@ -179,10 +185,20 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
     `evidence.autoLand = {setId, verdict, blocking[]}` (and the `200` body
     carries the same `evidence`), served verbatim by `GET /landings/{commit}`.
     Clients render the verdict; they never decide it.
+  - **Non-model corroboration interlock:** a favorable judge verdict
+    (`ACT`/`CONFIRM`) alone never auto-lands — the non-model corroborating
+    signal (fold status `clean` + an empty conflict map from `computeMerge`)
+    must also be clean. A non-empty conflict map or an unclean fold status
+    => `409 {ok:false, error:"autoland-blocked", verdict, setId, foldStatus,
+    conflicted[]}` (nothing folded or pushed), regardless of the judge's
+    answers.
   - **Fail closed:** when the judge cannot answer (no `AI` binding, a thrown
     run, a response off the pinned schema, a wrong model echo, or nothing to
     ask) => `503 {ok:false, error:"judge-unavailable"}` — the same envelope as
     `POST /judge`, nothing folded or pushed.
+  - **`gate` is not a client-supplied field** — engagement is server-side and
+    record-gated; a body carrying `gate` => `400 {ok:false, error:"bad-request"}`
+    (same bucket and precedence as `reviewed`/`validation`).
 - Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (the concurrent double-land loser path; a push rejected because the ref moved is reported as `base-moved` too). Nothing is pushed.
 - `200` carries `evidence` in addition to `landed` — the landing record (AD-3/FR-18); the returned `commit` is the evidence reference:
 
@@ -205,7 +221,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
-- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` (the auto-land gate) → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
+- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` / `409 autoland-blocked` (the auto-land gate, engaged posture only) → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
 ## GET /landings/{commit}

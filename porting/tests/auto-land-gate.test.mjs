@@ -20,7 +20,8 @@ import os from "node:os";
 
 
 import worker from "../../platform/src/index.ts";
-import { AUTO_LAND_ENGAGED, AUTO_LAND_SET_ID, buildJudgeRequest, deriveAutoLandVerdict, validateJudgeResponse } from "../../platform/src/judge.ts";
+import { AUTO_LAND_SET_ID, buildJudgeRequest, deriveAutoLandVerdict, validateJudgeResponse } from "../../platform/src/judge.ts";
+import { AUTO_LAND_ENGAGED, autoLandEligible, hasCleanCorroboratingSignal } from "../../platform/src/autoland.ts";
 
 let fails = 0;
 const check = (name, ok, detail = "") => {
@@ -393,8 +394,7 @@ async function readLanding(env, commit) {
 
 // ---------------------------------------------------------------------------
 // 0. Engagement is pinned (real construction)
-// ---------------------------------------------------------------------------
-check("0a AUTO_LAND_ENGAGED is true", AUTO_LAND_ENGAGED === true, String(AUTO_LAND_ENGAGED));
+check("0a AUTO_LAND_ENGAGED is false (off by default)", AUTO_LAND_ENGAGED === false, String(AUTO_LAND_ENGAGED));
 check("0b AUTO_LAND_SET_ID is v1", AUTO_LAND_SET_ID === "v1", String(AUTO_LAND_SET_ID));
 
 // deriveAutoLandVerdict — the pure policy, exercised directly.
@@ -429,271 +429,129 @@ check("0b AUTO_LAND_SET_ID is v1", AUTO_LAND_SET_ID === "v1", String(AUTO_LAND_S
 }
 
 // ---------------------------------------------------------------------------
-// 1. ACT — safe proposal lands itself, no client-side decision
+// 1. Unengaged /land works with the AI binding ABSENT (acceptance a).
+// The engagement switch is off: NO judge call is made (there is no
+// binding to call — zero AI surface use), the land runs the
+// pre-gate path (clone, fold, commit, push) for real, and the
+// evidence carries NO autoLand key (byte-identical to the pre-gate
+// 12-key shape).
 // ---------------------------------------------------------------------------
 {
-  const { ai, calls, set } = makeAI();
-  set(clefReply(actAnswers()));
-  const { g, env } = await makeEnvironmentAsync(ai);
+  const { g, env } = await makeEnvironmentAsync(undefined);
   const before = gitServerMain(g);
   const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-  check("1a status 200", r.status === 200, `got ${r.status} ${JSON.stringify(r.body)}`);
+  check("1a status 200 (unengaged, AI binding absent)", r.status === 200, `got ${r.status} ${JSON.stringify(r.body)}`);
   check("1b body.ok", r.body?.ok === true, JSON.stringify(r.body));
-  check("1c evidence.autoLand.verdict === act", r.body?.evidence?.autoLand?.verdict === "act", JSON.stringify(r.body?.evidence?.autoLand));
-  check("1d evidence.autoLand.setId === v1", r.body?.evidence?.autoLand?.setId === "v1", JSON.stringify(r.body?.evidence?.autoLand));
-  check("1e evidence.autoLand.blocking deep-equals []", deepEqual(r.body?.evidence?.autoLand?.blocking, []), JSON.stringify(r.body?.evidence?.autoLand));
-  check("1f exactly one AI.run call", calls.length === 1, `got ${calls.length}`);
-  check("1g model is @cf/cloudflare/clef", calls[0]?.model === "@cf/cloudflare/clef", String(calls[0]?.model));
+  check("1c autoLand key ABSENT from evidence", !("autoLand" in (r.body?.evidence ?? {})), JSON.stringify(Object.keys(r.body?.evidence ?? {})));
   // the land really happened: the served bare repo advanced past the base
   const after = gitServerMain(g);
-  check("1h base ref advanced (real push)", after !== before, `before ${before} after ${after}`);
-  check("1i landed commit is the new base tip", r.body?.landed?.commit === after, `landed ${r.body?.landed?.commit} tip ${after}`);
-  check("1j one token minted (the land's write token)", env.ARTIFACTS._fixture.tokenMints() === 1, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
+  check("1d base ref advanced (real push)", after !== before, `before ${before} after ${after}`);
+  check("1e landed commit is the new base tip", r.body?.landed?.commit === after, `landed ${r.body?.landed?.commit} tip ${after}`);
+  check("1f evidence is the pre-gate 12-key shape", Object.keys(r.body?.evidence ?? {}).length === 12, JSON.stringify(Object.keys(r.body?.evidence ?? {})));
+  check("1g one token minted (the land's write token)", env.ARTIFACTS._fixture.tokenMints() === 1, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
 }
 
 // ---------------------------------------------------------------------------
-// 2. CONFIRM — cautious proposal lands, verdict recorded
+// 1b. Unengaged refusals — the pre-gate refusal legs (withheld-secret
+// 409 / content-detected-secret 409 / conflict 409 / no-changes 409 /
+// base-moved 409) re-run with AI: undefined and assert zero AI use +
+// autoLand absent — byte-identical behavior while unengaged.
 // ---------------------------------------------------------------------------
 {
-  const { ai, calls, set } = makeAI();
-  set(clefReply({
-    risk_1: { type: "score", score: 1.2 }, // focused
-    intent_1: { type: "choice", choice: "supports" },
-    overclaim_1: { type: "noul", noul: 0.1 },
-    content_secret_1: { type: "noul", noul: 0.0 },
-  }));
-  const { g, env } = await makeEnvironmentAsync(ai);
+  // withheld-secret: agent-4 is the all-secret fixture — the fold
+  // refuses 409 withheld-secret before anything else.
+  const { g, env } = await makeEnvironmentAsync(undefined);
   const before = gitServerMain(g);
-  const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-  check("2a status 200", r.status === 200, `got ${r.status} ${JSON.stringify(r.body)}`);
-  check("2b evidence.autoLand.verdict === confirm", r.body?.evidence?.autoLand?.verdict === "confirm", JSON.stringify(r.body?.evidence?.autoLand));
-  const after = gitServerMain(g);
-  check("2c land succeeded (ref advanced)", after !== before, `before ${before} after ${after}`);
+  const r = await land(env, { base: "demo", repos: ["agent-4"], ref: "main", baseRef: "main" });
+  check("1b-1 withheld-secret 409 (AI absent)", r.status === 409 && r.body?.error === "withheld-secret", `got ${r.status} ${JSON.stringify(r.body)}`);
+  check("1b-2 autoLand absent", !("autoLand" in (r.body ?? {})), JSON.stringify(Object.keys(r.body ?? {})));
+  check("1b-3 base ref unchanged", gitServerMain(g) === before);
+  check("1b-4 zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
+  // no-changes: agent-3 folds nothing onto the base.
+  const e2 = await makeEnvironmentAsync(undefined);
+  const r2 = await land(e2.env, { base: "demo", repos: ["agent-3"], ref: "main", baseRef: "main" });
+  check("1b-5 no-changes 409 (AI absent)", r2.status === 409 && r2.body?.error === "no-changes", `got ${r2.status} ${JSON.stringify(r2.body)}`);
+  check("1b-6 autoLand absent", !("autoLand" in (r2.body ?? {})), JSON.stringify(Object.keys(r2.body ?? {})));
+  // conflict: agent-1 + agent-collide collide on src/a.ts.
+  const e3 = await makeEnvironmentAsync(undefined);
+  const before3 = gitServerMain(e3.g);                       // capture BEFORE the land (e3 env)
+  const r3 = await land(e3.env, { base: "demo", repos: ["agent-1", "agent-collide"], ref: "main", baseRef: "main" });
+  check("1b-7 conflict 409 (AI absent)", r3.status === 409 && r3.body?.error === "conflict", `got ${r3.status} ${JSON.stringify(r3.body)}`);
+  check("1b-8 autoLand absent", !("autoLand" in (r3.body ?? {})), JSON.stringify(Object.keys(r3.body ?? {})));
+  check("1b-9 conflicted carries a.js", Array.isArray(r3.body?.conflicted) && r3.body.conflicted.includes("src/a.ts"), JSON.stringify(r3.body?.conflicted));
+  check("1b-10 base ref unchanged", gitServerMain(e3.g) === before3);   // real before/after compare
+  check("1b-11 zero tokens minted", e3.env.ARTIFACTS._fixture.tokenMints() === 0, `got ${e3.env.ARTIFACTS._fixture.tokenMints()}`);
 }
 
 // ---------------------------------------------------------------------------
-// 3. ESCALATE — ship-blocking proposal refused, nothing pushed
+// 1c. Client-supplied gate flag rejected (acceptance d): a body
+// carrying `gate` (true, false, or a string form) is a 400
+// bad-request — engagement is server-side and record-gated, never
+// a client field. Zero AI use; base ref unchanged.
 // ---------------------------------------------------------------------------
 {
-  const cases = [
-    {
-      name: "3a senior-security risk",
-      answers: {
-        risk_1: { type: "score", score: 1.9 },
-        intent_1: { type: "choice", choice: "supports" },
-        overclaim_1: { type: "noul", noul: 0.1 },
-        content_secret_1: { type: "noul", noul: 0.0 },
-      },
-      expectBlocking: (b) => b.includes("risk:senior-security:agent-1"),
-    },
-    {
-      name: "3b corroborated contradicts intent",
-      answers: {
-        risk_1: { type: "score", score: 0.4 },
-        intent_1: { type: "choice", choice: "contradicts", probabilities: { contradicts: 0.9, supports: 0.05 } },
-        overclaim_1: { type: "noul", noul: 0.8 },
-        content_secret_1: { type: "noul", noul: 0.0 },
-      },
-      expectBlocking: (b) => b.includes("intent:contradicts:agent-1"),
-    },
-    {
-      name: "3c collision noul",
-      // collision is only asked for >= 2 repos; land agent-1 + agent-collide
-      repos: ["agent-1", "agent-collide"],
-      answers: {
-        risk_1: { type: "score", score: 0.4 },
-        intent_1: { type: "choice", choice: "supports" },
-        overclaim_1: { type: "noul", noul: 0.1 },
-        collision_1: { type: "noul", noul: 0.9 },
-        content_secret_1: { type: "noul", noul: 0.0 },
-        risk_2: { type: "score", score: 0.4 },
-        intent_2: { type: "choice", choice: "supports" },
-        overclaim_2: { type: "noul", noul: 0.1 },
-        collision_2: { type: "noul", noul: 0.1 },
-        content_secret_2: { type: "noul", noul: 0.0 },
-      },
-      expectBlocking: (b) => b.includes("collision:agent-1"),
-    },
-  ];
-  for (const c of cases) {
-    const { ai, calls, set } = makeAI();
-    set(clefReply(c.answers));
+  for (const gateValue of [true, false, "engaged"]) {
+    const { ai, calls } = makeAI();
     const { g, env } = await makeEnvironmentAsync(ai);
     const before = gitServerMain(g);
-    const repos = c.repos ?? ["agent-1"];
-    const r = await land(env, { base: "demo", repos, ref: "main", baseRef: "main" });
-    check(`${c.name} status 409`, r.status === 409, `got ${r.status} ${JSON.stringify(r.body)}`);
-    check(`${c.name} error autoland-escalate`, r.body?.error === "autoland-escalate", JSON.stringify(r.body));
-    check(`${c.name} verdict escalate`, r.body?.verdict === "escalate", JSON.stringify(r.body));
-    check(`${c.name} setId v1`, r.body?.setId === "v1", JSON.stringify(r.body));
-    check(`${c.name} blocking carries the reason code`, c.expectBlocking(r.body?.blocking ?? []), JSON.stringify(r.body?.blocking));
-    check(`${c.name} blocking is code-owned (no model prose)`, (r.body?.blocking ?? []).every((s) => /^(risk:(senior-security|focused|routine)|intent:(contradicts|supports|insufficient)|collision):agent-[0-9a-z.-]+$/.test(s)), JSON.stringify(r.body?.blocking));
-    // nothing pushed: the served bare repo did not move
-    const after = gitServerMain(g);
-    check(`${c.name} base ref unchanged`, after === before, `before ${before} after ${after}`);
-    // zero tokens minted: the refusal fires before any fold-derived work
-    check(`${c.name} zero tokens minted`, env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-    // the gate still consulted the model exactly once
-    check(`${c.name} one AI.run call`, calls.length === 1, `got ${calls.length}`);
+    const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main", gate: gateValue });
+    check(`1c error bad-request (gate=${JSON.stringify(gateValue)})`, r.body?.ok === false && /gate is not a client-supplied field/.test(r.body?.error ?? ""), JSON.stringify(r.body));
+    check(`1c zero AI.run calls (gate=${JSON.stringify(gateValue)})`, calls.length === 0, `got ${calls.length}`);
+    check(`1c base ref unchanged (gate=${JSON.stringify(gateValue)})`, gitServerMain(g) === before);
+    check(`1c zero tokens minted (gate=${JSON.stringify(gateValue)})`, env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
   }
 }
 
 // ---------------------------------------------------------------------------
-// 4. Fail closed — judge unavailable (the acceptance check)
+// 2. Eligibility + corroboration predicates (pure policy — the
+// engaged-posture ROUTE legs moved to autoland-engaged.test.mjs;
+// the constant-independent policy stays here).
 // ---------------------------------------------------------------------------
 {
-  // (a) env with no AI binding
-  {
-    const { g, env } = await makeEnvironmentAsync({ async run() { throw new Error("unreachable"); } });
-    const noAiEnv = { ...env };
-    delete noAiEnv.AI;
-    const before = gitServerMain(g);
-    const r = await land(noAiEnv, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-    check("4a no-AI status 503", r.status === 503, `got ${r.status} ${JSON.stringify(r.body)}`);
-    check("4a error judge-unavailable", r.body?.error === "judge-unavailable" && r.body?.ok === false, JSON.stringify(r.body));
-    check("4a base ref unchanged", gitServerMain(g) === before);
-    check("4a zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-  }
-  // (b) env.AI.run throws
-  {
-    const { ai, setError } = makeAI();
-    setError(new Error("model down"));
-    const { g, env } = await makeEnvironmentAsync(ai);
-    const before = gitServerMain(g);
-    const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-    check("4b thrown run status 503", r.status === 503, `got ${r.status} ${JSON.stringify(r.body)}`);
-    check("4b error judge-unavailable", r.body?.error === "judge-unavailable", JSON.stringify(r.body));
-    check("4b base ref unchanged", gitServerMain(g) === before);
-    check("4b zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-  }
-  // (c) wrong model echo
-  {
-    const { ai, set } = makeAI();
-    set(clefReply(actAnswers(), "some-other-model"));
-    const { g, env } = await makeEnvironmentAsync(ai);
-    const before = gitServerMain(g);
-    const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-    check("4c wrong model status 503", r.status === 503, `got ${r.status} ${JSON.stringify(r.body)}`);
-    check("4c error judge-unavailable", r.body?.error === "judge-unavailable", JSON.stringify(r.body));
-    check("4c base ref unchanged", gitServerMain(g) === before);
-    check("4c zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-  }
-  // (d) off-schema answer set (missing content_secret_1)
-  {
-    const { ai, set } = makeAI();
-    const answers = actAnswers();
-    delete answers.content_secret_1;
-    set(clefReply(answers));
-    const { g, env } = await makeEnvironmentAsync(ai);
-    const before = gitServerMain(g);
-    const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-    check("4d off-schema status 503", r.status === 503, `got ${r.status} ${JSON.stringify(r.body)}`);
-    check("4d error judge-unavailable", r.body?.error === "judge-unavailable", JSON.stringify(r.body));
-    check("4d base ref unchanged", gitServerMain(g) === before);
-    check("4d zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-  }
-  // (e) all-secret repo: the deterministic withheld-secret fold
-  // refusal fires BEFORE the gate (CONTRACT precondition order:
-  // 409 withheld-secret -> 503 judge-unavailable). Nothing is
-  // asked, nothing is gated, nothing is pushed — fail closed
-  // either way, with zero model calls.
-  {
-    const { ai, calls, set } = makeAI();
-    set(clefReply(actAnswers()));
-    const { g, env } = await makeEnvironmentAsync(ai);
-    const before = gitServerMain(g);
-    const r = await land(env, { base: "demo", repos: ["agent-4"], ref: "main", baseRef: "main" });
-    check("4e all-secret status 409 (withheld-secret fires first)", r.status === 409, `got ${r.status} ${JSON.stringify(r.body)}`);
-    check("4e all-secret error withheld-secret", r.body?.error === "withheld-secret", JSON.stringify(r.body));
-    check("4e zero AI.run calls (nothing to ask)", calls.length === 0, `got ${calls.length}`);
-    check("4e base ref unchanged", gitServerMain(g) === before);
-    check("4e zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-  }
+  // Eligibility: the switch is off, so no record outcome can make
+  // the land eligible — engagement cannot ship without the switch.
+  check("2a autoLandEligible(true) is false (switch off)", autoLandEligible(true) === false, String(autoLandEligible(true)));
+  // The corroboration interlock: a clean fold (status clean, empty
+  // conflict map) passes; a seeded diff3 conflict does not.
+  const cleanMerge = { status: "clean", conflicted: [], files: [{ result: "clean" }, { result: "identical" }] };
+  check("2b hasCleanCorroboratingSignal(clean) === true", hasCleanCorroboratingSignal(cleanMerge) === true, String(hasCleanCorroboratingSignal(cleanMerge)));
+  const conflictMerge = { status: "conflict", conflicted: ["a.js"], files: [{ result: "conflict" }] };
+  check("2c hasCleanCorroboratingSignal(conflict) === false", hasCleanCorroboratingSignal(conflictMerge) === false, String(hasCleanCorroboratingSignal(conflictMerge)));
+  // An unclean fold status with an empty conflict map still blocks.
+  const uncleanMerge = { status: "conflict", conflicted: [], files: [] };
+  check("2d hasCleanCorroboratingSignal(unclean status) === false", hasCleanCorroboratingSignal(uncleanMerge) === false, String(hasCleanCorroboratingSignal(uncleanMerge)));
+  // A clean status with a non-empty conflict map still blocks.
+  const mapMerge = { status: "clean", conflicted: ["a.js"], files: [] };
+  check("2e hasCleanCorroboratingSignal(non-empty map) === false", hasCleanCorroboratingSignal(mapMerge) === false, String(hasCleanCorroboratingSignal(mapMerge)));
 }
 
 // ---------------------------------------------------------------------------
-// 5. Gate ordering — the refusal precedes fold work
+// 3. Unengaged precondition ordering — the pre-gate refusal legs that
+// do not depend on the gate: an all-secret repo is refused 409
+// withheld-secret BEFORE any gate (CONTRACT precondition order),
+// with the AI binding scripted but never consulted. (The engaged
+// ESCALATE / fail-closed / ordering / verdict-ride route legs moved
+// to autoland-engaged.test.mjs — the seam-level engaged suite.)
 // ---------------------------------------------------------------------------
-{
-  // agent-1 and agent-collide collide on src/a.ts: the fold would
-  // conflict. The gate's ESCALATE must fire FIRST (409
-  // autoland-escalate), never the fold's 409 conflict.
-  const { ai, set } = makeAI();
-  set(clefReply({
-    risk_1: { type: "score", score: 1.9 },
-    intent_1: { type: "choice", choice: "supports" },
-    overclaim_1: { type: "noul", noul: 0.1 },
-    collision_1: { type: "noul", noul: 0.9 },
-    content_secret_1: { type: "noul", noul: 0.0 },
-    risk_2: { type: "score", score: 0.4 },
-    intent_2: { type: "choice", choice: "supports" },
-    overclaim_2: { type: "noul", noul: 0.1 },
-    collision_2: { type: "noul", noul: 0.1 },
-    content_secret_2: { type: "noul", noul: 0.0 },
-  }));
-  const { g, env } = await makeEnvironmentAsync(ai);
-  const before = gitServerMain(g);
-  const r = await land(env, { base: "demo", repos: ["agent-1", "agent-collide"], ref: "main", baseRef: "main" });
-  check("5a colliding repos: status 409", r.status === 409, `got ${r.status} ${JSON.stringify(r.body)}`);
-  check("5b the 409 is autoland-escalate, not conflict", r.body?.error === "autoland-escalate", JSON.stringify(r.body));
-  check("5c no conflict key in the body", r.body?.conflicted === undefined && r.body?.detail === undefined, JSON.stringify(r.body));
-  check("5d base ref unchanged", gitServerMain(g) === before);
-  check("5e zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
-}
-
-// ---------------------------------------------------------------------------
-// 6. Verdict rides the landing record (KV-served verbatim)
-// ---------------------------------------------------------------------------
-{
-  const { ai, set } = makeAI();
-  set(clefReply(actAnswers()));
-  const { env } = await makeEnvironmentAsync(ai);
-  const r = await land(env, { base: "demo", repos: ["agent-1"], ref: "main", baseRef: "main" });
-  check("6a land status 200", r.status === 200, `got ${r.status}`);
-  const commit = r.body?.landed?.commit;
-  check("6b landed commit present", typeof commit === "string" && /^[0-9a-f]{40}$/.test(commit), String(commit));
-  const rec = await readLanding(env, commit);
-  check("6c GET /landings/{commit} status 200", rec.status === 200, `got ${rec.status} ${JSON.stringify(rec.body)}`);
-  check(
-    "6d persisted evidence.autoLand deep-equals the 200 body's",
-    deepEqual(rec.body?.evidence?.autoLand, r.body?.evidence?.autoLand),
-    JSON.stringify({ persisted: rec.body?.evidence?.autoLand, live: r.body?.evidence?.autoLand }),
-  );
-  check("6e persisted verdict is act", rec.body?.evidence?.autoLand?.verdict === "act", JSON.stringify(rec.body?.evidence?.autoLand));
-}
-
-// ---------------------------------------------------------------------------
-// 6b. Regression (heal-1 H1): ref≠baseRef — the gate must judge the
-// change-set the FOLD lands (computeMerge's baseRef), not the proposal
-// ref in the baseRef slot. Pre-fix, the gate passed `ref` into
-// computeChangeSet's baseRef slot, so a ref that resolves on the
-// proposal but NOT on the base threw `cannot resolve ref` out of the
-// gate's forkPoint→snapshot and surfaced as HTTP 500. Post-fix the
-// gate mirrors computeMerge's (env, base, baseRef, name, ref) call,
-// so the unresolvable-on-base ref is refused by the fold itself (the
-// same well-formed 409/500 refusal path the batch base exercised),
-// never a 500 from the gate. Leg A: ref = the proposal head sha
-// (a1.hash) with baseRef = main — the gate still asks exactly one
-// question set, the land still 200s, and the served bare repo
-// advances with evidence.heads.base === baseHeadNow.
 {
   const { ai, calls, set } = makeAI();
   set(clefReply(actAnswers()));
   const { g, env } = await makeEnvironmentAsync(ai);
-  // The proposal head sha (a1.hash, "c-agent-1") is a ref the
-  // fake resolves per-ref via store.history — the fixture's own
-  // resolve() seam.
-  const proposalHead = "c-agent-1";
   const before = gitServerMain(g);
-  const r = await land(env, { base: "demo", repos: ["agent-1"], baseRef: "main", ref: proposalHead });
-  check("6b-1a ref≠baseRef land status 200", r.status === 200, `got ${r.status} ${JSON.stringify(r.body)}`);
-  check("6b-1b the gate consulted the model exactly once", calls.length === 1, `got ${calls.length}`);
-  check("6b-1c the gate's question plan is the standard single-repo set", calls[0]?.inputs?.questions && Object.keys(calls[0].inputs.questions).sort().join(",") === "content_secret_1,intent_1,overclaim_1,risk_1", JSON.stringify(Object.keys(calls[0]?.inputs?.questions ?? {})));
-  const after = gitServerMain(g);
-  check("6b-1d served bare repo advanced (real push)", after !== before, `before ${before} after ${after}`);
-  check("6b-1e evidence.heads.base is the pre-land base head", typeof r.body?.evidence?.heads?.base === "string" && /^[0-9a-f]{40}$/.test(r.body?.evidence?.heads.base), JSON.stringify(r.body?.evidence?.heads));
-  check("6b-1f evidence.ancestor.agent-1 is the fork point", r.body?.evidence?.ancestor?.["agent-1"] === "c-agent-1" || typeof r.body?.evidence?.ancestor?.["agent-1"] === "string", JSON.stringify(r.body?.evidence?.ancestor));
+  const r = await land(env, { base: "demo", repos: ["agent-4"], ref: "main", baseRef: "main" });
+  check("3a all-secret status 409 (withheld-secret fires first)", r.status === 409, `got ${r.status} ${JSON.stringify(r.body)}`);
+  check("3b all-secret error withheld-secret", r.body?.error === "withheld-secret", JSON.stringify(r.body));
+  check("3c zero AI.run calls (nothing to ask)", calls.length === 0, `got ${calls.length}`);
+  check("3d base ref unchanged", gitServerMain(g) === before);
+  check("3e zero tokens minted", env.ARTIFACTS._fixture.tokenMints() === 0, `got ${env.ARTIFACTS._fixture.tokenMints()}`);
+  check("3f autoLand absent from the refusal body", !("autoLand" in r.body), JSON.stringify(Object.keys(r.body)));
 }
+
+// ---------------------------------------------------------------------------
+// 6b. Regression (heal-1 H1) — the ref≠baseRef route leg (the gate
+// judges the change-set the FOLD lands) is an engaged-posture route
+// leg: it moved to autoland-engaged.test.mjs. The constant-
+// independent seam proof (6c) stays below.
 
 // ---------------------------------------------------------------------------
 // 6c. Regression (heal-1 H2): an empty judged set must fail CLOSED.
@@ -742,7 +600,8 @@ check("0b AUTO_LAND_SET_ID is v1", AUTO_LAND_SET_ID === "v1", String(AUTO_LAND_S
 // ---------------------------------------------------------------------------
 // 7. Engagement is pinned (imported constant — real construction)
 // ---------------------------------------------------------------------------
-check("7 AUTO_LAND_ENGAGED (imported from judge.ts) is true", AUTO_LAND_ENGAGED === true, String(AUTO_LAND_ENGAGED));
+check("7 AUTO_LAND_ENGAGED (imported from autoland.ts) is false", AUTO_LAND_ENGAGED === false, String(AUTO_LAND_ENGAGED));
+check("7b autoLandEligible(false) is false (record-gated)", autoLandEligible(false) === false, String(autoLandEligible(false)));
 
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);

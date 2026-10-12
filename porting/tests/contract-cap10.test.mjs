@@ -148,13 +148,14 @@ const statusSeq = (body) => {
   const i = toks.indexOf("200");
   return i >= 0 ? toks.slice(0, i + 1) : toks;
 };
-// The /land sequence carries the AD-11 auto-land gate's three codes
-// (409 content-detected-secret / 503 judge-unavailable / 409 autoland-escalate)
-// between the withheld-secret and conflict steps — that gate lives INSIDE
+// The /land sequence carries the AD-11 auto-land gate's codes
+// (409 content-detected-secret / 503 judge-unavailable / 409
+// autoland-escalate / 409 autoland-blocked) between the
+// withheld-secret and conflict steps — that gate lives INSIDE
 // POST /land only; /upstream has no model gate, so 6d compares /upstream
 // against the /land sequence MINUS the gate codes.
-const LAND_ORDER = ["400", "429", "403", "409 stale", "409 withheld-secret", "409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 conflict", "409 no-changes", "409 base-moved", "200"];
-const LAND_ONLY_GATE_CODES = new Set(["409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate"]);
+const LAND_ORDER = ["400", "429", "403", "409 stale", "409 withheld-secret", "409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 autoland-blocked", "409 conflict", "409 no-changes", "409 base-moved", "200"];
+const LAND_ONLY_GATE_CODES = new Set(["409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 autoland-blocked"]);
 const landSeq = statusSeq(landEvidenceBlock);
 const upstreamSeq = statusSeq(upstreamKeysDeclared);
 check("6a /land precondition order line present", landSeq !== null && landSeq.length > 0);

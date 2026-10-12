@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // land-hardening.probe.mjs — LIVE probe for the /land hardening (AD-3).
 // Scratch chain ONLY: REST-fork demo -> demo-lh-base -> agent-lh-1; asserts:
-//  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash,checks,results,mergedSha,testedSha,artifactRef,at}
-//      and the base remote's ref equals evidence.commit; (a-note) fetch the nextgit-notes mirror and assert the landing-decision note payload {repos,commit,foldHash,at}; (a-read) GET /landings/<evidence.commit> returns the record landed
+//  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash,checks,results,mergedSha,testedSha,artifactRef,at,lease}
+//      (the 12 pre-gate keys) plus the posture-conditional autoLand (present only while the deployed worker is engaged); and the base remote's ref equals evidence.commit; (a-note) fetch the nextgit-notes mirror and assert the landing-decision note payload {repos,commit,foldHash,at}; (a-read) GET /landings/<evidence.commit> returns the record landed
 //      in that call and GET /landings/<zeros> -> 404 not-found; (b) re-land with
 //      refreshed reviewed heads -> 409 no-changes; (c) stale reviewed heads ->
 //      409 stale (proposal-head + base-head variants); (d) four-way concurrent
@@ -222,8 +222,16 @@ try {
  const a = await land({ base: BASE_REPO, repos: [PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: H0, heads: { [PROPOSAL_REPO]: C1 } } });
  const ev = a.json?.evidence ?? {};
  check("(a) 200 ok", a.status === 200 && a.json?.ok === true);
- // autoLand rides the engaged AD-11 gate (CONTRACT v3.1): absent only when AUTO_LAND_ENGAGED=false.
- check("(a) evidence keys", exactKeys(ev, ["repos", "commit", "ancestor", "heads", "foldHash", "checks", "results", "mergedSha", "testedSha", "artifactRef", "at", "lease", "autoLand"]), JSON.stringify(Object.keys(ev)));
+ // (a) evidence keys — posture-aware (AD-11). autoLand rides the engaged
+ // AD-11 gate (CONTRACT v3.1): ABSENT while AUTO_LAND_ENGAGED=false
+ // (platform/src/autoland.ts — the deployed worker’s posture; the evidence
+ // builder omits the key, index.ts:1342). The probe runs under node (no .ts
+ // import), so posture is derived from the observed evidence: the 12 pre-gate
+ // keys always; autoLand present only when the deployed worker is engaged.
+ // exactKeys still fails on ANY key outside {12}∪{autoLand} (leak/stray).
+ const EVIDENCE_KEYS = ["repos","commit","ancestor","heads","foldHash","checks","results","mergedSha","testedSha","artifactRef","at","lease"];
+ const expectedKeys = "autoLand" in ev ? [...EVIDENCE_KEYS, "autoLand"] : EVIDENCE_KEYS;
+ check("(a) evidence keys", exactKeys(ev, expectedKeys), JSON.stringify(Object.keys(ev)));
  check("(a) evidence.repos", JSON.stringify(ev.repos) === JSON.stringify([PROPOSAL_REPO]));
  check("(a) evidence.commit === landed.commit", !!ev.commit && ev.commit === a.json?.landed?.commit);
  check("(a) ancestor = fork point H0", ev.ancestor?.[PROPOSAL_REPO] === H0, JSON.stringify(ev.ancestor));
