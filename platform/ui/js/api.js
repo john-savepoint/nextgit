@@ -56,6 +56,27 @@ export function renderPatchLines(patch) {
 }
 
 /**
+ * Demo identity — the Bearer the demo UI presents on
+ * identity-adjudicated probes (GET /whoami) and reveal
+ * calls (POST /reveal). This is an IDENTITY CARRIER,
+ * not a credential: it authorizes nothing by itself —
+ * the server re-runs REVEAL_ALLOW on every call, so a
+ * repo-scoped or absent grant still denies. Demo mode
+ * accepts any non-empty Bearer (CONTRACT §GET /whoami
+ * / §POST /reveal); never a real credential.
+ */
+export const DEMO_IDENTITY = "nextgit-demo-viewer";
+
+/**
+ * Headers carrying the demo identity. Spread into a
+ * caller's `options.headers` (fetchJson merges its own
+ * Accept header with any caller-supplied headers).
+ */
+export function demoIdentityHeaders(extra = {}) {
+ return { Authorization: `Bearer ${DEMO_IDENTITY}`, ...extra };
+}
+
+/**
  * API client with timeout
  *  - 20s default (worker cold-start after deploys exceeded the old 8s cap and left
  *    the canvas in its aborted state until a manual retry — observed 2026-10-08)

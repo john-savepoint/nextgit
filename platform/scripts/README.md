@@ -17,6 +17,7 @@ Six environment variables drive the script chain. All have sensible defaults poi
 | `CLOUDFLARE_API_TOKEN` | _(unset — falls back to wrangler OAuth)_ | Explicit API token; if unset, scripts read the wrangler OAuth config at `~/.config/.wrangler/config/default.toml` or `~/.wrangler/config/default.toml` | all |
 | `ARTIFACTS_NAMESPACE` | `nextgit` | The Artifacts namespace name | all |
 | `NEXTGIT_BASELINE` | `demo` | The baseline repo each proposal forks from | land.mjs L17 |
+| `REVEAL_ALLOW` | _(unset — default-deny, no one)_ | JSON-string Worker var: the reveal-grant list `[{id,repos?}]` consumed by `GET /whoami` + `POST /reveal` (platform worker, not a script env) |
 | `AGENTS_OUT` | `/tmp/nextgit-agents.json` | Shared fleet manifest (fork tokens + remotes) | all |
 
 Operational knobs (real-agents.mjs only):
@@ -101,6 +102,43 @@ Expected response:
 ```
 
 If any of `ok`, `service`, or `namespace` is missing or non-200, the worker is not correctly bound. Re-check `wrangler.jsonc`, run `wrangler tail`, and resolve the deploy error before continuing.
+
+### Demo reveal grant (REVEAL_ALLOW)
+
+The files page's Reveal affordance is gated by `GET /whoami`, which
+adjudicates the presented identity against the `REVEAL_ALLOW` Worker
+var. It is **unset by default = default-deny (no one)** — the
+affordance correctly renders nothing until an operator provisions a
+grant. To grant the demo viewer reveal on a repo (e.g. agent-5):
+
+```bash
+cd platform
+npx wrangler vars put REVEAL_ALLOW --json '[{"id":"nextgit-demo-viewer","repos":["agent-5"]}]'
+npx wrangler deploy
+```
+
+Rules:
+
+- `id` — the opaque Bearer the client presents. The UI's demo
+  identity is `nextgit-demo-viewer` (`DEMO_IDENTITY` in
+  `platform/ui/js/api.js`); the grant's `id` must match it.
+- `repos` — optional repo scope. Absent ⇒ the identity may reveal
+  any demo-namespace repo; present ⇒ only the listed repos. A
+  repo-scoped grant is honored per-repo: the files page re-probes
+  `GET /whoami?repo=<repo>` on every picker change, so browsing
+  into a non-granted repo renders the honest denial.
+- The `id` is an identity carrier, not a credential — the server
+  re-runs `REVEAL_ALLOW` on every `POST /reveal`, so a revoked or
+  narrowed var denies immediately. Never provision a real
+  credential as the demo `id`.
+
+Verify the grant took effect:
+
+```bash
+curl -sS -H "Authorization: Bearer nextgit-demo-viewer" \
+  "$NEXTGIT_PLATFORM/whoami?repo=agent-5" | jq .
+# -> { "ok": true, "authorized": true, "reveal": true }
+```
 
 ### R2 asset bucket lifecycle
 

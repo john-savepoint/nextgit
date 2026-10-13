@@ -1,6 +1,6 @@
 // nextgit — reveal domain (wave-13 module split
 // from app.js). Owns the elevated-reveal click handler.
-import { fetchJson, escapeHtml } from "./api.js";
+import { fetchJson, escapeHtml, demoIdentityHeaders } from "./api.js";
 import { decideSecretSurface } from "../reveal-decision.js";
 
 /**
@@ -14,7 +14,7 @@ export async function revealSecret(repo, path, keysCsv, ref = "main") {
  const valueSlot = document.getElementById("reveal-value");
  const key = keysCsv.split(",")[0];
  try {
-  const data = await fetchJson("/reveal", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ repo, ref, path, key }) });
+  const data = await fetchJson("/reveal", { method: "POST", headers: { "content-type": "application/json", ...demoIdentityHeaders() }, body: JSON.stringify({ repo, ref, path, key }) });
   if (data?.ok && typeof data.value === "string") {
    if (valueSlot) { valueSlot.hidden = false; valueSlot.setAttribute("data-reveal-decision", "revealed"); valueSlot.innerHTML = `<div class="reveal-value-line">${escapeHtml(key)} = ${escapeHtml(data.value)}</div>`; }
    return;
