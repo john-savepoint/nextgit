@@ -80,3 +80,11 @@ bd.db
 # They would override fork protection in .git/info/exclude.
 # Config files (metadata.json, config.yaml) are tracked by git by default
 # since no pattern above ignores them.
+
+# Tracked-symlink disease fix (2026-10-13): these were committed as
+# SELF-REFERENCING symlinks by an early bd init; every checkout re-materialized
+# the loop and killed the store (metadata.json -> "too many levels of symbolic
+# links"; embeddeddolt shadowing the DB directory). They are runtime files —
+# the real metadata.json is a plain JSON file, never a link.
+metadata.json
+embeddeddolt
