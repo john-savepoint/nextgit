@@ -34,6 +34,7 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  "/upstream": { limit: 20, windowMs: 60_000 },
  "/intents": { limit: 30, windowMs: 60_000 },
  "/forks": { limit: 60, windowMs: 60_000 },
+ "/agents": { limit: 60, windowMs: 60_000 },
  "/file": { limit: 60, windowMs: 60_000 },
  "/raw": { limit: 60, windowMs: 60_000 },
  // Inline review comments: the limiter is string-keyed, so the read

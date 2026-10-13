@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.4 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
+Version: v3.5 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -324,6 +324,40 @@ The Floor / Project entity (AD-14 client protocol, entity 1): one floor per name
 - `counts.busy` — always `0`; `counts.waiting` — the fleet size. Worker-lifecycle state is client-local (entity 2): the platform serves the observable fleet size, the client synthesizes busy/waiting. Split recorded in § Client protocol.
 - Demo-mode allowlist (AD-9): enforced at the `authorize()` chokepoint (the route carries no repo scope, so the mode gate alone applies).
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
+
+## GET /agents?base=demo
+
+The agent roster + policy surface (agent identity v1): every
+discovered `agent-*` repo (status `ready`), name-ordered,
+each carrying the closed projection `{repo, harness,
+capabilities, policy, lastSeenAt}`. Derived from the same
+bounced `list()` discovery seam `/floors` and `/forks` use
+(`env.ARTIFACTS.list({limit:200})`) — ZERO per-repo
+`info()` calls; `lastSeenAt` is the list entry's own
+`updatedAt`. `harness` is the repo's declared harness, read
+from the `NEXTGIT_AGENT` note on the `nextgit-notes` mirror
+(the intent-plumbing seam; `"unrecorded"` when absent — the
+typed-null posture, never a fabricated harness). No new store,
+no new binding: the roster is a projection of repos the
+platform already discovers plus the notes it already mirrors.
+
+**Response (200)**:
+
+```json
+{ "ok": true, "base": "demo", "agents": [ {"repo","harness","capabilities":["propose"],"policy":{"land","secretClass"},"lastSeenAt"} ] }
+```
+
+- `base` — the queried base repo (echo of the allowlist-validated `base` param; default `"demo"`).
+- `agents[]` — the discovered `agent-*` repos with status `ready`, name-ordered (`repo` ascending).
+- `agents[].repo` — the repo name (the agent's identity in the namespace).
+- `agents[].harness` — the declared harness (`NEXTGIT_AGENT` note, capped 128 chars) or `"unrecorded"`.
+- `agents[].capabilities` — the fixed vocabulary `["propose"]` (every agent repo in the namespace proposes; the vocabulary is platform-owned, never client-extended).
+- `agents[].policy.land` — the REAL auto-land rule surfaced as data: `"manual"` while the `AUTO_LAND_ENGAGED` interlock is off (the platform's enforced constant), `"auto-eligible"` when it is on. Read from the constant — never an aspirational field, never a request input (AD-11).
+- `agents[].policy.secretClass` — the CONTRACT masking law surfaced as data: `"refused"` — secret-class values never leave the worker on this route (they surface only through the authorized, audited `POST /reveal` seam).
+- `agents[].lastSeenAt` — the list entry's own `updatedAt` (ISO-8601), or `null` when the entry carries none.
+- Demo-mode allowlist (AD-9): `base` must match the allowlist; anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read, re-checked in the handler (the `/forks` defense-in-depth precedent).
+- Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
+- Precondition order: `400` (charset) → `403` (AD-9 defense-in-depth) → `429` → `200`.
 
 ## GET /proposals/{repo}
 
@@ -840,7 +874,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the fourteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /agents`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -852,6 +886,7 @@ Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/
 | `GET /forks` | 60 | 60 s |
 | `POST /intents` | 30 | 60 s |
 | `POST /upstream` | 20 | 60 s |
+| `GET /agents` | 60 | 60 s |
 | `GET /file` | 60 | 60 s |
 | `GET /raw/{repo}/{ref}/{path}` | 60 | 60 s |
 | `POST /comments` | 20 | 60 s |

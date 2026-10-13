@@ -300,6 +300,35 @@ async function readIntent(repo: ArtifactsRepo, ref: string, headSha: string): Pr
 }
 
 // ---------------------------------------------------------------------------
+// Agent identity — the harness a repo declares as its agent.
+// ---------------------------------------------------------------------------
+
+/** Harness note cap — the NEXTGIT_AGENT note is agent-declared text (AD-4). */
+const MAX_AGENT_HARNESS_CHARS = 128;
+
+/**
+ * Read the repo's declared harness from the `nextgit-notes` mirror:
+ * the note whose path ends `/NEXTGIT_AGENT`. Unrecorded (no note,
+ * unreadable notes tree) → "unrecorded" — the roster's typed-null
+ * posture, never a fabricated harness. Best-effort like readIntent:
+ * a note read failure degrades to "unrecorded", never fails the roster.
+ */
+async function readAgentHarness(repo: ArtifactsRepo): Promise<string> {
+ try {
+  const notes = await readNotes(repo);
+  const hash = Array.from(notes).find(([p]) => p.endsWith("/NEXTGIT_AGENT"))?.[1];
+  if (!hash) return "unrecorded";
+  const blob = await repo.readBlob(hash);
+  if (!blob) return "unrecorded";
+  const text = (await blob.text()).trim();
+  if (!text) return "unrecorded";
+  return text.slice(0, MAX_AGENT_HARNESS_CHARS);
+ } catch {
+  return "unrecorded"; // harness is best-effort — never fail the roster on it
+ }
+}
+
+// ---------------------------------------------------------------------------
 // Secret classes (CONTRACT masking law) — values must never leave the worker.
 // ---------------------------------------------------------------------------
 
@@ -2689,6 +2718,71 @@ async function handleForks(request: Request, env: Env): Promise<Response> {
  return Response.json({ ok: true, base, forks });
 }
 // ---------------------------------------------------------------------------
+// GET /agents — the agent roster + policy surface: the discovered
+// `agent-*` repos (status ready), name-ordered, each with its
+// closed projection {repo, harness, capabilities, policy, lastSeenAt}.
+// One bounded `list()` discovery run (the /floors and /forks
+// precedent) — ZERO per-repo `info()` calls; `lastSeenAt` is the
+// list entry's own `updatedAt`. `harness` is the `NEXTGIT_AGENT`
+// note on the `nextgit-notes` mirror ("unrecorded" when absent —
+// the typed-null posture); `capabilities` is the fixed `["propose"]`
+// (every agent repo in the namespace proposes); `policy` reads the
+// platform's REAL enforced rules as data — `land` from the
+// `AUTO_LAND_ENGAGED` constant (`"manual"` while the interlock is
+// off) and `secretClass` from the CONTRACT masking law
+// (`"refused"` — secret values never leave the worker). Read-only,
+// credential-free (NFR-6). Precondition order: 400 (charset) →
+// 403 (AD-9 defense-in-depth) → 429 → 200.
+// ---------------------------------------------------------------------------
+async function handleAgents(request: Request, env: Env): Promise<Response> {
+ const { base } = resolveRouteBase({ base: new URL(request.url).searchParams.get("base") ?? undefined });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ // Demo allowlist (AD-9) defense-in-depth: the dispatcher's
+ // extractScope already adjudicates the query-carried base, but
+ // the handler re-checks before any repo read (the /forks
+ // precedent).
+ if (!DEMO_REPO_RE.test(base)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const rateDenied = rateGate("/agents", request);
+ if (rateDenied) return rateDenied;
+
+ // Roster discovery: the same bounded list() seam /floors and
+ // /forks use (agent-* repos, status ready). Per-candidate
+ // fail-closed: a repo whose harness note cannot be read still
+ // serves the row with harness "unrecorded" (readAgentHarness's
+ // own best-effort law) — never skipped, never fails the roster.
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const agents: Array<{
+  repo: string;
+  harness: string;
+  capabilities: string[];
+  policy: { land: string; secretClass: string };
+  lastSeenAt: string | null;
+ }> = [];
+ for (const entry of list.repos) {
+  if (!entry.name.startsWith("agent-") || entry.status !== "ready") continue;
+  const repo = await env.ARTIFACTS.get(entry.name).catch(() => null);
+  const harness = repo ? await readAgentHarness(repo) : "unrecorded";
+  agents.push({
+   repo: entry.name,
+   harness,
+   capabilities: ["propose"],
+   policy: { land: AUTO_LAND_ENGAGED ? "auto-eligible" : "manual", secretClass: "refused" },
+   lastSeenAt: typeof entry.updatedAt === "string" ? entry.updatedAt : null,
+  });
+ }
+
+ // Wire order (CONTRACT.md §GET /agents): name-ordered.
+ agents.sort((a, b) => a.repo.localeCompare(b.repo));
+ return Response.json({ ok: true, base, agents });
+}
+// ---------------------------------------------------------------------------
 // GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
 // protocol): the proposal card + its detail, served by driving the SAME
 // compute seam /changes and /merge use (computeChangeSet for the card's
@@ -3361,6 +3455,12 @@ export const ROUTES: RouteEntry[] = [
  // discovered agent-* fork. The authorize() chokepoint covers it (demo
  // mode gate; extractScope adjudicates the query-carried base pre-read).
  { path: "/forks", method: "GET", action: "read", handler: handleForks },
+ // Agent roster + policy surface (identity v1): read-only
+ // closed projection per discovered agent-* repo. The
+ // authorize() chokepoint covers it (demo mode gate;
+ // extractScope adjudicates the query-carried base
+ // pre-read, the /forks posture).
+ { path: "/agents", method: "GET", action: "read", handler: handleAgents },
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
  // Merge-back-to-upstream (CAP-10): a fork's work routed to its

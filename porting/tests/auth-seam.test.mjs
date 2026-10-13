@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 19 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments)", ROUTES.length === 19, `got ${ROUTES?.length}`);
+check("C: ROUTES has 20 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /agents)", ROUTES.length === 20, `got ${ROUTES?.length}`);
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
 let routeMap = {};
@@ -191,6 +191,7 @@ check("C: /changes → GET read", routeMap["/changes"]?.method === "GET" && rout
 check("C: /proposals → GET read", routeMap["/proposals"]?.method === "GET" && routeMap["/proposals"]?.action === "read");
 check("C: /floors → GET read", routeMap["/floors"]?.method === "GET" && routeMap["/floors"]?.action === "read");
 check("C: /forks → GET read", routeMap["/forks"]?.method === "GET" && routeMap["/forks"]?.action === "read", `got ${J(routeMap["/forks"] ? { method: routeMap["/forks"].method, action: routeMap["/forks"].action } : null)}`);
+check("C: /agents → GET read", routeMap["/agents"]?.method === "GET" && routeMap["/agents"]?.action === "read", `got ${J(routeMap["/agents"] ? { method: routeMap["/agents"].method, action: routeMap["/agents"].action } : null)}`);
 check("C: /merge → GET read", routeMap["/merge"]?.method === "GET" && routeMap["/merge"]?.action === "read");
 check("C: /land → POST write", routeMap["/land"]?.method === "POST" && routeMap["/land"]?.action === "write");
 check("C: /judge → POST judge", routeMap["/judge"]?.method === "POST" && routeMap["/judge"]?.action === "judge");
