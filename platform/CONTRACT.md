@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.3 (2026-10-12). Additive changes only; if you change a shape, bump this file first.
+Version: v3.4 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -104,6 +104,65 @@ no new binding method. `repo`/`ref`/`path` validation is the
 - **404** — `{ok:false,error:"not-found"}` (unknown repo/ref/path).
 - **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/file"]`
   — the `/merge`/`/proposals` compute-cost class).
+
+## GET /commits?repo=...&ref=main&limit=20
+
+Deterministic commit log for a repo at a ref (the history half of the
+repo-browsing read API; the same read seam as §GET /tree). `repo`
+(required, the AD-9 charset + demo allowlist), `ref` (defaults to
+`main` via `resolveRouteBase` — the AD-8 seam, so omitted ==
+explicit), `limit` (optional; default `20`, hard cap `100`).
+
+Reads EXISTING state only: `repo.log({ref, limit})` — the newest-first
+first-parent walk the fork-point computation already drives. No new
+binding method, no clone, no tree/blob read, no `ASSET_BLOB` access.
+
+- **200** — `{ ok:true, repo, ref, commits:[{sha, shortSha, message, author, at, parents}] }`.
+  - `commits` — newest-first, the log's own order (first-parent chain,
+    newest first). Deterministic: the same (repo, ref, limit) always
+    yields the same array. Bounded by `limit` (<= 100).
+  - `sha` — 40-hex commit id; `shortSha` — `sha.slice(0, 7)`.
+  - `message` — commit subject.
+  - `author` — `"Name <email>"` (the §GET /changes flattening — the
+    same rendering `/changes` gives `commits[].author`).
+  - `at` — ISO-8601 UTC **author date** (the platform's `at`
+    convention: every other `at` on this wire — events, landings,
+    evidence — is ISO-8601). The binding's `authoredAt` (Unix
+    seconds) is converted at the projection and never exposed.
+  - `parents` — array of 40-hex parent ids in git order; `[]` for a
+    root commit. `parents[0]` is the first parent — the deep-link
+    target for a per-commit view.
+  - Field projection is EXPLICIT: `treeHash`, `committer` and
+    `committedAt` from the binding's commit metadata are NOT served.
+- **400** — `invalid repo name` / `invalid ref` (the §GET /tree
+  charset law: `REPO_NAME_RE`/`REF_RE`, plus the `..` /
+  leading-`/` / trailing-`/` refusal) / `invalid limit` (a present
+  `limit` must be a positive integer — `0`, negatives, non-numerics
+  and the empty string are 400s; the AD-8 normalization rule: a
+  present bad value is never silently defaulted).
+- **401 / 403** — the `authorize()` chokepoint (deny mode / demo
+  allowlist), before any Artifacts read (`repo` is query-carried, so
+  the chokepoint's `extractScope` adjudicates it — the §GET /tree
+  posture).
+- **404** — `{ok:false,error:"not-found"}` — uniform existence
+  posture: unknown repo, unresolvable ref, an empty history, or any
+  binding failure answers the same body (the §GET /tree mapping).
+- **`limit` clamp:** absent => `20`; a present integer is clamped to
+  `100` (`?limit=1000` reads the newest 100). The clamp is the
+  resource bound — no request drives an unbounded history walk. The
+  response carries no `limit` echo.
+
+Metadata egress posture (AD-4): commit messages, author identities and
+parent ids are EGRESS — the same commit-metadata family `/changes`
+already publishes (`commits[]: hash/message/author/timestamp`). No file
+content, patch, secret value or key ever reaches this route; it
+performs zero `readFile`/`readBlob`/`ASSET_BLOB` reads by construction
+(the log-only seam).
+
+Rate: deliberately UNBOUND (the `/tree` posture — a bounded log read is
+a cheap read; `ROUTE_RATE_LIMITS` carries no `/commits` row by design,
+documented here so the omission reads as policy, not oversight; the
+`limit` clamp bounds the work).
 
 ## GET /raw/{repo}
 
@@ -717,7 +776,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the eleven bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree).
+Edge rate limits cover the eleven bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
