@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-13T12:08:46.052Z",
-  "head": "30e23cc",
+  "generatedAt": "2026-10-13T12:09:57.229Z",
+  "head": "d0c55a7",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-13 ",
@@ -12,9 +12,9 @@
   "queue": {
     "total": 689,
     "byStatus": {
-      "pending": 448,
+      "pending": 416,
       "partial": 1,
-      "done": 240
+      "done": 272
     },
     "items": [
       {
@@ -79,11 +79,6 @@
       },
       {
         "status": "pending",
-        "priority": "P1",
-        "title": "Auth seam v1: AUTH_MODE default-deny + authorize"
-      },
-      {
-        "status": "pending",
         "priority": "P2",
         "title": "Contract smoke in platform verify gates"
       },
@@ -91,11 +86,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "DO lease serializes lands"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Event consumer: sole recorder + dedupe + payload validation"
       },
       {
         "status": "pending",
@@ -121,11 +111,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Complete unified proposal card"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Deliver events to canvas via true push"
       },
       {
         "status": "pending",
@@ -230,11 +215,6 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Ship set-level triage of N concurrent agent change-sets as hero flow"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Split storage: source in Artifacts, big binaries in R2"
       },
       {
@@ -275,27 +255,12 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Do binding-side diffing; no clones in review paths"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Downscope agent tokens to least privilege per repo"
       },
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Fan out Artifacts repo events through Queues"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Give changes durable logical identity independent of branches"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Import registry harvest into the task store"
       },
       {
         "status": "pending",
@@ -325,11 +290,6 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Pin competition milestone calendar"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Pin isomorphic-git 1"
       },
       {
@@ -340,32 +300,12 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Production build chain: PRD → epics → registry → systematic build"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Registry harvest wave: itemize every source into harvest JSONs"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Repo-per-agent + fork-from-baseline isolation"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Risk-tiered specialist review over shared cached context"
       },
       {
         "status": "pending",
         "priority": "P0",
         "title": "Scale Cloudflare's coordinator->specialists->arbitration judge to sets"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Visualize the cross-change conflict map on the canvas"
       },
       {
         "status": "pending",
@@ -405,27 +345,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Events: normalized platform event bus across all families"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Judge-agent set comparison + recommendation"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Landing evidence receipt: tested SHA equals merged SHA, recorded"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Law 2: two-tier intelligence - System-1 sees every file first"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Law 3: self-describing platform - tool manifest + structure map in workspaces"
       },
       {
         "status": "pending",
@@ -451,11 +376,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "Route work to the best-fit harness per task"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Server-push channel to browsers"
       },
       {
         "status": "pending",
@@ -490,11 +410,6 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Version judge question sets in code with the platform"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Watch Artifacts 64 MiB push cap + v1 protocol before Oct 14"
       },
       {
@@ -525,11 +440,6 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Declare intent: router pings before work starts"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Enforce denied paths: deny, close, redirect, escalate"
       },
       {
@@ -541,16 +451,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "Implement authoring lease per change-set"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Implement join-don't-restart with merge/refactor"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Implement surgical expiring advisory locks"
       },
       {
         "status": "pending",
@@ -571,11 +471,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "Provide partial sync via workspace views and sparse streams"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Render fork cards with six signal clusters"
       },
       {
         "status": "pending",
@@ -605,32 +500,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Ship tool manifest and structure map into workspaces"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Standardize agent output: summary, detail, affordances"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Store arbitration decision record as git notes on landed change"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Support atomic changelist commits and server-side shelves"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Surface active-fork radar in context"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Tune judge thresholds on our own labeled proposals"
       },
       {
         "status": "pending",
@@ -681,11 +556,6 @@
         "status": "pending",
         "priority": "P1",
         "title": "Enforce sandbox isolation tiers by trust level"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Expose content read APIs"
       },
       {
         "status": "pending",
@@ -815,22 +685,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Enforce typed secret files: ciphertext + policy + schema-only view"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Harden the MCP surface per spec"
       },
       {
         "status": "pending",
         "priority": "P1",
         "title": "Keep merge batches shallow"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Keep pushes on the v1 protocol for Artifacts interop"
       },
       {
         "status": "pending",
@@ -950,11 +810,6 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Human-facing architecture walkthrough"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Per-line AI attribution surviving rebase, squash and cherry-pick"
       },
       {
@@ -965,27 +820,12 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Schema-only decoupled views for secret files"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Secret-typed file primitives"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Speculative validation on predicted edits"
       },
       {
         "status": "pending",
         "priority": "P2",
         "title": "Structural conflict detection: entity/AST-level, not just textual"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Unauthenticated demo, auth-ready seams; Save Point SSO future"
       },
       {
         "status": "pending",
