@@ -66,9 +66,13 @@ const drive = async (method, path) => {
 // body + ASSETS not reached.
 // ---------------------------------------------------------------------------
 {
-  // Wrong method (POST) on every GET ROUTES entry.
+  // Wrong method (POST) on every GET ROUTES entry. A path may be registered
+  // for BOTH GET and POST (e.g. /comments): neither is a "wrong" method then,
+  // so probe DELETE — which no ROUTES entry registers — to still exercise the
+  // 405 law (the API boundary's known-path / wrong-method rule).
   for (const route of ROUTES) {
-    const wrong = route.method === "GET" ? "POST" : "GET";
+    const opposite = route.method === "GET" ? "POST" : "GET";
+    const wrong = ROUTES.some((r) => r.path === route.path && r.method === opposite) ? "DELETE" : opposite;
     const r = await drive(wrong, route.path);
     check(`405: ${wrong} ${route.path} -> 405`, r.status === 405, `got ${r.status}`);
     check(`405: ${wrong} ${route.path} body exact`, J(r.body) === J(B405), `got ${J(r.body)}`);
