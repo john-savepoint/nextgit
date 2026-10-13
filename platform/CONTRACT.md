@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.3 (2026-10-12). Additive changes only; if you change a shape, bump this file first.
+Version: v3.4 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -134,6 +134,71 @@ carve-out), so the handler re-checks the AD-9 demo allowlist
   length; the cap is enforced before the body is assembled).
 - **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/raw"]`
   — the byte-egress cost class).
+
+## POST /comments
+
+Append one inline review comment to a repo's per-file review thread (the
+data plane behind the merge-modal comment threads). Body:
+
+`{ "repo": "demo", "ref": "main", "path": "src/a.ts", "line": 12, "body": "nit: rename", "author": "reviewer" }`
+
+Closed schema (any unknown field → `400`): `repo` (required, `REPO_NAME_RE`);
+`ref` (optional, `REF_RE`; absent → the pinned default `main` via
+`resolveRouteBase` — the AD-8 seam, so an omitted `ref` and `ref=main` agree);
+`path` (required — non-empty, no `..` segment, no leading/trailing `/`,
+depth-capped); `line` (required — a non-negative integer); `body` (required —
+1..2000 characters); `author` (required — non-empty; display text only, never
+an identity claim).
+
+Each POST appends a NEW comment (fresh 12-hex id, `at` server-set ISO-8601
+instant) — the route is **not** idempotent; there is no update or delete.
+
+- **201** — `{ ok:true, comment:{ id, path, line, body, author, at } }` (the `ref` is the read
+  filter and is not echoed per row; the `201` carries the created comment).
+- **403** — `{ok:false,error:"secret-class"}` — a secret-class `path`
+  (`isSecretPath`) REFUSED BEFORE any store access (fail-closed: a secret-class
+  comment can never enter the store; the UI layers a matching zero-GET notice
+  — deliberate defense-in-depth).
+- **403** — `{ok:false,error:"repo-not-allowed",detail}` — `repo` outside the
+  AD-9 demo allowlist (the handler-side re-check, the `/land` / `/reveal`
+  posture: the body-carried repo is adjudicated before any store access).
+- **429** — `{ok:false,error:"rate-limited"}` — per-caller cap 20/60 s.
+- **400** — `{ok:false,error}` — bad input: a non-object body or an unknown
+  field answers `{ok:false,error:"bad-request"}`; a missing/invalid field
+  carries a specific message.
+- **Precondition order:** `400` (shape) → `403` (allowlist) → `403`
+  (secret-class) → `429` → `201`.
+- **Storage substrate (as-built):** comments live as repo-scoped JSONL in the
+  CACHE KV namespace at `comments:<repo>` — the worker's established
+  script-writable durable namespace (`landing:`, `fork:`, `cache:gen`), so
+  threads survive worker restarts. The forward posture is the identical wire
+  contract over a `comments.jsonl` tree entry in the Artifacts repo once the
+  (read-only) binding exposes a write seam; the wire shape is unchanged under
+  either substrate.
+- **Rate:** 20 per 60 s per caller (`ROUTE_RATE_LIMITS["/comments:write"]` —
+  the write cost class; a distinct key from the GET read budget).
+
+## GET /comments?repo=...&ref=main&path=...
+
+One repo's inline review comments for an exact (`ref`, `path`), in append
+order (oldest-first; stable across reads). `repo` (required) is adjudicated
+against the demo allowlist at the `authorize()` chokepoint pre-read (the
+`/file` posture); `ref` is optional (absent → `main`, the AD-8 seam); `path`
+is required (a thread is per-file).
+
+- **200** — `{ ok:true, repo, ref, comments:[ { id, path, line, body, author, at } ] }`
+  (append order, oldest-first; an empty store → `comments: []`).
+- **400** — `{ok:false,error}` — invalid `repo`/`ref`/`path`, or a missing
+  `path` (the message is specific per field).
+- **403** — `{ok:false,error:"repo-not-allowed",detail}` — charset-valid
+  `repo` outside the demo allowlist (chokepoint).
+- **429** — `{ok:false,error:"rate-limited"}` — per-caller cap 60/60 s.
+- **Precondition order:** `400` (param parse) → `429` → read.
+- **XSS law:** comment `body` and `author` are opaque plain text; the worker
+  performs no HTML escaping (the JSON body is exact bytes) — the client MUST
+  render them as text (escaped), never as HTML.
+- **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/comments"]` — the read
+  cost class).
 
 ## GET /health
 
@@ -717,7 +782,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the eleven bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree).
+Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -731,6 +796,8 @@ Edge rate limits cover the eleven bound routes in the table below (`/land`, `/me
 | `POST /upstream` | 20 | 60 s |
 | `GET /file` | 60 | 60 s |
 | `GET /raw/{repo}/{ref}/{path}` | 60 | 60 s |
+| `POST /comments` | 20 | 60 s |
+| `GET /comments` | 60 | 60 s |
 
 - **Caller key:** `CF-Connecting-IP` (set by Cloudflare's edge in production; client-supplied in local dev), fallback `"unknown"` when absent. Each route's window is independent per caller — a flood on one route cannot evict another route's windows.
 - **Uniform 429 body:** `{ok:false,error:"rate-limited"}` — no caller echo, no remaining-count leak (NFR-3 posture preserved).

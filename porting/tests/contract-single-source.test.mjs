@@ -114,12 +114,15 @@ const additive = /Additive changes only; if you change a shape, bump this file f
 check("4 CONTRACT.md carries the additive-only law", additive);
 
 // --- 6. Method agreement per route (verb drift the set check misses) ---
-const docByRoute = new Map(docRoutes.map((r) => [r.route, r.method]));
-const methodDrift = implemented.filter((r) => docByRoute.get(r.route) !== r.method);
+// Compare the full METHOD+route pair set: a path may legitimately carry BOTH
+// a GET and a POST (e.g. /comments), which a route→method map would collapse
+// to the last-seen verb (a false drift on the other).
+const docPairs = new Set(docRoutes.map((r) => `${r.method} ${r.route}`));
+const methodDrift = implemented.filter((r) => !docPairs.has(`${r.method} ${r.route}`));
 check(
   "5 doc verb == table method for every route",
   methodDrift.length === 0,
-  methodDrift.map((r) => `${r.route}: code=${r.method} doc=${docByRoute.get(r.route)}`).join(", ")
+  methodDrift.map((r) => `${r.method} ${r.route} undocumented`).join(", ")
 );
 
 // --- Summary ---

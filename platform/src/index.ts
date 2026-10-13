@@ -2960,6 +2960,240 @@ async function handleRaw(request: Request, env: Env): Promise<Response> {
  }
 }
 
+// ---------------------------------------------------------------------------
+// Inline review comments (CONTRACT.md §POST /comments, §GET /comments) —
+// the worker data plane for per-file review threads. Storage is the
+// worker's script-writable durable namespace (env.CACHE — the fork-lineage
+// / landing-record precedent): repo-scoped JSONL at `comments:<repo>`,
+// append order preserved (oldest-first). The forward posture (named in
+// CONTRACT) is the same wire contract over a `comments.jsonl` tree entry
+// in the Artifacts repo once the (read-only) binding exposes a write seam.
+//
+// POST appends one comment (no idempotence, fresh id each call); GET reads
+// one repo's comments filtered to an exact (ref, path). The two verbs share
+// the `/comments` path — the dispatcher matches path AND method exactly,
+// and the API-boundary 405 law covers any third method.
+// ---------------------------------------------------------------------------
+
+/** Comment body cap in characters (CONTRACT §POST /comments). */
+const MAX_COMMENT_CHARS = 2000;
+/** CACHE KV key prefix for a repo's comment JSONL (`comments:<repo>`). */
+const COMMENTS_KEY_PREFIX = "comments:";
+/** Comment id length in hex characters (48 random bits). */
+const COMMENT_ID_HEX = 12;
+
+/**
+ * One stored inline review comment. `ref` is the branch the comment was
+ * filed against (the GET read filter); the per-row wire comment omits it.
+ * `author` is display text only — never an identity claim (NFR-3).
+ */
+interface CommentRecord {
+ id: string;
+ ref: string;
+ path: string;
+ line: number;
+ body: string;
+ author: string;
+ at: string;
+}
+
+/** A fresh comment id — 12 lowercase hex chars (48 random bits). */
+function newCommentId(): string {
+ const bytes = crypto.getRandomValues(new Uint8Array(COMMENT_ID_HEX / 2));
+ return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Closed request schema for POST /comments (AD-9): exactly
+ *  {repo, ref?, path, line, body, author}. `ref` resolves through the
+ *  AD-8 seam (absent -> main), so a POST without it and a GET without it
+ *  agree on the branch. */
+interface CommentsRequestBody {
+ repo?: unknown;
+ ref?: unknown;
+ path?: unknown;
+ line?: unknown;
+ body?: unknown;
+ author?: unknown;
+}
+
+/**
+ * Validate the POST /comments body — the closed-schema twin of
+ * parseUpstreamBody (unknown field -> 400). `repo` REPO_NAME_RE; `ref`
+ * REF_RE (absent -> the pinned default via resolveRouteBase); `path`
+ * carries the traversal guards (non-empty, no `..` segment, no
+ * leading/trailing `/`, depth-capped); `line` is a non-negative integer;
+ * `body` is 1..MAX_COMMENT_CHARS chars; `author` is non-empty.
+ */
+function parseCommentsBody(raw: unknown): { repo: string; ref: string; path: string; line: number; body: string; author: string } | Response {
+ if (!raw || typeof raw !== "object") return badRequest("bad-request");
+ const body = raw as CommentsRequestBody;
+ if (!Object.keys(body).every((k) => k === "repo" || k === "ref" || k === "path" || k === "line" || k === "body" || k === "author")) {
+  return badRequest("bad-request");
+ }
+ if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(body.repo)}`);
+ }
+ const { ref } = resolveRouteBase({ ref: body.ref });
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ if (typeof body.path !== "string" || body.path === "" || body.path.startsWith("/") || body.path.endsWith("/") || body.path.split("/").includes("..")) {
+  return badRequest(`invalid path: ${JSON.stringify(body.path)}`);
+ }
+ if (body.path.split("/").filter(Boolean).length > MAX_TREE_DEPTH) return badRequest("path too deep");
+ if (typeof body.line !== "number" || !Number.isInteger(body.line) || body.line < 0) {
+  return badRequest(`invalid line: ${JSON.stringify(body.line)}`);
+ }
+ if (typeof body.body !== "string" || body.body.length < 1 || body.body.length > MAX_COMMENT_CHARS) {
+  return badRequest(`invalid body: 1..${MAX_COMMENT_CHARS} characters`);
+ }
+ if (typeof body.author !== "string" || body.author.trim() === "") {
+  return badRequest(`invalid author: ${JSON.stringify(body.author)}`);
+ }
+ return { repo: body.repo, ref, path: body.path, line: body.line, body: body.body, author: body.author };
+}
+
+/**
+ * Validate the GET /comments query — the /file read query with `path`
+ * made required (a comment thread is per-file). `repo` is query-carried,
+ * so the dispatcher's extractScope adjudicates it against the demo
+ * allowlist pre-read (the /file, /tree posture); `ref` absent -> the
+ * pinned default via resolveRouteBase (AD-8), so an omitted ref and an
+ * explicit `ref=main` are equivalent.
+ */
+function parseCommentsQuery(url: URL): ReadQuery | Response {
+ const parsed = parseReadQuery(url);
+ if (parsed instanceof Response) return parsed;
+ if (parsed.path === "") return badRequest("path required");
+ return parsed;
+}
+
+/**
+ * Read one repo's comments from CACHE (JSONL at `comments:<repo>`).
+ * Fail closed on absence OR corruption: a missing key, an unparseable
+ * line, or a malformed record yields the empty list (the
+ * readForkLineage posture — never a throw).
+ */
+async function readComments(env: Env, repo: string): Promise<CommentRecord[]> {
+ try {
+  const raw = await env.CACHE.get(`${COMMENTS_KEY_PREFIX}${repo}`);
+  if (!raw) return [];
+  const out: CommentRecord[] = [];
+  for (const line of raw.split("\n")) {
+   if (line === "") continue;
+   const parsed = JSON.parse(line) as Partial<CommentRecord>;
+   if (!parsed || typeof parsed !== "object") return [];
+   if (
+    typeof parsed.id !== "string" || typeof parsed.ref !== "string" ||
+    typeof parsed.path !== "string" || typeof parsed.line !== "number" ||
+    typeof parsed.body !== "string" || typeof parsed.author !== "string" ||
+    typeof parsed.at !== "string"
+   ) return [];
+   out.push({
+    id: parsed.id, ref: parsed.ref, path: parsed.path, line: parsed.line,
+    body: parsed.body, author: parsed.author, at: parsed.at,
+   });
+  }
+  return out;
+ } catch {
+  return [];
+ }
+}
+
+// Concurrency posture for POST /comments (the withLandGate BF-1 pattern,
+// keyed per repo): appendComment is a read-modify-write of the whole
+// `comments:<repo>` JSONL, and the awaits inside readComments (CACHE.get)
+// and before CACHE.put interleave concurrent POSTs WITHIN one isolate —
+// N simultaneous posts each read the same pre-state and last-write-wins
+// drops N-1 (verified: 8 posts -> 7 lost). One in-flight append chain per
+// repo key, so different repos still append concurrently. Cross-isolate
+// remains last-writer-wins (the documented as-built posture); a repo-keyed
+// Durable Object is the multi-isolate fix (Proposal B).
+const commentAppendChains = new Map<string, Promise<void>>();
+
+/** Queue fn behind any in-flight append for the same repo: one comment
+ *  append critical section per repo key, per isolate. */
+async function withCommentAppendGate<T>(repo: string, fn: () => Promise<T>): Promise<T> {
+ const prev = commentAppendChains.get(repo) ?? Promise.resolve();
+ const { promise: next, resolve: release } = Promise.withResolvers<void>();
+ commentAppendChains.set(repo, next);
+ await prev;
+ try {
+  return await fn();
+ } finally {
+  release();
+ }
+}
+
+/** Append one comment: read-modify-write the repo's JSONL in CACHE
+ *  (append order preserved). Serialized per repo key by
+ *  withCommentAppendGate — one in-isolate writer at a time, so
+ *  concurrent POSTs cannot interleave the read-modify-write window.
+ *  (Cross-isolate remains last-writer-wins, the documented as-built
+ *  posture; a repo-keyed Durable Object is the multi-isolate fix —
+ *  Proposal B.) */
+async function appendComment(env: Env, repo: string, record: CommentRecord): Promise<void> {
+ await withCommentAppendGate(repo, async () => {
+  const existing = await readComments(env, repo);
+  const jsonl = [...existing, record].map((c) => JSON.stringify(c)).join("\n");
+  await env.CACHE.put(`${COMMENTS_KEY_PREFIX}${repo}`, jsonl);
+ });
+}
+
+/**
+ * POST /comments — append one inline review comment. A write action
+ * behind authorize() + csrfGate (the dispatcher applies both), with the
+ * handler-side AD-9 allowlist re-check (the /land, /reveal posture: the
+ * body-carried repo is adjudicated before any store access). Secret-class
+ * paths are REFUSED (403) before any store access (the /raw posture — a
+ * secret-class comment can never enter the store). Order: 400 (shape) ->
+ * 403 (allowlist) -> 403 (secret-class) -> 429 -> 201.
+ */
+async function handleCommentsPost(request: Request, env: Env): Promise<Response> {
+ const parsed = parseCommentsBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ const { repo, ref, path, line, body, author } = parsed;
+
+ if (!DEMO_REPO_RE.test(repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ if (isSecretPath(path)) {
+  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+ }
+
+ const rateDenied = rateGate("/comments:write", request);
+ if (rateDenied) return rateDenied;
+
+ const comment = { id: newCommentId(), path, line, body, author, at: new Date().toISOString() };
+ await appendComment(env, repo, { ...comment, ref });
+ return Response.json({ ok: true, comment }, { status: 201 });
+}
+
+/**
+ * GET /comments — one repo's comments for an exact (ref, path), in append
+ * order (oldest-first; stable across reads). The repo is query-carried,
+ * so the chokepoint's extractScope already adjudicated it against the
+ * demo allowlist pre-read (the /file posture — no handler re-check).
+ * Order: 400 (param parse) -> 429 -> read.
+ */
+async function handleCommentsGet(request: Request, env: Env): Promise<Response> {
+ const parsed = parseCommentsQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { repo, ref, path } = parsed;
+
+ const rateDenied = rateGate("/comments", request);
+ if (rateDenied) return rateDenied;
+
+ const all = await readComments(env, repo);
+ const comments = all
+  .filter((c) => c.ref === ref && c.path === path)
+  .map((c) => ({ id: c.id, path: c.path, line: c.line, body: c.body, author: c.author, at: c.at }));
+ return Response.json({ ok: true, repo, ref, comments });
+}
+
 // Route table (AD-8: single registration point; every route authorizes).
 // ---------------------------------------------------------------------------
 
@@ -3031,6 +3265,16 @@ export const ROUTES: RouteEntry[] = [
  // 60/60s (rateGate inside the handler).
  { path: "/tree", method: "GET", action: "read", handler: handleTree },
  { path: "/file", method: "GET", action: "read", handler: handleFile },
+ // Inline review comments (CONTRACT.md §POST /comments, §GET /comments):
+ // the per-file review-thread data plane. Both verbs register at the same
+ // path — the dispatcher matches path AND method exactly, so the API
+ // boundary's 405 law still covers any third method. GET is query-carried
+ // (the /file posture: authorize() adjudicates the repo via extractScope
+ // pre-read); POST is body-carried (the /land /reveal posture: the handler
+ // re-checks the AD-9 allowlist before any store access) and runs behind
+ // authorize() + csrfGate.
+ { path: "/comments", method: "GET", action: "read", handler: handleCommentsGet },
+ { path: "/comments", method: "POST", action: "write", handler: handleCommentsPost },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
