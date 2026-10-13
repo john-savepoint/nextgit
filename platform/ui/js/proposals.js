@@ -12,19 +12,45 @@ import { checksStripHtml } from "./checks.js";
  * Fetch and render proposals + conflicts
  */
 export async function loadProposals() {
+ let data = null;
  try {
-  const data = await fetchJson("/proposals");
+  data = await fetchJson("/proposals");
   state.proposalsData = data;
   state.connectionError = false;
   state.lastError = null;
   state.lastSyncTime = new Date();
-  renderProposalsView();
-  maybeJudge(); // advisory layer — unawaited, never blocks the render
  } catch (err) {
   state.connectionError = true;
   state.lastError = err.message || "Failed to fetch /proposals";
   renderConnectionState();
+  return;
  }
+ // The authoritative checks (GET /checks) — a fail-soft
+ // second fetch (the /forks posture): on ANY error (404 on
+ // an older worker, 5xx, timeout) checksByRepo stays null
+ // and the strip falls back to its client derivation — an
+ // absent route never reads as green. Never trips the
+ // connection banner. The view renders ONCE, after both
+ // reads, so the strip consumes the server checks on first
+ // paint (the worker is the authority).
+ try {
+  const params = new URLSearchParams();
+  if (data?.base?.repo) params.set("base", data.base.repo);
+  if (data?.ref) params.set("ref", data.ref);
+  // Advisory by design: a shorter timeout than the 20s default
+  // so a slow-but-healthy worker fails over to the client
+  // derivation faster (the /proposals perf comment records the
+  // 20s cap aborting). On timeout checksByRepo stays null — the
+  // 404-fallback posture.
+  const checks = await fetchJson("/checks?" + params.toString(), { timeoutMs: 5000 });
+  const byRepo = {};
+  for (const entry of Array.isArray(checks?.checks) ? checks.checks : []) {
+   if (entry && typeof entry.repo === "string" && Array.isArray(entry.checks)) byRepo[entry.repo] = entry.checks;
+  }
+  state.checksByRepo = byRepo;
+ } catch { state.checksByRepo = null; }
+ renderProposalsView();
+ maybeJudge(); // advisory layer — unawaited, never blocks the render
 }
 
 /**
@@ -381,13 +407,12 @@ export function renderProposals() {
             </div>
           </div>
 
-          ${checksStripHtml(p, { base: data.base, conflicts: data.conflicts })}
+          ${checksStripHtml(p, { base: data.base, conflicts: data.conflicts, checksByRepo: state.checksByRepo })}
           ${isConfirming ? landConfirmSheetHtml(repo, escapeHtml(data?.base?.repo || "demo")) : ""}
           ${intent
      ? `<div class="proposal-intent"><span class="intent-label">intent:</span>${intent}</div>`
      : ""
     }
-
           ${isLanded
      ? `<div class="landed-banner">
                    <span class="landed-status">landed — nothing pending</span>

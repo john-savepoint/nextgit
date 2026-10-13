@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.4 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
+Version: v3.5 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -258,6 +258,54 @@ is required (a thread is per-file).
   render them as text (escaped), never as HTML.
 - **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/comments"]` — the read
   cost class).
+
+## GET /checks?base=demo&ref=main&baseRef=main&repos=a,b (repos optional → auto-discover `agent-*`)
+
+The authoritative per-proposal checks — the same five checks the
+UI's checks strip renders, computed SERVER-side from the same
+compute seam `/proposals` drives (`computeProposals` →
+`computeChangeSet` + `computeMerge`). The worker is the authority:
+the strip consumes this route verbatim and falls back to its own
+client derivation ONLY when the route is unreachable (an absent
+route never reads as green).
+
+`Check = { id in fold|collision|conflicts|secrets|base, label, state in pass|fail|unknown, detail }` —
+the strip's exact tri-state vocabulary, one `Check[]` per proposal
+(five entries, in display order). `label` is the chip's display
+text (identical to `id` — the five id/label sets are identical,
+matching the strip's own render). `detail` is a display string
+(`"folds clean"`, `"none"`, `"withheld"`, a conflict count, a
+kind/file pair, `"in sync"` / `"base moved since fork"` /
+`"fork point not in set payload"`) — NEVER a secret-class path,
+key, value, or the fork-point sha itself (the masking law; the
+`secrets` check carries state + a count/`"withheld"` only).
+
+**Honesty law (the acceptance):** a check is `pass` ONLY when the
+compute seam carries the datum that proves it; a missing datum is
+`unknown`, and `unknown` is never rendered or styled as `pass`.
+A proposal whose compute throws contributes `unknown` for its five
+checks (the `/forks` per-candidate posture) — never a 500.
+
+- **200** — `{ ok:true, base:{repo,ref,head}, checks: Array<{repo, checks: Check[]}> }`,
+  one entry per proposal, mirroring `/proposals`' `proposals[]`.
+  `base.head` is the same fork-comparison datum the `base` check
+  consumes; the comparison result (`in sync` / `base moved since
+  fork`) is egress, the sha itself is not.
+- **400** — the `parseProposalsQuery` law (empty `base`/`ref`/`baseRef`,
+  bad charset — the same charset guards every `/proposals`-family route).
+- **403** — the AD-9 demo allowlist at the `authorize()` chokepoint
+  (`base`/`repos` are query-carried, like `/proposals`, so the
+  allowlist fires pre-handler — zero Artifacts reads before it).
+- **429** — the `/proposals` compute-cost class (`ROUTE_RATE_LIMITS["/checks"]`).
+
+Rate: 60/60s (`/proposals`' compute-cost class — the route drives
+the same fold).
+
+Read-only; no write/clone/push surface, no `ASSET_BLOB`/`LIVE`/
+`EVENTS_HUB` access, no caller identity (credential-free). The
+route is a pure projection of the `/proposals` compute — no caller
+input enters the derivation beyond the validated `base`/`repos`/
+`ref`/`baseRef` params (the cache-key-poisoning law).
 
 ## GET /health
 
@@ -840,7 +888,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the fourteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /checks`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -856,6 +904,7 @@ Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/
 | `GET /raw/{repo}/{ref}/{path}` | 60 | 60 s |
 | `POST /comments` | 20 | 60 s |
 | `GET /comments` | 60 | 60 s |
+| `GET /checks` | 60 | 60 s |
 
 - **Caller key:** `CF-Connecting-IP` (set by Cloudflare's edge in production; client-supplied in local dev), fallback `"unknown"` when absent. Each route's window is independent per caller — a flood on one route cannot evict another route's windows.
 - **Uniform 429 body:** `{ok:false,error:"rate-limited"}` — no caller echo, no remaining-count leak (NFR-3 posture preserved).

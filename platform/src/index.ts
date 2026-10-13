@@ -757,6 +757,9 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
  const proposals: Array<{
   repo: string;
   head?: string; // the change-set head; absent on error rows
+  forkSha?: string; // the change-set fork point (computeChangeSet's
+  // base.sha — the out-param pattern: published for the /checks
+  // projection's `base` check, never egresses from /proposals)
   intent?: string;
   stats?: unknown;
   landing?: { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number };
@@ -797,6 +800,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
    proposals.push({
     repo: name,
     head: headShas[name],
+    forkSha: cs.base.sha,
     intent: cs.files.find((f) => f.intent)?.intent,
     stats: cs.stats,
     files: cs.files.map((f) => ({
@@ -2587,6 +2591,223 @@ async function handleProposals(request: Request, env: Env): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// GET /checks?base=demo&repos=a,b&ref=main&baseRef=main
+// The authoritative per-proposal checks, computed SERVER-side (CONTRACT.md
+// §GET /checks). The handler is a pure projection of the /proposals compute
+// — computeProposals already produces base.head, proposals[] (each with
+// landing + files[].secret) and conflicts[]; the five checks per proposal
+// are derived from exactly those, with the same derivation the UI strip
+// owned (platform/ui/js/checks.js). The worker is the authority; the client
+// consumes this verbatim and falls back to its own derivation only when the
+// route is unreachable.
+// ---------------------------------------------------------------------------
+
+/**
+ * One server-computed check (the strip's exact tri-state vocabulary).
+ * `detail` is a display string only — never a secret-class path/key/value
+ * and never the fork-point sha (the masking law; CONTRACT §GET /checks).
+ */
+interface ServerCheck {
+ id: "fold" | "collision" | "conflicts" | "secrets" | "base";
+ /** Display label — the strip renders it as the chip text and
+  *  `"<label>: <detail>"` title. Identical to `id` (the five
+  *  id/label sets are identical — the client twin's `unknown()`
+  *  and every push use `label: "<id>"`). */
+ label: string;
+ state: "pass" | "fail" | "unknown";
+ detail: string;
+}
+
+/** Conflict kinds that are NOT conflicts — a file the proposals share
+ *  cleanly (the client strip's CLEAN_KINDS set; the server's own
+ *  `classifyPair` conflict predicate is `pairs[].conflict === true`, and
+ *  these kinds are exactly the ones classifyPair marks conflict:false).
+ *  Static string-keyed lookup over the full ConflictKind union, so a
+ *  Record (the Set/Map discipline). */
+const CHECKS_CLEAN_KINDS: Record<ConflictKind, boolean> = {
+ "text-conflict": false, "modify/delete": false, "add/add": false,
+ undetermined: false, mergeable: true, "identical-add": true, "both-removed": true,
+};
+
+/** The genuine-conflict rows naming this repo, or null when the map is
+ *  absent (the client strip's conflictRows mirror). */
+function checksConflictRows(repo: string, conflicts: Array<{ file: string; repos: string[]; kind: ConflictKind }> | undefined): Array<{ file: string; kind: ConflictKind }> | null {
+ if (!Array.isArray(conflicts) || typeof repo !== "string") return null;
+ return conflicts
+  .filter((c) => Array.isArray(c.repos) && c.repos.includes(repo) && !CHECKS_CLEAN_KINDS[c.kind])
+  .map((c) => ({ file: c.file, kind: c.kind }));
+}
+
+/**
+ * Derive the five checks for one proposal from the computeProposals
+ * outputs — the server-side twin of the client strip's
+ * proposalChecks(). `baseHead` is the base repo's current head at
+ * baseRef (computeProposals' own read); `forkSha` is this proposal's
+ * change-set fork point (computeChangeSet's base.sha), null when the
+ * repo's compute failed.
+ */
+function checksForProposal(
+ proposal: {
+  repo: string;
+  landing?: { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number };
+  files?: Array<{ secret?: boolean }>;
+  forkSha?: string; // the change-set fork point (the internal
+  // compute result carries it; absent on error rows).
+  error?: string;
+ },
+ ctx: {
+  baseHead: string | null;
+  forkSha: string | null;
+  conflicts: Array<{ file: string; repos: string[]; kind: ConflictKind }> | undefined;
+ },
+): ServerCheck[] {
+ const p = proposal;
+ const failed = Boolean(p.error);
+ const status = p.landing?.status ?? null;
+ const files = Array.isArray(p.files) ? p.files : null;
+ const out: ServerCheck[] = [];
+ const unknown = (id: ServerCheck["id"], label: string, detail: string): ServerCheck => ({ id, label, state: "unknown", detail });
+
+ // 1. fold — can this proposal fold onto the CURRENT base head?
+ if (failed || !status) {
+  out.push(unknown("fold", "fold", failed ? "unavailable" : "fold state not in payload"));
+ } else if (status === "ready") {
+  out.push({ id: "fold", label: "fold", state: "pass", detail: "folds clean" });
+ } else if (status === "landed") {
+  out.push({ id: "fold", label: "fold", state: "pass", detail: "nothing to fold" });
+ } else if (status === "conflict") {
+  out.push({ id: "fold", label: "fold", state: "fail", detail: "conflicting fold" });
+ } else if (status === "withheld-secret") {
+  out.push({ id: "fold", label: "fold", state: "fail", detail: "secret-class blocks fold" });
+ } else {
+  out.push(unknown("fold", "fold", "unrecognized fold state"));
+ }
+
+ // 2. collision — cross-proposal collision severity (the CAP-3 map).
+ const rows = checksConflictRows(p.repo, ctx.conflicts);
+ if (failed) {
+  out.push(unknown("collision", "collision", "unavailable"));
+ } else if (rows === null) {
+  out.push(unknown("collision", "collision", "conflict map not in payload"));
+ } else if (rows.length === 0) {
+  out.push({ id: "collision", label: "collision", state: "pass", detail: "none" });
+ } else {
+  // Worst-severity kind over the rows (the client twin's
+  // worstKind over KIND_ORDER; KIND_SEVERITY is the same
+  // ordering the fold's conflict map ranks by). Rows are
+  // already filtered to genuine-conflict kinds above.
+  const kind = rows.reduce(
+   (w, r) => (KIND_SEVERITY[r.kind] > KIND_SEVERITY[w] ? r.kind : w),
+   rows[0]?.kind ?? "mergeable",
+  );
+  const file = rows[0]?.file || "shared file";
+  out.push({ id: "collision", label: "collision", state: "fail", detail: `${kind} · ${file}` });
+ }
+
+ // 3. conflicts — how many conflicting files touch this repo.
+ if (failed) {
+  out.push(unknown("conflicts", "conflicts", "unavailable"));
+ } else if (rows === null) {
+  out.push(unknown("conflicts", "conflicts", "unknown"));
+ } else {
+  out.push({ id: "conflicts", label: "conflicts", state: rows.length === 0 ? "pass" : "fail", detail: String(rows.length) });
+ }
+
+ // 4. secrets — secret-class PRESENCE only (never keys, never values).
+ const withheld = status === "withheld-secret";
+ if (failed) {
+  out.push(unknown("secrets", "secrets", "unavailable"));
+ } else if (files === null && !withheld) {
+  out.push(unknown("secrets", "secrets", "file rows not in payload"));
+ } else {
+  const secretCount = files ? files.filter((f) => f.secret === true).length : 0;
+  if (withheld || secretCount > 0) {
+   out.push({ id: "secrets", label: "secrets", state: "fail", detail: withheld ? "withheld" : `${secretCount} secret-class file(s)` });
+  } else {
+   out.push({ id: "secrets", label: "secrets", state: "pass", detail: "none" });
+  }
+ }
+
+ // 5. base — staleness: change-set fork point vs current base head.
+ //    No fork point (compute failed / not resolved) => honestly `unknown`.
+ if (!ctx.forkSha || !ctx.baseHead) {
+  out.push(unknown("base", "base", "fork point not in set payload"));
+ } else if (ctx.forkSha !== ctx.baseHead) {
+  out.push({ id: "base", label: "base", state: "fail", detail: "base moved since fork" });
+ } else {
+  out.push({ id: "base", label: "base", state: "pass", detail: "in sync" });
+ }
+
+ return out;
+}
+
+/**
+ * The server-side projection: drive computeProposals (the EXISTING
+ * compute seam — no new binding method, no new compute primitive).
+ * The fork point each proposal's `base` check consumes is the one
+ * computeProposals already paid for (published as `proposal.forkSha`,
+ * the same out-param pattern as `headShas`) — no second change-set
+ * walk. Per-proposal fail-closed: a repo whose compute throws
+ * contributes `unknown` for its five checks (the /forks
+ * per-candidate posture; its row carries no forkSha) — never a 500.
+ */
+async function computeChecks(
+ env: Env,
+ baseName: string,
+ baseRef: string,
+ ref: string,
+ repoList: string[] | null,
+): Promise<{ base: { repo: string; ref: string; head: string }; checks: Array<{ repo: string; checks: ServerCheck[] }> }> {
+ const result = await computeProposals(env, baseName, baseRef, ref, repoList);
+ return {
+  base: result.base,
+  checks: result.proposals.map((proposal) => ({
+   repo: proposal.repo,
+   checks: checksForProposal(proposal, {
+    baseHead: result.base.head,
+    forkSha: proposal.forkSha ?? null,
+    conflicts: result.conflicts,
+   }),
+  })),
+ };
+}
+
+/**
+ * GET /checks — the authoritative checks route. 400 (parseProposalsQuery
+ * law) → 429 (the /proposals compute-cost class) → 200. `base`/`repos`
+ * are query-carried, so the dispatcher's authorize() chokepoint
+ * (extractScope) already adjudicated them against the demo allowlist
+ * pre-read (the /proposals posture) — the handler trusts the chokepoint.
+ */
+async function handleChecks(request: Request, env: Env): Promise<Response> {
+ const parsed = parseProposalsQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef, repoList } = parsed;
+ const rateDenied = rateGate("/checks", request);
+ if (rateDenied) return rateDenied;
+ // Generation-keyed KV cache — the same posture as /proposals
+ // (the 2026-10-08 mitigation): every pushed event bumps
+ // `cache:gen` (see recordEvent), so any push/land invalidates
+ // BOTH caches atomically (the same gen keys both routes, so a
+ // land between the two fetches cannot serve /checks from gen N
+ // and /proposals from gen N+1 in one viewer tick). Distinct key
+ // prefix, same generation + same params shape. Best-effort: a
+ // missing/degraded CACHE binding must never turn /checks into a
+ // 500 (test fakes and partial deployments carry no CACHE).
+ let gen = "0";
+ try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* no CACHE — compute */ }
+ const cacheKey = `cache:checks:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
+ try {
+  const hit = await env.CACHE.get(cacheKey);
+  if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+ } catch { /* cache read is best-effort — fall through to compute */ }
+ const { base: baseInfo, checks } = await computeChecks(env, base, baseRef, ref, repoList);
+ const body = JSON.stringify({ ok: true, base: baseInfo, checks });
+ try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
+ return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
+}
+
+// ---------------------------------------------------------------------------
 // GET /merge?base=demo&repos=agent-1,agent-2&ref=main&baseRef=main
 // ---------------------------------------------------------------------------
 async function handleMerge(request: Request, env: Env): Promise<Response> {
@@ -3408,6 +3629,13 @@ export const ROUTES: RouteEntry[] = [
  // authorize() + csrfGate.
  { path: "/comments", method: "GET", action: "read", handler: handleCommentsGet },
  { path: "/comments", method: "POST", action: "write", handler: handleCommentsPost },
+ // GET /checks (CONTRACT.md §GET /checks): the authoritative
+ // server-computed per-proposal checks — a pure projection of
+ // the /proposals compute seam. GET, query-carried (the
+ // /proposals posture: extractScope adjudicates base/repos at
+ // the authorize() chokepoint pre-read), capped 60/60s
+ // (rateGate inside the handler).
+ { path: "/checks", method: "GET", action: "read", handler: handleChecks },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
@@ -3452,8 +3680,8 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
  // Wave-14: the checks strip module + inline review comments.
-  "/js/checks.js": true,
-"/js/comments.js": true,
+ "/js/checks.js": true,
+ "/js/comments.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
  // Wave-14: the commit-history page + the forks panel modules.
  "/history.html": true, "/js/history-page.js": true,

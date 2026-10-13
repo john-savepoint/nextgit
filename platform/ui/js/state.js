@@ -33,6 +33,7 @@ export const state = {
  streamSeenKeys: new Set(), // SSE `id:` dedup keys seen this page
  forksData: null,        // /forks six-cluster + lineage payload (null until observed)
  forksError: false,      // a /forks fetch has failed (fail-soft: never trips the connection banner)
+ checksByRepo: null,     // repo -> the server-computed Check[] from GET /checks (null until observed; the strip's fallback derives client-side when the route is unreachable)
  revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
  landVerdictByRepo: {}, // repo -> last auto-land gate outcome (AD-11 verdict, rendered never decided). Last server-carried GATE OUTCOME, not last error: a verdict (act/confirm/escalate) OR the gate's own fail-closed answer (judge-unavailable -> blocked) replaces the entry — an unrelated /land error leaves it standing, and a later act/confirm overwrites it.
 };
