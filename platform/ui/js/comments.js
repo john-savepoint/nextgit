@@ -27,7 +27,7 @@ export const REVIEWER_AUTHOR = "reviewer";
 export function commentThreadHtml(repo, path) {
  const ref = state.proposalsData?.ref || "main";
  return `
-      <div class="comment-thread" data-comment-thread data-repo="${escapeHtml(repo)}" data-ref="${escapeHtml(ref)}" data-path="${escapeHtml(path)}">
+      <div class="comment-thread" role="group" aria-label="review comments" data-comment-thread data-repo="${escapeHtml(repo)}" data-ref="${escapeHtml(ref)}" data-path="${escapeHtml(path)}">
         <div class="comment-thread-header">review comments</div>
         <div class="comment-list" data-comment-list>
           <div class="loading-indicator">Loading comments…</div>
@@ -107,7 +107,9 @@ export async function hydrateCommentThreads(root, { force } = {}) {
     // (submitComment), so it must not wipe a pending row; the forced
     // reconcile is what legitimately replaces it with server rows.
     if (list && (force || !list.querySelector("[data-pending]"))) {
-     list.innerHTML = comments.map(commentItemHtml).join("");
+     list.innerHTML = comments.length
+      ? comments.map(commentItemHtml).join("")
+      : `<div class="empty-state"><div class="empty-state-desc">no comments yet — start the review</div></div>`;
     }
    } catch (err) {
     ok = false;
