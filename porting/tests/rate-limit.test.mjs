@@ -376,6 +376,28 @@ const env = envFor();
  check("2 /proposals different caller still 200", differentCaller.status === 200 && differentCaller.body?.ok === true, `${differentCaller.status} ${J(differentCaller.body)}`);
 }
 
+// --- /checks: first 60 -> 200 {ok:true, base, checks:[...]},
+// 61st -> uniform 429 (the new ROUTE_RATE_LIMITS row is
+// reachable — the intents-matcher rate leg); different caller
+// still 200.
+{
+ const ip = `10.9.0.8`;
+ const statuses = [];
+ let capBody = null;
+ for (let i = 0; i < 61; i++) {
+  const r = await get(env, "/checks", "?base=demo&repos=agent-1", ip);
+  statuses.push(r.status);
+  if (i === ROUTE_RATE_LIMITS["/checks"].limit - 1) capBody = r.body;
+ }
+ const firstSixty200 = statuses.slice(0, 60).every((s) => s === 200);
+ const sixtyFirst = statuses[60];
+ check("2 /checks first 60 -> 200", firstSixty200, J(statuses));
+ check("2 /checks cap-th (60th) normal 200 shape", capBody?.ok === true && Array.isArray(capBody?.checks), J(capBody));
+ check("2 /checks 61st -> uniform 429", sixtyFirst === 429, `${sixtyFirst}`);
+ const differentCaller = await get(env, "/checks", "?base=demo&repos=agent-1", `10.9.0.9`);
+ check("2 /checks different caller still 200", differentCaller.status === 200 && differentCaller.body?.ok === true, `${differentCaller.status} ${J(differentCaller.body)}`);
+}
+
 // --- caller-key fallback: a burst with NO CF-Connecting-IP header shares
 // one "unknown" budget -> 429 at cap+1 (pins the ?? "unknown" law).
 {

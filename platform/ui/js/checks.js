@@ -55,13 +55,28 @@ function worstKind(rows) {
 
 /**
  * Derive the five checks for one proposal. ctx = {
- *   base,      // the set payload's top-level base object ({repo,ref,head})
- *   conflicts, // the set payload's conflicts[] (may be undefined)
- *   changeSet, // an observed GET /changes changeSet for this repo (may be undefined)
+ *   base,        // the set payload's top-level base object ({repo,ref,head})
+ *   conflicts,   // the set payload's conflicts[] (may be undefined)
+ *   changeSet,   // an observed GET /changes changeSet for this repo (may be undefined)
+ *   checksByRepo // repo -> the server-computed Check[] from GET /checks
+ *                // (may be undefined/null — the route is unreachable)
  * }
+ * When the server-computed checks are present (ctx.checksByRepo[proposal.repo]),
+ * the strip renders THOSE verbatim — the worker is the authority. When absent
+ * (route unreachable / older worker / the route 404s), the fallback below
+ * derives the checks from the payloads the page already fetched — and the
+ * fallback's `base` check stays `unknown` when the payload carries no fork
+ * point (the honesty law holds end-to-end: an absent route never reads as
+ * green).
  * Returns CHECK_IDS.length entries, in that order.
  */
 export function proposalChecks(proposal, ctx = {}) {
+ // The worker is the authority: server-computed checks render verbatim.
+ const serverChecks = ctx.checksByRepo && typeof ctx.checksByRepo === "object"
+  ? (ctx.checksByRepo[proposal && typeof proposal === "object" ? proposal.repo : null] ?? null)
+  : null;
+ if (Array.isArray(serverChecks) && serverChecks.length) return serverChecks;
+
  const p = proposal || {};
  const failed = Boolean(p.error);
  const landing = p.landing && typeof p.landing === "object" ? p.landing : null;

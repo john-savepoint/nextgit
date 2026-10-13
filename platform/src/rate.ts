@@ -45,6 +45,10 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // and write verbs carry distinct budgets at distinct keys.
  "/comments": { limit: 60, windowMs: 60_000 },
  "/comments:write": { limit: 20, windowMs: 60_000 },
+ // Per-proposal checks (the authoritative, server-computed
+ // strip): same compute-cost class as /proposals (it drives
+ // the same fold), so the same 60/60s cap.
+ "/checks": { limit: 60, windowMs: 60_000 },
 };
 
 /** One fixed window per (route, caller). */

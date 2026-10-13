@@ -117,6 +117,34 @@ const VALID_STATES = new Set(["pass", "fail", "unknown"]);
       return /class="check check-unknown"/.test(h) && !/check-pass/.test(h);
     })());
   }
+
+  // A8 SERVER-AUTHORITY LEG — when ctx.checksByRepo carries
+  // the server-computed Check[] for a repo, the strip
+  // renders THOSE verbatim (the worker is the authority);
+  // an absent route falls back to the client derivation.
+  {
+    const serverChecks = [
+      { id: "fold", label: "fold", state: "pass", detail: "server-computed: folds clean" },
+      { id: "collision", label: "collision", state: "unknown", detail: "server detail" },
+      { id: "conflicts", label: "conflicts", state: "unknown", detail: "server detail" },
+      { id: "secrets", label: "secrets", state: "unknown", detail: "server detail" },
+      { id: "base", label: "base", state: "unknown", detail: "server detail" },
+    ];
+    const p = { repo: "a", landing: { status: "ready" }, files: [{ path: "r.md", secret: false }] };
+    const served = proposalChecks(p, { base: { repo: "demo", head: "1a".repeat(20) }, conflicts: [], checksByRepo: { a: serverChecks } });
+    check("A8 server checks render verbatim (the worker is the authority)",
+      served === serverChecks || JSON.stringify(served) === JSON.stringify(serverChecks), JSON.stringify(served));
+    check("A8 server fold detail survives verbatim", served[0].detail === "server-computed: folds clean", JSON.stringify(served[0]));
+    // The fallback: no checksByRepo entry for THIS repo ->
+    // the client derivation runs (fold pass/folds clean).
+    const other = proposalChecks(p, { base: { repo: "demo", head: "1a".repeat(20) }, conflicts: [], checksByRepo: { b: serverChecks } });
+    check("A8 absent server entry -> client derivation (fold pass/folds clean)",
+      other[0].state === "pass" && other[0].detail === "folds clean", JSON.stringify(other[0]));
+    // An empty server array -> fallback (nothing to render verbatim).
+    const empty = proposalChecks(p, { base: { repo: "demo", head: "1a".repeat(20) }, conflicts: [], checksByRepo: { a: [] } });
+    check("A8 empty server array -> client derivation",
+      empty[0].state === "pass" && empty[0].detail === "folds clean", JSON.stringify(empty[0]));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -232,9 +260,51 @@ document.addEventListener("DOMContentLoaded", async () => {
   const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
   const json = (res, body) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
   let MODE = "known";
+  // SERVER_CHECKS — the server-computed strip for the KNOWN
+  // scenario (the /checks payload). Details are DISTINCT
+  // strings from the client derivation ("server-computed: …")
+  // so a leg proves the strip renders the SERVER's detail
+  // verbatim. In MODE "nochecks" the route 404s (the
+  // fallback leg).
+  const SERVER_CHECKS = {
+    ok: true, base: { repo: "demo", ref: "main", head: "1a".repeat(20) },
+    checks: [
+      // agent-ready: clean fold, no collisions, no secrets;
+      // base unknown (the fixture server carries no fork point).
+      {
+        repo: "agent-ready", checks: CHECK_IDS.map((id) => ({
+          id, label: id,
+          state: id === "fold" ? "pass" : id === "base" ? "unknown" : "pass",
+          detail: id === "fold" ? "server-computed: folds clean" : id === "base" ? "server detail" : "server detail",
+        }))
+      },
+      // agent-secret: withheld-secret fold + secrets fail; the rest unknown.
+      {
+        repo: "agent-secret", checks: CHECK_IDS.map((id) => ({
+          id, label: id,
+          state: id === "fold" || id === "secrets" ? "fail" : "unknown",
+          detail: id === "secrets" ? "server-computed: withheld" : "server detail",
+        }))
+      },
+      // agent-collide: a genuine text-conflict in the map
+      // (collision + conflicts fail); its own fold passes;
+      // base unknown (no fork point in the fixture).
+      {
+        repo: "agent-collide", checks: CHECK_IDS.map((id) => ({
+          id, label: id,
+          state: id === "collision" || id === "conflicts" ? "fail" : id === "fold" ? "pass" : "unknown",
+          detail: id === "collision" ? "server-computed: text-conflict · " + XSS_FILE : "server detail",
+        }))
+      },
+    ],
+  };
   const server = createServer((req, res) => {
     const { pathname } = new URL(req.url, "http://127.0.0.1");
     if (pathname === "/proposals") return json(res, MODE === "bare" ? BARE : MODE === "long" ? LONG : KNOWN);
+    if (pathname === "/checks") {
+      if (MODE === "nochecks") { res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "not-found" })); return; }
+      return json(res, SERVER_CHECKS);
+    }
     if (pathname === "/events") return json(res, EVENTS);
     if (pathname === "/judge") return json(res, JUDGE);
     if (pathname === "/__client.js") { res.writeHead(200, { "content-type": "text/javascript" }); res.end(clientScript); return; }
@@ -262,18 +332,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       check("B1 strip present on every card", ready?.present && secretCard?.present && collide?.present);
       check("B1 strip carries all five checks", ready?.present && ready.chips.length === 5 && CHECK_IDS.every((id) => ready.chips.some((c) => c.id === id)));
       check("B1 no interactive affordance in the strip", ready?.interactive === 0 && collide?.interactive === 0);
-      check("B2 ready card fold -> pass/folds clean", chip(ready, "fold")?.hasPass === true && chip(ready, "fold")?.detail === "folds clean");
-      check("B2 ready card secrets -> pass/none", chip(ready, "secrets")?.hasPass === true && chip(ready, "secrets")?.detail === "none");
-      check("B2 secret card fold -> fail", chip(secretCard, "fold")?.hasFail === true);
-      check("B2 secret card secrets -> fail/withheld", chip(secretCard, "secrets")?.hasFail === true && chip(secretCard, "secrets")?.detail === "withheld");
+      check("B2 ready card fold -> pass/folds clean (the SERVER's detail, verbatim — /checks is served)",
+        chip(ready, "fold")?.hasPass === true && chip(ready, "fold")?.detail === "server-computed: folds clean",
+        JSON.stringify(chip(ready, "fold")));
+      check("B2 ready card secrets -> pass (the SERVER's detail verbatim)",
+        chip(ready, "secrets")?.hasPass === true && chip(ready, "secrets")?.detail === "server detail",
+        JSON.stringify(chip(ready, "secrets")));
+      check("B2 secret card fold -> fail (the SERVER's detail verbatim)",
+        chip(secretCard, "fold")?.hasFail === true && chip(secretCard, "fold")?.detail === "server detail",
+        JSON.stringify(chip(secretCard, "fold")));
+      check("B2 secret card secrets -> fail (the SERVER's detail verbatim)",
+        chip(secretCard, "secrets")?.hasFail === true && chip(secretCard, "secrets")?.detail === "server-computed: withheld",
+        JSON.stringify(chip(secretCard, "secrets")));
       check("B3 colliding card collision -> fail (text-conflict)", chip(collide, "collision")?.hasFail === true && (chip(collide, "collision")?.detail || "").includes("text-conflict"));
-      check("B3 colliding card conflicts count -> fail/1", chip(collide, "conflicts")?.hasFail === true && chip(collide, "conflicts")?.detail === "1");
-      check("B3 non-colliding card collision -> pass/none", chip(ready, "collision")?.hasPass === true);
-      check("B4 base is unknown on every card (set payload carries no fork point)",
+      check("B3 colliding card collision -> fail (the SERVER's text-conflict detail)",
+        chip(collide, "collision")?.hasFail === true && (chip(collide, "collision")?.detail || "").includes("server-computed: text-conflict"),
+        JSON.stringify(chip(collide, "collision")));
+      check("B3 colliding card conflicts count -> fail (the SERVER's detail verbatim)",
+        chip(collide, "conflicts")?.hasFail === true && chip(collide, "conflicts")?.detail === "server detail",
+        JSON.stringify(chip(collide, "conflicts")));
+      check("B3 non-colliding card collision -> pass (the SERVER's detail verbatim)",
+        chip(ready, "collision")?.hasPass === true && chip(ready, "collision")?.detail === "server detail",
+        JSON.stringify(chip(ready, "collision")));
+      check("B4 base is unknown on every card (the SERVER carries no fork-point datum for these fixtures)",
         ["agent-ready", "agent-secret", "agent-collide"].every((r) => chip(R1.cards[r], "base")?.hasUnknown === true && chip(R1.cards[r], "base")?.hasPass === false));
       check("B5 every chip is exactly one tri-state (never pass+unknown)",
         [ready, secretCard, collide].every((card) => card.present && card.chips.every((c) => [c.hasPass, c.hasFail, c.hasUnknown].filter(Boolean).length === 1)));
-      check("B6 XSS file name rendered escaped (no live <img> in the strip)", collide?.imgCount === 0 && (collide?.text || "").includes(XSS_FILE));
+      check("B6 XSS file name in the SERVER's collision detail rendered escaped (no live <img> in the strip)",
+        collide?.imgCount === 0 && (collide?.text || "").includes(XSS_FILE));
       check("B6 no secret key leaks into any strip", [ready, secretCard, collide].every((card) => !(card?.text || "").includes("DATABASE_URL")));
       check("B8 strip role is a labelled group (valid chip-group semantics, never role=list)",
         ready?.role === "group" && collide?.role === "group", JSON.stringify([ready?.role, collide?.role]));
@@ -294,6 +380,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         bare?.present && bare.chips.every((c) => c.hasPass === false));
       check("B7 unknown fold detail is not a pass phrase",
         (bare?.chips.find((c) => c.id === "fold")?.detail || "") !== "folds clean");
+    }
+
+    // ---- Dump 2b (NOCHECKS): /checks 404s — the strip falls back
+    //      to the CLIENT derivation (fold 'folds clean'), and base
+    //      stays check-unknown (the end-to-end honesty leg — an
+    //      absent route never reads green).
+    MODE = "nochecks";
+    const dom2b = await dumpDom(url);
+    const R2b = parse(dom2b);
+    if (!R2b) { check("B2b fallback scenario output present", false, "no #test-out"); }
+    else if (R2b.err) { check("B2b fallback scenario threw", false, R2b.err); }
+    else {
+      const ready = R2b.cards["agent-ready"];
+      const chip = (card, id) => (card && card.present ? card.chips.find((c) => c.id === id) : null);
+      check("B2b fallback strip present", ready?.present === true);
+      check("B2b FALLBACK: fold detail is the CLIENT's derivation ('folds clean')",
+        chip(ready, "fold")?.hasPass === true && chip(ready, "fold")?.detail === "folds clean",
+        JSON.stringify(chip(ready, "fold")));
+      check("B2b FALLBACK: base stays check-unknown (the set payload carries no fork point)",
+        chip(ready, "base")?.hasUnknown === true && chip(ready, "base")?.hasPass === false,
+        JSON.stringify(chip(ready, "base")));
     }
 
     // ---- Dump 3 (LONG): grid constrained to the 320px reflow floor — a long unbroken
