@@ -1205,6 +1205,9 @@ html, body {
   color: var(--accent-blue);
   font-size: 0.75rem;
 }
+.files-reveal {
+  padding: 0 1rem 0.75rem;
+}
 .files-raw-link:hover {
   color: var(--text-primary);
 }

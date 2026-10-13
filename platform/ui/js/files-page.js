@@ -17,6 +17,9 @@
 // renders secret-class paths as key names only regardless, so the law
 // holds client-side too.
 
+import { revealSecret, revealControlHtml } from "./reveal.js";
+import { decideSecretSurface } from "../reveal-decision.js";
+
 /**
  * State container
  */
@@ -27,6 +30,12 @@ const state = {
  path: "", // directory path currently listed ("")
  lastError: null, // last fetch error (surfaces in #files-banner)
 };
+
+// Elevated-reveal capability — probed once from GET /whoami (the same
+// decision POST /reveal makes). Fail-open to the DEFAULT posture
+// (reveal:false): an unreachable /whoami must never surface an
+// affordance. Mirrors js/proposals.js's loadRevealCapability.
+let revealCapability = { authorized: false, reveal: false };
 
 // Monotonic load tokens: tree and file fetches can overlap (fast clicks,
 // slow edge); only the LATEST request may write the DOM (stale responses
@@ -43,6 +52,7 @@ const el = {
  viewer: document.getElementById("file-viewer"),
  meta: document.getElementById("file-meta"),
  content: document.getElementById("file-content"),
+ reveal: document.getElementById("file-reveal"),
  rawLink: document.getElementById("raw-link"),
 };
 
@@ -133,6 +143,28 @@ function clearError() {
 }
 
 /**
+ * Drop any stale reveal affordance/value — called on every navigation
+ * so a previous file's control never lingers (no stale control/value).
+ */
+function clearReveal() {
+ if (!el.reveal) return;
+ el.reveal.replaceChildren();
+ el.reveal.removeAttribute("data-reveal-decision");
+}
+
+/**
+ * Elevated-reveal capability probe — run once at boot. Reads the
+ * viewer's OWN reveal capability from GET /whoami; fail-open to the
+ * DEFAULT posture (reveal:false) on any error.
+ */
+async function loadRevealCapability() {
+ try {
+  const data = await fetchJson("/whoami");
+  revealCapability = { authorized: Boolean(data?.authorized), reveal: Boolean(data?.reveal) };
+ } catch { revealCapability = { authorized: false, reveal: false }; }
+}
+
+/**
  * Path join for the display classifier (never used in a URL — URLs
  * always go through the encodeURIComponent builders above).
  */
@@ -184,6 +216,7 @@ async function loadTree() {
  el.content.textContent = "";
  el.meta.textContent = "";
  el.rawLink.removeAttribute("href");
+ clearReveal();
  renderBreadcrumb();
  if (!state.repo) return;
 
@@ -298,6 +331,7 @@ async function loadFile(path) {
  el.meta.textContent = "";
  el.rawLink.removeAttribute("href");
  el.rawLink.textContent = "raw";
+ clearReveal();
  renderBreadcrumb();
  if (!state.repo) return;
 
@@ -337,6 +371,15 @@ async function loadFile(path) {
    el.content.textContent = keys.length
     ? keys.join(", ")
     : "Secret-class file — values never leave the worker.";
+   // Reveal affordance: rendered ONLY for a reveal-capable viewer with a
+   // resolvable key. The value still comes solely from POST /reveal.
+   if (el.reveal) {
+    const decision = decideSecretSurface({ reveal: revealCapability.reveal });
+    el.reveal.setAttribute("data-reveal-decision", decision.kind);
+    if (decision.showControl && keys.length) {
+     el.reveal.innerHTML = revealControlHtml({ repo: state.repo, path, keys });
+    }
+   }
    return;
   }
   // Unknown shape — do not invent content.
@@ -357,5 +400,20 @@ el.picker.addEventListener("change", () => {
  loadTree();
 });
 
+// Elevated-reveal delegation: the affordance renders inside #file-viewer
+// (#file-reveal), so the click is delegated at the viewer. The affordance
+// is never a capability — revealSecret re-runs POST /reveal, which re-runs
+// the server-side reveal rule on every click. state.ref is the ref the page
+// is browsing at (the merge/diff modal's own default is "main").
+el.viewer.addEventListener("click", (e) => {
+ const revealBtn = e.target.closest("[data-reveal-repo]");
+ if (!revealBtn) return;
+ const repo = revealBtn.getAttribute("data-reveal-repo");
+ const path = revealBtn.getAttribute("data-reveal-path");
+ const keys = revealBtn.getAttribute("data-reveal-keys") || "";
+ if (repo && path) revealSecret(repo, path, keys, state.ref || "main");
+});
+
 // Boot: picker first — it selects the repo whose tree loads next.
 loadRepos();
+loadRevealCapability();
