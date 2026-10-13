@@ -2689,6 +2689,226 @@ async function handleForks(request: Request, env: Env): Promise<Response> {
  return Response.json({ ok: true, base, forks });
 }
 // ---------------------------------------------------------------------------
+// GET /issues?base=demo — the triage issue list (nextgit-e16):
+// issues derived from EXISTING platform state only — no new
+// store, no new binding method, no new KV key. Four derivation
+// legs per discovered candidate fork (the handleForks roster:
+// `agent-*` + `status === "ready"`):
+//   1. conflict       — the candidate's computeMerge fold rows
+//      with result === "conflict" (one issue per conflicting path).
+//   2. withheld-secret — the same fold's withheld-secret rows
+//      (key NAMES only, never values — the masking law).
+//   3. stale-base     — the fork-point walk finds NO shared
+//      first-parent commit with the base within the 200-commit
+//      walk (findSharedFirstParent === undefined).
+//   4. blocked-intent — the structural matcher (deriveMatcherVerdict
+//      over computeSixClusterSignals) scores the candidate "ignore"
+//      (advisory only — the verdict is named, never an auto-decision).
+// Deterministic order: (severityRank, kind, repo, detail), pure
+// comparator — no timestamps, no Map-iteration order. Per-candidate
+// compute failures skip that candidate (the handleForks
+// per-candidate fail-closed precedent), never fail the request.
+// Read-only (NFR-6); the derivation performs zero Artifacts writes.
+// Precondition order: 400 (charset) → 403 (AD-9 defense-in-depth)
+// → 429 → 200.
+// ---------------------------------------------------------------------------
+
+/** The derived issue row (CONTRACT.md §GET /issues response shape). */
+interface DerivedIssue {
+ id: string;
+ kind: "conflict" | "withheld-secret" | "stale-base" | "blocked-intent";
+ repo: string;
+ severity: "high" | "medium" | "low" | "info";
+ title: string;
+ detail: string;
+ links: string[];
+}
+
+/**
+ * Severity rank for the deterministic order (high=0 … info=3):
+ * a pure comparator input, never a wire field ordering.
+ */
+const ISSUE_SEVERITY_RANK: Record<DerivedIssue["severity"], number> = {
+ high: 0,
+ medium: 1,
+ low: 2,
+ info: 3,
+};
+
+/**
+ * Validates the /issues query — the parseProposalsQuery
+ * posture: `base`/`ref`/`baseRef` resolve through the AD-8
+ * seam (absent → the pinned defaults), then the
+ * REPO_NAME_RE/REF_RE charset guards → 400.
+ */
+function parseIssuesQuery(url: URL): { base: string; ref: string; baseRef: string } | Response {
+ const { base, ref, baseRef } = resolveRouteBase({
+  base: url.searchParams.get("base") ?? undefined,
+  ref: url.searchParams.get("ref") ?? undefined,
+  baseRef: url.searchParams.get("baseRef") ?? undefined,
+ });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ if (typeof baseRef !== "string" || !REF_RE.test(baseRef) || baseRef.includes("..") || baseRef.startsWith("/") || baseRef.endsWith("/")) {
+  return badRequest(`invalid baseRef: ${JSON.stringify(baseRef)}`);
+ }
+ return { base, ref, baseRef };
+}
+
+/**
+ * The pure derivation core: fold the candidate's change into the
+ * base (the exact three sides computeMerge drives), walk the fork
+ * point, and score the matcher verdict — then emit the honest
+ * issue rows. Every title/detail is built from platform state
+ * (paths, counts, verdict tokens); untrusted repo names are
+ * escaped at the UI only, never echoed raw into response fields.
+ */
+async function deriveIssues(
+ env: Env,
+ base: string,
+ baseRef: string,
+ ref: string,
+ candidates: string[],
+): Promise<DerivedIssue[]> {
+ const issues: DerivedIssue[] = [];
+ for (const repo of candidates) {
+  // Per-candidate fail-closed: a candidate the base cannot read
+  // (unresolvable ref, missing repo) contributes no issues — skip
+  // it, never fail the whole request (the handleForks precedent).
+  let fold;
+  let staleBase: boolean;
+  let matcherVerdict: MatcherVerdict;
+  try {
+   fold = await computeMerge(env, base, baseRef, [repo], ref);
+   // The fork-point walk: the candidate shares NO first-parent
+   // commit with the base within the FORK_LOG_LIMIT walk.
+   using baseRepo = await env.ARTIFACTS.get(base);
+   using headRepo = await env.ARTIFACTS.get(repo);
+   const [baseLog, headLog] = await Promise.all([
+    baseRepo.log({ ref: baseRef, limit: FORK_LOG_LIMIT }),
+    headRepo.log({ ref: ref, limit: FORK_LOG_LIMIT }),
+   ]);
+   staleBase = findSharedFirstParent(baseLog, headLog) === undefined;
+   const signals = await computeSixClusterSignals(env, base, baseRef, repo);
+   matcherVerdict = deriveMatcherVerdict([{ repo, signals }]);
+  } catch {
+   continue;
+  }
+
+  // Leg 1 — conflict: one issue per conflicting path. The detail
+  // is the PATH only — conflictText stays off the wire (it is a
+  // merge input, and diff text could carry secret-adjacent content).
+  for (const f of fold.files) {
+   if (f.result !== "conflict") continue;
+   issues.push({
+    id: `conflict:${repo}:${f.path}`,
+    kind: "conflict",
+    repo,
+    severity: "high",
+    title: `Merge conflict in ${f.path}`,
+    detail: f.path,
+    links: [`/merge?base=${base}&repos=${repo}`],
+   });
+  }
+
+  // Leg 2 — withheld-secret: the fold's withheld-secret rows.
+  // Key NAMES only (the note's withheld count), never values.
+  for (const f of fold.files) {
+   if (f.result !== "withheld-secret") continue;
+   const withheld = f.note?.match(/(\d+) key\(s\) withheld/);
+   const keyCount = withheld ? Number(withheld[1]) : 0;
+   issues.push({
+    id: `withheld-secret:${repo}:${f.path}`,
+    kind: "withheld-secret",
+    repo,
+    severity: "medium",
+    title: `Secret-class file withheld: ${f.path}`,
+    detail: `${f.path}: ${keyCount} key(s) withheld`,
+    links: [`/merge?base=${base}&repos=${repo}`],
+   });
+  }
+
+  // Leg 3 — stale-base: no shared first-parent commit with the base.
+  if (staleBase) {
+   issues.push({
+    id: `stale-base:${repo}`,
+    kind: "stale-base",
+    repo,
+    severity: "low",
+    title: `Fork ${repo} shares no history with ${base}`,
+    detail: `no shared first-parent commit with base "${base}" within the ${FORK_LOG_LIMIT}-commit walk`,
+    links: [`/forks?base=${base}`],
+   });
+  }
+
+  // Leg 4 — blocked-intent: the structural matcher scores "ignore".
+  // Advisory only — the verdict is named, never an auto-decision.
+  if (matcherVerdict === "ignore") {
+   issues.push({
+    id: `blocked-intent:${repo}`,
+    kind: "blocked-intent",
+    repo,
+    severity: "info",
+    title: `Matcher verdict "ignore" for ${repo}`,
+    detail: `matcher verdict ignore over 1 candidate fork(s)`,
+    links: [`/intents`],
+   });
+  }
+ }
+
+ // Deterministic order: (severityRank, kind, repo, detail) —
+ // lexicographic, a pure comparator (no timestamps, no
+ // Map-iteration order).
+ issues.sort((a, b) =>
+  ISSUE_SEVERITY_RANK[a.severity] - ISSUE_SEVERITY_RANK[b.severity] ||
+  (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
+  (a.repo < b.repo ? -1 : a.repo > b.repo ? 1 : 0) ||
+  (a.detail < b.detail ? -1 : a.detail > b.detail ? 1 : 0)
+ );
+ return issues;
+}
+
+/**
+ * GET /issues handler. Read-only, credential-free (NFR-6).
+ * The dispatcher's authorize() chokepoint (demo mode gate) +
+ * extractScope adjudicate the query-carried `base` pre-read; the
+ * handler re-checks the AD-9 allowlist before any repo read (the
+ * handleForks defense-in-depth precedent).
+ */
+async function handleIssues(request: Request, env: Env): Promise<Response> {
+ const parsed = parseIssuesQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { base, ref, baseRef } = parsed;
+
+ // Demo allowlist (AD-9) defense-in-depth: the dispatcher's
+ // extractScope already adjudicates the query-carried base, but
+ // the handler re-checks before any repo read (the /proposals/{repo}
+ // precedent).
+ if (!DEMO_REPO_RE.test(base)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+
+ const rateDenied = rateGate("/issues", request);
+ if (rateDenied) return rateDenied;
+
+ // Candidate discovery: the same bounded list() seam /forks,
+ // /intents and /floors use (agent-* forks, status ready).
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const candidates = list.repos
+  .filter((entry) => entry.name.startsWith("agent-") && entry.status === "ready")
+  .map((entry) => entry.name);
+
+ const issues = await deriveIssues(env, base, baseRef, ref, candidates);
+ return Response.json({ ok: true, base, issues });
+}
+// ---------------------------------------------------------------------------
 // GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
 // protocol): the proposal card + its detail, served by driving the SAME
 // compute seam /changes and /merge use (computeChangeSet for the card's
@@ -3361,6 +3581,14 @@ export const ROUTES: RouteEntry[] = [
  // discovered agent-* fork. The authorize() chokepoint covers it (demo
  // mode gate; extractScope adjudicates the query-carried base pre-read).
  { path: "/forks", method: "GET", action: "read", handler: handleForks },
+ // Issues triage (nextgit-e16): issues derived from existing
+ // platform state (merge folds, fork-point walk, matcher
+ // verdicts) — no new store. The authorize() chokepoint
+ // covers it (demo mode gate; extractScope adjudicates the
+ // query-carried base pre-read, the /forks posture). Capped
+ // 60/60s (rateGate in the handler — the per-candidate merge
+ // simulation is the /merge compute-cost class).
+ { path: "/issues", method: "GET", action: "read", handler: handleIssues },
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
  // Merge-back-to-upstream (CAP-10): a fork's work routed to its
@@ -3452,12 +3680,15 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
  // Wave-14: the checks strip module + inline review comments.
-  "/js/checks.js": true,
-"/js/comments.js": true,
+ "/js/checks.js": true,
+ "/js/comments.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
  // Wave-14: the commit-history page + the forks panel modules.
  "/history.html": true, "/js/history-page.js": true,
  "/js/forks-panel.js": true,
+ // nextgit-e16 (wave-15 lane-union marker): the issues
+ // triage panel module.
+ "/js/issues-panel.js": true,
 };
 
 export default {

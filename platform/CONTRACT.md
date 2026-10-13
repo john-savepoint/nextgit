@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.4 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
+Version: v3.5 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -644,6 +644,32 @@ The fork ecosystem for a base repo — each fork's six-cluster signals and its u
 - Fork-point walk limit: lineage resolution uses the same first-parent walk, limit 200, as the change-set fork point (§Change-set semantics — fork point).
 - `400` bad input; `500` unexpected.
 
+## GET /issues?base=demo
+
+The derived triage issue list for a base repo — issues surfaced from EXISTING platform state only (no new store, no new binding method, no new KV key). Four derivation kinds per discovered candidate fork (the `/forks` roster: `agent-*` + `status === "ready"`):
+
+**Response (200)**:
+
+```json
+{ "ok": true, "base": "demo", "issues": [
+  { "id": "conflict:agent-1:src/a.ts", "kind": "conflict", "repo": "agent-1", "severity": "high",
+    "title": "Merge conflict in src/a.ts", "detail": "src/a.ts", "links": ["/merge?base=demo&repos=agent-1"] }
+] }
+```
+
+- `base` — the queried base repo (echo of the allowlist-validated `base` param; default `"demo"`).
+- `issues` — the derived issue set, deterministically ordered by `(severity, kind, repo, detail)` with severity rank high=0, medium=1, low=2, info=3, then lexicographic — a pure comparator, no timestamps, no Map-iteration order. Two consecutive reads are byte-identical.
+- Each issue carries all seven fields: `id` (stable `<kind>:<repo>:<detail>`), `kind`, `repo` (the platform-discovered candidate whose change-set produced the issue — never caller-supplied), `severity`, `title`, `detail`, `links` (same-worker read-only references, constructed from validated params only).
+- `kind: "conflict"` (severity `high`) — the candidate's merge fold has a file row with `result === "conflict"`; one issue per conflicting path; `detail` is the PATH only (conflict text stays off the wire — it is a merge input, and diff text could carry secret-adjacent content).
+- `kind: "withheld-secret"` (severity `medium`) — the same fold's `result === "withheld-secret"` rows; `detail` is `"<path>: <n> key(s) withheld"` — key NAMES only, never values (the masking law, §Secret classes).
+- `kind: "stale-base"` (severity `low`) — the candidate shares NO first-parent commit with the base within the 200-commit fork-point walk (`findSharedFirstParent` returns `undefined`); `detail` names the base.
+- `kind: "blocked-intent"` (severity `info`) — the structural intent matcher (`POST /intents` verdict derivation over the candidate's six-cluster signals) scores the candidate `ignore`. ADVISORY ONLY — the verdict is named, never an auto-decision; nothing is merged, landed, or skipped on its basis.
+- Per-candidate fail-closed: a candidate the base cannot read (unresolvable ref, missing repo) contributes no issues — it is skipped, never fails the whole request (the `GET /forks` precedent).
+- The derivation reads only `env.ARTIFACTS` (`get`/`list`/`log`/`readFile`/`readTree`/`readBlob`) — zero writes; read-only, credential-free (NFR-6).
+- Demo-mode allowlist (AD-9): `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
+- Rate limit (AD-9): per-caller cap 60/min → `429 {ok:false,error:"rate-limited"}` (see Rate limits) — the per-candidate merge simulation is the `/merge` compute-cost class, unlike the deliberately unbound single-repo bounded reads (`/tree`, `/commits`).
+- `400` bad input; `500` unexpected.
+
 ## POST /upstream
 
 Route a fork's work back to the repository it forked from — merge-back-to-upstream with `/land`-shaped evidence (CAP-10).
@@ -755,7 +781,7 @@ The dispatcher matches a request against the route tables (`ROUTES` + `DYNAMIC_R
 
 - **Known path, wrong method** → `405 { "ok": false, "error": "method-not-allowed" }`. A registered path addressed with a method no route accepts is a client error, more specific than an unknown path (405-before-404 precedence).
 - **Unknown path** → `404 { "ok": false, "error": "not-found" }`.
-- **UI document** (`/`, `/index.html`, `/styles.css`, `/app.js`, `/tour.html`, `/tour.css`, `/tour.js`, `/files.html`, `/js/files-page.js`, `/history.html`, `/js/history-page.js`, `/js/forks-panel.js`, `/js/checks.js`) → served by the wrangler-assets binding (`env.ASSETS`), which serves exactly `platform/ui/`'s documents. This whitelist is closed and additive-only: a new UI file is added to the whitelist AND the route-discipline parity check in the same commit.
+- **UI document** (`/`, `/index.html`, `/styles.css`, `/app.js`, `/tour.html`, `/tour.css`, `/tour.js`, `/files.html`, `/js/files-page.js`, `/history.html`, `/js/history-page.js`, `/js/forks-panel.js`, `/js/checks.js`, `/js/issues-panel.js`) → served by the wrangler-assets binding (`env.ASSETS`), which serves exactly `platform/ui/`'s documents. This whitelist is closed and additive-only: a new UI file is added to the whitelist AND the route-discipline parity check in the same commit.
 The 405/404 envelopes are static literals (no user input reflected) and fire before the auth chokepoint, matching the handler-level 400/404/409 precedent — a malformed or mis-addressed request is rejected at the boundary without reaching `authorize()`. This replaces the previous behaviour where a known path with the wrong method and any unknown path both fell through to the asset layer (an information-shaping defect: an undocumented surface answered requests the contract says must be JSON errors).
 
 ## Notes mirror (intent plumbing)
@@ -840,7 +866,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the fourteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -856,6 +882,7 @@ Edge rate limits cover the thirteen bound routes in the table below (`/land`, `/
 | `GET /raw/{repo}/{ref}/{path}` | 60 | 60 s |
 | `POST /comments` | 20 | 60 s |
 | `GET /comments` | 60 | 60 s |
+| `GET /issues` | 60 | 60 s |
 
 - **Caller key:** `CF-Connecting-IP` (set by Cloudflare's edge in production; client-supplied in local dev), fallback `"unknown"` when absent. Each route's window is independent per caller — a flood on one route cannot evict another route's windows.
 - **Uniform 429 body:** `{ok:false,error:"rate-limited"}` — no caller echo, no remaining-count leak (NFR-3 posture preserved).

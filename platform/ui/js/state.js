@@ -34,6 +34,8 @@ export const state = {
  forksData: null,        // /forks six-cluster + lineage payload (null until observed)
  forksError: false,      // a /forks fetch has failed (fail-soft: never trips the connection banner)
  revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
+ issuesData: null,       // /issues derived triage payload (null until observed)
+ issuesError: false,     // a /issues fetch has failed (fail-soft: never trips the connection banner)
  landVerdictByRepo: {}, // repo -> last auto-land gate outcome (AD-11 verdict, rendered never decided). Last server-carried GATE OUTCOME, not last error: a verdict (act/confirm/escalate) OR the gate's own fail-closed answer (judge-unavailable -> blocked) replaces the entry — an unrelated /land error leaves it standing, and a later act/confirm overwrites it.
 };
 
@@ -73,4 +75,7 @@ export const el = {
  forksSection: document.getElementById("forks-section"),
  forksList: document.getElementById("forks-list"),
  forksMeta: document.getElementById("forks-meta"),
+ issuesSection: document.getElementById("issues-section"),
+ issuesList: document.getElementById("issues-list"),
+ issuesMeta: document.getElementById("issues-meta"),
 };

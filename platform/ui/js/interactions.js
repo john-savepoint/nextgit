@@ -9,6 +9,7 @@ import { openModal, closeModal, modalFocusables, handleViewDiff, handlePreviewMe
 import { handleLandProposal, hideActionBanner } from "./land.js";
 import { revealSecret } from "./reveal.js";
 import { loadForks } from "./forks-panel.js";
+import { loadIssues } from "./issues-panel.js";
 import { submitComment } from "./comments.js";
 
 /**
@@ -169,4 +170,5 @@ export function init() {
  loadProposals();
  loadEvents();
  loadForks();
+ loadIssues();
 }

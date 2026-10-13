@@ -36,6 +36,11 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  "/forks": { limit: 60, windowMs: 60_000 },
  "/file": { limit: 60, windowMs: 60_000 },
  "/raw": { limit: 60, windowMs: 60_000 },
+ // nextgit-e16 (wave-15 lane-union marker): the issues triage read
+ // runs the merge simulation per discovered candidate — the same
+ // compute-cost class as /merge, so it shares the 60/60s cap
+ // (CONTRACT.md §GET /issues §Rate limits).
+ "/issues": { limit: 60, windowMs: 60_000 },
  // Inline review comments: the limiter is string-keyed, so the read
  // and write verbs carry distinct budgets at distinct keys.
  "/comments": { limit: 60, windowMs: 60_000 },
