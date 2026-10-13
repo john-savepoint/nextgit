@@ -112,7 +112,7 @@ function fixture(rows = [], preclaimed = []) {
 const { runBatch } = await import(new URL("../wf-batch.ddw.js", import.meta.url).href);
 const gateFile = (o, name) => JSON.parse(readFileSync(join(o.batchDir, name), "utf8"));
 
-async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before, parallel } = {}) {
+async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before, parallel, phaseDeadlineMs, gateDeadlineMs } = {}) {
   const fx = fixture(rows, preclaimed);
   calls = [];
   reply = (label) => (mode ? mode(label, defaultReply) : defaultReply(label));
@@ -120,7 +120,7 @@ async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, be
   process.env.BEADS_DIR = fx.beadsDir; // runBatch spawns inherit this — the store under test
   const out = { fx };
   if (before) before(fx);
-  try { out.report = await runBatch({ limit, root: fx.root, sourceLike, parallel }); } catch (e) { out.error = e; }
+  try { out.report = await runBatch({ limit, root: fx.root, sourceLike, parallel, phaseDeadlineMs, gateDeadlineMs }); } catch (e) { out.error = e; }
   finally { if (prevBeads === undefined) delete process.env.BEADS_DIR; else process.env.BEADS_DIR = prevBeads; }
   out.calls = calls;
   const bDirName = readdirSync(join(fx.root, "porting/runs")).find((f) => f.startsWith("batch-"));
@@ -370,6 +370,51 @@ try {
     }
   }
 } catch (e) { check("11 competitor-mode case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 12. ask() WATCHDOG: a wedged phase fails fast, no retry, row released ----
+// Fault injection: the plan phase's wait NEVER settles; a tiny phaseDeadlineMs
+// must trip the watchdog — no retry (a wedged agent won't unwedge), the order
+// records a WATCHDOG red, and the batch still reaches its record-and-release path.
+try {
+  const w1 = `${ID_PREFIX}s12-wedged`;
+  const t0 = Date.now();
+  const o = await scenario([w1], {
+    limit: 1, phaseDeadlineMs: 1500,
+    mode: (label, dflt) => (label === `plan:${CID(w1)}` ? new Promise(() => { }) : dflt(label)),
+  });
+  const elapsed = Date.now() - t0;
+  if (o.error) check("12 wedged-phase scenario completes (no hang)", false, String(o.error.message).slice(0, 200));
+  else {
+    const r = o.report;
+    const planCalls = o.calls.filter((c) => c.label === `plan:${CID(w1)}`);
+    check("12 plan phase ran exactly once (watchdog throw is never retried)", planCalls.length === 1, `calls=${planCalls.length}`);
+    check("12 wedged phase is a WATCHDOG red, not a hang", /WATCHDOG/.test(r.orders[0]?.verdict ?? ""), (r.orders[0]?.verdict ?? "").slice(0, 120));
+    check("12 batch completed via the record-and-release path", typeof r.next === "string" && r.next.length > 0 && elapsed < 60000, `elapsed=${elapsed}ms next=${(r.next ?? "").slice(0, 40)}`);
+    check("12 red row's claim released (reclaimable)", o.fx.claimsOf().length === 0, JSON.stringify(o.fx.claimsOf().map((x) => x.id)));
+  }
+} catch (e) { check("12 watchdog case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 13. batch-gate WATCHDOG: wedged parity+merged fail CLOSED (synthesized BLOCK)
+// Fault injection: both batch gates never settle; a tiny gateDeadlineMs must
+// cancel them and feed synthesized BLOCK verdicts through the normal persist
+// path — absence of a verdict is a BLOCK, never a throw or a hang.
+try {
+  const g1 = `${ID_PREFIX}s13-a`;
+  const t0 = Date.now();
+  const o = await scenario([g1], {
+    limit: 1, gateDeadlineMs: 1500,
+    mode: (label, dflt) => (label.startsWith("gate:parity:") || label.startsWith("gate:merged:") ? new Promise(() => { }) : dflt(label)),
+  });
+  const elapsed = Date.now() - t0;
+  if (o.error) check("13 batch-gate watchdog scenario completes (no hang)", false, String(o.error.message).slice(0, 200));
+  else {
+    const r = o.report;
+    check("13 wedged parity gate fails closed to a synthesized BLOCK", r.parity?.verdict === "BLOCK" && (r.parity?.shipBlockers ?? []).some((b) => /watchdog/i.test(b)), JSON.stringify(r.parity).slice(0, 160));
+    check("13 wedged merged gate fails closed to a synthesized BLOCK", r.gate?.verdict === "BLOCK" && (r.gate?.shipBlockers ?? []).some((b) => /watchdog/i.test(b)), JSON.stringify(r.gate).slice(0, 160));
+    check("13 gate artifacts persisted with the watchdog block", gateFile(o, "gate-parity.md").verdict === "BLOCK" && gateFile(o, "gate-merged.md").verdict === "BLOCK");
+    check("13 batch completed fast (no 45m hostage)", elapsed < 60000, `elapsed=${elapsed}ms`);
+  }
+} catch (e) { check("13 batch-gate watchdog case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {

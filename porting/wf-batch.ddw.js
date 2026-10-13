@@ -84,7 +84,7 @@ export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids, phaseDeadlineMs, gateDeadlineMs } = {}) {
   // evidenceRoot: where run evidence + batch reports land (defaults to root). Fleet lanes
   // pass the MAIN tree so all audit evidence lands in one place while the lane works in
   // its own clone.
@@ -218,7 +218,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       const runnable = units.filter((u) => !u.failed);
       const settled = await Promise.allSettled(
         runnable.map((u) =>
-          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot, lenses, agent: agentOpt, agents, resume }),
+          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot, lenses, agent: agentOpt, agents, resume, phaseDeadlineMs, gateDeadlineMs }),
         ),
       );
       const byId = new Map();
@@ -289,7 +289,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         // release path (the caller reconciles reds exactly like a gate BLOCK).
         let r;
         try {
-          r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume });
+          r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume, phaseDeadlineMs, gateDeadlineMs });
         } catch (e) {
           r = { order: row.id, title: row.title, verdict: `ERROR: ${String(e?.message ?? e).slice(0, 200)}`, heals: 0 };
           try { writeFileSync(`${batchDir}/order-${row.id}-error.txt`, String(e?.stack ?? e)); } catch { /* evidence best-effort */ }
@@ -361,7 +361,28 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       { agent: agents?.mergedGate ?? agentOpt ?? "senior-reviewer", label: `gate:merged:${ts}`, schema: { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["SHIP", "BLOCK"] }, shipBlockers: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } } } } },
     );
 
-    const [parityRaw, mergedRaw] = await Promise.all([parityHandle ? parityHandle.wait() : Promise.resolve(null), mergedHandle.wait()]);
+    const [parityRaw, mergedRaw] = await (async () => {
+      // Watchdog on the batch-level gates (the gatePass treatment): a wedged
+      // parity/merged agent must not hostage-hold the lane. On fire: cancel both
+      // handles and FEED a synthesized fail-closed BLOCK through the normal
+      // normalize path — absence of a verdict is a gate BLOCK, never a throw
+      // (the record-and-release path below must keep running).
+      let gateTimer = null;
+      const raced = await Promise.race([
+        Promise.all([parityHandle ? parityHandle.wait() : Promise.resolve(null), mergedHandle.wait()]).then((v) => ({ v })),
+        new Promise((res) => { gateTimer = setTimeout(() => res(null), gateDeadlineMs); }),
+      ]).finally(() => { clearTimeout(gateTimer); });
+      if (raced === null) {
+        console.error(`wf-batch: BATCH-GATE WATCHDOG fired (${Math.round(gateDeadlineMs / 60000)}m) — cancelling parity/merged handles, failing closed`);
+        for (const h of [parityHandle, mergedHandle]) { try { h?.cancel?.(); } catch { /* already gone */ } }
+        const blocker = `watchdog: batch gate did not return within ${Math.round(gateDeadlineMs / 60000)}m — failing closed (no verdict = BLOCK)`;
+        return [
+          parityHandle ? { verdict: "BLOCK", shipBlockers: [blocker], highs: [], notes: [] } : null,
+          { verdict: "BLOCK", shipBlockers: [blocker], notes: [] },
+        ];
+      }
+      return raced.v;
+    })();
     const parity = parityHandle ? normalizeVerdict("parity", parityRaw) : null;
     if (parity) writeFileSync(`${batchDir}/gate-parity.md`, JSON.stringify(parity, null, 2));
     // Competitor-mode artifact (provenance for the below-baseline finding):

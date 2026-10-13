@@ -226,6 +226,7 @@ export async function runWorkOrder(order, opts = {}) {
   // On timeout: cancel the handle, throw a WATCHDOG error, NO retry (a wedged agent won't
   // unwedge); the caller records the phase red and the batch releases the row.
   const phaseDeadlineMs = opts.phaseDeadlineMs ?? 4_500_000; // 75m — worst observed phase ~48m
+  const gateDeadlineMs = opts.gateDeadlineMs ?? 2_700_000; // 45m — per gate round (lens + batch-level gates)
   const ask = async (prompt, askOpts, tries = 3) => {
     for (let a = 1; ; a++) {
       let h = null;
@@ -389,7 +390,7 @@ export async function runWorkOrder(order, opts = {}) {
     let gateTimer = null;
     const settled = await Promise.race([
       wait(handles, { raiseErrors: false }),
-      new Promise((res) => { gateTimer = setTimeout(() => res(null), 2_700_000); }),
+      new Promise((res) => { gateTimer = setTimeout(() => res(null), gateDeadlineMs); }),
     ]).finally(() => { clearTimeout(gateTimer); });
     if (settled === null) {
       log(`gate round ${round}: WATCHDOG fired — cancelling ${handles.length} lens handle(s), failing closed`);
