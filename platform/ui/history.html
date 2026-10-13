@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — Commit history</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header: back-link to the triage surface -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-group">
+          <a href="/" class="btn-card-action files-back-link">&larr; Back to triage</a>
+          <h1 class="brand-title">NextGit<span class="sep">/</span><span class="brand-subtitle">Commit history</span></h1>
+        </div>
+      </div>
+    </header>
+
+    <!-- Error banner (fetched route failed / contract error) -->
+    <div id="history-banner" class="action-banner banner-error" hidden role="alert">
+      <div class="action-banner-content">
+        <span id="history-banner-msg" class="action-banner-msg">Could not load commit history.</span>
+      </div>
+    </div>
+
+    <main>
+      <!-- Repo picker: options come from GET /proposals (server-side AD-9 allowlist) -->
+      <div class="history-controls">
+        <label class="files-picker-label" for="repo-picker">Repo</label>
+        <select id="repo-picker" class="files-picker">
+          <option value="">loading…</option>
+        </select>
+        <a class="history-files-link" href="files.html">Browse repo files &rarr;</a>
+      </div>
+
+      <!-- Breadcrumb: repo / ref (/ shortSha once a commit is selected) -->
+      <nav id="history-breadcrumb" class="history-breadcrumb" aria-label="Commit history"></nav>
+
+      <!-- Commit list: one REAL anchor per commit (?repo=&ref=<sha>) — the deep link -->
+      <ul id="commit-list" class="history-list" aria-label="Commits"></ul>
+
+      <!-- Changed-files panel: rows rendered like the files page (metadata only) -->
+      <section id="commit-detail" class="history-detail" hidden>
+        <div id="commit-detail-meta" class="history-detail-meta"></div>
+        <ul id="commit-files" class="history-files" aria-label="Changed files"></ul>
+      </section>
+    </main>
+
+    <!-- Minimal footer -->
+    <footer class="app-footer">
+      <span>nextgit — commit history</span>
+      <span>secret-class paths render key names only</span>
+    </footer>
+  </div>
+
+  <script type="module" src="js/history-page.js"></script>
+</body>
+</html>

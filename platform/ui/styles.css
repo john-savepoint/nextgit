@@ -1262,7 +1262,10 @@ html, body {
 .files-row:focus-visible,
 .files-crumb:focus-visible,
 .files-picker:focus-visible,
-.files-raw-link:focus-visible {
+.files-raw-link:focus-visible,
+.history-row:focus-visible,
+.history-crumb:focus-visible,
+.history-files-link:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
@@ -1284,7 +1287,10 @@ html, body {
   .files-row,
   .files-crumb,
   .files-picker,
-  .files-raw-link {
+  .files-raw-link,
+  .history-row,
+  .history-crumb,
+  .history-files-link {
     min-height: 44px;
     min-width: 44px;
   }
@@ -1301,4 +1307,117 @@ html, body {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ——— Commit history page (wave-14) ———
+   history.html + js/history-page.js. Existing tokens only — no new color
+   literals. Mirrors the wave-13 files-page rules value-for-value so the two
+   repo-browsing surfaces render identically (.files-controls/.files-tree/
+   .files-row/.files-secret/.files-empty/.files-viewer/.files-meta/
+   .files-crumb*). The machine-token mono regime (see the .commit-sha /
+   .file-path rule) is honored on .history-sha. */
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.history-files-link {
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+}
+.history-files-link:hover {
+  color: var(--text-primary);
+}
+.history-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+}
+.history-crumb {
+  color: var(--accent-blue);
+}
+.history-crumb:hover {
+  color: var(--text-primary);
+}
+.history-crumb-sep {
+  color: var(--text-muted);
+}
+.history-crumb-current {
+  color: var(--text-secondary);
+}
+.history-list {
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-card);
+  margin-bottom: 1.25rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.history-list:empty {
+  display: none;
+}
+.history-row {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.history-row:last-child {
+  border-bottom: none;
+}
+.history-row:hover {
+  background-color: var(--bg-card-hover);
+}
+.history-sha {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.history-meta {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.history-detail {
+  margin-top: 1.25rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-inset);
+}
+.history-detail-meta {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.history-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history-empty,
+.history-root-note {
+  padding: 0.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.commit-file-row {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.commit-file-row:last-child {
+  border-bottom: none;
+}
+.commit-asset {
+  color: var(--text-secondary);
+}
+.commit-secret {
+  color: var(--status-amber);
 }

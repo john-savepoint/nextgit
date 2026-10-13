@@ -3154,6 +3154,8 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
+ // Wave-14: the commit history page (commit log browser).
+ "/history.html": true, "/js/history-page.js": true,
 };
 
 export default {
