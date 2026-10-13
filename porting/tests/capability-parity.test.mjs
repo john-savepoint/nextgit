@@ -17,7 +17,7 @@
 // Full-suite-safe: every store touch is a copied bd template under a temp
 // BEADS_DIR (the live repo .beads is never written); per-test env save/restore.
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -112,16 +112,30 @@ try {
 // --- 3. idempotence ---------------------------------------------------
 // Two harness runs produce byte-identical derived content (the generated
 // stamp is the record of when it was derived — everything else is stable).
+// SANDBOXED: the harness resolves ROOT from its OWN location, so a copy at
+// <t>/porting/parity/compare.mjs derives entirely inside <t> — the shipped
+// artifacts are never rewritten by the suite (the stray-diff class that
+// dirtied lane trees during wave-14 gates, 2026-10-13).
 try {
-  const runCompare = () => execFileSync("bun", [COMPARE], { cwd: ROOT, encoding: "utf8", timeout: 60000, env: cleanEnv() });
+  const dir = temp("idempotence");
+  mkdirSync(join(dir, "porting/parity"), { recursive: true });
+  mkdirSync(join(dir, "platform/ui"), { recursive: true });
+  const harness = join(dir, "porting/parity/compare.mjs");
+  copyFileSync(COMPARE, harness);
+  copyFileSync(BASELINE, join(dir, "porting/parity/baseline-github.json"));
+  copyFileSync(CAPABILITIES, join(dir, "porting/parity/nextgit-capabilities.json"));
+  const DATA = join(dir, "platform/ui/parity-data.js");
+  const MD = join(dir, "porting/parity/parity-table.md");
+  const ROWS = join(dir, "porting/parity/below-baseline-rows.json");
+  const runCompare = () => execFileSync("bun", [harness], { cwd: dir, encoding: "utf8", timeout: 60000, env: cleanEnv() });
   runCompare();
-  const dataA = readFileSync(DATA_MODULE, "utf8");
-  const mdA = readFileSync(TABLE_MD, "utf8");
-  const rowsA = readFileSync(ROWS_JSON, "utf8");
+  const dataA = readFileSync(DATA, "utf8");
+  const mdA = readFileSync(MD, "utf8");
+  const rowsA = readFileSync(ROWS, "utf8");
   runCompare();
-  const dataB = readFileSync(DATA_MODULE, "utf8");
-  const mdB = readFileSync(TABLE_MD, "utf8");
-  const rowsB = readFileSync(ROWS_JSON, "utf8");
+  const dataB = readFileSync(DATA, "utf8");
+  const mdB = readFileSync(MD, "utf8");
+  const rowsB = readFileSync(ROWS, "utf8");
   // Strip the generated stamp (the only field that legitimately varies).
   const stripStamp = (s) => s.replace(/"generated": "[^"]*"/, '"generated": "TS"').replace(/Generated: [^\s]*/, "Generated: TS");
   check("3 parity-data.js byte-identical across runs (modulo stamp)", stripStamp(dataA) === stripStamp(dataB));
@@ -196,7 +210,18 @@ try {
   execFileSync("cp", ["-r", join(template, ".beads"), beadsDir], { encoding: "utf8", timeout: 30000 });
 
   const syncEnv = { ...cleanEnv(), BEADS_DIR: beadsDir };
-  const syncRun = () => spawnSync("bun", [COMPARE, "--sync-store"], { cwd: ROOT, encoding: "utf8", timeout: 180000, env: syncEnv });
+  // SANDBOXED HARNESS: run a copy of the harness from its own temp tree so the
+  // derive step writes <t>/platform/ui + <t>/porting/parity — never the repo's
+  // shipped artifacts (the stray-diff class, 2026-10-13). tasks.mjs is copied
+  // alongside (it is node:-builtins-only) so syncStore's adapter path resolves.
+  const hdir = temp("syncstore-harness");
+  mkdirSync(join(hdir, "porting/parity"), { recursive: true });
+  mkdirSync(join(hdir, "platform/ui"), { recursive: true });
+  copyFileSync(COMPARE, join(hdir, "porting/parity/compare.mjs"));
+  copyFileSync(BASELINE, join(hdir, "porting/parity/baseline-github.json"));
+  copyFileSync(CAPABILITIES, join(hdir, "porting/parity/nextgit-capabilities.json"));
+  copyFileSync(TASKS, join(hdir, "porting/tasks.mjs"));
+  const syncRun = () => spawnSync("bun", [join(hdir, "porting/parity/compare.mjs"), "--sync-store"], { cwd: hdir, encoding: "utf8", timeout: 180000, env: syncEnv });
 
   const first = syncRun();
   check("5 first --sync-store run exits 0", first.status === 0, String(first.stderr).slice(0, 300));
