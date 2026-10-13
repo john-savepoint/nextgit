@@ -221,13 +221,35 @@ export async function runWorkOrder(order, opts = {}) {
 
   // Bounded retry for infra faults (laguna-free throws 500s / "Cannot yield"): 2 extra attempts,
   // short backoff. Retries THROWN errors only — a returned verdict is never re-run.
-  const ask = async (prompt, opts, tries = 3) => {
+  // WATCHDOG (ff7 pattern, adapted): every phase carries a deadline — a subagent that never
+  // settles must not hostage-hold the whole cell (the failure class that held a wave 5.6h).
+  // On timeout: cancel the handle, throw a WATCHDOG error, NO retry (a wedged agent won't
+  // unwedge); the caller records the phase red and the batch releases the row.
+  const phaseDeadlineMs = opts.phaseDeadlineMs ?? 4_500_000; // 75m — worst observed phase ~48m
+  const ask = async (prompt, askOpts, tries = 3) => {
     for (let a = 1; ; a++) {
-      try { return await agent(prompt, opts).wait(); }
-      catch (e) {
+      let h = null;
+      let timer = null;
+      try {
+        h = agent(prompt, askOpts);
+        const deadlineMs = askOpts?.deadlineMs ?? phaseDeadlineMs;
+        const watchdog = new Promise((_, rej) => {
+          timer = setTimeout(
+            () => rej(new Error(`WATCHDOG: ${askOpts?.label ?? "agent"} exceeded ${Math.round(deadlineMs / 60000)}m — phase aborted`)),
+            deadlineMs,
+          );
+        });
+        return await Promise.race([h.wait(), watchdog]);
+      } catch (e) {
+        if (/^WATCHDOG:/.test(String(e?.message ?? ""))) {
+          try { h?.cancel?.(); } catch { /* handle already gone */ }
+          throw e;
+        }
         if (a >= tries) throw e;
-        log(`attempt ${a}/${tries} on ${opts?.label ?? "agent"}: ${String(e?.message ?? e).slice(0, 120)}`);
+        log(`attempt ${a}/${tries} on ${askOpts?.label ?? "agent"}: ${String(e?.message ?? e).slice(0, 120)}`);
         await Bun.sleep(1500 * a);
+      } finally {
+        clearTimeout(timer);
       }
     }
   };
@@ -360,7 +382,24 @@ export async function runWorkOrder(order, opts = {}) {
     const handles = lensList.map((lens) =>
       agent(lensPrompt(lens), { agent: lensAgent(lens), label: `gate:${lens}:${order.id}`, schema: LENS_SCHEMA }),
     );
-    const settled = await wait(handles, { raiseErrors: false });
+    // Gate-round watchdog (45m): one wedged lens must not hostage the cell — the
+    // ff7 liveness class, adapted to the in-process runner (no heartbeats to trust:
+    // the deadline IS the liveness check). On timeout: cancel every handle and fail
+    // the round closed (Error slots → normalizeVerdict BLOCK → heal/resume).
+    let gateTimer = null;
+    const settled = await Promise.race([
+      wait(handles, { raiseErrors: false }),
+      new Promise((res) => { gateTimer = setTimeout(() => res(null), 2_700_000); }),
+    ]).finally(() => { clearTimeout(gateTimer); });
+    if (settled === null) {
+      log(`gate round ${round}: WATCHDOG fired — cancelling ${handles.length} lens handle(s), failing closed`);
+      for (const h of handles) { try { h?.cancel?.(); } catch { /* already gone */ } }
+      // Error slots — the bounded retry loop below gives each lens ONE fresh ask()
+      // attempt; still-failing lenses normalize to BLOCK (fail closed) and go to heal.
+      for (let i = 0; i < lensList.length; i++) {
+        settled[i] = new Error(`WATCHDOG: gate lens ${lensList[i]} exceeded 45m — cancelled`);
+      }
+    }
     // One bounded retry per infra-errored lens — a transient provider 500 must not BLOCK a correct
     // order (fail-closed gates + laguna-free throw rates made this the top false-block source).
     // Route through ask() so backoff + logging stay centralized (F4-consistency).

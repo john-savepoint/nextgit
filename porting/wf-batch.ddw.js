@@ -284,7 +284,17 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     } else {
       const ranIds = new Set();
       for (const row of picked) {
-        const r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume });
+        // A THROWN order (watchdog timeout, provider fault past retries) must not
+        // abort the batch: record it as a red row, release its claim, continue the
+        // release path (the caller reconciles reds exactly like a gate BLOCK).
+        let r;
+        try {
+          r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume });
+        } catch (e) {
+          r = { order: row.id, title: row.title, verdict: `ERROR: ${String(e?.message ?? e).slice(0, 200)}`, heals: 0 };
+          try { writeFileSync(`${batchDir}/order-${row.id}-error.txt`, String(e?.stack ?? e)); } catch { /* evidence best-effort */ }
+          log(`order ${row.id} threw: ${String(e?.message ?? e).slice(0, 160)}`);
+        }
         results.push(r);
         ranIds.add(row.id);
         // GREEN rows KEEP their claim: the caller ticks them done (then the claim is moot).
