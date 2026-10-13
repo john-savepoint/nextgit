@@ -286,6 +286,18 @@ const post = async (env, path, body, headers = {}) =>
  check("no-value: /merge body carries NO value field and NO fixture value",
   merge.status === 200 && !mergeText.includes(`"value"`) && !mergeText.includes(FIXTURE_VALUE),
   `${merge.status} hasValueField=${mergeText.includes(`"value"`)} hasFixture=${mergeText.includes(FIXTURE_VALUE)}`);
+
+ // /proposals is the masked surface the merge modal sources keys from:
+ // the secret row carries secret:true + keys[] and never a value.
+ const proposals = await get(env, "/proposals?base=demo&repos=agent-5", { Authorization: "Bearer tok-a" });
+ const proposalsText = J(proposals.body);
+ const proposalEnv = (proposals.body?.proposals || []).flatMap((p) => p.files || []).find((f) => f.path === "config/.env");
+ check("no-value: /proposals carries the secret-class file with secret:true + keys[]",
+  proposals.status === 200 && !!proposalEnv && proposalEnv.secret === true && Array.isArray(proposalEnv.keys) && proposalEnv.keys.length > 0,
+  `${proposals.status} ${J(proposalEnv)}`);
+ check("no-value: /proposals body carries NO value field and NO fixture value",
+  !proposalsText.includes(`"value"`) && !proposalsText.includes(FIXTURE_VALUE),
+  `hasValueField=${proposalsText.includes(`"value"`)} hasFixture=${proposalsText.includes(FIXTURE_VALUE)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -296,7 +308,7 @@ const post = async (env, path, body, headers = {}) =>
  check("registration: ROUTES registers GET /whoami",
   ROUTES.some((r) => r.path === "/whoami" && r.method === "GET" && r.action === "read"),
   J(ROUTES.filter((r) => r.path === "/whoami")));
-// Wave-13 module split: the /whoami fetch moved from app.js
+ // Wave-13 module split: the /whoami fetch moved from app.js
  // into the ./js/* domain modules (loadRevealCapability in
  // js/proposals.js). Check the whole module graph — app.js plus
  // every ./js/*.js module — for the /whoami consumption.

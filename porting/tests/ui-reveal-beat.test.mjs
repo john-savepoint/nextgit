@@ -73,6 +73,14 @@ const PROPOSALS = {
   stats: { additions: 2, deletions: 2, files: 1 },
   files: [{ path: SECRET_PATH, status: "modified", secret: false }],
   landing: { status: "ready" },
+ }, {
+  // R1: a withheld-secret card. Its secret row renders NO view-diff control,
+  // but the card must offer the reachable grid→merge-modal path.
+  repo: "agent-7",
+  intent: "rotate secrets",
+  stats: { additions: 1, deletions: 0, files: 1 },
+  files: [{ path: SECRET_PATH, status: "modified", secret: true, keys: SECRET_KEYS }],
+  landing: { status: "withheld-secret" },
  }],
 };
 
@@ -100,6 +108,13 @@ const texts = (els) => els.map((e) => e.textContent.trim());
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     await sleep(900);
+    // R1 grid leg: the withheld-secret card's affordances, read from the
+    // rendered grid (independent of the diff modal opened below).
+    const withheldCard = q("#card-agent-7");
+    R.s.withheldCardPresent = !!withheldCard;
+    R.s.withheldHasPreviewMerge = !!(withheldCard && withheldCard.querySelector(".btn-preview-merge"));
+    R.s.withheldPreviewMergeHasRepo = withheldCard ? !!withheldCard.querySelector(".btn-preview-merge[data-repo]") : false;
+    R.s.withheldFileHasViewDiff = !!(withheldCard && withheldCard.querySelector(".file-row .btn-file-diff"));
     const diffBtn = qs(".btn-file-diff").find((b) => b.getAttribute("data-repo") === "agent-5" && b.getAttribute("data-path") === "${SECRET_PATH}");
     if (!diffBtn) { R.err = "no view-diff button for agent-5 ${SECRET_PATH}"; } else {
       diffBtn.click();
@@ -247,12 +262,23 @@ function legNoValueFromOtherRoutes(dom) {
   true, "covered by whoami-contract #7 (real worker /merge carries no value field)");
 }
 
+function legWithheldGrid(dom) {
+ const R = parse(dom);
+ if (!R) return check("6 withheld-grid: scenario output present", false, "no #test-out");
+ check("6 withheld-grid: no driver error", !R.err, R.err || "");
+ check("6 withheld-grid: withheld-secret card present", R.s.withheldCardPresent === true, JSON.stringify(R.s.withheldCardPresent));
+ check("6 withheld-grid: grid renders .btn-preview-merge on the withheld card (grid->merge-modal path exists)",
+  R.s.withheldHasPreviewMerge === true && R.s.withheldPreviewMergeHasRepo === true, JSON.stringify(R.s.withheldHasPreviewMerge));
+ check("6 withheld-grid: withheld secret row renders NO .btn-file-diff", R.s.withheldFileHasViewDiff === false, "view-diff leaked onto the secret row");
+}
+
 const scenarios = [
  { name: "default", whoami: "default", click: false, leg: legDefaultSurface },
  { name: "authorized", whoami: "authorized", click: false, leg: legAuthorizedSurface },
  { name: "granted", whoami: "authorized", reveal: "grant", click: true, leg: legRevealGranted },
  { name: "denied", whoami: "authorized", reveal: "deny", click: true, leg: legRevealDenied },
  { name: "no-value", whoami: "default", click: false, leg: legNoValueFromOtherRoutes },
+ { name: "withheld-grid", whoami: "default", click: false, leg: legWithheldGrid },
 ];
 
 try {

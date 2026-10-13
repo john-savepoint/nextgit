@@ -4,6 +4,7 @@
 import { state, el } from "./state.js";
 import { fetchJson, escapeHtml, renderPatchLines } from "./api.js";
 import { decideSecretSurface } from "../reveal-decision.js";
+import { revealControlHtml } from "./reveal.js";
 /**
  * Focusable controls inside the inspector dialog, in DOM order.
  * Recomputed per call: the dialog body re-renders on merge-tab clicks, so a cached
@@ -179,7 +180,15 @@ export async function handlePreviewMerge(repo) {
 
    let bodyContent = "";
    if (isSecret) {
-    bodyContent = `<div class="empty-state"><div class="empty-state-title">Secret content withheld</div><div class="empty-state-desc">Secret-class file contents are withheld from merge previews.</div></div>`;
+    // Merge /merge withheld rows carry `note` only (no keys); the key names
+    // ride the already-fetched /proposals payload — the masked surface the
+    // contract names. Fail-closed: no resolvable key → no control.
+    const secretKeys = state.proposalsData?.proposals?.find((p) => p.repo === repo)?.files?.find((x) => x.path === f.path && x.secret)?.keys;
+    const secretDecision = decideSecretSurface({ reveal: state.revealCapability.reveal });
+    const secretControl = secretDecision.showControl && Array.isArray(secretKeys) && secretKeys.length
+     ? revealControlHtml({ repo, path: f.path, keys: secretKeys })
+     : "";
+    bodyContent = `<div class="empty-state"><div class="empty-state-title">Secret content withheld</div><div class="empty-state-desc">Secret-class file contents are withheld from merge previews.</div></div>${secretControl}`;
    } else if (isFileConflict) {
     bodyContent = `<div class="merge-pane has-conflict">${escapeHtml(f.conflictText || "Conflict detected, but conflict text was not provided.")}</div>`;
    } else {

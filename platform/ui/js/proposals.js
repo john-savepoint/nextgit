@@ -302,6 +302,7 @@ export function renderProposals() {
    } else if (isWithheldSecret) {
     actionButtonsHtml = `
           <span class="badge badge-amber">blocked</span>
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="${repo}">preview merge</button>
           <button class="btn-card-action btn-land" type="button" disabled>withheld-secret file — landing blocked</button>
         `;
    } else if (isConflict) {

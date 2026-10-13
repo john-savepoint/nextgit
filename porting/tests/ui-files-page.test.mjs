@@ -245,7 +245,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.legs.secretContent = document.getElementById("file-content").textContent;
     R.legs.secretRawHidden = document.getElementById("raw-link").hidden || !document.getElementById("raw-link").getAttribute("href");
     R.legs.envRowText = envRow ? envRow.textContent : "";
+    // Reveal affordance (files-page secret viewer): read the shipped
+    // #file-reveal container + the decision marker before any click.
+    const revealBox = document.getElementById("file-reveal");
+    R.legs.secretRevealDecision = revealBox ? revealBox.getAttribute("data-reveal-decision") : null;
+    R.legs.secretHasReveal = !!(revealBox && revealBox.querySelector(".btn-reveal"));
+    const rvBefore = document.getElementById("reveal-value");
+    R.legs.hasRevealValueEl = !!rvBefore;
+    R.legs.revealValueBeforeHidden = rvBefore ? rvBefore.hidden : null;
+    R.legs.revealValueBeforeText = rvBefore ? rvBefore.textContent.trim() : null;
     R.legs.domHtml = document.documentElement.outerHTML;
+
+    // Authorized scenarios: click the REAL .btn-reveal and read the value.
+    if (window.__CLICK_REVEAL__ && revealBox && revealBox.querySelector(".btn-reveal")) {
+      revealBox.querySelector(".btn-reveal").click();
+      for (let i = 0; i < 60; i++) {
+        const cur = document.getElementById("reveal-value");
+        if (cur && !cur.hidden) break;
+        await sleep(50);
+      }
+      await sleep(100);
+      const rv = document.getElementById("reveal-value");
+      R.legs.revealValueHidden = rv ? rv.hidden : null;
+      R.legs.revealValueText = rv ? rv.textContent.trim() : null;
+      R.legs.revealValueInnerHtml = rv ? rv.innerHTML : null;
+      R.legs.revealValueDecision = rv ? rv.getAttribute("data-reveal-decision") : null;
+      R.legs.domHtmlAfterClick = document.documentElement.outerHTML;
+    }
 
     // Leg 6: back to root, click logo.png -> binary metadata, no content.
     const rootCrumb2 = [...document.querySelectorAll("#breadcrumb a")][0];
@@ -283,8 +309,18 @@ const PROPOSALS = {
   ],
 };
 
+// Scenario selectors for the reveal legs: whoamiMode drives GET /whoami,
+// revealMode drives POST /reveal, clickReveal arms the observer's click.
+let whoamiMode = "default";   // "default" => reveal:false; "authorized" => reveal:true
+let revealMode = "grant";     // "grant" => 200 {value}; "deny" => 403 reveal-not-authorized
+let clickReveal = false;
+
 const j = (res, body) => {
   res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+};
+const jCode = (res, body, code) => {
+  res.writeHead(code, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
 };
 
@@ -293,11 +329,29 @@ const server = createServer((req, res) => {
 
   if (pathname === "/__client.js") {
     res.writeHead(200, { "content-type": "text/javascript" });
-    res.end(clientScript);
+    res.end(`window.__CLICK_REVEAL__ = ${clickReveal === true};\n` + clientScript);
     return;
   }
 
   // --- API fixtures -------------------------------------------------------
+  if (pathname === "/whoami") {
+    j(res, whoamiMode === "authorized"
+      ? { ok: true, authorized: true, reveal: true }
+      : { ok: true, authorized: false, reveal: false });
+    return;
+  }
+
+  if (pathname === "/reveal") {
+    // The value a buggy surface would render — only the grant leg returns
+    // it, and only ever from this 200 body.
+    if (revealMode === "grant") {
+      j(res, { ok: true, repo: "agent-1", ref: "b".repeat(40), path: "config/.env", key: "STRIPE_SECRET_KEY", value: SECRET_VALUE });
+      return;
+    }
+    jCode(res, { ok: false, error: "reveal-not-authorized" }, 403);
+    return;
+  }
+
   if (pathname === "/proposals") { j(res, PROPOSALS); return; }
 
   if (pathname === "/tree") {
@@ -466,6 +520,59 @@ function legNoErrors(R) {
   check("8 zero uncaught errors in Chrome stderr", !stderrBad, `stderr~=${(chromeStderr ?? "").slice(0, 160)}`);
 }
 
+// --- Reveal reachability legs (9-13) ---------------------------------------
+
+function legNotCapable(R) {
+  check("9 not capable: NO #file-reveal .btn-reveal", R.legs?.secretHasReveal === false, `hasReveal=${JSON.stringify(R.legs?.secretHasReveal)}`);
+  check("9 not capable: no #reveal-value element", R.legs?.hasRevealValueEl === false, `hasVal=${JSON.stringify(R.legs?.hasRevealValueEl)}`);
+  check("9 not capable: #file-reveal data-reveal-decision=withheld", R.legs?.secretRevealDecision === "withheld", `decision=${JSON.stringify(R.legs?.secretRevealDecision)}`);
+}
+
+function legCapable(R) {
+  check("10 capable: #file-reveal .btn-reveal present (reveal:true)", R.legs?.secretHasReveal === true, `hasReveal=${JSON.stringify(R.legs?.secretHasReveal)}`);
+  check("10 capable: #file-reveal data-reveal-decision=control", R.legs?.secretRevealDecision === "control", `decision=${JSON.stringify(R.legs?.secretRevealDecision)}`);
+  check("10 capable: #reveal-value hidden and empty before click",
+    R.legs?.revealValueBeforeHidden === true && (R.legs?.revealValueBeforeText ?? "") === "",
+    `h=${JSON.stringify(R.legs?.revealValueBeforeHidden)} t=${JSON.stringify(R.legs?.revealValueBeforeText)}`);
+}
+
+function legGranted(R) {
+  check("11 granted: .btn-reveal was present and clicked", R.legs?.secretHasReveal === true && R.legs?.revealValueHidden === false, `has=${JSON.stringify(R.legs?.secretHasReveal)} h=${JSON.stringify(R.legs?.revealValueHidden)}`);
+  check("11 granted: #reveal-value carries 'STRIPE_SECRET_KEY = <fixture value>' (from the /reveal 200 body)",
+    (R.legs?.revealValueText ?? "").includes("STRIPE_SECRET_KEY") && (R.legs?.revealValueText ?? "").includes(SECRET_VALUE),
+    `text=${JSON.stringify(R.legs?.revealValueText)}`);
+  check("11 granted: #reveal-value data-reveal-decision=revealed", R.legs?.revealValueDecision === "revealed", `decision=${JSON.stringify(R.legs?.revealValueDecision)}`);
+  check("11 granted: value is HTML-escaped (no raw markup injection)",
+    !/<script/.test(R.legs?.revealValueInnerHtml ?? "") && (R.legs?.revealValueInnerHtml ?? "").includes(SECRET_VALUE),
+    `html=${JSON.stringify(R.legs?.revealValueInnerHtml)}`);
+}
+
+function legDenied(R) {
+  check("12 denied: .btn-reveal was present and clicked", R.legs?.secretHasReveal === true && R.legs?.revealValueHidden === false, `has=${JSON.stringify(R.legs?.secretHasReveal)} h=${JSON.stringify(R.legs?.revealValueHidden)}`);
+  check("12 denied: #reveal-value shows the denial copy",
+    (R.legs?.revealValueText ?? "").includes("Secret content withheld") && (R.legs?.revealValueText ?? "").includes("reveal not authorized"),
+    `text=${JSON.stringify(R.legs?.revealValueText)}`);
+  check("12 denied: #reveal-value data-reveal-decision=denied", R.legs?.revealValueDecision === "denied", `decision=${JSON.stringify(R.legs?.revealValueDecision)}`);
+  check("12 denied: NO fixture value in the post-click DOM", !(R.legs?.domHtmlAfterClick ?? "").includes(SECRET_VALUE), "fixture leaked into DOM");
+}
+
+function legMaskingLaw(passes) {
+  for (const { name, R } of passes) {
+    const pre = R?.legs?.domHtml;
+    if (pre === undefined) {
+      check(`13 masking law (${name}): DOM snapshot present`, false, "no domHtml in observer output");
+      continue;
+    }
+    check(`13 masking law (${name}): fixture value absent from the DOM before any reveal`, !pre.includes(SECRET_VALUE), "fixture value found in pre-reveal DOM");
+    const post = R.legs?.domHtmlAfterClick;
+    if (post !== undefined) {
+      const revealed = R.legs?.revealValueDecision === "revealed";
+      check(`13 masking law (${name}): post-click DOM ${revealed ? "carries" : "omits"} the fixture value`,
+        revealed ? post.includes(SECRET_VALUE) : !post.includes(SECRET_VALUE), `revealed=${revealed}`);
+    }
+  }
+}
+
 try {
   const port = await new Promise((resolve, reject) => {
     server.on("error", reject);
@@ -504,29 +611,65 @@ try {
     }
   };
 
-  await send("Page.navigate", { url: `${baseUrl}/` });
-  await waitFor(`document.getElementById("test-out")`);
+  // Fresh-document scenario runner: blank first so a stale #test-out from
+  // the previous scenario can never be mistaken for the new one.
+  const runScenario = async ({ whoami, reveal = "grant", click = false }) => {
+    whoamiMode = whoami;
+    revealMode = reveal;
+    clickReveal = click;
+    await send("Page.navigate", { url: "about:blank" });
+    await waitFor(`location.href === "about:blank" && !document.getElementById("test-out")`);
+    await send("Page.navigate", { url: `${baseUrl}/` });
+    await waitFor(`document.getElementById("test-out")`);
+    // Leg 7 (back-link) is a static markup fact — read it directly.
+    const backLink = await evl(`!!document.querySelector('a[href="/"]')`);
+    const raw = await evl(`document.getElementById("test-out").textContent`);
+    const R = raw ? JSON.parse(decodeURIComponent(raw)) : null;
+    if (R) R.legs.backLink = backLink;
+    return R;
+  };
 
-  // Leg 7 (back-link) is a static markup fact — read it directly.
-  const backLink = await evl(`!!document.querySelector('a[href="/"]')`);
-  const raw = await evl(`document.getElementById("test-out").textContent`);
-  const R = raw ? JSON.parse(decodeURIComponent(raw)) : null;
-  if (!R) {
+  // Default posture (reveal:false): legs 1-9 + back-link/no-errors.
+  const defaultR = await runScenario({ whoami: "default", click: false });
+  if (!defaultR) {
     check("harness: observer output present", false, "no #test-out in rendered DOM");
-  } else if (R.errors.length && !R.legs) {
-    check("harness: observer ran without throwing", false, R.errors.join(" | "));
+  } else if (defaultR.errors.length && !defaultR.legs) {
+    check("harness: observer ran without throwing", false, defaultR.errors.join(" | "));
   } else {
-    R.legs.backLink = backLink;
-    legPicker(R);
-    legTree(R);
-    legDirClick(R);
-    legNested(R);
-    legFileClick(R);
-    legSecret(R);
-    legBinary(R);
-    legBackLink(R);
-    legNoErrors(R);
+    legPicker(defaultR);
+    legTree(defaultR);
+    legDirClick(defaultR);
+    legNested(defaultR);
+    legFileClick(defaultR);
+    legSecret(defaultR);
+    legBinary(defaultR);
+    legBackLink(defaultR);
+    legNoErrors(defaultR);
+    legNotCapable(defaultR);
   }
+
+  // reveal:true, no click → the control renders, no value yet.
+  const capableR = await runScenario({ whoami: "authorized", click: false });
+  if (capableR?.legs) legCapable(capableR);
+  else check("10 capable: scenario output present", false, "no #test-out");
+
+  // reveal:true + grant → the real click renders the value from the 200 body.
+  const grantedR = await runScenario({ whoami: "authorized", reveal: "grant", click: true });
+  if (grantedR?.legs) legGranted(grantedR);
+  else check("11 granted: scenario output present", false, "no #test-out");
+
+  // reveal:true + deny → the denial notice renders, no value anywhere.
+  const deniedR = await runScenario({ whoami: "authorized", reveal: "deny", click: true });
+  if (deniedR?.legs) legDenied(deniedR);
+  else check("12 denied: scenario output present", false, "no #test-out");
+
+  // The masking law holds across every scenario.
+  legMaskingLaw([
+    { name: "not-capable", R: defaultR },
+    { name: "capable", R: capableR },
+    { name: "granted", R: grantedR },
+    { name: "denied", R: deniedR },
+  ]);
 } catch (e) {
   check("harness setup failed", false, String(e?.message ?? e));
 } finally {
