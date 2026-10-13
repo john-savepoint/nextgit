@@ -29,6 +29,11 @@ const VALID_EVENT_TYPES: Record<string, true> = {
  "repo.pushed": true, "repo.forked": true, "repo.created": true, "repo.cloned": true, "repo.fetched": true,
  "repo.token.created": true, "repo.token.revoked": true,
  "token.created": true, "token.revoked": true,
+ // Session steering (nextgit-e16): mirrored from the canonical
+ // copy in index.ts — the hub re-validates every publish, so a
+ // missing entry here 400s the steer's fan-out (the FR-36 parity
+ // lesson: every vocabulary addition lands in BOTH copies).
+ "session.steered": true,
 };
 
 export interface LiveEvent {
@@ -37,6 +42,17 @@ export interface LiveEvent {
  ref?: string;
  after?: string;
  at: string;
+ // Session steering (nextgit-e16): the scrubbed steer
+ // instruction rides the frame for session.steered events
+ // (the AD-4 wire). Absent on every other event type
+ // (validation does not require it — same posture as
+ // ref/after).
+ instruction?: string;
+ // Per-event uniqueness (nextgit-e16 heal-1): a fresh id
+ // on session.steered frames so the SSE `id:` / dedup key
+ // never collides between two steers to one repo. Absent
+ // on every other event family.
+ id?: string;
 }
 
 /** Minimal env surface: only needs the EVENTS_HUB binding. */
@@ -62,10 +78,14 @@ function normalizeEventType(type: string): string {
  return type.replace(/^cf\.artifacts\./, "");
 }
 
-// Canonical in index.ts:749 — the SSE `id:` dedup key per CONTRACT § GET /events/stream.
+// Canonical in index.ts — the SSE `id:` dedup key per
+// CONTRACT § GET /events/stream. session.steered carries a
+// per-event id (every steer is a NEW client-initiated write,
+// not a queue replay), so no two steers to one repo share a
+// key. Absent on every other event family.
 function eventDedupKey(event: LiveEvent): string {
  const t = event.type ? normalizeEventType(event.type) : "";
- return t + "|" + (event.repo || "") + "|" + (event.ref ?? "") + "|" + (event.after ?? "");
+ return t + "|" + (event.repo || "") + "|" + (event.ref ?? "") + "|" + (event.after ?? "") + "|" + (event.id ?? "");
 }
 
 function sseFrame(type: string, id: string, data: LiveEvent): string {
