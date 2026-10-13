@@ -458,7 +458,15 @@ try {
   gitCtrl("push", "origin", "HEAD:refs/heads/main");
   const CC1 = gitCtrl("rev-parse", "HEAD");
   const ctrlLand = await land({ base: CTRL_BASE_REPO, repos: [CTRL_PROPOSAL_REPO], baseRef: "main", ref: "main", reviewed: { baseHead: CH0, heads: { [CTRL_PROPOSAL_REPO]: CC1 } } });
-  await sleep(9000);
+  // Bounded poll: edge log delivery is variable (the (d-5) flake — a flat
+  // 9s capture window raced propagation and red the leg intermittently).
+  // Poll for the audit line up to 15x2s before detaching.
+  for (let i = 0; i < 15; i++) {
+    const ev = parseTailEvents(tail.out);
+    const txt = ev.flatMap((e) => messageTexts(e)).join("\n");
+    if (/token-mint/.test(txt)) break;
+    await sleep(2000);
+  }
   tail.child.kill("SIGTERM");
   await sleep(1500);
   const tailEvents = parseTailEvents(tail.out);

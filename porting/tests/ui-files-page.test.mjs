@@ -18,7 +18,7 @@
 //   /tree (root)         -> src/ dir, README.md, config/.env
 //   /tree (src/)         -> main.ts
 //   /file README.md      -> classification:'text' + text
-//   /file logo.png       -> classification:'binary' + note
+//   /file logo.png       -> classification:'binary' (no body fields — the live shape)
 //   /file config/.env    -> classification:'secret' + keys (key names only)
 //   /file missing.md     -> ok:false 404 shape
 //
@@ -32,7 +32,7 @@
 //   5. secret leg: key names present, fixture secret VALUE
 //      absent from the DOM (masking acceptance — the value never
 //      reaches the DOM even though the fixture server COULD send it)
-//   6. binary leg: metadata panel shows the note, #file-content
+//   6. binary leg: metadata panel is the (metadata only) posture, #file-content
 //      stays empty (no binary body inlined)
 //   7. back-link a[href="/"] present (back to triage)
 //   8. zero uncaught page errors (window listener + stderr scan)
@@ -244,6 +244,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.legs.secretMeta = document.getElementById("file-meta").textContent;
     R.legs.secretContent = document.getElementById("file-content").textContent;
     R.legs.secretRawHidden = document.getElementById("raw-link").hidden || !document.getElementById("raw-link").getAttribute("href");
+    // The visual law: author display:inline-block overrides the UA [hidden]
+    // rule, so the hidden attribute alone can leave a DEAD raw affordance
+    // visible — pin the computed display (.files-raw-link[hidden] companion).
+    R.legs.secretRawDisplay = getComputedStyle(document.getElementById("raw-link")).display;
     R.legs.envRowText = envRow ? envRow.textContent : "";
     // Reveal affordance (files-page secret viewer): read the shipped
     // #file-reveal container + the decision marker before any click.
@@ -403,7 +407,7 @@ const server = createServer((req, res) => {
       return;
     }
     if (repo === "agent-1" && path === "logo.png") {
-      j(res, { ok: true, classification: "binary", note: "image/png, 128 bytes" });
+      j(res, { ok: true, classification: "binary" });
       return;
     }
     if (repo === "agent-1" && path === "config/.env") {
@@ -500,12 +504,13 @@ function legSecret(R) {
   check("5 secret panel is key-names-only posture", meta.includes("secret"), `meta=${JSON.stringify(meta)}`);
   check("5 secret row carries the word, not color alone", (R.legs?.envRowText ?? "").includes("secret"), `row=${JSON.stringify(R.legs?.envRowText)}`);
   check("5 no raw link on secret-class paths", R.legs?.secretRawHidden === true, `hidden=${JSON.stringify(R.legs?.secretRawHidden)}`);
+  check("5 secret-class raw link is visually gone (computed display none)", R.legs?.secretRawDisplay === "none", `display=${JSON.stringify(R.legs?.secretRawDisplay)}`);
 }
 
 function legBinary(R) {
   const meta = R.legs?.binaryMeta ?? "";
   const content = R.legs?.binaryContent ?? "";
-  check("6 binary leg shows metadata note", meta.includes("image/png"), `meta=${JSON.stringify(meta)}`);
+  check("6 binary leg shows the (metadata only) posture", meta.includes("binary") && meta.includes("(metadata only)"), `meta=${JSON.stringify(meta)}`);
   check("6 binary leg leaves #file-content empty", content === "", `content=${JSON.stringify(content)}`);
 }
 

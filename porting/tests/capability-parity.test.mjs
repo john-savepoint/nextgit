@@ -33,13 +33,12 @@ const DATA_MODULE = join(UI_DIR, "parity-data.js");
 const TABLE_MD = join(ROOT, "porting/parity/parity-table.md");
 const ROWS_JSON = join(ROOT, "porting/parity/below-baseline-rows.json");
 
-// The below set fixed at plan time (plan.md: the expected below-baseline set).
+// The below set — after the 2026-10-13 flip (inline-review-comments +
+// repo-browsing shipped in wave 14; both verdicts moved to parity).
 const EXPECTED_BELOW = [
   "session-steering",
   "agent-identity-policy",
-  "inline-review-comments",
   "agent-federation",
-  "repo-browsing",
   "issues",
   "ci",
 ];
@@ -90,10 +89,10 @@ try {
     table.dimensions.every((d) => d.verdict === deriveVerdict(d.github.status, d.nextgit.status)),
     "a stored verdict disagrees with deriveVerdict");
 
-  // The markdown table shows the expected 7 below rows.
+  // The markdown table shows the expected 5 below rows (post-flip).
   const md = readFileSync(TABLE_MD, "utf8");
   const mdBelow = (md.match(/^\| below \|/gm) || []).length;
-  check("1 parity-table.md shows 7 below rows", mdBelow === 7, `got ${mdBelow}`);
+  check("1 parity-table.md shows 5 below rows", mdBelow === 5, `got ${mdBelow}`);
 } catch (e) { check("1 derivation case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 2. verdict-rule proofs over a temp fixture ------------------------
@@ -240,12 +239,13 @@ try {
   const afterSecond = list().filter((r) => /^nextgit-parity-below-/.test(r.id));
   check("5 second run inserts no duplicates", afterSecond.length === EXPECTED_BELOW.length, `got ${afterSecond.length}`);
 
-  // repo-browsing references the existing P0 row instead of a duplicate:
-  // its acceptance names the read-api row, and no separate duplicate row exists.
-  const repoRow = afterSecond.find((r) => r.id === "nextgit-parity-below-repo-browsing");
-  check("5 repo-browsing row references the existing P0 read-api row",
-    !!repoRow && /nextgit-e14-impl-tree-and-file-read-api/.test(repoRow.acceptance ?? ""),
-    repoRow?.acceptance?.slice(0, 120));
+  // The 2026-10-13 flip: inline-review-comments + repo-browsing shipped, so
+  // neither may appear in the derived below set (their verdicts are parity).
+  const shippedNow = ["nextgit-parity-below-repo-browsing", "nextgit-parity-below-inline-review-comments"];
+  const resurrected = afterSecond.filter((r) => shippedNow.includes(r.id));
+  check("5 shipped dimensions stay out of the below rows (post-flip)",
+    resurrected.length === 0,
+    JSON.stringify(resurrected.map((r) => r.id)));
 
   rmSync(dir, { recursive: true, force: true });
   rmSync(template, { recursive: true, force: true });

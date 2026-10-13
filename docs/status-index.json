@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-13T03:14:22.491Z",
-  "head": "359f4e9",
+  "generatedAt": "2026-10-13T03:23:51.846Z",
+  "head": "6285b3d",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-13 ",
@@ -12,9 +12,9 @@
   "queue": {
     "total": 682,
     "byStatus": {
-      "pending": 450,
+      "pending": 449,
       "partial": 1,
-      "done": 231
+      "done": 232
     },
     "items": [
       {
@@ -2251,11 +2251,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Parity gap vs GitHub: Agent access policies managed like developers"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Parity gap vs GitHub: Inline per-line review comments on a change"
       },
       {
         "status": "pending",

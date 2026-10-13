@@ -229,10 +229,14 @@ try {
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
-    await call("DELETE", `${apiBase}/repos/${TARGET}`).catch(() => null);
   }
 } catch (e) {
   check("harness run (live push + poll)", false, String((e && e.stack) || e));
+} finally {
+  // Cleanup covers EVERY exit path (fork throw, ready-loop fallthrough, token
+  // mint, clone/push failure) — the inner-only delete leaked a fresh
+  // e4s-scratch-* repo on each failed run (observed 2026-10-12/13).
+  await call("DELETE", `${apiBase}/repos/${TARGET}`).catch(() => null);
 }
 
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILURES (${skips} SKIPPED)`);

@@ -8,9 +8,10 @@
 // the HTTP surface (a static file server for platform/ui/), never the
 // page itself. Four observable contracts:
 //   1. the document renders all 18 dimension rows
-//   2. exactly 7 rows carry the verdict-below class (the plan's
-//      below-baseline set)
-//   3. the summary chips read 5 exceeds / 6 parity / 7 below
+//   2. exactly 5 rows carry the verdict-below class (the post-flip
+//      below-baseline set — inline-review-comments + repo-browsing
+//      shipped 2026-10-13, both verdicts moved to parity)
+//   3. the summary chips read 5 exceeds / 8 parity / 5 below
 //   4. XSS probe: a temp data module whose dimension name is
 //      `<img src=x onerror=...>` renders ESCAPED — no live `onerror`
 //      attribute in the DOM (every cell is inserted via textContent)
@@ -130,15 +131,15 @@ try {
   const rowCount = (tbody.match(/<tr/g) || []).length;
   const belowRows = (tbody.match(/<tr class="verdict-below">/g) || []).length;
   check("1 document renders 18 dimension rows", rowCount === 18, `got ${rowCount}`);
-  check("2 exactly 7 rows carry verdict-below", belowRows === 7, `got ${belowRows}`);
+  check("2 exactly 5 rows carry verdict-below", belowRows === 5, `got ${belowRows}`);
 
   const chip = (id) => {
     const m = dom.match(new RegExp(`id=${JSON.stringify(id)}[^>]*>([^<]*)<`));
     return m ? m[1].trim() : null;
   };
   check("3 summary chip exceeds = 5", chip("chip-exceeds") === "5", chip("chip-exceeds"));
-  check("3 summary chip parity = 6", chip("chip-parity") === "6", chip("chip-parity"));
-  check("3 summary chip below = 7", chip("chip-below") === "7", chip("chip-below"));
+  check("3 summary chip parity = 8", chip("chip-parity") === "8", chip("chip-parity"));
+  check("3 summary chip below = 5", chip("chip-below") === "5", chip("chip-below"));
 
   // (4): XSS probe — the hostile dimension name renders escaped.
   const xssDom = await dumpDom(`http://127.0.0.1:${xssPort}/parity.html`);

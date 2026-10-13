@@ -1211,6 +1211,12 @@ html, body {
 .files-raw-link:hover {
   color: var(--text-primary);
 }
+/* Author display:inline-block would override the UA [hidden] rule — the
+   companion rule every .action-banner/.reveal-value-style surface carries.
+   Without it, a secret-class view shows a DEAD "raw" affordance. */
+.files-raw-link[hidden] {
+  display: none;
+}
 .files-back-link {
   font-size: 0.75rem;
 }

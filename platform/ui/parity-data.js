@@ -3,7 +3,7 @@
 // The PARITY_TABLE contract consumed by platform/ui/parity.js.
 // Strings are escaped at RENDER time (parity.js), not at generation.
 export const PARITY_TABLE = {
-  "generated": "2026-10-12T23:45:27Z",
+  "generated": "2026-10-13T03:20:18Z",
   "dimensions": [
     {
       "id": "session-steering",
@@ -248,14 +248,15 @@ export const PARITY_TABLE = {
         ]
       },
       "nextgit": {
-        "status": "none",
-        "evidence": "No inline per-line review-comment surface exists; review is the set-level conflict map, not per-line threads.",
+        "status": "shipped",
+        "evidence": "Inline per-line review threads: POST/GET /comments (repo-scoped, secret-class 403, closed schema, per-repo append gate) + the merge-preview modal thread (compose, optimistic append, honest failure, draft retention across tabs) — live-verified (201 -> GET round-trip; thread renders server rows; secret path refused).",
         "sources": [
-          "docs/HANDOFF-PLATFORM.md:80",
-          "docs/STATE.md:19"
+          "platform/CONTRACT.md:138",
+          "platform/CONTRACT.md:181",
+          "docs/CHECKPOINT.md:14"
         ]
       },
-      "verdict": "below"
+      "verdict": "parity"
     },
     {
       "id": "agent-federation",
@@ -289,14 +290,15 @@ export const PARITY_TABLE = {
         ]
       },
       "nextgit": {
-        "status": "none",
-        "evidence": "No browser surface in the tree; the worker read API for repo browsing (GET /tree, GET /file, GET /raw/{repo}) is in flight — tracked by the existing P0 row nextgit-e14-impl-tree-and-file-read-api (referenced, not duplicated).",
+        "status": "shipped",
+        "evidence": "Files page (platform/ui/files.html + js/files-page.js) over the worker read API (GET /tree, GET /file, GET /raw) + the history page (platform/ui/history.html + GET /commits) — directory navigation, text/binary rendering, secret-class key-names-only with no raw link, commit log with per-commit changed files. Live-verified end-to-end.",
         "sources": [
-          "docs/HANDOFF-PLATFORM.md:80",
-          "docs/STATE.md:19"
+          "platform/CONTRACT.md:50",
+          "platform/CONTRACT.md:125",
+          "docs/CHECKPOINT.md:14"
         ]
       },
-      "verdict": "below"
+      "verdict": "parity"
     },
     {
       "id": "issues",

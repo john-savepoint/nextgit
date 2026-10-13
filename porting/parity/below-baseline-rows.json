@@ -18,29 +18,11 @@
     "source": "harvest:parity-github"
   },
   {
-    "id": "nextgit-parity-below-inline-review-comments",
-    "title": "Parity gap vs GitHub: Inline per-line review comments on a change",
-    "priority": "P2",
-    "scope": "Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension \"inline-review-comments\": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10",
-    "acceptance": "Bring \"Inline per-line review comments on a change\" to at least GitHub-baseline parity (GitHub: shipped; NextGit: none). Evidence: Pull-request review with inline per-line comments is the core GitHub flow an agent PR enters.",
-    "check": "bun porting/parity/compare.mjs --check-data",
-    "source": "harvest:parity-github"
-  },
-  {
     "id": "nextgit-parity-below-agent-federation",
     "title": "Parity gap vs GitHub: Third-party agents hosted inside the platform",
     "priority": "P2",
     "scope": "Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension \"agent-federation\": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13",
     "acceptance": "Bring \"Third-party agents hosted inside the platform\" to at least GitHub-baseline parity (GitHub: shipped; NextGit: partial). Evidence: Third-party coding agents from Anthropic, OpenAI, Google, Cognition and xAI run inside GitHub under the existing paid Copilot subscription; Google's Jules becomes a native assignee.",
-    "check": "bun porting/parity/compare.mjs --check-data",
-    "source": "harvest:parity-github"
-  },
-  {
-    "id": "nextgit-parity-below-repo-browsing",
-    "title": "Parity gap vs GitHub: File/repo browser",
-    "priority": "P2",
-    "scope": "Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension \"repo-browsing\": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10",
-    "acceptance": "Bring File/repo browser to at least GitHub-baseline parity. Already tracked by the in-flight P0 row nextgit-e14-impl-tree-and-file-read-api (worker read API for repo browsing — GET /tree, GET /file, GET /raw/{repo}); this row records the parity finding and the reference, and intentionally inserts no duplicate.",
     "check": "bun porting/parity/compare.mjs --check-data",
     "source": "harvest:parity-github"
   },

@@ -6,6 +6,9 @@
       "conditions": { "prefix": "" },
       "deleteObjectsTransition": {
         "condition": { "type": "Age", "maxAge": 7776000 }
+      },
+      "abortMultipartUploadsTransition": {
+        "condition": { "type": "Age", "maxAge": 604800 }
       }
     }
   ]
