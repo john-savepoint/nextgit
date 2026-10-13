@@ -200,6 +200,57 @@ export function landVerdictBadgeHtml(repo) {
 }
 
 /**
+ * Land confirm sheet (AD-11 decision point): while the card sits in its
+ * inline `confirm land?` state, state what the land will do and what the
+ * judge last said for this repo. Render-only: the verdict is read from
+ * state.landVerdictByRepo — written ONLY by a server /land response
+ * (js/land.js:108 200 evidence.autoLand, :165 409 autoland-escalate) —
+ * and mapped through renderLandVerdict. Nothing here fetches, stores,
+ * or decides, and the sheet NEVER gates the action: `confirm land?`
+ * stays enabled under every posture (the two-step confirm state itself
+ * is the fallback when no verdict was carried — a skip is not a
+ * verdict).
+ *
+ * Both arguments arrive HTML-escaped by the caller: the card `repo` is
+ * the escaped local from renderProposals, and the base repo is escaped
+ * at the call site (mirrors js/land.js's banner sinks). The judge-owned
+ * parts (chip label + notice copy, including every blocking code) are
+ * escaped inside land-verdict.js; the what-line interpolates only
+ * already-escaped values.
+ */
+export function landConfirmSheetHtml(repo, baseRepo) {
+ const render = renderLandVerdict(state.landVerdictByRepo[repo] || {});
+ const what = `Landing folds ${repo} into ${baseRepo} server-side (no clone) and pushes the result to the base branch.`;
+
+ // Render table over renderLandVerdict's five postures: chip + copy.
+ // `act` and `none` carry no judge notice of their own, so the sheet
+ // states the posture in code-owned copy; blocked/confirm/escalate
+ // render the notice verbatim (one entry per confirming card).
+ let chipClass = "badge-neutral";
+ let chipText = "recorded-evidence";
+ let copy = "No auto-land verdict recorded for this proposal — recorded-evidence mode: your confirmation is the whole decision.";
+ if (render.kind === "blocked") {
+  chipClass = render.badgeClass; // badge-red
+  chipText = render.badgeText;   // "blocked"
+  copy = render.noticeHtml;      // the fail-closed 503 copy
+ } else if (render.kind === "escalate") {
+  chipClass = render.badgeClass;
+  chipText = render.badgeText;
+  copy = render.noticeHtml;
+ } else if (render.kind === "confirm") {
+  chipClass = render.badgeClass;
+  chipText = render.badgeText;
+  copy = render.noticeHtml;
+ } else if (render.kind === "act") {
+  chipClass = render.badgeClass; // badge-clean
+  chipText = "act";
+  copy = "Auto-land verdict: ACT — the gate cleared the previous land of this proposal; confirming folds and pushes it server-side.";
+ }
+
+ return `<div class="land-confirm-sheet" role="note" aria-live="polite"><div class="land-confirm-what">${what}</div><div class="land-confirm-verdict"><span class="badge ${escapeHtml(chipClass)}">${escapeHtml(chipText)}</span> <span class="action-hint">${copy}</span></div></div>`;
+}
+
+/**
  * Render Proposals Grid
  */
 export function renderProposals() {
@@ -329,6 +380,7 @@ export function renderProposals() {
             </div>
           </div>
 
+          ${isConfirming ? landConfirmSheetHtml(repo, escapeHtml(data?.base?.repo || "demo")) : ""}
           ${intent
      ? `<div class="proposal-intent"><span class="intent-label">intent:</span>${intent}</div>`
      : ""

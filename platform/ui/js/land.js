@@ -168,7 +168,13 @@ export async function handleLandProposal(repo) {
    // Fail-closed gate: the judge could not answer, so the
    // land was blocked server-side. Render the blocked
    // fact with the server's reason — no bypass exists.
-   const render = renderLandVerdict(landVerdictFromErrorEnvelope(resp) || { error: "judge-unavailable" });
+   const verdict = landVerdictFromErrorEnvelope(resp) || { error: "judge-unavailable" };
+   // Record the gate's server-carried fail-closed answer so the
+   // next armed state renders the fail-closed copy (the confirm
+   // sheet). Not a decision: symmetric with the 409 autoland-escalate
+   // recording above; a later act/confirm overwrites it.
+   state.landVerdictByRepo[repo] = verdict;
+   const render = renderLandVerdict(verdict);
    showActionBanner("error", render.badgeText || "blocked", render.noticeHtml || "Auto-land gate unavailable — landing blocked (judge-unavailable).");
   } else {
    const msg = err.message || resp.error || "Unexpected landing failure";
