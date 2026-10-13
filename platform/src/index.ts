@@ -4450,6 +4450,9 @@ const UI_ASSET_PATHS: Record<string, true> = {
  // nextgit-e16 (wave-15 lane-union marker): the issues
  // triage panel module.
  "/js/issues-panel.js": true,
+ // nextgit-e16 (wave-16 marker): the sessions panel
+ // module (the honest v1 session list + steer composer).
+ "/js/sessions-panel.js": true,
 };
 
 export default {

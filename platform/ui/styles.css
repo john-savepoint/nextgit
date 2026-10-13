@@ -1718,3 +1718,135 @@ html, body {
   color: var(--status-red);
   overflow-wrap: anywhere;
 }
+
+/* ——— Sessions panel (wave-16) ———
+   The honest v1 session list + the per-repo steer
+   composer. Var-only styling — no new color literals.
+   State chips reuse the --status-* token families
+   (the fork-policy-chip precedent); the panel's
+   chrome classes (.sessions-* / .session-* /
+   .steer-*) are the panel's own (deliberately not
+   .section-meta / .loading-indicator), so the
+   contrast suite's structural counts are unaffected. */
+.sessions-section {
+  margin-bottom: var(--space-3xl);
+}
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.sessions-loading {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.sessions-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.sessions-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.sessions-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.session-row {
+  border-left: 2px solid var(--border-subtle);
+  padding: var(--space-sm-plus) var(--space-lg);
+  background-color: var(--bg-inset);
+  min-width: 0;
+}
+.session-row-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+.session-repo {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.session-state {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+.session-state-working {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.session-state-idle {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-muted);
+}
+.session-state-blocked {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+}
+.session-state-unknown {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--status-neutral);
+}
+.session-intent {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.session-last-event {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.steer-composer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.steer-input {
+  flex: 1 1 20rem;
+  min-width: 0;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  padding: var(--space-sm);
+  resize: vertical;
+}
+.steer-send {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+.steer-send:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.steer-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.steer-send[data-steer-sent="1"] {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
