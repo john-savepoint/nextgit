@@ -1377,6 +1377,54 @@ html, body {
   background-color: var(--bg-card-hover);
 }
 .history-sha {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.history-meta {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.history-detail {
+  margin-top: 1.25rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-inset);
+}
+.history-detail-meta {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.history-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history-empty,
+.history-root-note {
+  padding: 0.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.commit-file-row {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.commit-file-row:last-child {
+  border-bottom: none;
+}
+.commit-asset {
+  color: var(--text-secondary);
+}
+.commit-secret {
+  color: var(--status-amber);
+}
+
 /* ——— Forks panel (wave-14) ———
    The six-cluster fork-signals triage section (CAP-10). Existing tokens
    only — no new color literals. The chip row wraps (flex-wrap) so a
@@ -1435,48 +1483,6 @@ html, body {
   font-weight: 600;
   color: var(--text-primary);
 }
-.history-meta {
-  display: block;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-.history-detail {
-  margin-top: 1.25rem;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--bg-inset);
-}
-.history-detail-meta {
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-.history-files {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.history-empty,
-.history-root-note {
-  padding: 0.5rem 1rem;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-.commit-file-row {
-  display: block;
-  padding: 0.5rem 1rem;
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.commit-file-row:last-child {
-  border-bottom: none;
-}
-.commit-asset {
-  color: var(--text-secondary);
-}
-.commit-secret {
-  color: var(--status-amber);
 .fork-base {
   color: var(--text-muted);
   font-size: 0.75rem;
@@ -1506,6 +1512,7 @@ html, body {
   font-family: var(--font-mono);
   color: var(--text-primary);
 }
+
 /* ——— land confirm sheet (decision-point surface) ———
    Scope: platform/ui/styles.css
    The land confirm sheet carries the what-the-land-will-do line and the
@@ -1528,6 +1535,7 @@ html, body {
 .land-confirm-sheet .action-hint {
   color: var(--text-secondary);
 }
+
 /* Per-proposal checks strip (wave-14). Tri-state; `unknown` is neutral —
    never green (the honesty law). Text uses AA-safe tokens; state is carried
    by the border/background tint plus the detail copy. */
