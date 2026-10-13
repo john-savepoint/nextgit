@@ -1718,3 +1718,98 @@ html, body {
   color: var(--status-red);
   overflow-wrap: anywhere;
 }
+ /* nextgit-e16 (wave-16 L3): the story page — tier grid + live R2 chip. */
+.story-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+}
+.story-heading {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  margin: 0;
+}
+.story-lede {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0;
+  max-width: 70ch;
+}
+.story-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  gap: var(--space-md);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.story-tier {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 0.5rem);
+  padding: var(--space-md);
+}
+.story-tier-name {
+  color: var(--accent-blue);
+  font-size: 1rem;
+  margin: 0;
+}
+.story-tier-kind {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.story-tier-holds,
+.story-tier-serves {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+.story-code {
+  font-family: var(--font-mono);
+}
+.story-asset-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 6px);
+  padding: var(--space-md);
+}
+.story-asset-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 0.5rem);
+}
+.story-loading {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.story-asset-row {
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm, 0.5rem);
+  font-size: 0.875rem;
+}
+.story-asset-path {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.story-asset-field {
+  font-family: var(--font-mono);
+}
+.story-asset-label {
+  color: var(--text-secondary);
+}
+.story-asset-blob {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.story-asset-caption {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
