@@ -8,6 +8,7 @@ import { loadEvents, openEventStream, startPollers, stopPollers } from "./ticker
 import { openModal, closeModal, modalFocusables, handleViewDiff, handlePreviewMerge } from "./modal.js";
 import { handleLandProposal, hideActionBanner } from "./land.js";
 import { revealSecret } from "./reveal.js";
+import { submitComment } from "./comments.js";
 
 /**
  * Event delegation for proposals grid (view diff, preview merge, and landing)
@@ -68,6 +69,12 @@ export function setupInteractions() {
     if (repo && path) revealSecret(repo, path, keys);
     return;
    }
+   // Comment composer: the submit control lives in the modal body
+   // (the comment thread), so the delegation is attached here — the
+   // same seam as the reveal affordance. One listener, bound to
+   // #inspector-modal, survives every modal re-render.
+   const commentBtn = e.target.closest("[data-comment-submit]");
+   if (commentBtn) { submitComment(commentBtn); return; }
    if (e.target === el.inspectorModal) closeModal();
   });
  }

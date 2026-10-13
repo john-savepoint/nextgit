@@ -4,6 +4,7 @@
 import { state, el } from "./state.js";
 import { fetchJson, escapeHtml, renderPatchLines } from "./api.js";
 import { decideSecretSurface } from "../reveal-decision.js";
+import { commentThreadHtml, commentRefusedHtml, hydrateCommentThreads } from "./comments.js";
 /**
  * Focusable controls inside the inspector dialog, in DOM order.
  * Recomputed per call: the dialog body re-renders on merge-tab clicks, so a cached
@@ -167,6 +168,10 @@ export async function handlePreviewMerge(repo) {
 
   // Build tabs or stacked file views for merge files
   let activeIndex = 0;
+  // In-progress composer drafts, keyed by file path, so a tab switch (which
+  // re-renders the modal body and destroys the composer) never silently
+  // discards typed-but-unsubmitted comment text.
+  const drafts = new Map();
 
   function renderMergeContent(idx) {
    const f = files[idx];
@@ -208,6 +213,7 @@ export async function handlePreviewMerge(repo) {
         ${tabsHtml}
         <div style="margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">${path}</div>
         ${bodyContent}
+        ${isSecret ? commentRefusedHtml() : commentThreadHtml(repo, f.path)}
       `;
   }
 
@@ -217,6 +223,7 @@ export async function handlePreviewMerge(repo) {
    statusChip.badgeClass,
    renderMergeContent(activeIndex)
   );
+  await hydrateCommentThreads(el.modalBody);
 
   // Bind tab clicks inside the modal
   if (el.modalBody) {
@@ -225,8 +232,15 @@ export async function handlePreviewMerge(repo) {
     if (tabBtn) {
      const tabIdx = parseInt(tabBtn.getAttribute("data-merge-tab"), 10);
      if (!isNaN(tabIdx) && files[tabIdx]) {
+      // Stash the outgoing tab's draft before the re-render destroys it…
+      const cur = el.modalBody.querySelector("[data-comment-body]");
+      if (cur) drafts.set(files[activeIndex].path, cur.value);
       activeIndex = tabIdx;
       el.modalBody.innerHTML = renderMergeContent(activeIndex);
+      // …and restore the incoming tab's draft into the fresh composer.
+      const next = el.modalBody.querySelector("[data-comment-body]");
+      if (next) next.value = drafts.get(files[activeIndex].path) || "";
+      hydrateCommentThreads(el.modalBody);
      }
     }
    };

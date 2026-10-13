@@ -3074,6 +3074,7 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/state.js": true, "/js/api.js": true, "/js/conflicts.js": true,
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
+ "/js/comments.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
 };
 
