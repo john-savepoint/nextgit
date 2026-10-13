@@ -37,6 +37,10 @@
     {
       "binding": "REVEAL_AUDIT",
       "id": "8aa1ccbca22a46d19b0230066d3256cc"
+    },
+    {
+      "binding": "SKIP_RECORD",
+      "id": "704420fc54f54c47a0c3bf76280fca78"
     }
   ],
   "r2_buckets": [
