@@ -41,6 +41,13 @@ import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 import federationHarnesses from "../harnesses.json";
 
 import { isAssetPointer, parseAssetPointer, readVerifiedBlob, BlobIntegrityError, type AssetPointer } from "./assets";
+import {
+ signAttestation,
+ storeAttestation,
+ type Attestation,
+ type AttestationEnvironment,
+ type AttestationSubject,
+} from "./attest";
 import { computeSixClusterSignals, type SixClusterSignals } from "./fork-signals";
 import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealCapability, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
 
@@ -63,6 +70,27 @@ export interface Env {
  REVEAL_ALLOW?: unknown;
  /** Best-effort KV audit sink for POST /reveal decisions (content-free). */
  REVEAL_AUDIT?: KVNamespace;
+ /** Signed-validation-evidence R2 bucket (FR-18 authenticity
+  * layer). Durable, exportable, indefinitely retained archival
+  * copy of each landing's attestation — the opposite of the
+  * asset bucket: no lifecycle expiry (retention IS the
+  * feature). Absent ⇒ attestation degrades to the honest-
+  * unavailable shape (§2.3), never a failed land. */
+ EVIDENCE_BLOB?: R2Bucket;
+ /** base64url PKCS#8 Ed25519 private key (Worker secret,
+  * provisioned by the piped `wrangler secret put` — never
+  * argv). Absent/malformed ⇒ attestation is the honest-
+  * unavailable shape, never a 500 (§2.3). */
+ EVIDENCE_SIGNING_KEY?: unknown;
+ /** base64url RAW public key (Worker var, non-secret, pinned in
+  * CONTRACT.md §Attestations). Used to derive the envelope's
+  * keyId and to verify — WebCrypto cannot export the public
+  * half from an imported private key. */
+ EVIDENCE_PUBLIC_KEY?: unknown;
+ /** CF version metadata (deploy id/tag) for the attestation
+  * environment block. Absent ⇒ `environment.deploy = null`
+  * (honest-unavailable). */
+ CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -1415,6 +1443,49 @@ function parseLandBody(raw: unknown): { base: string; repos: string[]; baseRef: 
  return { base, repos, baseRef, ref, reviewed, validation };
 }
 
+/**
+ * The attestation environment block (CONTRACT.md
+ * §Attestations): the platform identity plus the deploy's
+ * version metadata. `CF_VERSION_METADATA` is optional —
+ * absent ⇒ `deploy`/`tag` are null (honest-unavailable,
+ * never a fabricated version).
+ */
+function buildEnvironment(env: Env): AttestationEnvironment {
+ const meta = env.CF_VERSION_METADATA;
+ return {
+  worker: "nextgit-platform",
+  deploy: typeof meta?.id === "string" ? meta.id : null,
+  tag: typeof meta?.tag === "string" ? meta.tag : null,
+  runtime: "workerd",
+ };
+}
+
+/**
+ * ONE writer of the attestation for a landing: sign, then
+ * best-effort store the durable R2 copy, then return the
+ * envelope. Both POST /land and POST /upstream call only
+ * this (AD-1: no second writer). A store failure logs
+ * `attestation-store-failed` and never alters the
+ * response — the land already pushed (§2.3/§2.4).
+ */
+async function attachAttestation(
+ env: Env,
+ input: { subject: AttestationSubject; evidence: Record<string, unknown> },
+): Promise<Attestation> {
+ const attestation = await signAttestation(env, {
+  subject: input.subject,
+  environment: buildEnvironment(env),
+  evidence: input.evidence,
+ });
+ if (attestation.status === "signed") {
+  const key = await storeAttestation(env, input.subject.commit, attestation);
+  if (key === null) {
+   console.log("attestation-store-failed", JSON.stringify({ commit: input.subject.commit }));
+  }
+ }
+ return attestation;
+}
+
 async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
  const parsed = parseLandBody(await request.json().catch(() => null));
  if (parsed instanceof Response) return parsed;
@@ -1650,12 +1721,22 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     lease: leaseId ? { provider: "do", leaseId } : null,
     ...(autoLand ? { autoLand } : {}), // engaged-only; unengaged evidence is byte-identical to the pre-gate 12-key shape
    };
+   // The attestation (FR-18 authenticity layer): the signed envelope
+   // covers every field above plus the land's subject. Signed after the
+   // evidence is assembled, before the KV record is persisted, so the
+   // persisted record carries the same envelope the 200 returns. Best-
+   // effort: an absent key degrades to the honest-unavailable shape,
+   // never a failed land (§2.3).
+   const attestation = await attachAttestation(env, {
+    subject: { commit, repos, base, ref, baseRef },
+    evidence,
+   });
    // The landing record (FR-18) persists keyed by the returned commit — the
    // address the read surface serves. KV `LIVE` stays single-writer: this is
    // its only landing-record writer. The push already happened, so a storage
    // failure is logged and degraded, never reported as a failed land.
    try {
-    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
+    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence, attestation }));
    } catch (e) {
     console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
    }
@@ -1676,7 +1757,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
      }
     })(),
    );
-   return Response.json({ ok: true, landed, evidence });
+   return Response.json({ ok: true, landed, evidence, attestation });
   } catch (err) {
    if (err instanceof BaseMovedError) {
     return Response.json(
@@ -2032,13 +2113,21 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
     at,
     lease: leaseId ? { provider: "do", leaseId } : null,
    };
+   // The attestation (FR-18 authenticity layer): mechanically the
+   // /land envelope — the same single writer (`attachAttestation`),
+   // the degenerate no-validation subject. Best-effort, honest-
+   // unavailable on an absent key (§2.3) — the push already happened.
+   const attestation = await attachAttestation(env, {
+    subject: { commit, repos: [repo], base, ref: DEFAULT_REF, baseRef: DEFAULT_REF },
+    evidence,
+   });
    // The landing record (FR-18) persists keyed by the returned
    // commit — the address the read surface serves. KV `LIVE` stays
    // single-writer: this is its only landing-record writer. The
    // push already happened, so a storage failure is logged and
    // degraded, never reported as a failed land.
    try {
-    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence }));
+    await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence, attestation }));
    } catch (e) {
     console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
    }
@@ -2054,7 +2143,7 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
      }
     })(),
    );
-   return Response.json({ ok: true, landed, evidence });
+   return Response.json({ ok: true, landed, evidence, attestation });
   } catch (err) {
    if (err instanceof BaseMovedError) {
     return Response.json(
@@ -2522,8 +2611,14 @@ async function handleLandingsRead(commit: string, env: Env): Promise<Response> {
  if (record === null) {
   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
  }
- const parsed = JSON.parse(record) as { landed: object; evidence: object };
- return Response.json({ ok: true, landed: parsed.landed, evidence: parsed.evidence });
+ const parsed = JSON.parse(record) as { landed: object; evidence: object; attestation?: Attestation | null };
+ // A record written before the attestation layer has no
+ // `attestation` key: the typed-absent path serves
+ // `attestation: null` (the `unmeasured` precedent) —
+ // never a fabricated signature (§2.3). A post-feature
+ // record serves its stored envelope verbatim.
+ const attestation = "attestation" in parsed ? parsed.attestation : null;
+ return Response.json({ ok: true, landed: parsed.landed, evidence: parsed.evidence, attestation });
 }
 
 // ---------------------------------------------------------------------------

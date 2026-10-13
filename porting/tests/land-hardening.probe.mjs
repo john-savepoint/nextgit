@@ -2,7 +2,9 @@
 // land-hardening.probe.mjs — LIVE probe for the /land hardening (AD-3).
 // Scratch chain ONLY: REST-fork demo -> demo-lh-base -> agent-lh-1; asserts:
 //  (a) 200 happy path carries evidence {repos,commit,ancestor,heads,foldHash,checks,results,mergedSha,testedSha,artifactRef,at,lease}
-//      (the 12 pre-gate keys) plus the posture-conditional autoLand (present only while the deployed worker is engaged); and the base remote's ref equals evidence.commit; (a-note) fetch the nextgit-notes mirror and assert the landing-decision note payload {repos,commit,foldHash,at}; (a-read) GET /landings/<evidence.commit> returns the record landed
+//      (the 12 pre-gate keys) plus the posture-conditional autoLand (present only while the deployed worker is engaged); the 200 body is
+//      {ok,landed,evidence,attestation} — the signed validation-evidence envelope
+//      (CONTRACT.md §Attestations); and the base remote's ref equals evidence.commit; (a-note) fetch the nextgit-notes mirror and assert the landing-decision note payload {repos,commit,foldHash,at}; (a-read) GET /landings/<evidence.commit> returns the record landed
 //      in that call and GET /landings/<zeros> -> 404 not-found; (b) re-land with
 //      refreshed reviewed heads -> 409 no-changes; (c) stale reviewed heads ->
 //      409 stale (proposal-head + base-head variants); (d) four-way concurrent
@@ -229,7 +231,7 @@ try {
  // import), so posture is derived from the observed evidence: the 12 pre-gate
  // keys always; autoLand present only when the deployed worker is engaged.
  // exactKeys still fails on ANY key outside {12}∪{autoLand} (leak/stray).
- const EVIDENCE_KEYS = ["repos","commit","ancestor","heads","foldHash","checks","results","mergedSha","testedSha","artifactRef","at","lease"];
+ const EVIDENCE_KEYS = ["repos", "commit", "ancestor", "heads", "foldHash", "checks", "results", "mergedSha", "testedSha", "artifactRef", "at", "lease"];
  const expectedKeys = "autoLand" in ev ? [...EVIDENCE_KEYS, "autoLand"] : EVIDENCE_KEYS;
  check("(a) evidence keys", exactKeys(ev, expectedKeys), JSON.stringify(Object.keys(ev)));
  check("(a) evidence.repos", JSON.stringify(ev.repos) === JSON.stringify([PROPOSAL_REPO]));
@@ -252,9 +254,9 @@ try {
  const C2 = ev.commit;
  check("(a) base remote ref === evidence.commit", (await lsBase()) === C2);
  check("(a) landed commit is a new sha (≠ fork point)", !!C2 && C2 !== H0);
- // Exact key-set proof: 200 carries {ok, landed, evidence} only —
+ // Exact key-set proof: 200 carries {ok, landed, evidence, attestation} only —
  // no token / plaintext / secret field anywhere in the success body.
- check("(a) success exact keys {ok,landed,evidence}", exactKeys(a.json, ["ok", "landed", "evidence"]), JSON.stringify(Object.keys(a.json ?? {})));
+ check("(a) success exact keys {ok,landed,evidence,attestation}", exactKeys(a.json, ["ok", "landed", "evidence", "attestation"]), JSON.stringify(Object.keys(a.json ?? {})));
  check("(a) success no credential field", !credRe.test(JSON.stringify(a.json)));
 
  // Exact key-set proof for the `landed` sub-object: the success body's inner
@@ -294,9 +296,10 @@ try {
  console.log("(a-read) GET /landings/" + C2);
  const r = await getJson(`/landings/${C2}`);
  check("(a-read) 200 from /landings/<commit>", r.status === 200, String(r.status));
- check("(a-read) exact keys {ok,landed,evidence}", exactKeys(r.json, ["ok", "landed", "evidence"]), JSON.stringify(r.json));
+ check("(a-read) exact keys {ok,landed,evidence,attestation}", exactKeys(r.json, ["ok", "landed", "evidence", "attestation"]), JSON.stringify(r.json));
  check("(a-read) landed deep-equals POST /land landed", JSON.stringify(r.json?.landed) === JSON.stringify(a.json?.landed));
  check("(a-read) evidence deep-equals POST /land evidence", JSON.stringify(r.json?.evidence) === JSON.stringify(a.json?.evidence));
+ check("(a-read) attestation deep-equals POST /land attestation", JSON.stringify(r.json?.attestation) === JSON.stringify(a.json?.attestation));
  check("(a-read) no credential field in read-back", !credRe.test(JSON.stringify(r.json)));
  // GET /landings/<zeros> -> 404 not-found (all-zeros is not a real landing).
  const r404 = await getJson(`/landings/${SHA_ZERO}`);
@@ -306,6 +309,83 @@ try {
  const r400 = await getJson(`/landings/not-a-sha`);
  check("(a-read) 400 from /landings/<bad>", r400.status === 400, String(r400.status));
  check("(a-read) 400 bad-request body", r400.json?.ok === false && r400.json?.error === "bad-request", JSON.stringify(r400.json));
+
+ // (a-attest) the signed validation-evidence envelope
+ // (CONTRACT.md §Attestations): the 200's attestation
+ // verifies against the pinned public key, and the served
+ // record's copy is byte-identical. Canonicalization is
+ // the published law (recursive key sort, code-unit
+ // comparison, no whitespace, arrays in order) — the same
+ // discipline the operator verifier (platform/scripts/
+ // attest-verify.mjs) recomputes locally.
+ const ATTEST_ALGO = "Ed25519";
+ const attestCanonical = (v) => {
+  if (v === null) return "null";
+  if (Array.isArray(v)) return `[${v.map(attestCanonical).join(",")}]`;
+  switch (typeof v) {
+   case "string": return JSON.stringify(v);
+   case "number": return Number.isFinite(v) ? String(v) : "null";
+   case "boolean": return String(v);
+   case "object": {
+    const keys = Object.keys(v).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${attestCanonical(v[k])}`).join(",")}}`;
+   }
+   default: return "null";
+  }
+ };
+ const attestB64url = (bytes) => {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+ };
+ const attestUnb64url = (value) => {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const rem = normalized.length % 4;
+  if (rem === 1) return null;
+  const padded = rem === 2 ? `${normalized}==` : rem === 3 ? `${normalized}=` : normalized;
+  try {
+   const bin = atob(padded);
+   const out = new Uint8Array(bin.length);
+   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+   return out;
+  } catch { return null; }
+ };
+ const attestVerify = async (att, publicKeyB64url) => {
+  if (att === null || typeof att !== "object" || Array.isArray(att)) return false;
+  if (att.status !== "signed" || att.v !== 1 || att.algo !== ATTEST_ALGO) return false;
+  if (typeof att.keyId !== "string" || att.keyId.length !== 16) return false;
+  if (typeof att.sig !== "string") return false;
+  if (att.subject?.commit !== att.evidence?.commit) return false;
+  if (JSON.stringify(att.subject?.repos) !== JSON.stringify(att.evidence?.repos)) return false;
+  const raw = attestUnb64url(publicKeyB64url);
+  if (raw === null) return false;
+  let key;
+  try {
+   key = await crypto.subtle.importKey("raw", raw, { name: ATTEST_ALGO }, false, ["verify"]);
+  } catch { return false; }
+  const sig = attestUnb64url(att.sig);
+  if (sig === null || sig.length !== 64) return false;
+  const payload = { ...att };
+  delete payload.sig;
+  return crypto.subtle.verify(ATTEST_ALGO, key, sig, new TextEncoder().encode(attestCanonical(payload)));
+ };
+ const att = a.json?.attestation;
+ check("(a-attest) 200 attestation present and signed", att?.status === "signed", JSON.stringify(att ?? null));
+ if (att?.status === "signed") {
+  check("(a-attest) attestation subject.commit === evidence.commit", att.subject?.commit === att.evidence?.commit);
+  check("(a-attest) attestation subject.commit === landed commit", att.subject?.commit === C2);
+  const pinned = JSON.parse(readFileSync(new URL("../../platform/wrangler.jsonc", import.meta.url), "utf8")).vars?.EVIDENCE_PUBLIC_KEY;
+  if (typeof pinned !== "string" || pinned.startsWith("<")) {
+   check("(a-attest) EVIDENCE_PUBLIC_KEY provisioned in wrangler.jsonc", false, "placeholder — run attestation-keygen.mjs and provision");
+  } else {
+   check("(a-attest) attestation signature verifies against the pinned public key", await attestVerify(att, pinned));
+   // Tamper leg (the acceptance: tampering invalidates the signature):
+   // flip one signed field and assert the SAME verifier fails.
+   const tampered = JSON.parse(JSON.stringify(att));
+   tampered.environment = { ...tampered.environment, deploy: "tampered" };
+   check("(a-attest) tampered attestation FAILS verification", !(await attestVerify(tampered, pinned)));
+  }
+ }
 
  // (b) re-land same proposal, refreshed reviewed heads -> no-changes.
  console.log("(b) re-land (refreshed reviewed heads)");

@@ -350,7 +350,7 @@ try {
   const C2 = ev.commit;
   check("(a) base remote ref === evidence.commit", (await lsBase()) === C2);
   check("(a) landed commit is a new sha (≠ fork point)", !!C2 && C2 !== H0);
-  check("(a) success exact keys {ok,landed,evidence}", exactKeys(a.json, ["ok", "landed", "evidence"]), JSON.stringify(Object.keys(a.json ?? {})));
+  check("(a) success exact keys {ok,landed,evidence,attestation}", exactKeys(a.json, ["ok", "landed", "evidence", "attestation"]), JSON.stringify(Object.keys(a.json ?? {})));
   check("(a) success no credential field", !credRe.test(a.body));
   check("(a) landed exact keys {repos,commit,files,at}", exactKeys(a.json?.landed, ["repos", "commit", "files", "at"]), JSON.stringify(a.json?.landed ?? null));
   check("(a) landed no credential field", !credRe.test(JSON.stringify(a.json?.landed ?? {})));
