@@ -132,6 +132,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const rv = q("#reveal-value");
       R.s.revealValueHidden = rv ? rv.hidden : null;
       R.s.revealValueText = rv ? rv.textContent.trim() : null;
+      // Wave-14 mediums: the slot is a live region
+      // (role=status aria-live=polite) and is the
+      // single #reveal-value definition.
+      R.s.revealValueLive = rv ? (rv.getAttribute("role") === "status" && rv.getAttribute("aria-live") === "polite") : null;
+      R.s.revealValueCount = qs("#reveal-value").length;
       R.s.bodyInnerHTML = q("#modal-body") ? q("#modal-body").innerHTML : null;
     }
     // Scenario 3/4: click the reveal control when present.
@@ -142,6 +147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.s.afterClickValueHidden = rv ? rv.hidden : null;
       R.s.afterClickValueText = rv ? rv.textContent.trim() : null;
       R.s.afterClickInnerHTML = rv ? rv.innerHTML : null;
+      R.s.afterClickValueLive = rv ? rv.getAttribute("aria-live") === "polite" : null;
     }
   } catch (e) { R.err = String((e && e.stack) || e); }
   const d = document.createElement("div"); d.id = "test-out"; d.textContent = encodeURIComponent(JSON.stringify(R)); document.body.appendChild(d);
@@ -205,7 +211,13 @@ function legDefaultSurface(dom) {
  check("1 default surface: .empty-state-desc carries the platform-contract copy", R.s.emptyStateDesc?.some((t) => t.includes("Per platform contract, secret file contents and diffs are never exposed.")), JSON.stringify(R.s.emptyStateDesc));
  check("1 default surface: .secret-key-tag chips present (both keys)", SECRET_KEYS.every((k) => R.s.keyTags?.includes(k)), JSON.stringify(R.s.keyTags));
  check("1 default surface: NO .btn-reveal (reveal:false)", R.s.hasBtnReveal === false, JSON.stringify(R.s.hasBtnReveal));
- check("1 default surface: #reveal-value empty/hidden", R.s.revealValueHidden === true && (R.s.revealValueText || "") === "", JSON.stringify({ h: R.s.revealValueHidden, t: R.s.revealValueText }));
+ // The reveal affordance is the shared unit (button +
+ // #reveal-value from revealControlHtml): in the
+ // default posture (reveal:false) there is no control,
+ // so no #reveal-value slot exists at all — the
+ // fail-closed rendering (the value slot only exists
+ // where the affordance does).
+ check("1 default surface: NO #reveal-value slot (no control rendered)", R.s.revealValueCount === 0, `count=${R.s.revealValueCount}`);
 }
 
 function legAuthorizedSurface(dom) {
@@ -216,6 +228,10 @@ function legAuthorizedSurface(dom) {
  check("2 authorized surface: .btn-reveal present (reveal:true)", R.s.hasBtnReveal === true, JSON.stringify(R.s.hasBtnReveal));
  check("2 authorized surface: NO value rendered yet", (R.s.revealValueText || "") === "" && R.s.revealValueHidden === true, JSON.stringify({ h: R.s.revealValueHidden, t: R.s.revealValueText }));
  check("2 authorized surface: .secret-key-tag chips still present", SECRET_KEYS.every((k) => R.s.keyTags?.includes(k)), JSON.stringify(R.s.keyTags));
+ // Wave-14 mediums: the slot is a live region
+ // and the single #reveal-value definition.
+ check("2 authorized surface: #reveal-value is role=status aria-live=polite", R.s.revealValueLive === true, JSON.stringify(R.s.revealValueLive));
+ check("2 authorized surface: exactly one #reveal-value", R.s.revealValueCount === 1, `count=${R.s.revealValueCount}`);
 }
 
 function legRevealGranted(dom) {
@@ -232,6 +248,9 @@ function legRevealGranted(dom) {
  check("3 reveal granted: value is HTML-escaped (no raw markup injection)",
   !/<script/.test(R.s.afterClickInnerHTML || "") && (R.s.afterClickInnerHTML || "").includes(FIXTURE_VALUE),
   JSON.stringify(R.s.afterClickInnerHTML));
+ // Wave-14 mediums: the slot stays a live region
+ // at announcement time (the value is announced).
+ check("3 reveal granted: #reveal-value is still a live region at announcement time", R.s.afterClickValueLive === true, JSON.stringify(R.s.afterClickValueLive));
 }
 
 function legRevealDenied(dom) {

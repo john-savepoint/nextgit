@@ -179,6 +179,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Reveal affordance (merge-modal secret row): the F2 control and the
       // value slot render inside the modal body.
       R.s.hasBtnReveal = !!q("#inspector-modal .btn-reveal");
+      // Wave-14 mediums: the reveal affordance is the shared anchored
+      // unit (button + #reveal-value in one container), the slot is a
+      // live region, and exactly one #reveal-value exists per modal.
+      R.s.revealSlotAnchored = (() => {
+        const b = q("#inspector-modal .btn-reveal");
+        return !!b && !!(b.parentElement && b.parentElement.querySelector("#reveal-value"));
+      })();
+      R.s.revealValueLive = (rv => rv ? (rv.getAttribute("role") === "status" && rv.getAttribute("aria-live") === "polite") : null)(q("#inspector-modal #reveal-value"));
+      R.s.revealValueCount = qs("#inspector-modal #reveal-value").length;
       const rv0 = q("#inspector-modal #reveal-value");
       R.s.revealValueHiddenBefore = rv0 ? rv0.hidden : null;
       R.s.beforeValueInDom = !((document.documentElement.outerHTML || "").includes("${FIXTURE_REVEAL_VALUE}"));
@@ -337,6 +346,16 @@ function legWithheldDenied(dom) {
     "fixture leaked into the modal DOM");
 }
 
+function legWithheldAnchored(dom) {
+  const R = parse(dom);
+  if (!R) return check("9 withheld-anchored: scenario output present", false, "no #test-out");
+  if (R.err) return check("9 withheld-anchored: scenario threw", false, R.err);
+  const c = R.s;
+  check("9 withheld-anchored: the reveal control is the shared unit (button + #reveal-value in one container)", c.revealSlotAnchored === true, JSON.stringify({ anchored: c.revealSlotAnchored, count: c.revealValueCount }));
+  check("9 withheld-anchored: #reveal-value is role=status aria-live=polite", c.revealValueLive === true, JSON.stringify({ live: c.revealValueLive }));
+  check("9 withheld-anchored: exactly one #reveal-value in the modal", c.revealValueCount === 1, `count=${c.revealValueCount}`);
+  check("9 withheld-anchored: .btn-reveal present", c.hasBtnReveal === true, JSON.stringify(c.hasBtnReveal));
+}
 function legEmpty(dom) {
   const R = parse(dom);
   if (!R) return check("4 empty: scenario output present", false, "no #test-out");
@@ -368,6 +387,7 @@ const scenarios = [
   { m: "withheld", whoami: "authorized", leg: legWithheldCapable },
   { m: "withheld", whoami: "authorized", reveal: "grant", click: true, leg: legWithheldGranted },
   { m: "withheld", whoami: "authorized", reveal: "deny", click: true, leg: legWithheldDenied },
+  { m: "withheld", whoami: "authorized", leg: legWithheldAnchored },
 ];
 
 try {

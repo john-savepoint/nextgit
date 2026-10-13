@@ -43,5 +43,5 @@ export async function revealSecret(repo, path, keysCsv, ref = "main") {
 export function revealControlHtml({ repo, path, keys }) {
  const keysCsv = (Array.isArray(keys) ? keys : []).join(",");
  return `<button class="btn-reveal" type="button" data-reveal-repo="${escapeHtml(repo)}" data-reveal-path="${escapeHtml(path)}" data-reveal-keys="${escapeHtml(keysCsv)}">reveal</button>
-<div class="reveal-value" id="reveal-value" data-reveal-decision="control" hidden></div>`;
+<div class="reveal-value" id="reveal-value" role="status" aria-live="polite" data-reveal-decision="control" hidden></div>`;
 }

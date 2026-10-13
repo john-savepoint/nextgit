@@ -92,7 +92,7 @@ export async function handleViewDiff(repo, path) {
    const keys = (targetFile.keys || []).map((k) => `<span class="secret-key-tag">${escapeHtml(k)}</span>`).join(" ");
    const decision = decideSecretSurface({ reveal: state.revealCapability.reveal });
    const control = decision.showControl
-    ? `<button class="btn-reveal" type="button" data-reveal-repo="${escapeHtml(repo)}" data-reveal-path="${escapeHtml(path)}" data-reveal-keys="${escapeHtml((targetFile.keys || []).join(","))}">reveal</button>`
+    ? revealControlHtml({ repo, path, keys: targetFile.keys || [] })
     : "";
    openModal(
     `${repo} — ${path}`,
@@ -105,7 +105,6 @@ export async function handleViewDiff(repo, path) {
             ${keys ? `<div style="margin-top: 1rem;">Keys referenced: ${keys}</div>` : ""}
             ${control ? `<div style="margin-top: 1rem;">${control}</div>` : ""}
           </div>
-          <div class="reveal-value" id="reveal-value" hidden></div>
         `
    );
    return;

@@ -172,7 +172,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.s.withheldNotice = modalText(".empty-state-title");
 
     const t = q("#modal-body [data-comment-thread]");
-    if (t) { R.s.repo = t.getAttribute("data-repo"); R.s.ref = t.getAttribute("data-ref"); R.s.path = t.getAttribute("data-path"); }
+    if (t) {
+      R.s.repo = t.getAttribute("data-repo");
+      R.s.ref = t.getAttribute("data-ref");
+      R.s.path = t.getAttribute("data-path");
+      // Wave-14 mediums: the thread region is a named group.
+      R.s.threadRole = t.getAttribute("role");
+      R.s.threadLabel = t.getAttribute("aria-label");
+    }
+    // The empty-state guidance (.empty-state-desc) for the
+    // zero-comment success path — read for every mode.
+    R.s.emptyDesc = modalText(".empty-state-desc");
+    R.s.emptyStateCount = qs("#modal-body .empty-state").length;
 
     if (CFG.mode === "render" || CFG.mode === "postfail") {
       R.s.itemCount = items().length;
@@ -235,6 +246,32 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.s.errText = modalText(".comment-thread-error");
     }
 
+    // C1 extension (zero-comment region on tab 1): the
+    // populated tab (tab 0) renders no empty-state; the
+    // zero-comment tab (tab 1) renders the guidance.
+    // Tab 0 is read BEFORE the switch. The HTTP log
+    // is snapshotted at initial-hydration settle
+    // (before any tab visit) so the C1 exactly-one-GET
+    // contract pins the initial hydration GET for the
+    // tab-0 tuple; the tab-1 visit's own GET is
+    // tab-scoped and lands after the snapshot.
+    R.s.tab0EmptyStateCount = qs("#modal-body .empty-state").length;
+    // The browser observer cannot read the Node-side
+    // HTTP log, so the initial-hydration GET count is
+    // fetched from the loopback server before any tab
+    // visit (the C1 exactly-one-GET contract pins the
+    // initial hydration GET for the tab-0 tuple).
+    R.s.initialGets = await (await fetch("/__gets")).json();
+    const t1pre = q('.merge-file-tab[data-merge-tab="1"]');
+    if (t1pre) {
+      t1pre.click();
+      await sleep(800);
+      R.s.tab1EmptyDesc = modalText(".empty-state-desc");
+      R.s.tab1EmptyState = qs("#modal-body .empty-state").length;
+      const t0 = q('.merge-file-tab[data-merge-tab="0"]');
+      if (t0) { t0.click(); await sleep(800); }
+    }
+
     R.s.errCount = errCount;
     R.s.rejCount = rejCount;
   } catch (e) { R.err = String((e && e.stack) || e); }
@@ -274,6 +311,10 @@ const server = createServer((req, res) => {
     json(res, { ok: true, comments: commentStore.filter((c) => c.repo === repo && c.ref === ref && c.path === path) });
     return;
   }
+  if (pathname === "/__gets") {
+    json(res, { ok: true, gets: commentRequests.filter((r) => r.method === "GET").length });
+    return;
+  }
   if (pathname === "/__client.js") {
     res.writeHead(200, { "content-type": "text/javascript" });
     res.end(clientScript(clientCfg));
@@ -308,7 +349,21 @@ function legRender(dom) {
   check("C1: no injected img/script element inside the thread", c.xssEls === 0, `els=${c.xssEls}`);
   check("C1: no XSS side effect (window.__xss undefined)", c.xss === null, `xss=${JSON.stringify(c.xss)}`);
   const gets = commentRequests.filter((r) => r.method === "GET" && r.repo === "agent-1" && r.ref === "main" && r.path === "src/store.ts");
-  check("C1: exactly one GET /comments for the tuple", gets.length === 1, `gets=${gets.length}`);
+  // Exactly ONE initial hydration GET for the tuple (the
+  // /__gets snapshot fires before any tab visit); the
+  // tab-1 round-trip re-hydrates tab 0 with a second
+  // GET — that re-hydration is the C2 leg's witness.
+  check("C1: exactly one initial GET /comments for the tuple", gets.length >= 1 && c.initialGets?.gets === 1, `initial=${JSON.stringify(c.initialGets)} total=${gets.length}`);
+  // Wave-14 mediums: the populated tab renders no
+  // empty-state; the zero-comment tab renders the
+  // guidance via the .empty-state idiom. The GET
+  // count pins the INITIAL hydration GET (snapshotted
+  // before any tab visit), not the later tab-scoped reads.
+  check("C1: the populated tab renders no empty-state", c.tab0EmptyStateCount === 0, `count=${c.tab0EmptyStateCount}`);
+  check("C1: the zero-comment tab renders the empty-state guidance",
+    (c.tab1EmptyDesc || []).some((t) => t.includes("no comments yet — start the review")),
+    JSON.stringify(c.tab1EmptyDesc));
+  check("C1: the guidance uses the .empty-state idiom", c.tab1EmptyState === 1, `count=${c.tab1EmptyState}`);
 }
 
 function legPost(dom) {
@@ -351,6 +406,20 @@ function legPostFail(dom) {
   check("C3: the failed row is not opacity-muted", c.rowOpacity === "1", `opacity=${c.rowOpacity}`);
 }
 
+function legEmpty(dom) {
+  const R = parse(dom);
+  if (!R) return check("C6: scenario output present", false, "no #test-out");
+  if (R.err) return check("C6: scenario threw", false, R.err);
+  const c = R.s;
+  check("C6: the zero-comment thread renders the guidance",
+    (c.emptyDesc || []).some((t) => t.includes("no comments yet — start the review")),
+    JSON.stringify(c.emptyDesc));
+  check("C6: the thread region carries role=group and an accessible name",
+    c.threadRole === "group" && c.threadLabel === "review comments",
+    JSON.stringify({ role: c.threadRole, label: c.threadLabel }));
+  check("C6: the guidance uses the .empty-state idiom", c.emptyStateCount === 1, `count=${c.emptyStateCount}`);
+}
+
 function legRefusal(dom) {
   const R = parse(dom);
   if (!R) return check("C4: scenario output present", false, "no #test-out");
@@ -382,6 +451,7 @@ const scenarios = [
   { name: "C3", merge: "comments", comments: "postfail", cfg: { mode: "postfail", line: 4, body: "please fix this" }, leg: legPostFail },
   { name: "C4", merge: "withheld", comments: "ok", cfg: { mode: "refusal" }, leg: legRefusal },
   { name: "C5", merge: "comments", comments: "getfail", cfg: { mode: "getfail" }, leg: legGetFail },
+  { name: "C6", merge: "comments", comments: "ok", cfg: { mode: "empty" }, leg: legEmpty },
 ];
 
 try {
@@ -394,7 +464,10 @@ try {
   for (const s of scenarios) {
     mergeMode = s.merge;
     commentsMode = s.comments;
-    commentStore = SEED_COMMENTS.map((c) => ({ ...c }));
+    // C6 seeds an empty comment store (the zero-comment
+    // success path); every other scenario seeds the two
+    // fixture rows.
+    commentStore = s.name === "C6" ? [] : SEED_COMMENTS.map((c) => ({ ...c }));
     commentRequests = [];
     commentSeq = 3;
     clientCfg = s.cfg;
