@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 23 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, GET /checks, GET /sessions, GET /agents)", ROUTES.length === 23, `got ${ROUTES?.length}`);
+check("C: ROUTES has 24 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, GET /checks, GET /sessions, GET /agents, GET /harnesses)", ROUTES.length === 24, `got ${ROUTES?.length}`);
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
 let routeMap = {};
@@ -212,6 +212,7 @@ check("C: /checks → GET read (authorize-covered; the authoritative server-comp
 // adjudicates the query-carried base pre-read, the
 // /forks posture).
 check("C: /sessions → GET read (authorize-covered)", routeMap["/sessions"]?.method === "GET" && routeMap["/sessions"]?.action === "read", `got ${J(routeMap["/sessions"] ? { method: routeMap["/sessions"].method, action: routeMap["/sessions"].action } : null)}`);
+check("C: /harnesses → GET read (authorize-covered; the federation manifest)", routeMap["/harnesses"]?.method === "GET" && routeMap["/harnesses"]?.action === "read", `got ${J(routeMap["/harnesses"] ? { method: routeMap["/harnesses"].method, action: routeMap["/harnesses"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
 check("C: DYNAMIC_ROUTES has 5 entries (landings, proposals, asset, raw, sessions)", DYNAMIC_ROUTES.length === 5, `got ${DYNAMIC_ROUTES?.length}`);
