@@ -41,6 +41,42 @@ export function signalChipsHtml(signals) {
   .join("");
 }
 
+/** CONTRACT.md §GET /agents policy keys → concise chip labels. */
+export const POLICY_LABELS = {
+ land: "land",
+ secretClass: "secrets",
+};
+
+/**
+ * Pure helper: the policy chips for one roster agent — one
+ * per CONTRACT policy key, every value escaped (repo content
+ * is untrusted — AD-4). Typed-null law: an agent with no
+ * policy object renders "unmeasured", never a fabricated
+ * value.
+ */
+export function policyChipsHtml(policy) {
+ const p = policy || {};
+ return Object.keys(POLICY_LABELS)
+  .map((key) => {
+   const label = escapeHtml(POLICY_LABELS[key]);
+   const value = escapeHtml(p[key] ?? "unmeasured");
+   return `<span class="fork-policy-chip" data-policy="${key}"><span class="fork-policy-label">${label}</span><span class="fork-policy-value">${value}</span></span>`;
+  })
+  .join("");
+}
+
+
+/**
+ * Pure helper: the /agents roster as a repo-keyed Map
+ * of policy objects — the lookup the fork-card policy
+ * chips consume. An absent roster yields an empty Map
+ * (every fork renders unmeasured).
+ */
+export function agentPolicyMap() {
+ const agents = state.agentRoster?.agents;
+ if (!Array.isArray(agents)) return new Map();
+ return new Map(agents.map((a) => [String(a?.repo ?? ""), a?.policy ?? null]));
+}
 /**
  * Fetch the fork ecosystem from /forks. Fail-soft: a failed fetch
  * flips the panel's own error flag and renders the quiet unavailable
@@ -54,6 +90,17 @@ export async function loadForks() {
  } catch {
   state.forksData = null;
   state.forksError = true;
+ }
+ // Agent roster (identity v1): the policy chips on each
+ // fork card derive from /agents, keyed by repo. Fail-soft
+ // like the /forks fetch itself — an absent roster just
+ // renders unmeasured chips; it never raises the
+ // connection banner.
+ const rosterBase = state.forksData?.base ?? "demo";
+ try {
+  state.agentRoster = await fetchJson("/agents?base=" + encodeURIComponent(rosterBase));
+ } catch {
+  state.agentRoster = null;
  }
  renderForks();
 }
@@ -96,6 +143,9 @@ export function renderForks() {
    // Prefer the recorded lineage parent; else the echoed queried base
    // (the live demo case, where lineage is unrecorded).
    const base = upstream && typeof upstream.repo === "string" ? upstream.repo : data.base ?? "";
+   // Policy chips derive from the /agents roster (identity v1),
+   // keyed by repo; an unlisted fork renders unmeasured.
+   const policy = agentPolicyMap().get(repo) ?? null;
    return `
         <div class="fork-card" id="fork-${escapeHtml(repo)}">
           <div class="fork-card-header">
@@ -103,6 +153,7 @@ export function renderForks() {
             <span class="fork-base" data-base="${escapeHtml(base)}">base: ${escapeHtml(base)}</span>
           </div>
           <div class="fork-signals">${signalChipsHtml(fork && fork.signals)}</div>
+          <div class="fork-policy">${policyChipsHtml(policy)}</div>
         </div>
       `;
   })

@@ -33,7 +33,7 @@ export const state = {
  streamSeenKeys: new Set(), // SSE `id:` dedup keys seen this page
  forksData: null,        // /forks six-cluster + lineage payload (null until observed)
  forksError: false,      // a /forks fetch has failed (fail-soft: never trips the connection banner)
- checksByRepo: null,     // repo -> the server-computed Check[] from GET /checks (null until observed; the strip's fallback derives client-side when the route is unreachable)
+ checksByRepo: null,     // repo -> the server-computed Check[] from GET /checks (null until observed; the strip's fallback derives client-side when the route is unreachable) agentRoster: null,      // /agents roster payload (identity v1 — the policy chips' source; null until observed, fail-soft)
  revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
  issuesData: null,       // /issues derived triage payload (null until observed)
  issuesError: false,     // a /issues fetch has failed (fail-soft: never trips the connection banner)

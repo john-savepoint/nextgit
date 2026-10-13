@@ -312,6 +312,35 @@ async function readIntent(repo: ArtifactsRepo, ref: string, headSha: string): Pr
 }
 
 // ---------------------------------------------------------------------------
+// Agent identity — the harness a repo declares as its agent.
+// ---------------------------------------------------------------------------
+
+/** Harness note cap — the NEXTGIT_AGENT note is agent-declared text (AD-4). */
+const MAX_AGENT_HARNESS_CHARS = 128;
+
+/**
+ * Read the repo's declared harness from the `nextgit-notes` mirror:
+ * the note whose path ends `/NEXTGIT_AGENT`. Unrecorded (no note,
+ * unreadable notes tree) → "unrecorded" — the roster's typed-null
+ * posture, never a fabricated harness. Best-effort like readIntent:
+ * a note read failure degrades to "unrecorded", never fails the roster.
+ */
+async function readAgentHarness(repo: ArtifactsRepo): Promise<string> {
+ try {
+  const notes = await readNotes(repo);
+  const hash = Array.from(notes).find(([p]) => p.endsWith("/NEXTGIT_AGENT"))?.[1];
+  if (!hash) return "unrecorded";
+  const blob = await repo.readBlob(hash);
+  if (!blob) return "unrecorded";
+  const text = (await blob.text()).trim();
+  if (!text) return "unrecorded";
+  return text.slice(0, MAX_AGENT_HARNESS_CHARS);
+ } catch {
+  return "unrecorded"; // harness is best-effort — never fail the roster on it
+ }
+}
+
+// ---------------------------------------------------------------------------
 // Secret classes (CONTRACT masking law) — values must never leave the worker.
 // ---------------------------------------------------------------------------
 
@@ -3168,1203 +3197,1258 @@ async function handleIssues(request: Request, env: Env): Promise<Response> {
  const issues = await deriveIssues(env, base, baseRef, ref, candidates);
  return Response.json({ ok: true, base, issues });
 }
-// ---------------------------------------------------------------------------
-// GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
-// protocol): the proposal card + its detail, served by driving the SAME
-// compute seam /changes and /merge use (computeChangeSet for the card's
-// commits/stats/files, computeMerge for the merge simulation). The
-// mergeable-class signal is served as merge.status/conflicted — never as a
-// field named `mergeable` (AD-14: adapter-synthesized GitHub semantics are
-// never platform fields). `title` is the intent text, `state` is the
-// landing verdict from the fold, `number` is the repo name. Unknown repos
-// 404 at the handler (the /landings/{commit} precedent); the repo name is
-// re-validated REPO_NAME_RE before any repo read (/reveal precedent).
-// ---------------------------------------------------------------------------
-async function handleProposalDetail(request: Request, env: Env, repoParam: string): Promise<Response> {
- if (!REPO_NAME_RE.test(repoParam)) {
-  return badRequest(`invalid repo name: ${JSON.stringify(repoParam)}`);
- }
 
- // Demo allowlist (AD-9): the path-carried repo is the scope
- // carrier, readable only here (the dispatcher's extractScope
- // reads query params only). Same uniform 403 as /land and
- // /judge, before any computeChangeSet / computeMerge read.
- if (!DEMO_REPO_RE.test(repoParam)) {
-  return Response.json(
-   { ok: false, error: "repo-not-allowed", detail: `repo "${repoParam}" is outside the demo allowlist` },
-   { status: 403 },
-  );
- }
- const parsed = parseProposalsQuery(new URL(request.url));
- if (parsed instanceof Response) return parsed;
- const { base, ref, baseRef } = parsed;
- const rateDenied = rateGate("/proposals", request);
- if (rateDenied) return rateDenied;
-
- let changeSet;
- let merge;
- try {
-  // Unknown repo -> 404 (the /landings/{commit} precedent): the
-  // compute seam's first repo read (env.ARTIFACTS.get) fails for
-  // a name the namespace does not carry, and the handler maps that
-  // to the contract 404 rather than a 500.
-  changeSet = await computeChangeSet(env, base, baseRef, repoParam, ref);
-  merge = await computeMerge(env, base, baseRef, [repoParam], ref);
- } catch {
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
- }
- const landing = merge.files.some((f) => f.result === "withheld-secret")
-  ? ({ status: "withheld-secret", files: merge.files.length } as const)
-  : merge.status === "conflict"
-   ? ({ status: "conflict", files: merge.conflicted.length } as const)
-   : merge.files.length === 0
-    ? ({ status: "landed", files: 0 } as const)
-    : ({ status: "ready", files: merge.files.length } as const);
-
- return Response.json({
-  ok: true,
-  proposal: {
-   repo: repoParam,
-   number: repoParam,
-   title: changeSet.files.find((f) => f.intent)?.intent ?? "",
-   state: landing.status,
-   headRef: ref,
-   baseRef,
-   additions: changeSet.stats.additions,
-   deletions: changeSet.stats.deletions,
-   stats: changeSet.stats,
-   checks: [],
-   detail: {
-    body: changeSet.files.find((f) => f.intent)?.intent ?? "",
-    commits: changeSet.commits,
-    merge: { status: merge.status, conflicted: merge.conflicted },
-    files: merge.files,
-   },
-  },
- });
-}
-
-// ---------------------------------------------------------------------------
-// Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file,
-// §GET /raw) — the file tree + file content surface for the demo
-// and agent repos, over HTTP. All three routes read through the
-// EXISTING seams only: repo.log({ref,limit:1}) resolves a ref to
-// its head commit, repo.readTree(hash) lists a directory level,
-// repo.readFile({ref,path}) fetches one blob (via the readContent
-// helper for /file). No new binding methods, no clone, no memfs
-// write, no recursive walk.
-// ---------------------------------------------------------------------------
-
-interface ReadQuery {
- repo: string;
- ref: string;
- path: string;
-}
-
-interface CommitsQuery {
- repo: string;
- ref: string;
- limit: number;
-}
-
-/**
- * Validates the /tree + /file query params. Mirrors
- * parseProposalsQuery's REPO_NAME_RE / REF_RE guards (the same
- * pair every GET read route enforces) with resolveRouteBase
- * supplying the pinned ref default (absent -> main; the AD-8
- * seam, so omitted == explicit). `path` is optional ("" = the
- * repo root) and rejects .. segments plus leading/trailing "/"
- * — the traversal law POST /reveal's path validation enforces.
- * Returns a ReadQuery when valid, or the 400 Response.
- */
-function parseReadQuery(url: URL): ReadQuery | Response {
- const { ref } = resolveRouteBase({ ref: url.searchParams.get("ref") ?? undefined });
- const repo = url.searchParams.get("repo");
- if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
-  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
- }
- if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
-  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
- }
- const path = url.searchParams.get("path") ?? "";
- if (path.startsWith("/") || path.endsWith("/") || path.split("/").includes("..")) {
-  return badRequest(`invalid path: ${JSON.stringify(path)}`);
- }
- if (path.split("/").filter(Boolean).length > MAX_TREE_DEPTH) {
-  return badRequest("path too deep");
- }
- return { repo, ref, path };
-}
-
-/**
- * Validates the /commits query params (CONTRACT.md §GET /commits).
- * Reuses the SAME resolveRouteBase default seam + REPO_NAME_RE/REF_RE
- * guards as parseReadQuery, plus the optional `limit`: absent -> the
- * pinned page size; a present value must match /^[1-9][0-9]*$/ (the
- * AD-8 normalization rule — a present bad value, including "", is a
- * 400, never silently defaulted) and is clamped to MAX_COMMIT_LIMIT
- * (the resource bound; no request drives an unbounded history walk).
- * Returns a CommitsQuery when valid, or the 400 Response.
- */
-function parseCommitsQuery(url: URL): CommitsQuery | Response {
- const { ref } = resolveRouteBase({ ref: url.searchParams.get("ref") ?? undefined });
- const repo = url.searchParams.get("repo");
- if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
-  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
- }
- if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
-  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
- }
- const rawLimit = url.searchParams.get("limit");
- let limit = DEFAULT_COMMIT_LIMIT;
- if (rawLimit !== null) {
-  if (!/^[1-9][0-9]*$/.test(rawLimit)) return badRequest(`invalid limit: ${JSON.stringify(rawLimit)}`);
-  limit = Math.min(Number(rawLimit), MAX_COMMIT_LIMIT);
- }
- return { repo, ref, limit };
-}
-
-/**
- * GET /tree — one directory level of a repo at a ref. `entries`
- * is the direct child set of `path`, tree-order preserved
- * (deterministic: the same (repo, ref, path) always yields the
- * same entries). Every entry documents size:0 — the Artifacts
- * readTree surface carries no entry sizes (subtree or blob), and
- * the route documents the zero rather than fabricating a value
- * (no size oracle; CONTRACT §GET /tree). Unknown repo /
- * unresolvable ref / a file at `path` (not a directory) -> the
- * uniform 404.
- */
-async function handleTree(request: Request, env: Env): Promise<Response> {
- const parsed = parseReadQuery(new URL(request.url));
- if (parsed instanceof Response) return parsed;
- const { repo, ref, path } = parsed;
-
- // The repo is query-carried, so the dispatcher's authorize()
- // chokepoint (extractScope) already adjudicated it against the
- // demo allowlist pre-read (the /changes posture) — the handler
- // trusts the chokepoint and reads.
- try {
-  using artifactsRepo = await env.ARTIFACTS.get(repo);
-  const commits = await artifactsRepo.log({ ref, limit: 1 });
-  if (!commits.length) {
-   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  }
-  // Resolve the tree AT `path` (not the root): walk the head
-  // tree's children down to the requested directory.
-  let treeHash = commits[0].treeHash;
-  if (path !== "") {
-   for (const part of path.split("/")) {
-    const entries = await artifactsRepo.readTree(treeHash);
-    const child = entries?.find((e) => e.name === part && e.type === "tree");
-    if (!child) {
-     return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-    }
-    treeHash = child.hash;
-   }
-  }
-  const entries = await artifactsRepo.readTree(treeHash);
-  if (!entries) {
-   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  }
-  return Response.json({
-   ok: true,
-   repo,
-   ref,
-   path,
-   entries: entries.map((entry) => ({
-    name: entry.name,
-    type: entry.type,
-    size: 0, // the readTree surface carries no entry sizes — documented zero, not fabricated
-    blobHash: entry.hash,
-   })),
-  });
- } catch {
-  // Unknown repo (the namespace does not carry it) -> 404, the
-  // /proposals/{repo} mapping (a failed repo read is the
-  // contract 404, never a 500).
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
- }
-}
-
-/**
- * GET /commits — the commit log of a repo at a ref (CONTRACT.md
- * §GET /commits; the history half of the repo-browsing read API).
- * Drives the EXISTING repo.log({ref, limit}) seam — the newest-first
- * first-parent walk forkPoint already reads; no new binding method,
- * no tree/blob read. `commits` is the log's own order (deterministic
- * for a given (repo, ref, limit)), bounded by the clamped `limit`.
- * The projection is EXPLICIT — treeHash/committer/committedAt are
- * dropped, never spread. Unknown repo / unresolvable ref / an empty
- * history / any binding failure -> the uniform 404 (the /tree
- * mapping). The repo is query-carried, so the dispatcher's
- * authorize() chokepoint (extractScope) already adjudicated it
- * against the demo allowlist pre-read (the /tree posture) — the
- * handler trusts the chokepoint and reads.
- */
-async function handleCommits(request: Request, env: Env): Promise<Response> {
- const parsed = parseCommitsQuery(new URL(request.url));
- if (parsed instanceof Response) return parsed;
- const { repo, ref, limit } = parsed;
- try {
-  using artifactsRepo = await env.ARTIFACTS.get(repo);
-  const log = await artifactsRepo.log({ ref, limit });
-  if (!log.length) return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  return Response.json({
-   ok: true,
-   repo,
-   ref,
-   commits: log.map((c) => ({
-    sha: c.hash,
-    shortSha: c.hash.slice(0, 7),
-    message: c.message,
-    author: `${c.author.name} <${c.author.email}>`,
-    at: new Date(c.authoredAt * 1000).toISOString(),
-    parents: c.parents ?? [],
-   })),
-  });
- } catch {
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
- }
-}
-
-/**
- * GET /file — one file's content, classified. Drives the
- * EXISTING readContent seam (the same repo.readFile({ref,path})
- * read /reveal uses). The masking law (AD-4): a secret-class
- * path yields keys[] ONLY — the value is read server-side and
- * never egresses; a binary file yields no inline text (use
- * GET /raw for the bytes).
- */
-async function handleFile(request: Request, env: Env): Promise<Response> {
- const parsed = parseReadQuery(new URL(request.url));
- if (parsed instanceof Response) return parsed;
- const { repo, ref, path } = parsed;
- if (path === "") {
-  return badRequest("path required");
- }
-
- // Rate row (the compute-cost class; the contract's /file
- // 60/60s cap). GET precondition order: 400 (param parse) ->
- // 429 -> compute.
- const rateDenied = rateGate("/file", request);
- if (rateDenied) return rateDenied;
-
- try {
-  using artifactsRepo = await env.ARTIFACTS.get(repo);
-  const content = await readContent(artifactsRepo, ref, path);
-  if (!content) {
-   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  }
-  // Secret class (AD-4 masking law): keys only, never values.
-  // isSecretPath + secretKeys are the existing seam; the raw
-  // text is read server-side for key extraction and never
-  // leaves the worker.
-  if (isSecretPath(path)) {
-   const keys = content.text === null ? [] : secretKeys(content.text);
-   return Response.json({
-    ok: true,
-    repo,
-    ref,
-    path,
-    classification: "secret",
-    size: content.size,
-    keys,
-   });
-  }
-  if (content.binary) {
-   return Response.json({
-    ok: true,
-    repo,
-    ref,
-    path,
-    classification: "binary",
-    size: content.size,
-   });
-  }
-  return Response.json({
-   ok: true,
-   repo,
-   ref,
-   path,
-   classification: "text",
-   size: content.size,
-   text: content.text,
-  });
- } catch {
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
- }
-}
-
-/**
- * GET /raw/{repo}/{ref}/{path...} — raw blob bytes,
- * application/octet-stream. The path is split on the FIRST TWO
- * "/" separators only (repo, ref, path), so a ref that itself
- * contains slashes (a future refs/heads/*) still routes.
- * Authorization: the path-carried repo cannot be adjudicated by
- * the dispatcher's query-only extractScope (the /reveal
- * carve-out), so this handler re-checks the AD-9 demo allowlist
- * (DEMO_REPO_RE) BEFORE any binding read — fail-closed.
- * Secret-class paths are REFUSED (403) before any binding read:
- * a secret blob never materializes on this route; values surface
- * only through the authorized, audited POST /reveal seam.
- */
-async function handleRaw(request: Request, env: Env): Promise<Response> {
- const remainder = new URL(request.url).pathname.slice("/raw/".length);
- // Split on the first two "/" separators: [repo, ref, path...].
- const first = remainder.indexOf("/");
- if (first === -1) return badRequest("bad-request");
- const second = remainder.indexOf("/", first + 1);
- if (second === -1) return badRequest("bad-request");
- const repo = remainder.slice(0, first);
- const ref = remainder.slice(first + 1, second);
- const path = remainder.slice(second + 1);
-
- if (!REPO_NAME_RE.test(repo)) {
-  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
- }
- if (!REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
-  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
- }
- if (path === "" || path.startsWith("/") || path.endsWith("/") || path.split("/").includes("..")) {
-  return badRequest(`invalid path: ${JSON.stringify(path)}`);
- }
-
- // Demo allowlist re-check (the /reveal carve-out): the
- // dispatcher's extractScope reads query params only, so the
- // path-carried repo is adjudicated HERE, before any read.
- if (!DEMO_REPO_RE.test(repo)) {
-  return Response.json(
-   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
-   { status: 403 },
-  );
- }
-
- // Secret-class refusal — fail-closed BEFORE any binding read
- // (the /reveal posture: a secret-class blob never egresses
- // through the raw route).
- if (isSecretPath(path)) {
-  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
- }
-
- // Rate row (the byte-egress cost class; the contract's
- // /raw 60/60s cap).
- const rateDenied = rateGate("/raw", request);
- if (rateDenied) return rateDenied;
-
- try {
-  using artifactsRepo = await env.ARTIFACTS.get(repo);
-  const blob = await artifactsRepo.readFile({ ref, path });
-  if (!blob) {
-   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  }
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (bytes.byteLength > MAX_RAW_BYTES) {
-   return Response.json({ ok: false, error: "too-large" }, { status: 413 });
-  }
-  return new Response(bytes, { headers: { "content-type": "application/octet-stream" } });
- } catch {
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
- }
-}
-
-// ---------------------------------------------------------------------------
-// Inline review comments (CONTRACT.md §POST /comments, §GET /comments) —
-// the worker data plane for per-file review threads. Storage is the
-// worker's script-writable durable namespace (env.CACHE — the fork-lineage
-// / landing-record precedent): repo-scoped JSONL at `comments:<repo>`,
-// append order preserved (oldest-first). The forward posture (named in
-// CONTRACT) is the same wire contract over a `comments.jsonl` tree entry
-// in the Artifacts repo once the (read-only) binding exposes a write seam.
-//
-// POST appends one comment (no idempotence, fresh id each call); GET reads
-// one repo's comments filtered to an exact (ref, path). The two verbs share
-// the `/comments` path — the dispatcher matches path AND method exactly,
-// and the API-boundary 405 law covers any third method.
-// ---------------------------------------------------------------------------
-
-/** Comment body cap in characters (CONTRACT §POST /comments). */
-const MAX_COMMENT_CHARS = 2000;
-/** CACHE KV key prefix for a repo's comment JSONL (`comments:<repo>`). */
-const COMMENTS_KEY_PREFIX = "comments:";
-/** Comment id length in hex characters (48 random bits). */
-const COMMENT_ID_HEX = 12;
-
-/**
- * One stored inline review comment. `ref` is the branch the comment was
- * filed against (the GET read filter); the per-row wire comment omits it.
- * `author` is display text only — never an identity claim (NFR-3).
- */
-interface CommentRecord {
- id: string;
- ref: string;
- path: string;
- line: number;
- body: string;
- author: string;
- at: string;
-}
-
-/** A fresh comment id — 12 lowercase hex chars (48 random bits). */
-function newCommentId(): string {
- const bytes = crypto.getRandomValues(new Uint8Array(COMMENT_ID_HEX / 2));
- return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/** Closed request schema for POST /comments (AD-9): exactly
- *  {repo, ref?, path, line, body, author}. `ref` resolves through the
- *  AD-8 seam (absent -> main), so a POST without it and a GET without it
- *  agree on the branch. */
-interface CommentsRequestBody {
- repo?: unknown;
- ref?: unknown;
- path?: unknown;
- line?: unknown;
- body?: unknown;
- author?: unknown;
-}
-
-/**
- * Validate the POST /comments body — the closed-schema twin of
- * parseUpstreamBody (unknown field -> 400). `repo` REPO_NAME_RE; `ref`
- * REF_RE (absent -> the pinned default via resolveRouteBase); `path`
- * carries the traversal guards (non-empty, no `..` segment, no
- * leading/trailing `/`, depth-capped); `line` is a non-negative integer;
- * `body` is 1..MAX_COMMENT_CHARS chars; `author` is non-empty.
- */
-function parseCommentsBody(raw: unknown): { repo: string; ref: string; path: string; line: number; body: string; author: string } | Response {
- if (!raw || typeof raw !== "object") return badRequest("bad-request");
- const body = raw as CommentsRequestBody;
- if (!Object.keys(body).every((k) => k === "repo" || k === "ref" || k === "path" || k === "line" || k === "body" || k === "author")) {
-  return badRequest("bad-request");
- }
- if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
-  return badRequest(`invalid repo name: ${JSON.stringify(body.repo)}`);
- }
- const { ref } = resolveRouteBase({ ref: body.ref });
- if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
-  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
- }
- if (typeof body.path !== "string" || body.path === "" || body.path.startsWith("/") || body.path.endsWith("/") || body.path.split("/").includes("..")) {
-  return badRequest(`invalid path: ${JSON.stringify(body.path)}`);
- }
- if (body.path.split("/").filter(Boolean).length > MAX_TREE_DEPTH) return badRequest("path too deep");
- if (typeof body.line !== "number" || !Number.isInteger(body.line) || body.line < 0) {
-  return badRequest(`invalid line: ${JSON.stringify(body.line)}`);
- }
- if (typeof body.body !== "string" || body.body.length < 1 || body.body.length > MAX_COMMENT_CHARS) {
-  return badRequest(`invalid body: 1..${MAX_COMMENT_CHARS} characters`);
- }
- if (typeof body.author !== "string" || body.author.trim() === "") {
-  return badRequest(`invalid author: ${JSON.stringify(body.author)}`);
- }
- return { repo: body.repo, ref, path: body.path, line: body.line, body: body.body, author: body.author };
-}
-
-/**
- * Validate the GET /comments query — the /file read query with `path`
- * made required (a comment thread is per-file). `repo` is query-carried,
- * so the dispatcher's extractScope adjudicates it against the demo
- * allowlist pre-read (the /file, /tree posture); `ref` absent -> the
- * pinned default via resolveRouteBase (AD-8), so an omitted ref and an
- * explicit `ref=main` are equivalent.
- */
-function parseCommentsQuery(url: URL): ReadQuery | Response {
- const parsed = parseReadQuery(url);
- if (parsed instanceof Response) return parsed;
- if (parsed.path === "") return badRequest("path required");
- return parsed;
-}
-
-/**
- * Read one repo's comments from CACHE (JSONL at `comments:<repo>`).
- * Fail closed on absence OR corruption: a missing key, an unparseable
- * line, or a malformed record yields the empty list (the
- * readForkLineage posture — never a throw).
- */
-async function readComments(env: Env, repo: string): Promise<CommentRecord[]> {
- try {
-  const raw = await env.CACHE.get(`${COMMENTS_KEY_PREFIX}${repo}`);
-  if (!raw) return [];
-  const out: CommentRecord[] = [];
-  for (const line of raw.split("\n")) {
-   if (line === "") continue;
-   const parsed = JSON.parse(line) as Partial<CommentRecord>;
-   if (!parsed || typeof parsed !== "object") return [];
-   if (
-    typeof parsed.id !== "string" || typeof parsed.ref !== "string" ||
-    typeof parsed.path !== "string" || typeof parsed.line !== "number" ||
-    typeof parsed.body !== "string" || typeof parsed.author !== "string" ||
-    typeof parsed.at !== "string"
-   ) return [];
-   out.push({
-    id: parsed.id, ref: parsed.ref, path: parsed.path, line: parsed.line,
-    body: parsed.body, author: parsed.author, at: parsed.at,
-   });
-  }
-  return out;
- } catch {
-  return [];
- }
-}
-
-// Concurrency posture for POST /comments (the withLandGate BF-1 pattern,
-// keyed per repo): appendComment is a read-modify-write of the whole
-// `comments:<repo>` JSONL, and the awaits inside readComments (CACHE.get)
-// and before CACHE.put interleave concurrent POSTs WITHIN one isolate —
-// N simultaneous posts each read the same pre-state and last-write-wins
-// drops N-1 (verified: 8 posts -> 7 lost). One in-flight append chain per
-// repo key, so different repos still append concurrently. Cross-isolate
-// remains last-writer-wins (the documented as-built posture); a repo-keyed
-// Durable Object is the multi-isolate fix (Proposal B).
-const commentAppendChains = new Map<string, Promise<void>>();
-
-/** Queue fn behind any in-flight append for the same repo: one comment
- *  append critical section per repo key, per isolate. */
-async function withCommentAppendGate<T>(repo: string, fn: () => Promise<T>): Promise<T> {
- const prev = commentAppendChains.get(repo) ?? Promise.resolve();
- const { promise: next, resolve: release } = Promise.withResolvers<void>();
- commentAppendChains.set(repo, next);
- await prev;
- try {
-  return await fn();
- } finally {
-  release();
- }
-}
-
-/** Append one comment: read-modify-write the repo's JSONL in CACHE
- *  (append order preserved). Serialized per repo key by
- *  withCommentAppendGate — one in-isolate writer at a time, so
- *  concurrent POSTs cannot interleave the read-modify-write window.
- *  (Cross-isolate remains last-writer-wins, the documented as-built
- *  posture; a repo-keyed Durable Object is the multi-isolate fix —
- *  Proposal B.) */
-async function appendComment(env: Env, repo: string, record: CommentRecord): Promise<void> {
- await withCommentAppendGate(repo, async () => {
-  const existing = await readComments(env, repo);
-  const jsonl = [...existing, record].map((c) => JSON.stringify(c)).join("\n");
-  await env.CACHE.put(`${COMMENTS_KEY_PREFIX}${repo}`, jsonl);
- });
-}
-
-/**
- * POST /comments — append one inline review comment. A write action
- * behind authorize() + csrfGate (the dispatcher applies both), with the
- * handler-side AD-9 allowlist re-check (the /land, /reveal posture: the
- * body-carried repo is adjudicated before any store access). Secret-class
- * paths are REFUSED (403) before any store access (the /raw posture — a
- * secret-class comment can never enter the store). Order: 400 (shape) ->
- * 403 (allowlist) -> 403 (secret-class) -> 429 -> 201.
- */
-async function handleCommentsPost(request: Request, env: Env): Promise<Response> {
- const parsed = parseCommentsBody(await request.json().catch(() => null));
- if (parsed instanceof Response) return parsed;
- const { repo, ref, path, line, body, author } = parsed;
-
- if (!DEMO_REPO_RE.test(repo)) {
-  return Response.json(
-   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
-   { status: 403 },
-  );
- }
- if (isSecretPath(path)) {
-  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
- }
-
- const rateDenied = rateGate("/comments:write", request);
- if (rateDenied) return rateDenied;
-
- const comment = { id: newCommentId(), path, line, body, author, at: new Date().toISOString() };
- await appendComment(env, repo, { ...comment, ref });
- return Response.json({ ok: true, comment }, { status: 201 });
-}
-
-/**
- * GET /comments — one repo's comments for an exact (ref, path), in append
- * order (oldest-first; stable across reads). The repo is query-carried,
- * so the chokepoint's extractScope already adjudicated it against the
- * demo allowlist pre-read (the /file posture — no handler re-check).
- * Order: 400 (param parse) -> 429 -> read.
- */
-async function handleCommentsGet(request: Request, env: Env): Promise<Response> {
- const parsed = parseCommentsQuery(new URL(request.url));
- if (parsed instanceof Response) return parsed;
- const { repo, ref, path } = parsed;
-
- const rateDenied = rateGate("/comments", request);
- if (rateDenied) return rateDenied;
-
- const all = await readComments(env, repo);
- const comments = all
-  .filter((c) => c.ref === ref && c.path === path)
-  .map((c) => ({ id: c.id, path: c.path, line: c.line, body: c.body, author: c.author, at: c.at }));
- return Response.json({ ok: true, repo, ref, comments });
-}
-
-// Route table (AD-8: single registration point; every route authorizes).
-// ---------------------------------------------------------------------------
-
-/** A registered API route. `path` matches exact paths; `dynamicPrefix` matches a prefix (e.g. "/landings/"). */
-interface RouteEntry {
- path: string;
- method: "GET" | "POST";
- action: ActionType;
- handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
-}
-
-/**
- * Extract the repo scope (repo/base/repos) to authorize, for routes
- * that carry them. GET /changes, /proposals, /merge pass `repo`/`base`
- * query params; `repos` is the comma-split list parseProposalsQuery
- * also applies (trimmed, empties dropped) so the chokepoint allowlist
- * fires pre-handler with the same names the handler will read.
- */
-function extractScope(request: Request): AuthorizeScope {
- const url = new URL(request.url);
- const repo = url.searchParams.get("repo") ?? undefined;
- const base = url.searchParams.get("base") ?? undefined;
- const reposParam = url.searchParams.get("repos");
- const repos = reposParam
-  ? reposParam.split(",").map((s) => s.trim()).filter(Boolean)
-  : undefined;
- return { repo, base, repos };
-}
-
-// ---------------------------------------------------------------------------
-// Session steering (CONTRACT.md §GET /sessions, §POST /sessions/{repo}/steer)
-// — the honest v1: the session LIST is derived from the platform's REAL
-// observability (the Artifacts queue event feed GET /events serves), and the
-// STEER write appends a session.steered event to that same durable feed. The
-// platform does NOT inject the instruction into a live agent process — that is
-// the documented v1 limitation (CONTRACT §POST /sessions/{repo}/steer).
-// ---------------------------------------------------------------------------
-
-/** Closed request schema for POST /sessions/{repo}/steer (AD-9):
- *  exactly {instruction}. `instruction` is required, non-empty,
- *  <=MAX_STEER_INSTRUCTION_CHARS chars (the untrusted-free-text
- *  cap, the /intents posture). */
-interface SteerRequestBody {
- instruction?: unknown;
-}
-
-/**
- * Validate the steer body — the closed-schema twin of
- * parseIntentsBody (unknown field -> 400). The instruction
- * text is validated HERE but never echoed: it is scrubbed at
- * the seam (stripInstructionLike(scrubFreeText(...)), the
- * /intents AD-4 wire) before it enters the event record, and
- * the response carries only the recorded frame.
- */
-function parseSteerBody(raw: unknown): { instruction: string } | Response {
- if (!raw || typeof raw !== "object" || Array.isArray(raw)) return badRequest("bad-request");
- const body = raw as SteerRequestBody;
- if (!Object.keys(body).every((k) => k === "instruction")) {
-  return badRequest("bad-request");
- }
- const instruction = body.instruction;
- if (typeof instruction !== "string" || !instruction || instruction.length > MAX_STEER_INSTRUCTION_CHARS) {
-  return badRequest(`invalid instruction: 1..${MAX_STEER_INSTRUCTION_CHARS} characters`);
- }
- return { instruction };
-}
-
-/**
- * Derive the session list from the platform's REAL event feed
- * (the honest v1 — no fabricated rows). One row per discovered
- * agent-* repo (the bounded list({limit:200}) seam /forks uses,
- * status === "ready") that the feed carries evidence for; a repo
- * with no feed evidence is ABSENT (never a fabricated
- * state:"idle"). State: working = a newest event within
- * SESSION_WORKING_WINDOW_MS of now; else idle (honest v1:
- * "blocked" derives only from recorded landing-failure evidence
- * in the feed — none recorded here, so it stays idle). `intent`
- * per repo comes through the EXISTING readIntent seam
- * (best-effort: an unresolvable read omits the field, the row
- * still renders — per-candidate fail-closed, the /forks
- * precedent). Ordering: newest-activity-first (the feed's own
- * order). Rate: deliberately UNBOUND (the /changes posture — a
- * bounded read over <=200 discovered repos; documented in
- * CONTRACT §GET /sessions).
- */
-async function readSessionState(env: Env): Promise<Array<{
- repo: string;
- state: "working" | "idle";
- intent?: string;
- lastActivityAt?: string;
- lastEvent?: string;
-}>> {
- const events = await readEvents(env);
- // Group by repo, preserving the feed's newest-first order per
- // repo (readEvents returns the feed newest-first, so the first
- // event seen for a repo is its newest).
- const newest = new Map<string, LiveEvent>();
- for (const event of events) {
-  if (!event.repo) continue;
-  if (!newest.has(event.repo)) newest.set(event.repo, event);
- }
- const list = await env.ARTIFACTS.list({ limit: 200 });
- const sessions: Array<{
-  repo: string;
-  state: "working" | "idle";
-  intent?: string;
-  lastActivityAt?: string;
-  lastEvent?: string;
- }> = [];
- const now = Date.now();
- for (const entry of list.repos) {
-  if (!entry.name.startsWith("agent-") || entry.status !== "ready") continue;
-  const event = newest.get(entry.name);
-  // No feed evidence -> ABSENT (never a fabricated row — the
-  // honest-unavailable posture).
-  if (!event) continue;
-  const lastEvent = event.type ? normalizeEventType(event.type) : "";
-  const lastActivityAt = event.at;
-  const withinWindow = lastActivityAt
-   ? now - Date.parse(lastActivityAt) <= SESSION_WORKING_WINDOW_MS
-   : false;
-  const state: "working" | "idle" = withinWindow ? "working" : "idle";
-  // Intent through the EXISTING seam (best-effort). Resolve the
-  // head sha via the snapshot idiom (repoHead — repo.log
-  // limit 1); an unresolvable read omits the field, the row
-  // still renders (per-candidate fail-closed, the /forks
-  // precedent — never a 500).
-  let intent: string | undefined;
-  try {
-   const headSha = await repoHead(env, entry.name, DEFAULT_REF);
-   using artifactsRepo = await env.ARTIFACTS.get(entry.name);
-   intent = await readIntent(artifactsRepo, DEFAULT_REF, headSha);
-  } catch {
-   intent = undefined;
-  }
-  const row: { repo: string; state: "working" | "idle"; intent?: string; lastActivityAt?: string; lastEvent?: string } = {
-   repo: entry.name, state,
-  };
-  if (intent !== undefined) row.intent = intent;
-  if (lastActivityAt !== undefined) row.lastActivityAt = lastActivityAt;
-  if (lastEvent !== "") row.lastEvent = lastEvent;
-  sessions.push(row);
- }
- return sessions;
-}
-
-/**
- * GET /sessions — the honest v1 session list (CONTRACT.md
- * §GET /sessions). `base` resolves through resolveRouteBase
- * (AD-8 — omitted == explicit) and is REPO_NAME_RE-checked;
- * the handler re-checks the demo allowlist (DEMO_REPO_RE)
- * before any read (the /forks defense-in-depth precedent —
- * the query-carried base was already adjudicated by the
- * dispatcher's extractScope, the re-check is belt-and-braces).
- * Deliberately UNBOUND (the /changes posture — no rateGate;
- * documented in CONTRACT). Order: 400 (param) -> 403 (allowlist)
- * -> 200.
- */
-async function handleSessions(request: Request, env: Env): Promise<Response> {
+async function handleAgents(request: Request, env: Env): Promise<Response> {
  const { base } = resolveRouteBase({ base: new URL(request.url).searchParams.get("base") ?? undefined });
  if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
   return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
  }
- // Demo allowlist (AD-9) defense-in-depth — the query-carried
- // base was adjudicated at the chokepoint; re-check before any
- // repo read (the /forks precedent).
+ // Demo allowlist (AD-9) defense-in-depth: the dispatcher's
+ // extractScope already adjudicates the query-carried base, but
+ // the handler re-checks before any repo read (the /forks
+ // precedent).
  if (!DEMO_REPO_RE.test(base)) {
   return Response.json(
    { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
    { status: 403 },
   );
  }
- const sessions = await readSessionState(env);
- return Response.json({ ok: true, base, sessions });
-}
-
-// Concurrency posture for the steer write (the
-// withCommentAppendGate pattern, keyed on the single EVENTS_KEY):
-// appendSessionEvent is a read-modify-write of the `recent` KV
-// feed, and the awaits inside readEvents (LIVE.get) and before
-// LIVE.put interleave concurrent steers WITHIN one isolate — N
-// simultaneous steers each read the same pre-state and
-// last-write-wins drops N-1. One in-flight append chain for the
-// feed key, so steers serialize within the isolate. Cross-isolate
-// remains last-writer-wins (the documented as-built posture — the
-// comments precedent); a repo-keyed Durable Object is the
-// deferred multi-isolate fix (CONTRACT §POST /sessions/{repo}/steer
-// residual risks).
-const sessionAppendChains = new Map<string, Promise<void>>();
-
-/** Queue fn behind any in-flight steer append: one append
- *  critical section per feed key, per isolate. */
-async function withSessionAppendGate<T>(fn: () => Promise<T>): Promise<T> {
- const prev = sessionAppendChains.get(EVENTS_KEY) ?? Promise.resolve();
- const { promise: next, resolve: release } = Promise.withResolvers<void>();
- sessionAppendChains.set(EVENTS_KEY, next);
- await prev;
- try {
-  return await fn();
- } finally {
-  release();
- }
-}
-
-/**
- * Append one session.steered event to the SAME durable feed GET
- * /events serves. Serialized by withSessionAppendGate (one
- * in-isolate writer at a time). Reuses recordEvent's validation
- * (validateEvent) so an invalid frame can never enter the feed —
- * recordEvent itself does the dedup/validation/publish; this
- * wrapper only serializes the read-modify-write window around it
- * (recordEvent's own LIVE.get/LIVE.put pair is the critical
- * section). Does NOT bump cache:gen (session.steered is not in
- * CACHE_INVALIDATING_TYPES — a steer changes no change-set, the
- * token-event reasoning). The SSE fan-out inside recordEvent is
- * best-effort (the recordEvent posture — a hub failure logs
- * events-hub-publisher and the KV write stands).
- */
-async function appendSessionEvent(env: Env, event: LiveEvent): Promise<boolean> {
- let landed = false;
- await withSessionAppendGate(async () => {
-  landed = await recordEvent(env, event); // true on store, false on reject/dedup
- });
- return landed;
-}
-
-/**
- * POST /sessions/{repo}/steer — record a steer instruction as a
- * session.steered event in the platform's real event feed (the
- * honest v1). Precondition order: 400 (shape) -> 429 (rate,
- * ROUTE_RATE_LIMITS["/sessions:write"] 30/60s) -> 403 (AD-9
- * allowlist — the path-carried repo cannot be adjudicated by
- * extractScope, so the handler re-checks DEMO_REPO_RE BEFORE any
- * store access, the /raw carve-out posture) -> 200. The
- * instruction is scrubbed at the seam
- * (stripInstructionLike(scrubFreeText(...)), the /intents AD-4
- * wire) before it enters the event record, and the response
- * carries only the recorded frame — NEVER the text (AD-4).
- * Content-free log line: counts only (the /intents precedent).
- */
-async function handleSessionsSteer(request: Request, env: Env, repoParam: string): Promise<Response> {
- // Handler-side path discipline: the dynamic prefix is
- // "/sessions/" — the remainder must be exactly "<repo>/steer".
- // Anything else is the dispatcher's 404 not-found (the handler
- // returns it rather than guessing a repo).
- if (!repoParam.endsWith("/steer")) {
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
- }
- const repo = repoParam.slice(0, -"/steer".length);
- if (!REPO_NAME_RE.test(repo)) {
-  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
- }
-
- const parsed = parseSteerBody(await request.json().catch(() => null));
- if (parsed instanceof Response) return parsed;
-
- const rateDenied = rateGate("/sessions:write", request);
+ const rateDenied = rateGate("/agents", request);
  if (rateDenied) return rateDenied;
 
- // Demo allowlist (AD-9) — the path-carried repo is adjudicated
- // HERE, before any store access (the /raw carve-out posture:
- // extractScope cannot see path params).
- if (!DEMO_REPO_RE.test(repo)) {
-  return Response.json(
-   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
-   { status: 403 },
-  );
+ // Roster discovery: the same bounded list() seam /floors and
+ // /forks use (agent-* repos, status ready). Per-candidate
+ // fail-closed: a repo whose harness note cannot be read still
+ // serves the row with harness "unrecorded" (readAgentHarness's
+ // own best-effort law) — never skipped, never fails the roster.
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const agents: Array<{
+  repo: string;
+  harness: string;
+  capabilities: string[];
+  policy: { land: string; secretClass: string };
+  lastSeenAt: string | null;
+ }> = [];
+ for (const entry of list.repos) {
+  if (!entry.name.startsWith("agent-") || entry.status !== "ready") continue;
+  const repo = await env.ARTIFACTS.get(entry.name).catch(() => null);
+  const harness = repo ? await readAgentHarness(repo) : "unrecorded";
+  agents.push({
+   repo: entry.name,
+   harness,
+   capabilities: ["propose"],
+   policy: { land: AUTO_LAND_ENGAGED ? "auto-eligible" : "manual", secretClass: "refused" },
+   lastSeenAt: typeof entry.updatedAt === "string" ? entry.updatedAt : null,
+  });
  }
 
- const event: LiveEvent = {
-  type: SESSION_EVENT_TYPE,
-  repo,
-  // AD-4 wire: the untrusted instruction is stripped + scrubbed
-  // where it enters the event record — the /intents seam. The
-  // scrubbed form is stored as the frame's `instruction` field
-  // (KEY=value lines render KEY=[redacted], instruction-like
-  // lines [stripped]) — never the raw text.
-  instruction: stripInstructionLike(scrubFreeText(parsed.instruction)),
-  at: new Date().toISOString(),
-  // Per-event uniqueness: every steer is a NEW client-initiated
-  // write (not a queue replay), so the feed-dedup key includes
-  // this fresh id and no two steers to one repo can collide
-  // (the /comments newCommentId precedent — 12 lowercase hex).
-  id: newCommentId(),
- };
- const landed = await appendSessionEvent(env, event);
- if (!landed) {
-  // Dedup-dropped (or rejected) — the feed does not evidence
-  // this event, so the response must not assert it (honest v1).
-  // Content-free. With the per-event id above this is the
-  // fail-closed backstop for a genuine store anomaly.
-  return Response.json({ ok: false, error: "event-not-recorded" }, { status: 503 });
- }
-
- // Content-free log: counts only — never the instruction text
- // (the /intents precedent).
- console.log("steer", JSON.stringify({ repo, instructionLength: parsed.instruction.length }));
- return Response.json({
-  ok: true,
-  repo,
-  event: { type: normalizeEventType(SESSION_EVENT_TYPE), repo, at: event.at },
- });
+ // Wire order (CONTRACT.md §GET /agents): name-ordered.
+ agents.sort((a, b) => a.repo.localeCompare(b.repo));
+ return Response.json({ ok: true, base, agents });
 }
 
-/** Static API routes — every entry authorizes before its handler runs. */
-export const ROUTES: RouteEntry[] = [
- { path: "/health", method: "GET", action: "read", handler: handleHealth },
- { path: "/changes", method: "GET", action: "read", handler: handleChanges },
- { path: "/proposals", method: "GET", action: "read", handler: handleProposals },
- { path: "/floors", method: "GET", action: "read", handler: handleFloors },
- // Fork ecosystem (CAP-10): read-only six-cluster signals + lineage per
- // discovered agent-* fork. The authorize() chokepoint covers it (demo
- // mode gate; extractScope adjudicates the query-carried base pre-read).
- { path: "/forks", method: "GET", action: "read", handler: handleForks },
- // Issues triage (nextgit-e16): issues derived from existing
- // platform state (merge folds, fork-point walk, matcher
- // verdicts) — no new store. The authorize() chokepoint
- // covers it (demo mode gate; extractScope adjudicates the
- // query-carried base pre-read, the /forks posture). Capped
- // 60/60s (rateGate in the handler — the per-candidate merge
- // simulation is the /merge compute-cost class).
- { path: "/issues", method: "GET", action: "read", handler: handleIssues },
- { path: "/merge", method: "GET", action: "read", handler: handleMerge },
- { path: "/land", method: "POST", action: "write", handler: handleLand },
- // Merge-back-to-upstream (CAP-10): a fork's work routed to its
- // recorded parent. Mutating route — authorize() + the CSRF gate
- // precede the handler like every POST; the handler re-checks
- // the AD-9 allowlist on the body-carried repo/base (the /land
- // defense-in-depth precedent).
- { path: "/upstream", method: "POST", action: "write", handler: handleUpstream },
- { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
- // Intent matcher (CAP-10): advisory POST — the dispatcher's
- // authorize() (mode gate) + the CSRF gate precede the handler
- // for free (the /judge posture); the handler re-checks the AD-9
- // allowlist on the body-carried base (the /judge
- // defense-in-depth precedent).
- { path: "/intents", method: "POST", action: "judge", handler: handleIntents },
- // Reveal — secret-class value behind the explicit authorization rule.
- // The dispatcher runs authorize() (mode gate) + the CSRF gate first;
- // the handler layers authorizeReveal() on top (defense-in-depth).
- { path: "/reveal", method: "POST", action: "reveal", handler: handleReveal },
- { path: "/events", method: "GET", action: "read", handler: handleEvents },
- // SSE hub proxy — tabled like every other route so the authorize() chokepoint covers it
- // (it previously sat in an inline branch below the tables and bypassed authorize: in
- // AUTH_MODE=deny the stream still opened, contradicting CONTRACT.md. Fixed 2026-10-10.)
- { path: "/events/stream", method: "GET", action: "read", handler: handleSSEStream },
- // Whoami — the viewer's elevated-reveal capability probe (read-only,
- // no secret content; the reveal affordance renders only when reveal:true).
- { path: "/whoami", method: "GET", action: "read", handler: handleWhoami },
- // Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file,
- // §GET /commits). GET, read-only: the authorize() chokepoint covers
- // them (demo mode gate; extractScope adjudicates the query-carried
- // repo against the demo allowlist pre-read, the /changes posture).
- // /tree and /commits are deliberately unbound (the /changes posture —
- // ROUTE_RATE_LIMITS carries no /tree or /commits row); /file is capped
- // 60/60s (rateGate inside the handler).
- { path: "/tree", method: "GET", action: "read", handler: handleTree },
- { path: "/file", method: "GET", action: "read", handler: handleFile },
- { path: "/commits", method: "GET", action: "read", handler: handleCommits },
- // Inline review comments (CONTRACT.md §POST /comments, §GET /comments):
- // the per-file review-thread data plane. Both verbs register at the same
- // path — the dispatcher matches path AND method exactly, so the API
- // boundary's 405 law still covers any third method. GET is query-carried
- // (the /file posture: authorize() adjudicates the repo via extractScope
- // pre-read); POST is body-carried (the /land /reveal posture: the handler
- // re-checks the AD-9 allowlist before any store access) and runs behind
- // authorize() + csrfGate.
- { path: "/comments", method: "GET", action: "read", handler: handleCommentsGet },
- { path: "/comments", method: "POST", action: "write", handler: handleCommentsPost },
- // GET /checks (CONTRACT.md §GET /checks): the authoritative
- // server-computed per-proposal checks — a pure projection of
- // the /proposals compute seam. GET, query-carried (the
- // /proposals posture: extractScope adjudicates base/repos at
- // the authorize() chokepoint pre-read), capped 60/60s
- // (rateGate inside the handler).
- { path: "/checks", method: "GET", action: "read", handler: handleChecks },
- // Session steering (nextgit-e16, CONTRACT.md §GET /sessions):
- // the honest v1 session list, derived from the platform's
- // real event feed. The authorize() chokepoint covers it
- // (demo mode gate; extractScope adjudicates the query-carried
- // base pre-read, the /forks posture). Deliberately unbound
- // (the /changes posture — ROUTE_RATE_LIMITS carries no
- // "/sessions" GET row; see §GET /sessions).
- { path: "/sessions", method: "GET", action: "read", handler: handleSessions },
-];
+// GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
+ // protocol): the proposal card + its detail, served by driving the SAME
+ // compute seam /changes and /merge use (computeChangeSet for the card's
+ // commits/stats/files, computeMerge for the merge simulation). The
+ // mergeable-class signal is served as merge.status/conflicted — never as a
+ // field named `mergeable` (AD-14: adapter-synthesized GitHub semantics are
+ // never platform fields). `title` is the intent text, `state` is the
+ // landing verdict from the fold, `number` is the repo name. Unknown repos
+ // 404 at the handler (the /landings/{commit} precedent); the repo name is
+ // re-validated REPO_NAME_RE before any repo read (/reveal precedent).
+ // ---------------------------------------------------------------------------
+ async function handleProposalDetail(request: Request, env: Env, repoParam: string): Promise<Response> {
+  if (!REPO_NAME_RE.test(repoParam)) {
+   return badRequest(`invalid repo name: ${JSON.stringify(repoParam)}`);
+  }
 
-export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
- { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
- // /proposals/{repo} — the proposal card + detail entity (AD-14 client
- // protocol). Static `/proposals` (the set view) wins for the bare
- // path; `/proposals/<repo>` falls to this prefix (static-before-
- // dynamic, the dispatcher's exact-then-prefix order).
- { prefix: "/proposals/", method: "GET", action: "read", handler: (request, env) => handleProposalDetail(request, env, new URL(request.url).pathname.slice("/proposals/".length)) },
- // /asset/{blobId} — the asset download route (e12 integrity row;
- // FR-47). GET, read-only: the authorize() chokepoint covers it
- // (demo mode gate; `read` action, no repo param — extractScope
- // yields nothing to adjudicate). The handler validates the
- // 64-hex content-addressed key and funnels the byte fetch
- // through readVerifiedBlob, the single byte-returning
- // ASSET_BLOB.get (CONTRACT.md §GET /asset/{blobId}).
- { prefix: "/asset/", method: "GET", action: "read", handler: (request, env) => handleAssetDownload(request, env) },
- // /raw/{repo}/{ref}/{path} — the repo-browsing raw-byte read
- // (CONTRACT.md §GET /raw). GET, read-only: the authorize()
- // chokepoint covers the route, but its repo is PATH-carried,
- // which the query-only extractScope cannot adjudicate (the
- // /reveal carve-out) — the handler re-checks the demo
- // allowlist (DEMO_REPO_RE) and refuses secret-class paths (403)
- // BEFORE any binding read, fail-closed. Capped 60/60s
- // (rateGate in the handler).
- { prefix: "/raw/", method: "GET", action: "read", handler: (request, env) => handleRaw(request, env) },
- // /sessions/{repo}/steer — the session-steering write
- // (nextgit-e16, CONTRACT.md §POST /sessions/{repo}/steer).
- // POST, mutating: the dispatcher's dynamic branch applies
- // authorize() + csrfGate() to POSTs (the first dynamic POST
- // route — no dispatcher change needed). The path-carried repo
- // cannot be adjudicated by extractScope (query-only), so the
- // handler re-checks DEMO_REPO_RE BEFORE any store access (the
- // /raw carve-out posture) and rate-limits via
- // ROUTE_RATE_LIMITS["/sessions:write"]. The handler validates
- // the "/steer" suffix (repoParam.endsWith("/steer") -> strip;
- // anything else -> 404 not-found, the handler-side path
- // discipline).
- { prefix: "/sessions/", method: "POST", action: "write", handler: (request, env) => handleSessionsSteer(request, env, new URL(request.url).pathname.slice("/sessions/".length)) },
-];
+  // Demo allowlist (AD-9): the path-carried repo is the scope
+  // carrier, readable only here (the dispatcher's extractScope
+  // reads query params only). Same uniform 403 as /land and
+  // /judge, before any computeChangeSet / computeMerge read.
+  if (!DEMO_REPO_RE.test(repoParam)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${repoParam}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+  const parsed = parseProposalsQuery(new URL(request.url));
+  if (parsed instanceof Response) return parsed;
+  const { base, ref, baseRef } = parsed;
+  const rateDenied = rateGate("/proposals", request);
+  if (rateDenied) return rateDenied;
 
-// UI document set (AD-8 boundary discipline): the wrangler-assets
-// binding (env.ASSETS) serves exactly platform/ui/'s documents.
-// The dispatcher's terminal fallthrough hands a request to ASSETS
-// only when the path is in this whitelist; anything else is a JSON
-// contract error (405 method-not-allowed on a registered path, 404
-// not-found otherwise). Additive-only: a new UI file is added here
-// AND to the route-discipline parity check in the same commit.
-const UI_ASSET_PATHS: Record<string, true> = {
- "/": true, "": true, "/index.html": true, "/styles.css": true,
- "/app.js": true, "/reveal-decision.js": true, "/land-verdict.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
- // Wave-13: the files page + the app.js module split + the parity pages.
- "/files.html": true, "/js/files-page.js": true,
- "/js/state.js": true, "/js/api.js": true, "/js/conflicts.js": true,
- "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
- "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
- // Wave-14: the checks strip module + inline review comments.
- "/js/checks.js": true,
- "/js/comments.js": true,
- "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
- // Wave-14: the commit-history page + the forks panel modules.
- "/history.html": true, "/js/history-page.js": true,
- "/js/forks-panel.js": true,
- // nextgit-e16 (wave-15 lane-union marker): the issues
- // triage panel module.
- "/js/issues-panel.js": true,
-};
-
-export default {
- async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const url = new URL(request.url);
+  let changeSet;
+  let merge;
   try {
-   // Static route table.
-   for (const route of ROUTES) {
-    if (url.pathname === route.path && request.method === route.method) {
-     const denied = authorize(request, env, route.action, extractScope(request));
-     if (denied) return denied;
-     // CSRF precondition (FR-45): mutating routes run the cookie-identity
-     // gate after authorize() (so 401 and 403 repo-not-allowed keep
-     // precedence) and before the handler. GET routes are unaffected.
-     if (request.method === "POST") {
-      const csrf = csrfGate(request);
-      if (csrf) return csrf;
-     }
-     return await route.handler(request, env, ctx);
-    }
-   }
-
-   // Dynamic routes (prefix match).
-   for (const route of DYNAMIC_ROUTES) {
-    if (url.pathname.startsWith(route.prefix) && request.method === route.method) {
-     const denied = authorize(request, env, route.action, extractScope(request));
-     if (denied) return denied;
-     if (request.method === "POST") {
-      const csrf = csrfGate(request);
-      if (csrf) return csrf;
-     }
-     return await route.handler(request, env, ctx);
-    }
-   }
-
-
-   // API boundary discipline (AD-8): a known path with the wrong
-   // method, and any unknown path, must not reach the asset layer —
-   // they answer with the contract JSON error. 405-before-404: a
-   // wrong method on a registered path is more specific than an
-   // unknown path. Both fire before authorize()/CSRF, matching the
-   // handler-level 400/404/409 precedent (a malformed request is
-   // rejected at the boundary without reaching the auth chokepoint).
-   const knownPath =
-    ROUTES.some((r) => r.path === url.pathname) ||
-    DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
-   if (knownPath) {
-    return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
-   }
-   if (UI_ASSET_PATHS[url.pathname]) {
-    return env.ASSETS.fetch(request);
-   }
+   // Unknown repo -> 404 (the /landings/{commit} precedent): the
+   // compute seam's first repo read (env.ARTIFACTS.get) fails for
+   // a name the namespace does not carry, and the handler maps that
+   // to the contract 404 rather than a 500.
+   changeSet = await computeChangeSet(env, base, baseRef, repoParam, ref);
+   merge = await computeMerge(env, base, baseRef, [repoParam], ref);
+  } catch {
    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
-  } catch (err) {
-   return Response.json({ ok: false, error: scrubFreeText(String((err as Error)?.message ?? err)) }, { status: 500 });
   }
- },
+  const landing = merge.files.some((f) => f.result === "withheld-secret")
+   ? ({ status: "withheld-secret", files: merge.files.length } as const)
+   : merge.status === "conflict"
+    ? ({ status: "conflict", files: merge.conflicted.length } as const)
+    : merge.files.length === 0
+     ? ({ status: "landed", files: 0 } as const)
+     : ({ status: "ready", files: merge.files.length } as const);
 
- // Cron warm-up (every 5 min): keeps the /proposals KV cache hot for the demo base so
- // visitors get a <1s first paint instead of paying the 13–17s recompute (2026-10-08).
- async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-  ctx.waitUntil(
-   (async () => {
-    try {
-     // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
-     let gen = "0";
-     try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
-     const warmDefaults = resolveRouteBase({});
-     const warmBase = warmDefaults.base as string;
-     const warmBaseRef = warmDefaults.baseRef as string;
-     const warmRef = warmDefaults.ref as string;
-     const cacheKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:*`;
-     const subsetRepos = "agent-1,agent-2,agent-3,agent-4";
-     const result = await computeProposals(env, warmBase, warmBaseRef, warmRef, null);
-     await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
-     // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
-     // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
-     const subsetKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:${subsetRepos}`;
-     try {
-      await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
-     } catch (e) {
-      console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
-     }
-     console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
-    } catch (e) {
-     console.log("warmup-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
-    }
-   })(),
-  );
- },
+  return Response.json({
+   ok: true,
+   proposal: {
+    repo: repoParam,
+    number: repoParam,
+    title: changeSet.files.find((f) => f.intent)?.intent ?? "",
+    state: landing.status,
+    headRef: ref,
+    baseRef,
+    additions: changeSet.stats.additions,
+    deletions: changeSet.stats.deletions,
+    stats: changeSet.stats,
+    checks: [],
+    detail: {
+     body: changeSet.files.find((f) => f.intent)?.intent ?? "",
+     commits: changeSet.commits,
+     merge: { status: merge.status, conflicted: merge.conflicted },
+     files: merge.files,
+    },
+   },
+  });
+ }
 
- async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
-  for (const message of batch.messages) {
-   const raw = message.body as {
-    type?: string;
-    source?: { namespace?: string; repoName?: string };
-    payload?: { ref?: string; after?: string };
-   };
-   const repo = raw?.source?.repoName;
-   const event: LiveEvent = {
-    type: raw?.type,
-    repo,
-    ref: raw?.payload?.ref,
-    after: raw?.payload?.after,
-    at: new Date().toISOString(),
-   };
-   if (!repo) {
-    console.log("feed-drop", JSON.stringify({ type: raw?.type, namespace: raw?.source?.namespace, reason: "no-repo-identity" }));
-    message.ack();
-    continue;
+ // ---------------------------------------------------------------------------
+ // Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file,
+ // §GET /raw) — the file tree + file content surface for the demo
+ // and agent repos, over HTTP. All three routes read through the
+ // EXISTING seams only: repo.log({ref,limit:1}) resolves a ref to
+ // its head commit, repo.readTree(hash) lists a directory level,
+ // repo.readFile({ref,path}) fetches one blob (via the readContent
+ // helper for /file). No new binding methods, no clone, no memfs
+ // write, no recursive walk.
+ // ---------------------------------------------------------------------------
+
+ interface ReadQuery {
+  repo: string;
+  ref: string;
+  path: string;
+ }
+
+ interface CommitsQuery {
+  repo: string;
+  ref: string;
+  limit: number;
+ }
+
+ /**
+  * Validates the /tree + /file query params. Mirrors
+  * parseProposalsQuery's REPO_NAME_RE / REF_RE guards (the same
+  * pair every GET read route enforces) with resolveRouteBase
+  * supplying the pinned ref default (absent -> main; the AD-8
+  * seam, so omitted == explicit). `path` is optional ("" = the
+  * repo root) and rejects .. segments plus leading/trailing "/"
+  * — the traversal law POST /reveal's path validation enforces.
+  * Returns a ReadQuery when valid, or the 400 Response.
+  */
+ function parseReadQuery(url: URL): ReadQuery | Response {
+  const { ref } = resolveRouteBase({ ref: url.searchParams.get("ref") ?? undefined });
+  const repo = url.searchParams.get("repo");
+  if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
+   return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+  }
+  if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+   return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+  }
+  const path = url.searchParams.get("path") ?? "";
+  if (path.startsWith("/") || path.endsWith("/") || path.split("/").includes("..")) {
+   return badRequest(`invalid path: ${JSON.stringify(path)}`);
+  }
+  if (path.split("/").filter(Boolean).length > MAX_TREE_DEPTH) {
+   return badRequest("path too deep");
+  }
+  return { repo, ref, path };
+ }
+
+ /**
+  * Validates the /commits query params (CONTRACT.md §GET /commits).
+  * Reuses the SAME resolveRouteBase default seam + REPO_NAME_RE/REF_RE
+  * guards as parseReadQuery, plus the optional `limit`: absent -> the
+  * pinned page size; a present value must match /^[1-9][0-9]*$/ (the
+  * AD-8 normalization rule — a present bad value, including "", is a
+  * 400, never silently defaulted) and is clamped to MAX_COMMIT_LIMIT
+  * (the resource bound; no request drives an unbounded history walk).
+  * Returns a CommitsQuery when valid, or the 400 Response.
+  */
+ function parseCommitsQuery(url: URL): CommitsQuery | Response {
+  const { ref } = resolveRouteBase({ ref: url.searchParams.get("ref") ?? undefined });
+  const repo = url.searchParams.get("repo");
+  if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
+   return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+  }
+  if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+   return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+  }
+  const rawLimit = url.searchParams.get("limit");
+  let limit = DEFAULT_COMMIT_LIMIT;
+  if (rawLimit !== null) {
+   if (!/^[1-9][0-9]*$/.test(rawLimit)) return badRequest(`invalid limit: ${JSON.stringify(rawLimit)}`);
+   limit = Math.min(Number(rawLimit), MAX_COMMIT_LIMIT);
+  }
+  return { repo, ref, limit };
+ }
+
+ /**
+  * GET /tree — one directory level of a repo at a ref. `entries`
+  * is the direct child set of `path`, tree-order preserved
+  * (deterministic: the same (repo, ref, path) always yields the
+  * same entries). Every entry documents size:0 — the Artifacts
+  * readTree surface carries no entry sizes (subtree or blob), and
+  * the route documents the zero rather than fabricating a value
+  * (no size oracle; CONTRACT §GET /tree). Unknown repo /
+  * unresolvable ref / a file at `path` (not a directory) -> the
+  * uniform 404.
+  */
+ async function handleTree(request: Request, env: Env): Promise<Response> {
+  const parsed = parseReadQuery(new URL(request.url));
+  if (parsed instanceof Response) return parsed;
+  const { repo, ref, path } = parsed;
+
+  // The repo is query-carried, so the dispatcher's authorize()
+  // chokepoint (extractScope) already adjudicated it against the
+  // demo allowlist pre-read (the /changes posture) — the handler
+  // trusts the chokepoint and reads.
+  try {
+   using artifactsRepo = await env.ARTIFACTS.get(repo);
+   const commits = await artifactsRepo.log({ ref, limit: 1 });
+   if (!commits.length) {
+    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
    }
-   await recordEvent(env, event);
-   message.ack();
+   // Resolve the tree AT `path` (not the root): walk the head
+   // tree's children down to the requested directory.
+   let treeHash = commits[0].treeHash;
+   if (path !== "") {
+    for (const part of path.split("/")) {
+     const entries = await artifactsRepo.readTree(treeHash);
+     const child = entries?.find((e) => e.name === part && e.type === "tree");
+     if (!child) {
+      return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+     }
+     treeHash = child.hash;
+    }
+   }
+   const entries = await artifactsRepo.readTree(treeHash);
+   if (!entries) {
+    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+   }
+   return Response.json({
+    ok: true,
+    repo,
+    ref,
+    path,
+    entries: entries.map((entry) => ({
+     name: entry.name,
+     type: entry.type,
+     size: 0, // the readTree surface carries no entry sizes — documented zero, not fabricated
+     blobHash: entry.hash,
+    })),
+   });
+  } catch {
+   // Unknown repo (the namespace does not carry it) -> 404, the
+   // /proposals/{repo} mapping (a failed repo read is the
+   // contract 404, never a 500).
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
   }
- },
-};
+ }
+
+ /**
+  * GET /commits — the commit log of a repo at a ref (CONTRACT.md
+  * §GET /commits; the history half of the repo-browsing read API).
+  * Drives the EXISTING repo.log({ref, limit}) seam — the newest-first
+  * first-parent walk forkPoint already reads; no new binding method,
+  * no tree/blob read. `commits` is the log's own order (deterministic
+  * for a given (repo, ref, limit)), bounded by the clamped `limit`.
+  * The projection is EXPLICIT — treeHash/committer/committedAt are
+  * dropped, never spread. Unknown repo / unresolvable ref / an empty
+  * history / any binding failure -> the uniform 404 (the /tree
+  * mapping). The repo is query-carried, so the dispatcher's
+  * authorize() chokepoint (extractScope) already adjudicated it
+  * against the demo allowlist pre-read (the /tree posture) — the
+  * handler trusts the chokepoint and reads.
+  */
+ async function handleCommits(request: Request, env: Env): Promise<Response> {
+  const parsed = parseCommitsQuery(new URL(request.url));
+  if (parsed instanceof Response) return parsed;
+  const { repo, ref, limit } = parsed;
+  try {
+   using artifactsRepo = await env.ARTIFACTS.get(repo);
+   const log = await artifactsRepo.log({ ref, limit });
+   if (!log.length) return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+   return Response.json({
+    ok: true,
+    repo,
+    ref,
+    commits: log.map((c) => ({
+     sha: c.hash,
+     shortSha: c.hash.slice(0, 7),
+     message: c.message,
+     author: `${c.author.name} <${c.author.email}>`,
+     at: new Date(c.authoredAt * 1000).toISOString(),
+     parents: c.parents ?? [],
+    })),
+   });
+  } catch {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+ }
+
+ /**
+  * GET /file — one file's content, classified. Drives the
+  * EXISTING readContent seam (the same repo.readFile({ref,path})
+  * read /reveal uses). The masking law (AD-4): a secret-class
+  * path yields keys[] ONLY — the value is read server-side and
+  * never egresses; a binary file yields no inline text (use
+  * GET /raw for the bytes).
+  */
+ async function handleFile(request: Request, env: Env): Promise<Response> {
+  const parsed = parseReadQuery(new URL(request.url));
+  if (parsed instanceof Response) return parsed;
+  const { repo, ref, path } = parsed;
+  if (path === "") {
+   return badRequest("path required");
+  }
+
+  // Rate row (the compute-cost class; the contract's /file
+  // 60/60s cap). GET precondition order: 400 (param parse) ->
+  // 429 -> compute.
+  const rateDenied = rateGate("/file", request);
+  if (rateDenied) return rateDenied;
+
+  try {
+   using artifactsRepo = await env.ARTIFACTS.get(repo);
+   const content = await readContent(artifactsRepo, ref, path);
+   if (!content) {
+    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+   }
+   // Secret class (AD-4 masking law): keys only, never values.
+   // isSecretPath + secretKeys are the existing seam; the raw
+   // text is read server-side for key extraction and never
+   // leaves the worker.
+   if (isSecretPath(path)) {
+    const keys = content.text === null ? [] : secretKeys(content.text);
+    return Response.json({
+     ok: true,
+     repo,
+     ref,
+     path,
+     classification: "secret",
+     size: content.size,
+     keys,
+    });
+   }
+   if (content.binary) {
+    return Response.json({
+     ok: true,
+     repo,
+     ref,
+     path,
+     classification: "binary",
+     size: content.size,
+    });
+   }
+   return Response.json({
+    ok: true,
+    repo,
+    ref,
+    path,
+    classification: "text",
+    size: content.size,
+    text: content.text,
+   });
+  } catch {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+ }
+
+ /**
+  * GET /raw/{repo}/{ref}/{path...} — raw blob bytes,
+  * application/octet-stream. The path is split on the FIRST TWO
+  * "/" separators only (repo, ref, path), so a ref that itself
+  * contains slashes (a future refs/heads/*) still routes.
+  * Authorization: the path-carried repo cannot be adjudicated by
+  * the dispatcher's query-only extractScope (the /reveal
+  * carve-out), so this handler re-checks the AD-9 demo allowlist
+  * (DEMO_REPO_RE) BEFORE any binding read — fail-closed.
+  * Secret-class paths are REFUSED (403) before any binding read:
+  * a secret blob never materializes on this route; values surface
+  * only through the authorized, audited POST /reveal seam.
+  */
+ async function handleRaw(request: Request, env: Env): Promise<Response> {
+  const remainder = new URL(request.url).pathname.slice("/raw/".length);
+  // Split on the first two "/" separators: [repo, ref, path...].
+  const first = remainder.indexOf("/");
+  if (first === -1) return badRequest("bad-request");
+  const second = remainder.indexOf("/", first + 1);
+  if (second === -1) return badRequest("bad-request");
+  const repo = remainder.slice(0, first);
+  const ref = remainder.slice(first + 1, second);
+  const path = remainder.slice(second + 1);
+
+  if (!REPO_NAME_RE.test(repo)) {
+   return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+  }
+  if (!REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+   return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+  }
+  if (path === "" || path.startsWith("/") || path.endsWith("/") || path.split("/").includes("..")) {
+   return badRequest(`invalid path: ${JSON.stringify(path)}`);
+  }
+
+  // Demo allowlist re-check (the /reveal carve-out): the
+  // dispatcher's extractScope reads query params only, so the
+  // path-carried repo is adjudicated HERE, before any read.
+  if (!DEMO_REPO_RE.test(repo)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+
+  // Secret-class refusal — fail-closed BEFORE any binding read
+  // (the /reveal posture: a secret-class blob never egresses
+  // through the raw route).
+  if (isSecretPath(path)) {
+   return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+  }
+
+  // Rate row (the byte-egress cost class; the contract's
+  // /raw 60/60s cap).
+  const rateDenied = rateGate("/raw", request);
+  if (rateDenied) return rateDenied;
+
+  try {
+   using artifactsRepo = await env.ARTIFACTS.get(repo);
+   const blob = await artifactsRepo.readFile({ ref, path });
+   if (!blob) {
+    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+   }
+   const bytes = new Uint8Array(await blob.arrayBuffer());
+   if (bytes.byteLength > MAX_RAW_BYTES) {
+    return Response.json({ ok: false, error: "too-large" }, { status: 413 });
+   }
+   return new Response(bytes, { headers: { "content-type": "application/octet-stream" } });
+  } catch {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+ }
+
+ // ---------------------------------------------------------------------------
+ // Inline review comments (CONTRACT.md §POST /comments, §GET /comments) —
+ // the worker data plane for per-file review threads. Storage is the
+ // worker's script-writable durable namespace (env.CACHE — the fork-lineage
+ // / landing-record precedent): repo-scoped JSONL at `comments:<repo>`,
+ // append order preserved (oldest-first). The forward posture (named in
+ // CONTRACT) is the same wire contract over a `comments.jsonl` tree entry
+ // in the Artifacts repo once the (read-only) binding exposes a write seam.
+ //
+ // POST appends one comment (no idempotence, fresh id each call); GET reads
+ // one repo's comments filtered to an exact (ref, path). The two verbs share
+ // the `/comments` path — the dispatcher matches path AND method exactly,
+ // and the API-boundary 405 law covers any third method.
+ // ---------------------------------------------------------------------------
+
+ /** Comment body cap in characters (CONTRACT §POST /comments). */
+ const MAX_COMMENT_CHARS = 2000;
+ /** CACHE KV key prefix for a repo's comment JSONL (`comments:<repo>`). */
+ const COMMENTS_KEY_PREFIX = "comments:";
+ /** Comment id length in hex characters (48 random bits). */
+ const COMMENT_ID_HEX = 12;
+
+ /**
+  * One stored inline review comment. `ref` is the branch the comment was
+  * filed against (the GET read filter); the per-row wire comment omits it.
+  * `author` is display text only — never an identity claim (NFR-3).
+  */
+ interface CommentRecord {
+  id: string;
+  ref: string;
+  path: string;
+  line: number;
+  body: string;
+  author: string;
+  at: string;
+ }
+
+ /** A fresh comment id — 12 lowercase hex chars (48 random bits). */
+ function newCommentId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(COMMENT_ID_HEX / 2));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+ }
+
+ /** Closed request schema for POST /comments (AD-9): exactly
+  *  {repo, ref?, path, line, body, author}. `ref` resolves through the
+  *  AD-8 seam (absent -> main), so a POST without it and a GET without it
+  *  agree on the branch. */
+ interface CommentsRequestBody {
+  repo?: unknown;
+  ref?: unknown;
+  path?: unknown;
+  line?: unknown;
+  body?: unknown;
+  author?: unknown;
+ }
+
+ /**
+  * Validate the POST /comments body — the closed-schema twin of
+  * parseUpstreamBody (unknown field -> 400). `repo` REPO_NAME_RE; `ref`
+  * REF_RE (absent -> the pinned default via resolveRouteBase); `path`
+  * carries the traversal guards (non-empty, no `..` segment, no
+  * leading/trailing `/`, depth-capped); `line` is a non-negative integer;
+  * `body` is 1..MAX_COMMENT_CHARS chars; `author` is non-empty.
+  */
+ function parseCommentsBody(raw: unknown): { repo: string; ref: string; path: string; line: number; body: string; author: string } | Response {
+  if (!raw || typeof raw !== "object") return badRequest("bad-request");
+  const body = raw as CommentsRequestBody;
+  if (!Object.keys(body).every((k) => k === "repo" || k === "ref" || k === "path" || k === "line" || k === "body" || k === "author")) {
+   return badRequest("bad-request");
+  }
+  if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+   return badRequest(`invalid repo name: ${JSON.stringify(body.repo)}`);
+  }
+  const { ref } = resolveRouteBase({ ref: body.ref });
+  if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+   return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+  }
+  if (typeof body.path !== "string" || body.path === "" || body.path.startsWith("/") || body.path.endsWith("/") || body.path.split("/").includes("..")) {
+   return badRequest(`invalid path: ${JSON.stringify(body.path)}`);
+  }
+  if (body.path.split("/").filter(Boolean).length > MAX_TREE_DEPTH) return badRequest("path too deep");
+  if (typeof body.line !== "number" || !Number.isInteger(body.line) || body.line < 0) {
+   return badRequest(`invalid line: ${JSON.stringify(body.line)}`);
+  }
+  if (typeof body.body !== "string" || body.body.length < 1 || body.body.length > MAX_COMMENT_CHARS) {
+   return badRequest(`invalid body: 1..${MAX_COMMENT_CHARS} characters`);
+  }
+  if (typeof body.author !== "string" || body.author.trim() === "") {
+   return badRequest(`invalid author: ${JSON.stringify(body.author)}`);
+  }
+  return { repo: body.repo, ref, path: body.path, line: body.line, body: body.body, author: body.author };
+ }
+
+ /**
+  * Validate the GET /comments query — the /file read query with `path`
+  * made required (a comment thread is per-file). `repo` is query-carried,
+  * so the dispatcher's extractScope adjudicates it against the demo
+  * allowlist pre-read (the /file, /tree posture); `ref` absent -> the
+  * pinned default via resolveRouteBase (AD-8), so an omitted ref and an
+  * explicit `ref=main` are equivalent.
+  */
+ function parseCommentsQuery(url: URL): ReadQuery | Response {
+  const parsed = parseReadQuery(url);
+  if (parsed instanceof Response) return parsed;
+  if (parsed.path === "") return badRequest("path required");
+  return parsed;
+ }
+
+ /**
+  * Read one repo's comments from CACHE (JSONL at `comments:<repo>`).
+  * Fail closed on absence OR corruption: a missing key, an unparseable
+  * line, or a malformed record yields the empty list (the
+  * readForkLineage posture — never a throw).
+  */
+ async function readComments(env: Env, repo: string): Promise<CommentRecord[]> {
+  try {
+   const raw = await env.CACHE.get(`${COMMENTS_KEY_PREFIX}${repo}`);
+   if (!raw) return [];
+   const out: CommentRecord[] = [];
+   for (const line of raw.split("\n")) {
+    if (line === "") continue;
+    const parsed = JSON.parse(line) as Partial<CommentRecord>;
+    if (!parsed || typeof parsed !== "object") return [];
+    if (
+     typeof parsed.id !== "string" || typeof parsed.ref !== "string" ||
+     typeof parsed.path !== "string" || typeof parsed.line !== "number" ||
+     typeof parsed.body !== "string" || typeof parsed.author !== "string" ||
+     typeof parsed.at !== "string"
+    ) return [];
+    out.push({
+     id: parsed.id, ref: parsed.ref, path: parsed.path, line: parsed.line,
+     body: parsed.body, author: parsed.author, at: parsed.at,
+    });
+   }
+   return out;
+  } catch {
+   return [];
+  }
+ }
+
+ // Concurrency posture for POST /comments (the withLandGate BF-1 pattern,
+ // keyed per repo): appendComment is a read-modify-write of the whole
+ // `comments:<repo>` JSONL, and the awaits inside readComments (CACHE.get)
+ // and before CACHE.put interleave concurrent POSTs WITHIN one isolate —
+ // N simultaneous posts each read the same pre-state and last-write-wins
+ // drops N-1 (verified: 8 posts -> 7 lost). One in-flight append chain per
+ // repo key, so different repos still append concurrently. Cross-isolate
+ // remains last-writer-wins (the documented as-built posture); a repo-keyed
+ // Durable Object is the multi-isolate fix (Proposal B).
+ const commentAppendChains = new Map<string, Promise<void>>();
+
+ /** Queue fn behind any in-flight append for the same repo: one comment
+  *  append critical section per repo key, per isolate. */
+ async function withCommentAppendGate<T>(repo: string, fn: () => Promise<T>): Promise<T> {
+  const prev = commentAppendChains.get(repo) ?? Promise.resolve();
+  const { promise: next, resolve: release } = Promise.withResolvers<void>();
+  commentAppendChains.set(repo, next);
+  await prev;
+  try {
+   return await fn();
+  } finally {
+   release();
+  }
+ }
+
+ /** Append one comment: read-modify-write the repo's JSONL in CACHE
+  *  (append order preserved). Serialized per repo key by
+  *  withCommentAppendGate — one in-isolate writer at a time, so
+  *  concurrent POSTs cannot interleave the read-modify-write window.
+  *  (Cross-isolate remains last-writer-wins, the documented as-built
+  *  posture; a repo-keyed Durable Object is the multi-isolate fix —
+  *  Proposal B.) */
+ async function appendComment(env: Env, repo: string, record: CommentRecord): Promise<void> {
+  await withCommentAppendGate(repo, async () => {
+   const existing = await readComments(env, repo);
+   const jsonl = [...existing, record].map((c) => JSON.stringify(c)).join("\n");
+   await env.CACHE.put(`${COMMENTS_KEY_PREFIX}${repo}`, jsonl);
+  });
+ }
+
+ /**
+  * POST /comments — append one inline review comment. A write action
+  * behind authorize() + csrfGate (the dispatcher applies both), with the
+  * handler-side AD-9 allowlist re-check (the /land, /reveal posture: the
+  * body-carried repo is adjudicated before any store access). Secret-class
+  * paths are REFUSED (403) before any store access (the /raw posture — a
+  * secret-class comment can never enter the store). Order: 400 (shape) ->
+  * 403 (allowlist) -> 403 (secret-class) -> 429 -> 201.
+  */
+ async function handleCommentsPost(request: Request, env: Env): Promise<Response> {
+  const parsed = parseCommentsBody(await request.json().catch(() => null));
+  if (parsed instanceof Response) return parsed;
+  const { repo, ref, path, line, body, author } = parsed;
+
+  if (!DEMO_REPO_RE.test(repo)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+  if (isSecretPath(path)) {
+   return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+  }
+
+  const rateDenied = rateGate("/comments:write", request);
+  if (rateDenied) return rateDenied;
+
+  const comment = { id: newCommentId(), path, line, body, author, at: new Date().toISOString() };
+  await appendComment(env, repo, { ...comment, ref });
+  return Response.json({ ok: true, comment }, { status: 201 });
+ }
+
+ /**
+  * GET /comments — one repo's comments for an exact (ref, path), in append
+  * order (oldest-first; stable across reads). The repo is query-carried,
+  * so the chokepoint's extractScope already adjudicated it against the
+  * demo allowlist pre-read (the /file posture — no handler re-check).
+  * Order: 400 (param parse) -> 429 -> read.
+  */
+ async function handleCommentsGet(request: Request, env: Env): Promise<Response> {
+  const parsed = parseCommentsQuery(new URL(request.url));
+  if (parsed instanceof Response) return parsed;
+  const { repo, ref, path } = parsed;
+
+  const rateDenied = rateGate("/comments", request);
+  if (rateDenied) return rateDenied;
+
+  const all = await readComments(env, repo);
+  const comments = all
+   .filter((c) => c.ref === ref && c.path === path)
+   .map((c) => ({ id: c.id, path: c.path, line: c.line, body: c.body, author: c.author, at: c.at }));
+  return Response.json({ ok: true, repo, ref, comments });
+ }
+
+ // Route table (AD-8: single registration point; every route authorizes).
+ // ---------------------------------------------------------------------------
+
+ /** A registered API route. `path` matches exact paths; `dynamicPrefix` matches a prefix (e.g. "/landings/"). */
+ interface RouteEntry {
+  path: string;
+  method: "GET" | "POST";
+  action: ActionType;
+  handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+ }
+
+ /**
+  * Extract the repo scope (repo/base/repos) to authorize, for routes
+  * that carry them. GET /changes, /proposals, /merge pass `repo`/`base`
+  * query params; `repos` is the comma-split list parseProposalsQuery
+  * also applies (trimmed, empties dropped) so the chokepoint allowlist
+  * fires pre-handler with the same names the handler will read.
+  */
+ function extractScope(request: Request): AuthorizeScope {
+  const url = new URL(request.url);
+  const repo = url.searchParams.get("repo") ?? undefined;
+  const base = url.searchParams.get("base") ?? undefined;
+  const reposParam = url.searchParams.get("repos");
+  const repos = reposParam
+   ? reposParam.split(",").map((s) => s.trim()).filter(Boolean)
+   : undefined;
+  return { repo, base, repos };
+ }
+
+ // ---------------------------------------------------------------------------
+ // Session steering (CONTRACT.md §GET /sessions, §POST /sessions/{repo}/steer)
+ // — the honest v1: the session LIST is derived from the platform's REAL
+ // observability (the Artifacts queue event feed GET /events serves), and the
+ // STEER write appends a session.steered event to that same durable feed. The
+ // platform does NOT inject the instruction into a live agent process — that is
+ // the documented v1 limitation (CONTRACT §POST /sessions/{repo}/steer).
+ // ---------------------------------------------------------------------------
+
+ /** Closed request schema for POST /sessions/{repo}/steer (AD-9):
+  *  exactly {instruction}. `instruction` is required, non-empty,
+  *  <=MAX_STEER_INSTRUCTION_CHARS chars (the untrusted-free-text
+  *  cap, the /intents posture). */
+ interface SteerRequestBody {
+  instruction?: unknown;
+ }
+
+ /**
+  * Validate the steer body — the closed-schema twin of
+  * parseIntentsBody (unknown field -> 400). The instruction
+  * text is validated HERE but never echoed: it is scrubbed at
+  * the seam (stripInstructionLike(scrubFreeText(...)), the
+  * /intents AD-4 wire) before it enters the event record, and
+  * the response carries only the recorded frame.
+  */
+ function parseSteerBody(raw: unknown): { instruction: string } | Response {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return badRequest("bad-request");
+  const body = raw as SteerRequestBody;
+  if (!Object.keys(body).every((k) => k === "instruction")) {
+   return badRequest("bad-request");
+  }
+  const instruction = body.instruction;
+  if (typeof instruction !== "string" || !instruction || instruction.length > MAX_STEER_INSTRUCTION_CHARS) {
+   return badRequest(`invalid instruction: 1..${MAX_STEER_INSTRUCTION_CHARS} characters`);
+  }
+  return { instruction };
+ }
+
+ /**
+  * Derive the session list from the platform's REAL event feed
+  * (the honest v1 — no fabricated rows). One row per discovered
+  * agent-* repo (the bounded list({limit:200}) seam /forks uses,
+  * status === "ready") that the feed carries evidence for; a repo
+  * with no feed evidence is ABSENT (never a fabricated
+  * state:"idle"). State: working = a newest event within
+  * SESSION_WORKING_WINDOW_MS of now; else idle (honest v1:
+  * "blocked" derives only from recorded landing-failure evidence
+  * in the feed — none recorded here, so it stays idle). `intent`
+  * per repo comes through the EXISTING readIntent seam
+  * (best-effort: an unresolvable read omits the field, the row
+  * still renders — per-candidate fail-closed, the /forks
+  * precedent). Ordering: newest-activity-first (the feed's own
+  * order). Rate: deliberately UNBOUND (the /changes posture — a
+  * bounded read over <=200 discovered repos; documented in
+  * CONTRACT §GET /sessions).
+  */
+ async function readSessionState(env: Env): Promise<Array<{
+  repo: string;
+  state: "working" | "idle";
+  intent?: string;
+  lastActivityAt?: string;
+  lastEvent?: string;
+ }>> {
+  const events = await readEvents(env);
+  // Group by repo, preserving the feed's newest-first order per
+  // repo (readEvents returns the feed newest-first, so the first
+  // event seen for a repo is its newest).
+  const newest = new Map<string, LiveEvent>();
+  for (const event of events) {
+   if (!event.repo) continue;
+   if (!newest.has(event.repo)) newest.set(event.repo, event);
+  }
+  const list = await env.ARTIFACTS.list({ limit: 200 });
+  const sessions: Array<{
+   repo: string;
+   state: "working" | "idle";
+   intent?: string;
+   lastActivityAt?: string;
+   lastEvent?: string;
+  }> = [];
+  const now = Date.now();
+  for (const entry of list.repos) {
+   if (!entry.name.startsWith("agent-") || entry.status !== "ready") continue;
+   const event = newest.get(entry.name);
+   // No feed evidence -> ABSENT (never a fabricated row — the
+   // honest-unavailable posture).
+   if (!event) continue;
+   const lastEvent = event.type ? normalizeEventType(event.type) : "";
+   const lastActivityAt = event.at;
+   const withinWindow = lastActivityAt
+    ? now - Date.parse(lastActivityAt) <= SESSION_WORKING_WINDOW_MS
+    : false;
+   const state: "working" | "idle" = withinWindow ? "working" : "idle";
+   // Intent through the EXISTING seam (best-effort). Resolve the
+   // head sha via the snapshot idiom (repoHead — repo.log
+   // limit 1); an unresolvable read omits the field, the row
+   // still renders (per-candidate fail-closed, the /forks
+   // precedent — never a 500).
+   let intent: string | undefined;
+   try {
+    const headSha = await repoHead(env, entry.name, DEFAULT_REF);
+    using artifactsRepo = await env.ARTIFACTS.get(entry.name);
+    intent = await readIntent(artifactsRepo, DEFAULT_REF, headSha);
+   } catch {
+    intent = undefined;
+   }
+   const row: { repo: string; state: "working" | "idle"; intent?: string; lastActivityAt?: string; lastEvent?: string } = {
+    repo: entry.name, state,
+   };
+   if (intent !== undefined) row.intent = intent;
+   if (lastActivityAt !== undefined) row.lastActivityAt = lastActivityAt;
+   if (lastEvent !== "") row.lastEvent = lastEvent;
+   sessions.push(row);
+  }
+  return sessions;
+ }
+
+ /**
+  * GET /sessions — the honest v1 session list (CONTRACT.md
+  * §GET /sessions). `base` resolves through resolveRouteBase
+  * (AD-8 — omitted == explicit) and is REPO_NAME_RE-checked;
+  * the handler re-checks the demo allowlist (DEMO_REPO_RE)
+  * before any read (the /forks defense-in-depth precedent —
+  * the query-carried base was already adjudicated by the
+  * dispatcher's extractScope, the re-check is belt-and-braces).
+  * Deliberately UNBOUND (the /changes posture — no rateGate;
+  * documented in CONTRACT). Order: 400 (param) -> 403 (allowlist)
+  * -> 200.
+  */
+ async function handleSessions(request: Request, env: Env): Promise<Response> {
+  const { base } = resolveRouteBase({ base: new URL(request.url).searchParams.get("base") ?? undefined });
+  if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+   return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+  }
+  // Demo allowlist (AD-9) defense-in-depth — the query-carried
+  // base was adjudicated at the chokepoint; re-check before any
+  // repo read (the /forks precedent).
+  if (!DEMO_REPO_RE.test(base)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+  const sessions = await readSessionState(env);
+  return Response.json({ ok: true, base, sessions });
+ }
+
+ // Concurrency posture for the steer write (the
+ // withCommentAppendGate pattern, keyed on the single EVENTS_KEY):
+ // appendSessionEvent is a read-modify-write of the `recent` KV
+ // feed, and the awaits inside readEvents (LIVE.get) and before
+ // LIVE.put interleave concurrent steers WITHIN one isolate — N
+ // simultaneous steers each read the same pre-state and
+ // last-write-wins drops N-1. One in-flight append chain for the
+ // feed key, so steers serialize within the isolate. Cross-isolate
+ // remains last-writer-wins (the documented as-built posture — the
+ // comments precedent); a repo-keyed Durable Object is the
+ // deferred multi-isolate fix (CONTRACT §POST /sessions/{repo}/steer
+ // residual risks).
+ const sessionAppendChains = new Map<string, Promise<void>>();
+
+ /** Queue fn behind any in-flight steer append: one append
+  *  critical section per feed key, per isolate. */
+ async function withSessionAppendGate<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = sessionAppendChains.get(EVENTS_KEY) ?? Promise.resolve();
+  const { promise: next, resolve: release } = Promise.withResolvers<void>();
+  sessionAppendChains.set(EVENTS_KEY, next);
+  await prev;
+  try {
+   return await fn();
+  } finally {
+   release();
+  }
+ }
+
+ /**
+  * Append one session.steered event to the SAME durable feed GET
+  * /events serves. Serialized by withSessionAppendGate (one
+  * in-isolate writer at a time). Reuses recordEvent's validation
+  * (validateEvent) so an invalid frame can never enter the feed —
+  * recordEvent itself does the dedup/validation/publish; this
+  * wrapper only serializes the read-modify-write window around it
+  * (recordEvent's own LIVE.get/LIVE.put pair is the critical
+  * section). Does NOT bump cache:gen (session.steered is not in
+  * CACHE_INVALIDATING_TYPES — a steer changes no change-set, the
+  * token-event reasoning). The SSE fan-out inside recordEvent is
+  * best-effort (the recordEvent posture — a hub failure logs
+  * events-hub-publisher and the KV write stands).
+  */
+ async function appendSessionEvent(env: Env, event: LiveEvent): Promise<boolean> {
+  let landed = false;
+  await withSessionAppendGate(async () => {
+   landed = await recordEvent(env, event); // true on store, false on reject/dedup
+  });
+  return landed;
+ }
+
+ /**
+  * POST /sessions/{repo}/steer — record a steer instruction as a
+  * session.steered event in the platform's real event feed (the
+  * honest v1). Precondition order: 400 (shape) -> 429 (rate,
+  * ROUTE_RATE_LIMITS["/sessions:write"] 30/60s) -> 403 (AD-9
+  * allowlist — the path-carried repo cannot be adjudicated by
+  * extractScope, so the handler re-checks DEMO_REPO_RE BEFORE any
+  * store access, the /raw carve-out posture) -> 200. The
+  * instruction is scrubbed at the seam
+  * (stripInstructionLike(scrubFreeText(...)), the /intents AD-4
+  * wire) before it enters the event record, and the response
+  * carries only the recorded frame — NEVER the text (AD-4).
+  * Content-free log line: counts only (the /intents precedent).
+  */
+ async function handleSessionsSteer(request: Request, env: Env, repoParam: string): Promise<Response> {
+  // Handler-side path discipline: the dynamic prefix is
+  // "/sessions/" — the remainder must be exactly "<repo>/steer".
+  // Anything else is the dispatcher's 404 not-found (the handler
+  // returns it rather than guessing a repo).
+  if (!repoParam.endsWith("/steer")) {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  const repo = repoParam.slice(0, -"/steer".length);
+  if (!REPO_NAME_RE.test(repo)) {
+   return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+  }
+
+  const parsed = parseSteerBody(await request.json().catch(() => null));
+  if (parsed instanceof Response) return parsed;
+
+  const rateDenied = rateGate("/sessions:write", request);
+  if (rateDenied) return rateDenied;
+
+  // Demo allowlist (AD-9) — the path-carried repo is adjudicated
+  // HERE, before any store access (the /raw carve-out posture:
+  // extractScope cannot see path params).
+  if (!DEMO_REPO_RE.test(repo)) {
+   return Response.json(
+    { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+    { status: 403 },
+   );
+  }
+
+  const event: LiveEvent = {
+   type: SESSION_EVENT_TYPE,
+   repo,
+   // AD-4 wire: the untrusted instruction is stripped + scrubbed
+   // where it enters the event record — the /intents seam. The
+   // scrubbed form is stored as the frame's `instruction` field
+   // (KEY=value lines render KEY=[redacted], instruction-like
+   // lines [stripped]) — never the raw text.
+   instruction: stripInstructionLike(scrubFreeText(parsed.instruction)),
+   at: new Date().toISOString(),
+   // Per-event uniqueness: every steer is a NEW client-initiated
+   // write (not a queue replay), so the feed-dedup key includes
+   // this fresh id and no two steers to one repo can collide
+   // (the /comments newCommentId precedent — 12 lowercase hex).
+   id: newCommentId(),
+  };
+  const landed = await appendSessionEvent(env, event);
+  if (!landed) {
+   // Dedup-dropped (or rejected) — the feed does not evidence
+   // this event, so the response must not assert it (honest v1).
+   // Content-free. With the per-event id above this is the
+   // fail-closed backstop for a genuine store anomaly.
+   return Response.json({ ok: false, error: "event-not-recorded" }, { status: 503 });
+  }
+
+  // Content-free log: counts only — never the instruction text
+  // (the /intents precedent).
+  console.log("steer", JSON.stringify({ repo, instructionLength: parsed.instruction.length }));
+  return Response.json({
+   ok: true,
+   repo,
+   event: { type: normalizeEventType(SESSION_EVENT_TYPE), repo, at: event.at },
+  });
+ }
+
+ /** Static API routes — every entry authorizes before its handler runs. */
+ export const ROUTES: RouteEntry[] = [
+  { path: "/health", method: "GET", action: "read", handler: handleHealth },
+  { path: "/changes", method: "GET", action: "read", handler: handleChanges },
+  { path: "/proposals", method: "GET", action: "read", handler: handleProposals },
+  { path: "/floors", method: "GET", action: "read", handler: handleFloors },
+  // Fork ecosystem (CAP-10): read-only six-cluster signals + lineage per
+  // discovered agent-* fork. The authorize() chokepoint covers it (demo
+  // mode gate; extractScope adjudicates the query-carried base pre-read).
+  { path: "/forks", method: "GET", action: "read", handler: handleForks },
+  // Issues triage (nextgit-e16): issues derived from existing
+  // platform state (merge folds, fork-point walk, matcher
+  // verdicts) — no new store. The authorize() chokepoint
+  // covers it (demo mode gate; extractScope adjudicates the
+  // query-carried base pre-read, the /forks posture). Capped
+  // 60/60s (rateGate in the handler — the per-candidate merge
+  // simulation is the /merge compute-cost class).
+  { path: "/issues", method: "GET", action: "read", handler: handleIssues },
+  // Agent roster + policy surface (identity v1): read-only
+  // closed projection per discovered agent-* repo. The
+  // authorize() chokepoint covers it (demo mode gate;
+  // extractScope adjudicates the query-carried base
+  // pre-read, the /forks posture).
+  { path: "/agents", method: "GET", action: "read", handler: handleAgents },
+  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
+  { path: "/land", method: "POST", action: "write", handler: handleLand },
+  // Merge-back-to-upstream (CAP-10): a fork's work routed to its
+  // recorded parent. Mutating route — authorize() + the CSRF gate
+  // precede the handler like every POST; the handler re-checks
+  // the AD-9 allowlist on the body-carried repo/base (the /land
+  // defense-in-depth precedent).
+  { path: "/upstream", method: "POST", action: "write", handler: handleUpstream },
+  { path: "/judge", method: "POST", action: "judge", handler: handleJudge },
+  // Intent matcher (CAP-10): advisory POST — the dispatcher's
+  // authorize() (mode gate) + the CSRF gate precede the handler
+  // for free (the /judge posture); the handler re-checks the AD-9
+  // allowlist on the body-carried base (the /judge
+  // defense-in-depth precedent).
+  { path: "/intents", method: "POST", action: "judge", handler: handleIntents },
+  // Reveal — secret-class value behind the explicit authorization rule.
+  // The dispatcher runs authorize() (mode gate) + the CSRF gate first;
+  // the handler layers authorizeReveal() on top (defense-in-depth).
+  { path: "/reveal", method: "POST", action: "reveal", handler: handleReveal },
+  { path: "/events", method: "GET", action: "read", handler: handleEvents },
+  // SSE hub proxy — tabled like every other route so the authorize() chokepoint covers it
+  // (it previously sat in an inline branch below the tables and bypassed authorize: in
+  // AUTH_MODE=deny the stream still opened, contradicting CONTRACT.md. Fixed 2026-10-10.)
+  { path: "/events/stream", method: "GET", action: "read", handler: handleSSEStream },
+  // Whoami — the viewer's elevated-reveal capability probe (read-only,
+  // no secret content; the reveal affordance renders only when reveal:true).
+  { path: "/whoami", method: "GET", action: "read", handler: handleWhoami },
+  // Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file,
+  // §GET /commits). GET, read-only: the authorize() chokepoint covers
+  // them (demo mode gate; extractScope adjudicates the query-carried
+  // repo against the demo allowlist pre-read, the /changes posture).
+  // /tree and /commits are deliberately unbound (the /changes posture —
+  // ROUTE_RATE_LIMITS carries no /tree or /commits row); /file is capped
+  // 60/60s (rateGate inside the handler).
+  { path: "/tree", method: "GET", action: "read", handler: handleTree },
+  { path: "/file", method: "GET", action: "read", handler: handleFile },
+  { path: "/commits", method: "GET", action: "read", handler: handleCommits },
+  // Inline review comments (CONTRACT.md §POST /comments, §GET /comments):
+  // the per-file review-thread data plane. Both verbs register at the same
+  // path — the dispatcher matches path AND method exactly, so the API
+  // boundary's 405 law still covers any third method. GET is query-carried
+  // (the /file posture: authorize() adjudicates the repo via extractScope
+  // pre-read); POST is body-carried (the /land /reveal posture: the handler
+  // re-checks the AD-9 allowlist before any store access) and runs behind
+  // authorize() + csrfGate.
+  { path: "/comments", method: "GET", action: "read", handler: handleCommentsGet },
+  { path: "/comments", method: "POST", action: "write", handler: handleCommentsPost },
+  // GET /checks (CONTRACT.md §GET /checks): the authoritative
+  // server-computed per-proposal checks — a pure projection of
+  // the /proposals compute seam. GET, query-carried (the
+  // /proposals posture: extractScope adjudicates base/repos at
+  // the authorize() chokepoint pre-read), capped 60/60s
+  // (rateGate inside the handler).
+  { path: "/checks", method: "GET", action: "read", handler: handleChecks },
+  // Session steering (nextgit-e16, CONTRACT.md §GET /sessions):
+  // the honest v1 session list, derived from the platform's
+  // real event feed. The authorize() chokepoint covers it
+  // (demo mode gate; extractScope adjudicates the query-carried
+  // base pre-read, the /forks posture). Deliberately unbound
+  // (the /changes posture — ROUTE_RATE_LIMITS carries no
+  // "/sessions" GET row; see §GET /sessions).
+  { path: "/sessions", method: "GET", action: "read", handler: handleSessions },
+ ];
+
+ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
+  { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
+  // /proposals/{repo} — the proposal card + detail entity (AD-14 client
+  // protocol). Static `/proposals` (the set view) wins for the bare
+  // path; `/proposals/<repo>` falls to this prefix (static-before-
+  // dynamic, the dispatcher's exact-then-prefix order).
+  { prefix: "/proposals/", method: "GET", action: "read", handler: (request, env) => handleProposalDetail(request, env, new URL(request.url).pathname.slice("/proposals/".length)) },
+  // /asset/{blobId} — the asset download route (e12 integrity row;
+  // FR-47). GET, read-only: the authorize() chokepoint covers it
+  // (demo mode gate; `read` action, no repo param — extractScope
+  // yields nothing to adjudicate). The handler validates the
+  // 64-hex content-addressed key and funnels the byte fetch
+  // through readVerifiedBlob, the single byte-returning
+  // ASSET_BLOB.get (CONTRACT.md §GET /asset/{blobId}).
+  { prefix: "/asset/", method: "GET", action: "read", handler: (request, env) => handleAssetDownload(request, env) },
+  // /raw/{repo}/{ref}/{path} — the repo-browsing raw-byte read
+  // (CONTRACT.md §GET /raw). GET, read-only: the authorize()
+  // chokepoint covers the route, but its repo is PATH-carried,
+  // which the query-only extractScope cannot adjudicate (the
+  // /reveal carve-out) — the handler re-checks the demo
+  // allowlist (DEMO_REPO_RE) and refuses secret-class paths (403)
+  // BEFORE any binding read, fail-closed. Capped 60/60s
+  // (rateGate in the handler).
+  { prefix: "/raw/", method: "GET", action: "read", handler: (request, env) => handleRaw(request, env) },
+  // /sessions/{repo}/steer — the session-steering write
+  // (nextgit-e16, CONTRACT.md §POST /sessions/{repo}/steer).
+  // POST, mutating: the dispatcher's dynamic branch applies
+  // authorize() + csrfGate() to POSTs (the first dynamic POST
+  // route — no dispatcher change needed). The path-carried repo
+  // cannot be adjudicated by extractScope (query-only), so the
+  // handler re-checks DEMO_REPO_RE BEFORE any store access (the
+  // /raw carve-out posture) and rate-limits via
+  // ROUTE_RATE_LIMITS["/sessions:write"]. The handler validates
+  // the "/steer" suffix (repoParam.endsWith("/steer") -> strip;
+  // anything else -> 404 not-found, the handler-side path
+  // discipline).
+  { prefix: "/sessions/", method: "POST", action: "write", handler: (request, env) => handleSessionsSteer(request, env, new URL(request.url).pathname.slice("/sessions/".length)) },
+ ];
+
+ // UI document set (AD-8 boundary discipline): the wrangler-assets
+ // binding (env.ASSETS) serves exactly platform/ui/'s documents.
+ // The dispatcher's terminal fallthrough hands a request to ASSETS
+ // only when the path is in this whitelist; anything else is a JSON
+ // contract error (405 method-not-allowed on a registered path, 404
+ // not-found otherwise). Additive-only: a new UI file is added here
+ // AND to the route-discipline parity check in the same commit.
+ const UI_ASSET_PATHS: Record<string, true> = {
+  "/": true, "": true, "/index.html": true, "/styles.css": true,
+  "/app.js": true, "/reveal-decision.js": true, "/land-verdict.js": true, "/tour.html": true, "/tour.css": true, "/tour.js": true,
+  // Wave-13: the files page + the app.js module split + the parity pages.
+  "/files.html": true, "/js/files-page.js": true,
+  "/js/state.js": true, "/js/api.js": true, "/js/conflicts.js": true,
+  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
+  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
+  // Wave-14: the checks strip module + inline review comments.
+  "/js/checks.js": true,
+  "/js/comments.js": true,
+  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
+  // Wave-14: the commit-history page + the forks panel modules.
+  "/history.html": true, "/js/history-page.js": true,
+  "/js/forks-panel.js": true,
+  // nextgit-e16 (wave-15 lane-union marker): the issues
+  // triage panel module.
+  "/js/issues-panel.js": true,
+ };
+
+ export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+   const url = new URL(request.url);
+   try {
+    // Static route table.
+    for (const route of ROUTES) {
+     if (url.pathname === route.path && request.method === route.method) {
+      const denied = authorize(request, env, route.action, extractScope(request));
+      if (denied) return denied;
+      // CSRF precondition (FR-45): mutating routes run the cookie-identity
+      // gate after authorize() (so 401 and 403 repo-not-allowed keep
+      // precedence) and before the handler. GET routes are unaffected.
+      if (request.method === "POST") {
+       const csrf = csrfGate(request);
+       if (csrf) return csrf;
+      }
+      return await route.handler(request, env, ctx);
+     }
+    }
+
+    // Dynamic routes (prefix match).
+    for (const route of DYNAMIC_ROUTES) {
+     if (url.pathname.startsWith(route.prefix) && request.method === route.method) {
+      const denied = authorize(request, env, route.action, extractScope(request));
+      if (denied) return denied;
+      if (request.method === "POST") {
+       const csrf = csrfGate(request);
+       if (csrf) return csrf;
+      }
+      return await route.handler(request, env, ctx);
+     }
+    }
+
+
+    // API boundary discipline (AD-8): a known path with the wrong
+    // method, and any unknown path, must not reach the asset layer —
+    // they answer with the contract JSON error. 405-before-404: a
+    // wrong method on a registered path is more specific than an
+    // unknown path. Both fire before authorize()/CSRF, matching the
+    // handler-level 400/404/409 precedent (a malformed request is
+    // rejected at the boundary without reaching the auth chokepoint).
+    const knownPath =
+     ROUTES.some((r) => r.path === url.pathname) ||
+     DYNAMIC_ROUTES.some((r) => url.pathname.startsWith(r.prefix));
+    if (knownPath) {
+     return Response.json({ ok: false, error: "method-not-allowed" }, { status: 405 });
+    }
+    if (UI_ASSET_PATHS[url.pathname]) {
+     return env.ASSETS.fetch(request);
+    }
+    return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+   } catch (err) {
+    return Response.json({ ok: false, error: scrubFreeText(String((err as Error)?.message ?? err)) }, { status: 500 });
+   }
+  },
+
+  // Cron warm-up (every 5 min): keeps the /proposals KV cache hot for the demo base so
+  // visitors get a <1s first paint instead of paying the 13–17s recompute (2026-10-08).
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+   ctx.waitUntil(
+    (async () => {
+     try {
+      // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
+      let gen = "0";
+      try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
+      const warmDefaults = resolveRouteBase({});
+      const warmBase = warmDefaults.base as string;
+      const warmBaseRef = warmDefaults.baseRef as string;
+      const warmRef = warmDefaults.ref as string;
+      const cacheKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:*`;
+      const subsetRepos = "agent-1,agent-2,agent-3,agent-4";
+      const result = await computeProposals(env, warmBase, warmBaseRef, warmRef, null);
+      await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+      // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
+      // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
+      const subsetKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:${subsetRepos}`;
+      try {
+       await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+      } catch (e) {
+       console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
+      }
+      console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
+     } catch (e) {
+      console.log("warmup-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
+     }
+    })(),
+   );
+  },
+
+  async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
+   for (const message of batch.messages) {
+    const raw = message.body as {
+     type?: string;
+     source?: { namespace?: string; repoName?: string };
+     payload?: { ref?: string; after?: string };
+    };
+    const repo = raw?.source?.repoName;
+    const event: LiveEvent = {
+     type: raw?.type,
+     repo,
+     ref: raw?.payload?.ref,
+     after: raw?.payload?.after,
+     at: new Date().toISOString(),
+    };
+    if (!repo) {
+     console.log("feed-drop", JSON.stringify({ type: raw?.type, namespace: raw?.source?.namespace, reason: "no-repo-identity" }));
+     message.ack();
+     continue;
+    }
+    await recordEvent(env, event);
+    message.ack();
+   }
+  },
+ };
