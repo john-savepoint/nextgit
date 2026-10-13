@@ -1,0 +1,1521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NextGit — Triage Console</title>
+<!--
+  NextGit prototype · proto-01 · design system: linear-app
+  SELF-CHECK (verified before shipping):
+  [✓] 13 surfaces present —
+      1  triage console (5 proposal cards, checks strips, conflict map, stats chips, ticker, nav, connection status)
+      2  merge modal (file tabs, diff3 for src/auth.ts, clean diff for agent-3/agent-4, withheld-secret state for agent-5, reveal affordance, comments thread + compose)
+      3  files browser (repo picker, breadcrumb, dir tree, text/binary/secret viewer states, Reveal → granted + audit note, raw link hidden on secret, skeleton loading)
+      4  history (commit list → changed files w/ status word, ±, asset chips; root-commit note; back to files)
+      5  forks & signals (six-cluster chips incl. unmeasured, policy chips, lineage base: demo)
+      6  sessions + steer composer (≤500 chars → session.steered ticker event, honest v1 note)
+      7  issues (conflict / withheld-secret / stale-base / blocked-intent, severity, links)
+      8  agents roster + harnesses (policy chips, byo-cli kind chips)
+      9  parity dashboard (5 exceeds · 8 parity · 5 below chips + 18 rows w/ verdict + evidence)
+      10 tour (8 steps, stepper, Next/Back, progress, Esc)
+      11 land flow (two-step arm → confirm) + verdict sheet (ESCALATE/CONFIRM/ACT/recorded-evidence/fail-closed variants) + 12-key evidence receipt (mergedSha==testedSha pass) + reveal audit note
+      12 judge panel (risk/intent/collision verdict chips, skipped[] reasons, fail-closed 503 copy)
+      13 platform pulse strip (floors count, intents router verdict merge-it for agent-3, upstream merge-back note)
+  [✓] interactions wired — view switching (instant toggle + skeleton on first entry), modal open/Esc-close, land arm/confirm, reveal click, comment compose (optimistic, in-memory), animated ticker (3s cadence) + connection toggle (pauses stream), skeleton shimmers, tour stepper
+  [✓] single file — no <script src>, no <link href>, no fetch/XHR; opens from file://
+  [✓] no console errors — script extracted and passed `node --check`; load path traced (all render targets exist before first paint)
+-->
+<style>
+/* ============ tokens (Linear language) ============ */
+:root{
+  --bg-0:#08090a;            /* marketing black — the canvas */
+  --bg-1:#0f1011;            /* panel */
+  --bg-2:#191a1b;            /* elevated */
+  --tx-1:#f7f8f8;            /* primary text — never pure white */
+  --tx-2:#8a8f98;            /* secondary */
+  --tx-3:#7d838b;            /* tertiary (AA-safe on diff bg) */
+  --brand:#5e6ad2;           /* brand indigo — CTA backgrounds */
+  --brand-2:#7170ff;         /* interactive accent */
+  --green:#27a644;           /* status green (DS) */
+  --green-tx:#5fd68a;        /* AA text green on dark */
+  --red:#e5484d;             /* status red (fills/dots) */
+  --red-tx:#ff8087;          /* AA text red on dark */
+  --amber:#e8b13f;
+  --amber-tx:#f0c26a;        /* AA text amber on dark */
+  --border:#23252a;          /* solid divider */
+  --b-soft:rgba(255,255,255,.06);
+  --b-mid:rgba(255,255,255,.09);
+  --b-strong:rgba(255,255,255,.14);
+  --overlay:rgba(0,0,0,.85);
+  --sans:"Inter Variable","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Berkeley Mono",ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --r-micro:2px; --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg-0); color:var(--tx-1);
+  font:400 14px/1.5 var(--sans);
+  font-feature-settings:"cv01","ss03";
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+::selection{background:rgba(113,112,255,.32)}
+button{font-family:inherit}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--brand-2);outline-offset:2px;border-radius:var(--r-sm)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:8px;border:2px solid var(--bg-0)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============ header ============ */
+.app-header{position:sticky;top:0;z-index:40;background:rgba(8,9,10,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1360px;margin:0 auto;padding:0 20px;height:56px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:590;font-size:14px;letter-spacing:-.01em;white-space:nowrap}
+.brand-mark{flex:none}
+.env-chip{font:510 10.5px/1 var(--mono);color:var(--tx-2);border:1px solid var(--b-soft);background:rgba(255,255,255,.03);border-radius:var(--r-micro);padding:3px 6px;letter-spacing:.02em}
+.stats{display:flex;gap:6px;margin-left:6px;flex-wrap:nowrap;overflow:hidden}
+.stat-chip{display:inline-flex;align-items:baseline;gap:5px;border:1px solid var(--b-soft);background:rgba(255,255,255,.02);border-radius:999px;padding:3px 10px;font:510 11.5px/1.5 var(--sans);color:var(--tx-2);white-space:nowrap}
+.stat-chip b{color:var(--tx-1);font-weight:590;font-variant-numeric:tabular-nums}
+.nav{display:flex;gap:2px;margin-left:auto;flex-wrap:nowrap}
+.nav button{background:transparent;border:0;color:var(--tx-2);font:510 12.5px/1 var(--sans);padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;transition:color .12s,background .12s;white-space:nowrap}
+.nav button:hover{color:var(--tx-1);background:rgba(255,255,255,.04)}
+.nav button[aria-current="page"]{color:var(--tx-1);background:rgba(255,255,255,.07)}
+.conn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--b-soft);background:rgba(255,255,255,.02);border-radius:999px;padding:5px 11px;cursor:pointer;color:var(--tx-2);font:510 11.5px/1 var(--sans);transition:border-color .15s}
+.conn:hover{border-color:var(--b-mid)}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
+.conn[data-state="live"] .conn-dot{animation:pulse 1.8s var(--ease) infinite}
+.conn[data-state="polling"] .conn-dot{background:var(--amber)}
+.conn.flash{animation:conn-flash .5s var(--ease)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(39,166,68,.45)}50%{box-shadow:0 0 0 5px rgba(39,166,68,0)}}
+@keyframes conn-flash{0%{border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(113,112,255,.25)}100%{box-shadow:0 0 0 0 rgba(113,112,255,0)}}
+
+/* ============ layout ============ */
+.app{max-width:1360px;margin:0 auto;padding:24px 20px 96px}
+.view{display:none}
+.view.active{display:block;animation:view-in .18s var(--ease)}
+@keyframes view-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}
+.page-title{font-size:24px;font-weight:590;letter-spacing:-.02em;line-height:1.15;margin:0}
+.page-sub{color:var(--tx-2);font-size:13px;margin:6px 0 0;max-width:640px}
+.console-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.main-col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.rail{display:flex;flex-direction:column;gap:20px;position:sticky;top:76px}
+.section-label{font:510 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.section-label .count{color:var(--tx-3);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+
+/* ============ buttons / chips ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--r-sm);border:1px solid var(--b-mid);background:rgba(255,255,255,.02);color:var(--tx-1);font:510 12.5px/1 var(--sans);padding:7px 12px;cursor:pointer;transition:background .12s,border-color .12s,transform .06s,color .12s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.05)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--brand);border-color:transparent;color:#fff}
+.btn.primary:hover{background:#6d78d8}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--tx-2)}
+.btn.ghost:hover{color:var(--tx-1);background:rgba(255,255,255,.04)}
+.btn.armed{background:rgba(229,72,77,.13);border-color:rgba(229,72,77,.42);color:#ffa3a7}
+.btn.armed:hover{background:rgba(229,72,77,.2)}
+.btn.sm{padding:5px 9px;font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--b-soft);background:rgba(255,255,255,.03);border-radius:999px;padding:3px 10px;font:510 11.5px/1.5 var(--sans);color:var(--tx-2);white-space:nowrap}
+.chip b{color:var(--tx-1);font-weight:590;font-variant-numeric:tabular-nums}
+.chip.mono{font-family:var(--mono);font-size:11px}
+.dot{width:6px;height:6px;border-radius:50%;flex:none}
+.dot.green{background:var(--green)} .dot.red{background:var(--red)} .dot.amber{background:var(--amber)} .dot.grey{background:#4b4f56} .dot.brand{background:var(--brand-2)}
+.dot.pulse{animation:pulse 1.8s var(--ease) infinite}
+
+/* ============ proposal cards ============ */
+.prop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.pcard{position:relative;background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:14px 14px 12px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s,background .15s}
+.pcard:hover{border-color:var(--b-mid);background:rgba(255,255,255,.028);transform:translateY(-1px)}
+.pcard.blocked{border-color:rgba(229,72,77,.28)}
+.pcard.armed{border-color:rgba(229,72,77,.45);box-shadow:0 0 0 1px rgba(229,72,77,.25)}
+.pcard-top{display:flex;align-items:center;gap:8px}
+.repo-id{font:510 12.5px/1 var(--mono);color:var(--tx-1);display:inline-flex;align-items:center;gap:7px}
+.land-chip{margin-left:auto;font:510 10.5px/1 var(--sans);padding:4px 9px;border-radius:999px;letter-spacing:.02em}
+.land-chip.ready{color:var(--green-tx);background:rgba(39,166,68,.12);border:1px solid rgba(39,166,68,.3)}
+.land-chip.withheld{color:var(--red-tx);background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.32)}
+.pcard-intent{font-size:14.5px;font-weight:510;letter-spacing:-.01em;line-height:1.35;margin:0}
+.pcard-meta{font:400 11.5px/1.5 var(--mono);color:var(--tx-2);display:flex;gap:8px;flex-wrap:wrap}
+.pcard-meta .add{color:var(--green-tx)} .pcard-meta .del{color:var(--red-tx)}
+.checks{display:flex;gap:5px;flex-wrap:wrap}
+.check{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font:510 10.5px/1.6 var(--sans);border:1px solid transparent}
+.check .dot{width:5px;height:5px}
+.check.pass{color:var(--green-tx);background:rgba(39,166,68,.1);border-color:rgba(39,166,68,.22)}
+.check.fail{color:var(--red-tx);background:rgba(229,72,77,.1);border-color:rgba(229,72,77,.26)}
+.check.unknown{color:var(--tx-2);background:rgba(255,255,255,.035);border-color:var(--b-soft)}
+.check .dot.pass{background:var(--green)} .check .dot.fail{background:var(--red)} .check .dot.unknown{background:#4b4f56}
+.pcard-actions{display:flex;gap:7px;margin-top:auto;padding-top:2px}
+.pcard-actions .btn{flex:1}
+.blocked-note{display:flex;gap:9px;align-items:flex-start;border:1px solid rgba(229,72,77,.25);background:rgba(229,72,77,.07);border-radius:var(--r-sm);padding:9px 10px;font-size:12px;line-height:1.5;color:var(--tx-1)}
+.blocked-note .note-body{color:var(--tx-2)}
+.blocked-note code{font:510 11px/1.6 var(--mono);color:var(--amber-tx)}
+
+/* ============ conflict map ============ */
+.conflict-map{border:1px solid rgba(232,177,63,.3);background:linear-gradient(0deg,rgba(232,177,63,.045),rgba(232,177,63,.045)),rgba(255,255,255,.015);border-radius:var(--r-md);padding:14px 16px;position:relative;overflow:hidden}
+.conflict-map::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--amber)}
+.cm-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cm-file{font:510 13px/1 var(--mono);color:var(--tx-1)}
+.cm-kind{font:510 10.5px/1 var(--sans);color:var(--amber-tx);background:rgba(232,177,63,.12);border:1px solid rgba(232,177,63,.3);border-radius:999px;padding:4px 9px;letter-spacing:.02em}
+.cm-pair{display:flex;align-items:center;gap:7px;margin-top:11px;font:510 12px/1 var(--mono)}
+.pair-chip{border:1px solid var(--b-mid);background:rgba(255,255,255,.04);border-radius:var(--r-micro);padding:4px 9px;color:var(--tx-1)}
+.pair-x{color:var(--amber-tx);font-weight:590}
+.cm-detail{margin-top:10px;font-size:12.5px;color:var(--tx-2);line-height:1.55}
+.cm-detail b{color:var(--tx-1);font-weight:510}
+.cm-actions{margin-top:12px;display:flex;gap:8px}
+
+/* ============ events rail / ticker ============ */
+.rail-panel{background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);overflow:hidden}
+.rail-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid var(--b-soft)}
+.rail-title{font:510 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2)}
+.rail-live{display:inline-flex;align-items:center;gap:5px;font:510 10px/1 var(--mono);color:var(--tx-2)}
+.ticker{display:flex;flex-direction:column}
+.ticker-row{display:flex;align-items:center;gap:9px;padding:8px 13px;border-bottom:1px solid rgba(255,255,255,.035);font-size:12px;animation:tick-in .34s var(--ease)}
+.ticker-row:last-child{border-bottom:0}
+.ticker-row.in{animation:tick-in .34s var(--ease)}
+@keyframes tick-in{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+.ev-type{font:510 11px/1 var(--mono);color:var(--tx-1)}
+.ev-repo{font:510 11px/1 var(--mono);color:var(--brand-2)}
+.ev-detail{font:400 11px/1 var(--mono);color:var(--tx-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev-age{margin-left:auto;font:400 10.5px/1 var(--mono);color:var(--tx-3);font-variant-numeric:tabular-nums;flex:none}
+
+/* ============ pulse strip ============ */
+.pulse{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:12px 14px}
+.pulse-item{display:inline-flex;align-items:center;gap:7px;font:510 12px/1 var(--sans);color:var(--tx-2)}
+.pulse-item b{color:var(--tx-1);font-variant-numeric:tabular-nums;font-weight:590}
+.pulse-sep{width:1px;height:18px;background:var(--b-soft)}
+.router-verdict{font:510 10.5px/1 var(--sans);padding:4px 9px;border-radius:999px;letter-spacing:.02em}
+.router-verdict.merge-it{color:var(--green-tx);background:rgba(39,166,68,.12);border:1px solid rgba(39,166,68,.3)}
+.router-verdict.hold{color:var(--amber-tx);background:rgba(232,177,63,.1);border:1px solid rgba(232,177,63,.28)}
+.router-verdict.block{color:var(--red-tx);background:rgba(229,72,77,.1);border:1px solid rgba(229,72,77,.3)}
+
+/* ============ overlays / modal / sheet ============ */
+.overlay{position:fixed;inset:0;background:var(--overlay);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .15s ease-out}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{width:min(980px,100%);max-height:min(86vh,940px);background:var(--bg-1);border:1px solid var(--b-mid);border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;animation:modal-in .18s var(--ease);box-shadow:0 24px 80px rgba(0,0,0,.55)}
+.sheet{width:min(660px,100%);max-height:min(88vh,900px);background:var(--bg-1);border:1px solid var(--b-mid);border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;animation:modal-in .2s var(--ease);box-shadow:0 24px 80px rgba(0,0,0,.55)}
+@keyframes modal-in{from{opacity:0;transform:scale(.982) translateY(8px)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--b-soft);flex:none}
+.modal-title{font-size:15px;font-weight:590;letter-spacing:-.01em;margin:0}
+.modal-sub{font:400 11.5px/1 var(--mono);color:var(--tx-2)}
+.modal-close{margin-left:auto;border:0;background:rgba(255,255,255,.04);color:var(--tx-2);width:28px;height:28px;border-radius:var(--r-sm);cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.modal-close:hover{background:rgba(255,255,255,.09);color:var(--tx-1)}
+.modal-body{overflow-y:auto;padding:16px 18px;flex:1}
+.mode-badge{font:510 10px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:var(--r-micro);background:rgba(113,112,255,.14);color:#a5a4ff;border:1px solid rgba(113,112,255,.3)}
+.mode-badge.preview{background:rgba(232,177,63,.1);color:var(--amber-tx);border-color:rgba(232,177,63,.3)}
+
+/* merge modal internals */
+.merge-strip{display:flex;align-items:center;gap:9px;flex-wrap:wrap;border:1px solid var(--b-soft);background:rgba(255,255,255,.02);border-radius:var(--r-sm);padding:9px 12px;margin-bottom:14px;font-size:12px;color:var(--tx-2)}
+.merge-strip b{color:var(--tx-1);font-weight:510}
+.file-tabs{display:flex;gap:2px;border-bottom:1px solid var(--b-soft);margin-bottom:14px;overflow-x:auto}
+.file-tabs button{border:0;background:transparent;color:var(--tx-2);font:510 12px/1 var(--mono);padding:9px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s,border-color .12s;white-space:nowrap}
+.file-tabs button:hover{color:var(--tx-1)}
+.file-tabs button[aria-selected="true"]{color:var(--tx-1);border-bottom-color:var(--brand-2)}
+.diff{background:rgba(0,0,0,.28);border:1px solid var(--b-soft);border-radius:var(--r-sm);overflow-x:auto;font:400 12.5px/1.65 var(--mono)}
+.dl{display:flex;min-width:max-content}
+.dl-n{width:38px;flex:none;text-align:right;padding-right:12px;color:var(--tx-3);user-select:none;font-size:11px;line-height:inherit;padding-top:1px}
+.dl-t{white-space:pre;padding-right:16px}
+.dl.ctx .dl-t{color:var(--tx-2)}
+.dl.ours{background:rgba(113,112,255,.07)} .dl.ours .dl-t{color:#c9c8ff}
+.dl.theirs{background:rgba(39,166,68,.07)} .dl.theirs .dl-t{color:#9be8b8}
+.dl.mk .dl-t{color:var(--amber-tx);font-weight:510}
+.dl.mk2 .dl-t{color:var(--tx-3)}
+.dl.mk3 .dl-t{color:var(--red-tx);font-weight:510}
+.dl.add .dl-t{color:var(--green-tx)} .dl.add{background:rgba(39,166,68,.06)}
+.dl.del .dl-t{color:var(--red-tx);text-decoration:line-through;text-decoration-color:rgba(255,128,135,.4)} .dl.del{background:rgba(229,72,77,.05)}
+.diff-legend{display:flex;gap:14px;margin:10px 2px 0;font:400 11px/1 var(--mono);color:var(--tx-2);flex-wrap:wrap}
+.diff-legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+/* withheld secret state */
+.secret-state{border:1px solid rgba(229,72,77,.28);background:rgba(229,72,77,.05);border-radius:var(--r-sm);padding:16px}
+.secret-head{display:flex;align-items:center;gap:10px}
+.lock-glyph{width:30px;height:30px;border-radius:var(--r-sm);background:rgba(229,72,77,.14);border:1px solid rgba(229,72,77,.35);display:flex;align-items:center;justify-content:center;flex:none}
+.secret-title{font:510 13px/1.3 var(--sans);color:var(--tx-1)}
+.secret-sub{font:400 11.5px/1.4 var(--sans);color:var(--tx-2);margin-top:2px}
+.key-list{display:flex;gap:7px;margin:13px 0;flex-wrap:wrap}
+.key-chip{font:510 11.5px/1 var(--mono);color:var(--amber-tx);border:1px solid rgba(232,177,63,.3);background:rgba(232,177,63,.08);border-radius:var(--r-micro);padding:5px 9px}
+.reveal-btn{margin-top:2px}
+.granted{margin-top:14px;border-top:1px dashed rgba(255,255,255,.12);padding-top:13px}
+.granted-value{font:400 12px/1.7 var(--mono);color:var(--tx-1);background:rgba(0,0,0,.3);border:1px solid var(--b-soft);border-radius:var(--r-sm);padding:10px 12px;overflow-x:auto;white-space:pre}
+.audit-note{display:flex;align-items:center;gap:8px;margin-top:11px;font:510 11.5px/1.5 var(--mono);color:var(--green-tx)}
+.audit-note .dot{background:var(--green)}
+/* comments */
+.comments{margin-top:18px;border-top:1px solid var(--b-soft);padding-top:14px}
+.comment{display:flex;gap:10px;margin-bottom:12px}
+.avatar{width:26px;height:26px;border-radius:50%;background:rgba(113,112,255,.18);border:1px solid rgba(113,112,255,.4);color:#c9c8ff;font:590 10.5px/1 var(--sans);display:flex;align-items:center;justify-content:center;flex:none;text-transform:uppercase}
+.comment-body{min-width:0;flex:1}
+.comment-meta{display:flex;align-items:center;gap:8px;font:510 12px/1 var(--sans);color:var(--tx-1)}
+.comment-line{font:510 10px/1 var(--mono);color:var(--brand-2);border:1px solid rgba(113,112,255,.3);border-radius:var(--r-micro);padding:2.5px 6px}
+.comment-time{font:400 11px/1 var(--sans);color:var(--tx-3)}
+.comment-text{margin-top:5px;font-size:12.5px;line-height:1.55;color:var(--tx-2)}
+.compose{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.compose textarea{resize:vertical;min-height:56px;background:rgba(255,255,255,.02);border:1px solid var(--b-mid);border-radius:var(--r-sm);color:var(--tx-1);font:400 12.5px/1.5 var(--sans);padding:9px 11px;transition:border-color .12s}
+.compose textarea:focus{border-color:var(--brand-2)}
+.compose textarea::placeholder{color:var(--tx-3)}
+.compose-row{display:flex;align-items:center;gap:8px}
+.compose-hint{font:400 11px/1 var(--sans);color:var(--tx-3)}
+
+/* ============ land sheet ============ */
+.land-steps{display:flex;align-items:center;gap:8px;margin-bottom:16px;font:510 11.5px/1 var(--sans);color:var(--tx-3)}
+.land-steps .step{padding:4px 10px;border-radius:999px;border:1px solid var(--b-soft)}
+.land-steps .step.done{color:var(--green-tx);border-color:rgba(39,166,68,.3);background:rgba(39,166,68,.08)}
+.land-steps .step.now{color:var(--tx-1);border-color:var(--b-strong);background:rgba(255,255,255,.05)}
+.land-steps .arr{color:var(--tx-3)}
+.sheet [data-reveal]{animation:rise .5s var(--ease) both}
+.sheet [data-reveal]:nth-child(2){animation-delay:.06s}
+.sheet [data-reveal]:nth-child(3){animation-delay:.12s}
+.sheet [data-reveal]:nth-child(4){animation-delay:.18s}
+.sheet [data-reveal]:nth-child(5){animation-delay:.24s}
+.sheet [data-reveal]:nth-child(6){animation-delay:.3s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.verdict-panel{border:1px solid var(--b-soft);border-radius:var(--r-md);padding:16px;background:rgba(255,255,255,.015)}
+.verdict-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.verdict-chip{font:590 13px/1 var(--sans);letter-spacing:.06em;padding:7px 14px;border-radius:var(--r-sm);display:inline-flex;align-items:center;gap:8px}
+.verdict-chip.escalate{color:#ffa3a7;background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.45)}
+.verdict-chip.confirm{color:var(--amber-tx);background:rgba(232,177,63,.1);border:1px solid rgba(232,177,63,.4)}
+.verdict-chip.act{color:var(--green-tx);background:rgba(39,166,68,.12);border:1px solid rgba(39,166,68,.4)}
+.variant-toggle{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.variant-toggle button{border:1px solid var(--b-soft);background:rgba(255,255,255,.02);color:var(--tx-2);font:510 11px/1 var(--sans);padding:6px 10px;border-radius:999px;cursor:pointer;transition:all .12s}
+.variant-toggle button:hover{color:var(--tx-1);border-color:var(--b-mid)}
+.variant-toggle button[aria-pressed="true"]{color:var(--tx-1);border-color:var(--brand-2);background:rgba(113,112,255,.12)}
+.verdict-body{margin-top:14px;font-size:13px;line-height:1.6;color:var(--tx-2)}
+.verdict-body b{color:var(--tx-1);font-weight:510}
+.code-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.code-row{display:flex;align-items:center;gap:9px;font:510 12px/1 var(--mono);background:rgba(229,72,77,.07);border:1px solid rgba(229,72,77,.25);border-radius:var(--r-sm);padding:8px 11px;color:#ffa3a7}
+.code-row .code-kind{color:var(--amber-tx);flex:none}
+.judge-panel{margin-top:14px;border:1px solid var(--b-soft);border-radius:var(--r-md);padding:14px 16px;background:rgba(255,255,255,.015)}
+.judge-chips{display:flex;gap:7px;flex-wrap:wrap}
+.judge-chip{display:inline-flex;align-items:center;gap:6px;font:510 11.5px/1 var(--sans);padding:5px 10px;border-radius:999px;border:1px solid}
+.judge-chip .dot{width:5px;height:5px}
+.judge-chip.red{color:var(--red-tx);border-color:rgba(229,72,77,.35);background:rgba(229,72,77,.08)} .judge-chip.red .dot{background:var(--red)}
+.judge-chip.amber{color:var(--amber-tx);border-color:rgba(232,177,63,.35);background:rgba(232,177,63,.08)} .judge-chip.amber .dot{background:var(--amber)}
+.judge-chip.green{color:var(--green-tx);border-color:rgba(39,166,68,.35);background:rgba(39,166,68,.08)} .judge-chip.green .dot{background:var(--green)}
+.skipped-row{display:flex;gap:8px;align-items:flex-start;margin-top:13px;font-size:12px;color:var(--tx-2);line-height:1.55}
+.skipped-row code{font:510 11px/1.7 var(--mono);color:var(--amber-tx);background:rgba(232,177,63,.07);border:1px solid rgba(232,177,63,.22);border-radius:var(--r-micro);padding:1px 6px}
+.failclosed{border:1px solid rgba(229,72,77,.3);background:rgba(229,72,77,.06);border-radius:var(--r-sm);padding:12px 14px;font-size:12.5px;line-height:1.6;color:var(--tx-1)}
+.failclosed code{font:510 12px/1.6 var(--mono);color:var(--red-tx)}
+/* evidence receipt */
+.receipt{margin-top:14px;border:1px solid var(--b-soft);border-radius:var(--r-md);overflow:hidden}
+.receipt-head{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--b-soft);background:rgba(255,255,255,.02);font:510 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2)}
+.receipt-row{display:grid;grid-template-columns:150px 1fr auto;gap:12px;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:12px;align-items:center}
+.receipt-row:last-child{border-bottom:0}
+.receipt-k{font:510 11px/1.4 var(--mono);color:var(--tx-2)}
+.receipt-v{font:400 11.5px/1.5 var(--mono);color:var(--tx-1);word-break:break-all}
+.pass-pill{font:510 10px/1 var(--sans);color:var(--green-tx);background:rgba(39,166,68,.12);border:1px solid rgba(39,166,68,.3);border-radius:999px;padding:3px 8px;white-space:nowrap}
+.render-only{margin-top:14px;font:400 11.5px/1.5 var(--sans);color:var(--tx-3);display:flex;align-items:center;gap:8px}
+.sheet-foot{display:flex;align-items:center;gap:9px;padding:13px 18px;border-top:1px solid var(--b-soft);flex:none}
+
+/* ============ files view ============ */
+.files-layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}
+.repo-picker{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px}
+.repo-picker button{border:1px solid var(--b-soft);background:rgba(255,255,255,.02);color:var(--tx-2);font:510 12px/1 var(--mono);padding:7px 12px;border-radius:var(--r-sm);cursor:pointer;transition:all .12s}
+.repo-picker button:hover{color:var(--tx-1);border-color:var(--b-mid)}
+.repo-picker button[aria-pressed="true"]{color:var(--tx-1);border-color:var(--brand-2);background:rgba(113,112,255,.12)}
+.tree-panel{background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:10px;position:sticky;top:76px}
+.tree-dir{display:flex;align-items:center;gap:7px;font:510 12px/1 var(--mono);color:var(--tx-1);padding:6px 8px;border-radius:var(--r-sm)}
+.tree-dir .tw{color:var(--tx-3);font-size:10px;width:10px}
+.tree-file{display:flex;align-items:center;gap:7px;width:100%;text-align:left;border:0;background:transparent;font:400 12px/1 var(--mono);color:var(--tx-2);padding:6px 8px 6px 24px;border-radius:var(--r-sm);cursor:pointer;transition:background .1s,color .1s}
+.tree-file:hover{background:rgba(255,255,255,.04);color:var(--tx-1)}
+.tree-file[aria-current="true"]{background:rgba(113,112,255,.12);color:var(--tx-1)}
+.tree-file .f-secret{color:var(--red-tx)}
+.viewer-panel{background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);overflow:hidden;min-height:420px}
+.viewer-head{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--b-soft);flex-wrap:wrap}
+.crumbs{display:flex;align-items:center;gap:6px;font:510 12px/1 var(--mono);color:var(--tx-2);min-width:0}
+.crumbs .cr{border:0;background:transparent;color:var(--tx-2);font:inherit;cursor:pointer;padding:2px 3px;border-radius:3px}
+.crumbs .cr:hover{color:var(--tx-1)}
+.crumbs .cr.cur{color:var(--tx-1)}
+.crumbs .sep{color:var(--tx-3)}
+.raw-link{margin-left:auto;font:510 11px/1 var(--mono);color:var(--brand-2);text-decoration:none;border:1px solid rgba(113,112,255,.3);border-radius:var(--r-micro);padding:5px 9px;transition:background .12s}
+.raw-link:hover{background:rgba(113,112,255,.1)}
+.viewer-body{padding:0}
+.text-view{background:rgba(0,0,0,.28);font:400 12.5px/1.7 var(--mono);overflow-x:auto;padding:12px 0}
+.meta-table{padding:16px;display:flex;flex-direction:column;gap:0}
+.meta-row{display:grid;grid-template-columns:130px 1fr;gap:12px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12.5px;align-items:baseline}
+.meta-row:last-child{border-bottom:0}
+.meta-k{font:510 11px/1.4 var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--tx-3)}
+.meta-v{font:400 12px/1.6 var(--mono);color:var(--tx-1)}
+.binary-posture{margin-top:14px;border:1px dashed var(--b-mid);border-radius:var(--r-sm);padding:14px;font-size:12px;color:var(--tx-2);line-height:1.6;display:flex;gap:11px;align-items:flex-start}
+
+/* ============ history ============ */
+.commit-list{display:flex;flex-direction:column;gap:8px}
+.commit{display:grid;grid-template-columns:92px 1fr auto;gap:14px;align-items:center;background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:12px 16px;cursor:pointer;transition:border-color .13s,background .13s;text-align:left;width:100%;color:inherit}
+.commit:hover{border-color:var(--b-mid);background:rgba(255,255,255,.03)}
+.commit[aria-current="true"]{border-color:var(--brand-2);background:rgba(113,112,255,.06)}
+.commit-sha{font:510 12.5px/1 var(--mono);color:var(--brand-2);font-variant-numeric:tabular-nums}
+.commit-msg{font-size:13.5px;font-weight:510;letter-spacing:-.005em;min-width:0}
+.commit-sub{font:400 11px/1.5 var(--mono);color:var(--tx-3);margin-top:3px}
+.commit-date{font:400 11.5px/1 var(--mono);color:var(--tx-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hist-detail{margin-top:14px;border:1px solid var(--b-soft);border-radius:var(--r-md);padding:16px;background:rgba(255,255,255,.015);animation:rise .3s var(--ease)}
+.hist-detail-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.changed-file{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:9px 12px;border:1px solid rgba(255,255,255,.04);border-radius:var(--r-sm);margin-bottom:7px;font-size:12.5px}
+.cf-status{font:510 10.5px/1 var(--sans);padding:4px 8px;border-radius:var(--r-micro);letter-spacing:.03em}
+.cf-status.modified{color:var(--amber-tx);background:rgba(232,177,63,.1);border:1px solid rgba(232,177,63,.28)}
+.cf-status.added{color:var(--green-tx);background:rgba(39,166,68,.1);border:1px solid rgba(39,166,68,.28)}
+.cf-path{font:510 12px/1 var(--mono);color:var(--tx-1)}
+.cf-delta{font:510 11.5px/1 var(--mono);font-variant-numeric:tabular-nums}
+.cf-delta .add{color:var(--green-tx)} .cf-delta .del{color:var(--red-tx)}
+.asset-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}
+.root-note{display:flex;gap:9px;align-items:flex-start;margin-top:12px;border:1px solid var(--b-soft);background:rgba(255,255,255,.02);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;color:var(--tx-2);line-height:1.55}
+
+/* ============ forks ============ */
+.fork-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.fork-card{background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:16px;display:flex;flex-direction:column;gap:13px}
+.fork-head{display:flex;align-items:center;gap:9px}
+.lineage{font:400 11.5px/1 var(--mono);color:var(--tx-2)}
+.lineage b{color:var(--brand-2);font-weight:510}
+.cluster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.cluster{border:1px solid var(--b-soft);background:rgba(255,255,255,.02);border-radius:var(--r-sm);padding:8px 10px}
+.cluster-k{font:510 10px/1 var(--sans);letter-spacing:.07em;text-transform:uppercase;color:var(--tx-3)}
+.cluster-v{font:590 15px/1.5 var(--sans);color:var(--tx-1);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.cluster-v.unmeasured{font:510 11px/1.5 var(--sans);color:var(--tx-2);letter-spacing:0}
+.policy-row{display:flex;gap:6px;flex-wrap:wrap}
+.policy-chip{font:510 10.5px/1 var(--sans);color:var(--tx-2);border:1px solid var(--b-soft);background:rgba(255,255,255,.03);border-radius:999px;padding:4px 9px}
+.signal-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:7px;overflow:hidden}
+.signal-bar i{display:block;height:100%;border-radius:2px;background:var(--brand-2)}
+
+/* ============ sessions ============ */
+.session-list{display:flex;flex-direction:column;gap:8px}
+.session{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:13px 16px}
+.sess-state{display:flex;align-items:center;gap:8px;font:510 11px/1 var(--sans);color:var(--tx-2);min-width:86px}
+.sess-intent{font-size:13px;font-weight:510;min-width:0}
+.sess-last{font:400 11.5px/1 var(--mono);color:var(--tx-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.steer-panel{margin-top:18px;border:1px solid var(--b-soft);border-radius:var(--r-md);padding:16px;background:rgba(255,255,255,.015)}
+.steer-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
+.steer-target{display:flex;gap:4px}
+.steer-target button{border:1px solid var(--b-soft);background:rgba(255,255,255,.02);color:var(--tx-2);font:510 11.5px/1 var(--mono);padding:6px 11px;border-radius:var(--r-sm);cursor:pointer;transition:all .12s}
+.steer-target button[aria-pressed="true"]{color:var(--tx-1);border-color:var(--brand-2);background:rgba(113,112,255,.12)}
+.steer-panel textarea{width:100%;resize:vertical;min-height:70px;background:rgba(255,255,255,.02);border:1px solid var(--b-mid);border-radius:var(--r-sm);color:var(--tx-1);font:400 12.5px/1.5 var(--sans);padding:10px 12px}
+.steer-panel textarea:focus{border-color:var(--brand-2)}
+.char-count{font:400 11px/1 var(--mono);color:var(--tx-3);font-variant-numeric:tabular-nums}
+.char-count.over{color:var(--red-tx)}
+.v1-note{display:flex;gap:8px;align-items:flex-start;margin-top:11px;font-size:11.5px;color:var(--tx-3);line-height:1.55}
+
+/* ============ issues ============ */
+.issue-list{display:flex;flex-direction:column;gap:8px}
+.issue{display:grid;grid-template-columns:auto auto 1fr auto;gap:12px;align-items:center;background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:13px 16px}
+.kind-chip{font:510 10.5px/1 var(--sans);padding:5px 10px;border-radius:999px;letter-spacing:.02em;white-space:nowrap}
+.kind-conflict{color:var(--amber-tx);background:rgba(232,177,63,.1);border:1px solid rgba(232,177,63,.3)}
+.kind-withheld-secret{color:var(--red-tx);background:rgba(229,72,77,.1);border:1px solid rgba(229,72,77,.3)}
+.kind-stale-base{color:var(--tx-2);background:rgba(255,255,255,.04);border:1px solid var(--b-mid)}
+.kind-blocked-intent{color:#a5a4ff;background:rgba(113,112,255,.1);border:1px solid rgba(113,112,255,.3)}
+.sev{font:510 10.5px/1 var(--sans);padding:4px 9px;border-radius:999px;white-space:nowrap}
+.sev-high{color:var(--red-tx);background:rgba(229,72,77,.1);border:1px solid rgba(229,72,77,.3)}
+.sev-block{color:var(--red-tx);background:rgba(229,72,77,.14);border:1px solid rgba(229,72,77,.4)}
+.sev-medium{color:var(--amber-tx);background:rgba(232,177,63,.1);border:1px solid rgba(232,177,63,.28)}
+.sev-low{color:var(--tx-2);background:rgba(255,255,255,.04);border:1px solid var(--b-mid)}
+.issue-body{min-width:0}
+.issue-title{font-size:13px;font-weight:510}
+.issue-sub{font:400 11.5px/1.5 var(--mono);color:var(--tx-2);margin-top:3px}
+.issue-links{display:flex;gap:7px}
+.link-btn{border:1px solid var(--b-soft);background:rgba(255,255,255,.02);color:var(--tx-2);font:510 11px/1 var(--sans);padding:6px 10px;border-radius:var(--r-sm);cursor:pointer;transition:all .12s;white-space:nowrap}
+.link-btn:hover{color:var(--tx-1);border-color:var(--b-mid)}
+
+/* ============ tables (agents / parity) ============ */
+.table-wrap{border:1px solid var(--b-soft);border-radius:var(--r-md);overflow:hidden;background:rgba(255,255,255,.015)}
+table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{font:510 10.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-3);text-align:left;padding:10px 14px;border-bottom:1px solid var(--b-soft);background:rgba(255,255,255,.02);white-space:nowrap}
+.tbl td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;color:var(--tx-2)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.strong{color:var(--tx-1);font-weight:510}
+.tbl td.mono{font:400 11.5px/1.5 var(--mono);color:var(--tx-1)}
+.tbl tr:hover td{background:rgba(255,255,255,.015)}
+.verdict-cell{display:inline-flex;align-items:center;gap:6px;font:510 11px/1 var(--sans);padding:4px 9px;border-radius:999px;white-space:nowrap}
+.verdict-cell.exceeds{color:var(--green-tx);background:rgba(39,166,68,.1);border:1px solid rgba(39,166,68,.28)}
+.verdict-cell.parity{color:var(--tx-1);background:rgba(255,255,255,.05);border:1px solid var(--b-mid)}
+.verdict-cell.below{color:var(--amber-tx);background:rgba(232,177,63,.09);border:1px solid rgba(232,177,63,.26)}
+.parity-chips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+
+/* ============ pulse view ============ */
+.pulse-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:16px}
+.pulse-card{background:rgba(255,255,255,.02);border:1px solid var(--b-soft);border-radius:var(--r-md);padding:16px}
+.pulse-card h3{font:510 12px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2);margin:0 0 13px}
+.floor-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12.5px}
+.floor-row:last-child{border-bottom:0}
+.floor-n{font:590 12px/1 var(--mono);color:var(--brand-2);width:20px;font-variant-numeric:tabular-nums}
+.intent-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.intent-row:last-child{border-bottom:0}
+.intent-txt{font:510 12.5px/1.4 var(--sans);color:var(--tx-1);min-width:0}
+.intent-sub{font:400 10.5px/1.5 var(--mono);color:var(--tx-3);margin-top:2px}
+
+/* ============ tour ============ */
+.tour-overlay{position:fixed;inset:0;z-index:100;animation:fade .2s ease-out}
+.tour-spot{position:absolute;border-radius:var(--r-md);box-shadow:0 0 0 9999px rgba(2,3,4,.78);border:1.5px solid var(--brand-2);transition:all .3s var(--ease);pointer-events:none}
+.tour-card{position:absolute;width:340px;background:var(--bg-2);border:1px solid var(--b-strong);border-radius:var(--r-lg);padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:rise .3s var(--ease)}
+.tour-step-label{font:510 10px/1 var(--mono);color:var(--brand-2);letter-spacing:.08em;text-transform:uppercase}
+.tour-title{font-size:16px;font-weight:590;letter-spacing:-.01em;margin:8px 0 7px}
+.tour-body{font-size:12.5px;line-height:1.6;color:var(--tx-2)}
+.tour-foot{display:flex;align-items:center;gap:8px;margin-top:15px}
+.tour-dots{display:flex;gap:4px;margin-right:auto}
+.tour-dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.18)}
+.tour-dots i.on{background:var(--brand-2)}
+.tour-skip{border:0;background:transparent;color:var(--tx-3);font:510 11.5px/1 var(--sans);cursor:pointer;padding:6px}
+.tour-skip:hover{color:var(--tx-1)}
+
+/* ============ toasts ============ */
+#toasts{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:9px;background:var(--bg-2);border:1px solid var(--b-strong);border-radius:var(--r-sm);padding:10px 14px;font-size:12.5px;color:var(--tx-1);box-shadow:0 12px 32px rgba(0,0,0,.5);animation:toast-in .25s var(--ease);pointer-events:auto;max-width:380px}
+@keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.toast.out{animation:toast-out .2s var(--ease) forwards}
+@keyframes toast-out{to{opacity:0;transform:translateY(6px)}}
+
+/* ============ skeletons ============ */
+.skel{position:relative;overflow:hidden;background:rgba(255,255,255,.045);border-radius:var(--r-sm)}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);animation:shimmer 1.15s infinite}
+@keyframes shimmer{to{transform:translateX(100%)}}
+.skel-card{height:178px;border-radius:var(--r-md)}
+.skel-row{height:44px;border-radius:var(--r-sm);margin-bottom:8px}
+.skel-line{height:12px;margin-bottom:9px}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+@media (max-width:1180px){
+  .console-grid{grid-template-columns:1fr}
+  .rail{position:static;flex-direction:row;flex-wrap:wrap}
+  .rail>.rail-panel{flex:1 1 300px}
+  .files-layout{grid-template-columns:1fr}
+  .tree-panel{position:static}
+}
+@media (max-width:860px){
+  .stats{display:none}
+  .nav button{padding:8px 7px;font-size:12px}
+  .header-inner{gap:9px}
+  .commit{grid-template-columns:78px 1fr}
+  .commit-date{display:none}
+  .issue{grid-template-columns:auto 1fr}
+  .issue-links{grid-column:1/-1}
+  .session{grid-template-columns:1fr}
+  .sess-last{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <svg class="brand-mark" width="19" height="19" viewBox="0 0 19 19" fill="none" aria-hidden="true">
+        <path d="M5 4.5v10M14 4.5v10M5 9.5c3 0 6 0 9 0" stroke="#7170ff" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="5" cy="4.5" r="2.4" fill="#0f1011" stroke="#7170ff" stroke-width="1.6"/>
+        <circle cx="14" cy="4.5" r="2.4" fill="#0f1011" stroke="#7170ff" stroke-width="1.6"/>
+        <circle cx="9.5" cy="14.5" r="2.4" fill="#0f1011" stroke="#5e6ad2" stroke-width="1.6"/>
+      </svg>
+      <span>NextGit</span>
+      <span class="env-chip">demo</span>
+    </div>
+    <div class="stats" id="header-stats" aria-label="Namespace statistics"></div>
+    <nav class="nav" id="main-nav" aria-label="Primary">
+      <button data-action="nav" data-view="console" aria-current="page">Console</button>
+      <button data-action="nav" data-view="files">Files</button>
+      <button data-action="nav" data-view="history">History</button>
+      <button data-action="nav" data-view="forks" id="nav-forks">Forks</button>
+      <button data-action="nav" data-view="sessions">Sessions</button>
+      <button data-action="nav" data-view="issues">Issues</button>
+      <button data-action="nav" data-view="agents">Agents</button>
+      <button data-action="nav" data-view="parity">Parity</button>
+      <button data-action="nav" data-view="pulse">Pulse</button>
+      <button data-action="tour-open">Tour</button>
+    </nav>
+    <button class="conn" id="conn-toggle" data-action="conn-toggle" data-state="live" aria-pressed="true" aria-label="Connection status: live. Toggle to polling.">
+      <span class="conn-dot" aria-hidden="true"></span><span class="conn-label">live</span>
+    </button>
+  </div>
+</header>
+
+<main id="app" class="app">
+  <section id="view-console" class="view active" aria-label="Triage console"></section>
+  <section id="view-files" class="view" aria-label="Files browser"></section>
+  <section id="view-history" class="view" aria-label="History"></section>
+  <section id="view-forks" class="view" aria-label="Forks and signals"></section>
+  <section id="view-sessions" class="view" aria-label="Sessions"></section>
+  <section id="view-issues" class="view" aria-label="Issues"></section>
+  <section id="view-agents" class="view" aria-label="Agents and harnesses"></section>
+  <section id="view-parity" class="view" aria-label="Parity dashboard"></section>
+  <section id="view-pulse" class="view" aria-label="Platform pulse"></section>
+</main>
+
+<div id="overlay-root"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ================= helpers ================= */
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pad2 = n => (n < 10 ? "0" : "") + n;
+
+/* ================= dataset (verbatim from the coverage brief) ================= */
+const REPOS = [
+  { id:"agent-1", intent:"Refactor: session refresh with TTL", file:"src/auth.ts", adds:4, dels:1,
+    landing:"ready",
+    checks:{ fold:"pass", collision:"pass", conflicts:"fail", secrets:"pass", base:"pass" } },
+  { id:"agent-2", intent:"Add rotate-on-refresh to auth", file:"src/auth.ts", adds:6, dels:2,
+    landing:"ready",
+    checks:{ fold:"pass", collision:"pass", conflicts:"fail", secrets:"pass", base:"pass" } },
+  { id:"agent-3", intent:"Docs: quickstart polish", file:"docs/quickstart.md", adds:12, dels:4,
+    landing:"ready",
+    checks:{ fold:"pass", collision:"pass", conflicts:"pass", secrets:"pass", base:"pass" } },
+  { id:"agent-4", intent:"CLI: tighter error surface", file:"src/cli.ts", adds:9, dels:3,
+    landing:"ready",
+    checks:{ fold:"pass", collision:"pass", conflicts:"pass", secrets:"pass", base:"unknown" } },
+  { id:"agent-5", intent:"Config: move secrets to env", file:"config/.env", adds:2, dels:0,
+    landing:"withheld-secret",
+    checks:{ fold:"pass", collision:"pass", conflicts:"pass", secrets:"fail", base:"pass" } },
+];
+const STATS = [ ["proposals",5], ["shared",1], ["conflicts",1], ["changed",4], ["clean",3] ];
+const CHECK_NAMES = ["fold","collision","conflicts","secrets","base"];
+const CONFLICTS = [
+  { file:"src/auth.ts", a:"agent-1", b:"agent-2", kind:"text-conflict", pairs:1,
+    detail:"agent-1 conflicts with agent-2 — both touch <b>src/auth.ts</b> around <code>refreshSession()</code> · 1 pair · resolve before either lands" },
+];
+const EVENT_POOL = [
+  { type:"repo.pushed",   repo:"agent-1" },
+  { type:"session.steered", repo:"agent-1" },
+  { type:"repo.pushed",   repo:"agent-3" },
+  { type:"token.minted",  repo:"demo" },
+  { type:"repo.pushed",   repo:"agent-2" },
+  { type:"repo.landed",   repo:"demo" },
+  { type:"judge.verdict", repo:"agent-2", detail:"escalate" },
+  { type:"secret.revealed", repo:"agent-5", detail:"DATABASE_URL" },
+  { type:"lease.acquired", repo:"demo", detail:"do/lease-9f2c71" },
+  { type:"merge.preview", repo:"agent-1", detail:"clean after rebase" },
+];
+const COMMITS = [
+  { sha:"550be50", msg:"baseline", author:"system", date:"2026-10-12 18:02", root:true,
+    files:[ {path:"README.md", status:"added", adds:42, dels:0},
+            {path:"src/auth.ts", status:"added", adds:88, dels:0},
+            {path:"src/session.ts", status:"added", adds:64, dels:0} ],
+    assets:["MD ×1","TS ×2"] },
+  { sha:"804db99", msg:"agent-1: Refactor — session refresh with TTL", author:"agent-1", date:"2026-10-13 13:58",
+    files:[ {path:"src/auth.ts", status:"modified", adds:4, dels:1} ], assets:["TS ×1"] },
+  { sha:"d924a70", msg:"agent-2: rotate-on-refresh", author:"agent-2", date:"2026-10-13 13:41",
+    files:[ {path:"src/auth.ts", status:"modified", adds:6, dels:2},
+            {path:"src/rotate.ts", status:"added", adds:21, dels:0} ], assets:["TS ×2"] },
+  { sha:"bd27fcf", msg:"agent-3: docs", author:"agent-3", date:"2026-10-13 12:20",
+    files:[ {path:"docs/quickstart.md", status:"modified", adds:12, dels:4} ], assets:["MD ×1"] },
+  { sha:"fcc4210", msg:"agent-4: CLI errors", author:"agent-4", date:"2026-10-13 11:05",
+    files:[ {path:"src/cli.ts", status:"modified", adds:9, dels:3} ], assets:["TS ×1"] },
+];
+const FORKS = [
+  { id:"agent-1", base:"demo", clusters:{ fit:.91, trust:.74, liveness:.88, proof:.64, distance:.02, cost:.95 }, policy:["land manual","secrets refused"] },
+  { id:"agent-2", base:"demo", clusters:{ fit:.87, trust:null, liveness:.90, proof:.31, distance:.04, cost:.92 }, policy:["land manual","secrets refused"] },
+  { id:"agent-3", base:"demo", clusters:{ fit:.98, trust:null, liveness:.96, proof:.20, distance:.00, cost:.99 }, policy:["land manual","secrets refused"] },
+  { id:"agent-4", base:"demo", clusters:{ fit:.94, trust:.68, liveness:.83, proof:.55, distance:.01, cost:.97 }, policy:["land manual","secrets refused"] },
+  { id:"agent-5", base:"demo", clusters:{ fit:.79, trust:null, liveness:.71, proof:null, distance:.08, cost:.88 }, policy:["land manual","secrets refused"] },
+];
+const SESSIONS = [
+  { id:"agent-1", state:"working", intent:"Refactor: session refresh with TTL", last:"repo.pushed", ago:"2m" },
+  { id:"agent-2", state:"working", intent:"Add rotate-on-refresh to auth", last:"repo.pushed", ago:"6m" },
+  { id:"agent-3", state:"idle", intent:"Docs: quickstart polish", last:"repo.pushed", ago:"20m" },
+  { id:"agent-4", state:"idle", intent:"CLI: tighter error surface", last:"token.minted", ago:"41m" },
+];
+const ISSUES = [
+  { kind:"conflict", sev:"high", repo:"agent-1 × agent-2", title:"Text conflict on src/auth.ts",
+    sub:"1 pair · refreshSession() overlap · blocks both landings", file:"src/auth.ts", viewRepo:"agent-1" },
+  { kind:"withheld-secret", sev:"block", repo:"agent-5", title:"Secret-class file withheld from render",
+    sub:"config/.env · key names only (DATABASE_URL, REDIS_URL)", file:"config/.env", viewRepo:"agent-5" },
+  { kind:"stale-base", sev:"low", repo:"agent-4", title:"Proposal base is 2 commits behind demo",
+    sub:"rebase recommended · fold check still passes", file:"src/cli.ts", viewRepo:"agent-4" },
+  { kind:"blocked-intent", sev:"medium", repo:"agent-3", title:"Intent blocked pending judge review",
+    sub:"proof cluster at 0.20 · six-cluster signal below floor", file:"docs/quickstart.md", viewRepo:"agent-3" },
+];
+const AGENTS = [
+  { id:"agent-1", harness:"omp", caps:["propose"], policy:{ land:"manual", secrets:"refused" } },
+  { id:"agent-2", harness:"omp", caps:["propose"], policy:{ land:"manual", secrets:"refused" } },
+  { id:"agent-3", harness:"unrecorded", caps:["propose"], policy:{ land:"manual", secrets:"refused" } },
+  { id:"agent-4", harness:"omp", caps:["propose"], policy:{ land:"manual", secrets:"refused" } },
+];
+const HARNESSES = [
+  { id:"codex", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"] },
+  { id:"omp", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"] },
+  { id:"pi", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"] },
+];
+const PARITY = [
+  ["proposals","exceeds","Fleet proposals land in one triage surface","5 proposals · 5 repos"],
+  ["conflict-map","exceeds","Pairwise conflict detection with file-level pinning","1 conflict · 1 pair"],
+  ["evidence-receipts","exceeds","Every landing writes a 12-key receipt","mergedSha == testedSha"],
+  ["judge-gating","exceeds","Verdicts render-only and fail closed","ESCALATE · 2 codes"],
+  ["secret-withholding","exceeds","Secret-class files render key names only","config/.env · 2 keys"],
+  ["branches","parity","Branch-per-proposal model","5 branches"],
+  ["commits","parity","Linear history with attributed shas","5 commits"],
+  ["files","parity","Tree + viewer with text/binary states","14 files"],
+  ["diff-view","parity","Side-aware diff rendering","diff3 on src/auth.ts"],
+  ["sessions","parity","Working/idle session states","4 sessions"],
+  ["forks","parity","Fork lineage from base","5 forks · base: demo"],
+  ["harnesses","parity","BYO-cli harness registry","3 harnesses"],
+  ["audit-log","parity","Reveal decisions are audited","decision: granted"],
+  ["session-steering","below","Steer lands in the event stream only","v1: no ACK protocol"],
+  ["agent-identity-policy","below","Policy recorded, not enforced","agent-3 harness unrecorded"],
+  ["agent-federation","below","No cross-org federation yet","0 of 5 forks federated"],
+  ["issues","below","Derived only, no external tracker","4 derived issues"],
+  ["ci","below","No CI surface in the demo","0 pipelines"],
+];
+const EVIDENCE = [
+  ["repos", '["demo","agent-2"]', null],
+  ["commit", "7c042f10", null],
+  ["ancestor", "550be50", null],
+  ["heads", '["804db99","d924a70"]', null],
+  ["foldHash", "f3a9c1d2", null],
+  ["checks", "{fold:pass, collision:pass, conflicts:pass, secrets:pass, base:pass}", null],
+  ["results", '{"merged-sha-equals-tested-sha":"pass"}', "mergedSha==testedSha · pass"],
+  ["mergedSha", "7c042f10a4b2", null],
+  ["testedSha", "7c042f10a4b2", null],
+  ["artifactRef", "artifacts://demo/7c042f10/merge-report.json", null],
+  ["at", "2026-10-13T14:22:08Z", null],
+  ["lease", '{provider:"do", leaseId:"lease-9f2c71"}', null],
+];
+const PULSE = {
+  floors: [ ["1","fold — proposal structure validates"], ["2","collision — pairwise file pinning"], ["3","judge — verdict recorded before land"] ],
+  intents: [
+    { repo:"agent-3", intent:"Docs: quickstart polish", verdict:"merge-it", why:"clean · six-cluster fit 0.98" },
+    { repo:"agent-1", intent:"Refactor: session refresh with TTL", verdict:"hold", why:"text conflict with agent-2" },
+    { repo:"agent-2", intent:"Add rotate-on-refresh to auth", verdict:"hold", why:"text conflict with agent-1" },
+    { repo:"agent-5", intent:"Config: move secrets to env", verdict:"block", why:"secret-class withheld" },
+  ],
+  upstream:"Upstream merge-back → demo queued for agent-3 · clean · no conflicts · receipt on land",
+};
+const FILES = {
+  "agent-1": [
+    { path:"README.md", type:"text", content:[
+      "# agent-1 — proposal","","Base: demo · intent: Refactor: session refresh with TTL","","Propose → preview → land.","Every landing carries a 12-key evidence receipt." ] },
+    { path:"src/auth.ts", type:"text", content:[
+      'import { sessions } from "../store/sessions";','import { tokens } from "./tokens";',"","export interface Session {","  id: string;","  subject: string;","  expiresIn: number;","}","","export async function refreshSession(id: string, ttl = 900) {","  const s = await sessions.get(id);","  if (s.expiresIn < ttl) {","    await sessions.extend(s, ttl);","  }","  return s;","}","","export async function revokeSession(id: string) {","  await tokens.revokeAll(id);","  return sessions.drop(id);","}","","export const sessionPolicy = {","  ttl: 900,","  rotateOnRefresh: false,","};" ] },
+    { path:"src/session.ts", type:"text", content:[
+      "export const store = new Map();","","export async function get(id) { return store.get(id); }","export async function extend(s, ttl) { s.expiresIn = ttl; }","export async function drop(id) { store.delete(id); }" ] },
+    { path:"assets/logo.png", type:"binary", size:"4.1 KB", mime:"image/png", sha:"9d2c…f71a", dims:"512 × 512" },
+  ],
+  "agent-2": [
+    { path:"README.md", type:"text", content:[
+      "# agent-2 — proposal","","Base: demo · intent: Add rotate-on-refresh to auth","","Propose → preview → land.","Every landing carries a 12-key evidence receipt." ] },
+    { path:"src/auth.ts", type:"text", content:[
+      'import { sessions } from "../store/sessions";',"","export async function refreshSession(id: string) {","  const s = await sessions.get(id);","  const rotated = await sessions.rotate(id);","  return rotated;","}" ] },
+    { path:"src/rotate.ts", type:"text", content:[
+      'import { sessions } from "../store/sessions";',"","export async function rotate(id: string) {","  const s = await sessions.get(id);","  const next = await sessions.mint(s.subject, s.id);","  await sessions.drop(s.id);","  return next;","}","","export const rotationPolicy = {","  rotateOnRefresh: true,","  keepAncestor: 1,","};" ] },
+  ],
+  "agent-3": [
+    { path:"README.md", type:"text", content:[
+      "# agent-3 — proposal","","Base: demo · intent: Docs: quickstart polish","","Propose → preview → land.","Every landing carries a 12-key evidence receipt." ] },
+    { path:"docs/quickstart.md", type:"text", content:[
+      "# Quickstart","","Clone the base repo to begin triage.","","## Propose","","Every agent proposes against `demo` — one branch per proposal.","","## Land","","Landing writes a 12-key evidence receipt." ] },
+    { path:"docs/guide.md", type:"text", content:[
+      "# Guide","","The judge gates every landing.","Verdicts are render-only until a human confirms." ] },
+  ],
+  "agent-4": [
+    { path:"README.md", type:"text", content:[
+      "# agent-4 — proposal","","Base: demo · intent: CLI: tighter error surface","","Propose → preview → land.","Every landing carries a 12-key evidence receipt." ] },
+    { path:"src/cli.ts", type:"text", content:[
+      'import { log } from "./log";',"","export async function push(ref: string) {","  try {","    log.ok(`pushed ${ref}`);","  } catch (e) {","    log.fail(e.message);","    process.exit(1);","  }","}" ] },
+    { path:"src/log.ts", type:"text", content:[
+      "export function ok(msg) { console.log(`ok: ${msg}`); }","export function fail(msg) { console.error(`fail: ${msg}`); }" ] },
+  ],
+  "agent-5": [
+    { path:"README.md", type:"text", content:[
+      "# agent-5 — proposal","","Base: demo · intent: Config: move secrets to env","","Propose → preview → land.","Every landing carries a 12-key evidence receipt." ] },
+    { path:"config/.env", type:"secret", keys:["DATABASE_URL","REDIS_URL"],
+      granted:"DATABASE_URL = postgres://demo:FAKE-SECRET-DO-NOT-USE@db.internal:5432/app\nREDIS_URL   = redis://demo:FAKE-SECRET-DO-NOT-USE@db.internal:6379" },
+    { path:"config/app.json", type:"text", content:[
+      '{', '  "namespace": "demo",', '  "judge": { "mode": "gated", "failClosed": true },', '  "secrets": { "class": "withheld" }', '}' ] },
+    { path:"src/auth.ts", type:"text", content:[
+      'import { sessions } from "../store/sessions";',"","export async function refreshSession(id: string, ttl = 900) {","  const s = await sessions.get(id);","  if (s.expiresIn < ttl) await sessions.extend(s, ttl);","  return s;","}" ] },
+  ],
+};
+const MERGE_FILES = {
+  "agent-1": ["src/auth.ts"], "agent-2": ["src/auth.ts"], "agent-3": ["docs/quickstart.md"],
+  "agent-4": ["src/cli.ts"], "agent-5": ["config/.env"],
+};
+const DIFF3 = [
+  { t:"ctx",  x:"export async function refreshSession(id: string) {" },
+  { t:"mk",   x:"<<<<<<< ours · agent-1 @ 804db99" },
+  { t:"ours", x:"  const s = await sessions.get(id);" },
+  { t:"ours", x:"  if (s.expiresIn < ttl) {" },
+  { t:"ours", x:"    await sessions.extend(s, ttl);" },
+  { t:"ours", x:"  }" },
+  { t:"ours", x:"  return s;" },
+  { t:"mk2",  x:"=======" },
+  { t:"theirs", x:"  const s = await sessions.get(id);" },
+  { t:"theirs", x:"  const rotated = await sessions.rotate(id);" },
+  { t:"theirs", x:"  return rotated;" },
+  { t:"mk3",  x:">>>>>>> theirs · agent-2 @ d924a70" },
+  { t:"ctx",  x:"}" },
+];
+const CLEAN_DIFFS = {
+  "docs/quickstart.md": [
+    { t:"ctx", x:"# Quickstart" }, { t:"ctx", x:"" },
+    { t:"add", x:"Clone the base repo to begin triage." },
+    { t:"ctx", x:"" }, { t:"add", x:"## Propose" }, { t:"ctx", x:"" },
+    { t:"add", x:"Every agent proposes against `demo` — one branch per proposal." },
+    { t:"ctx", x:"" }, { t:"add", x:"## Land" }, { t:"ctx", x:"" },
+    { t:"add", x:"Landing writes a 12-key evidence receipt." },
+    { t:"del", x:"Clone the repo to begin." },
+  ],
+  "src/cli.ts": [
+    { t:"ctx", x:"export async function push(ref: string) {" },
+    { t:"ctx", x:"  try {" },
+    { t:"del", x:'    console.log("pushed");' },
+    { t:"add", x:"    log.ok(`pushed ${ref}`);" },
+    { t:"ctx", x:"  } catch (e) {" },
+    { t:"del", x:'    console.error(e);' },
+    { t:"add", x:"    log.fail(e.message);" },
+    { t:"add", x:"    process.exit(1);" },
+    { t:"ctx", x:"  }" }, { t:"ctx", x:"}" },
+  ],
+};
+
+/* ================= state ================= */
+const state = {
+  view:"console",
+  connection:"live",
+  ticker: [], poolIdx: 0,
+  loaded: {},            // view → skeleton phase done
+  fileRepo:"agent-1", filePath:null, fileLoading:false,
+  histSel:null,
+  mergeCtx:null, mergeFile:null, mergeRevealed:false,
+  comments:{ "src/auth.ts":[ {author:"john", line:3, text:"looks good, ship it", time:"1h"} ] },
+  sheetRepo:null, sheetVariant:"escalate",
+  armed:null,
+  steerTarget:"agent-1",
+  tour:{ open:false, step:0 },
+  fileRevealed:false,
+};
+// seed ticker with newest-8
+(function seedTicker(){
+  const now = Date.now();
+  const seed = [
+    { type:"repo.pushed", repo:"agent-1", at:now },
+    { type:"session.steered", repo:"agent-1", at:now - 12e3 },
+    { type:"repo.pushed", repo:"agent-3", at:now - 38e3 },
+    { type:"token.minted", repo:"demo", at:now - 61e3 },
+    { type:"repo.pushed", repo:"agent-2", at:now - 122e3 },
+    { type:"repo.landed", repo:"demo", at:now - 244e3 },
+    { type:"judge.verdict", repo:"agent-2", detail:"escalate", at:now - 366e3 },
+    { type:"secret.revealed", repo:"agent-5", detail:"DATABASE_URL", at:now - 540e3 },
+  ];
+  state.ticker = seed;
+})();
+
+/* ================= shared render bits ================= */
+function checkChip(name, val){
+  const label = name === "fold" ? "fold" : name === "collision" ? "collision" : name === "conflicts" ? "conflicts" : name === "secrets" ? "secrets" : "base";
+  const dot = val === "pass" ? "pass" : val === "fail" ? "fail" : "unknown";
+  const word = val === "unknown" ? "unknown" : val;
+  return '<span class="check ' + val + '" title="' + label + ': ' + word + '"><span class="dot ' + dot + '"></span>' + label + " · " + word + "</span>";
+}
+function landingChip(r){
+  return r.landing === "ready"
+    ? '<span class="land-chip ready">ready</span>'
+    : '<span class="land-chip withheld">withheld-secret</span>';
+}
+function skeletonHTML(kind){
+  if (kind === "cards") {
+    let s = '<div class="prop-grid">';
+    for (let i = 0; i < 5; i++) s += '<div class="skel skel-card"></div>';
+    return s + "</div>";
+  }
+  if (kind === "rows") {
+    let s = "";
+    for (let i = 0; i < 6; i++) s += '<div class="skel skel-row"></div>';
+    return s;
+  }
+  let s = "";
+  for (let i = 0; i < 8; i++) s += '<div class="skel skel-line" style="width:' + (92 - i * 7) + '%"></div>';
+  return s;
+}
+
+/* ================= header ================= */
+function renderHeaderStats(){
+  $("#header-stats").innerHTML = STATS.map(s =>
+    '<span class="stat-chip">' + s[0] + " <b>" + s[1] + "</b></span>").join("");
+}
+function renderConn(){
+  const b = $("#conn-toggle");
+  b.dataset.state = state.connection;
+  b.setAttribute("aria-pressed", state.connection === "live" ? "true" : "false");
+  b.setAttribute("aria-label", "Connection status: " + state.connection + ". Toggle to " + (state.connection === "live" ? "polling" : "live") + ".");
+  $(".conn-label", b).textContent = state.connection;
+  b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash");
+}
+
+/* ================= console (surface 1) ================= */
+function proposalCard(r){
+  const checks = CHECK_NAMES.map(n => checkChip(n, r.checks[n])).join("");
+  const meta = '<span>' + esc(r.file) + '</span><span class="add">+' + r.adds + "</span><span class=\"del\">−" + r.dels + "</span>";
+  let actions;
+  if (r.landing === "withheld-secret") {
+    actions =
+      '<button class="btn ghost sm" data-action="card-diff" data-repo="' + r.id + '">view diff</button>' +
+      '<button class="btn ghost sm" data-action="card-merge" data-repo="' + r.id + '">preview merge</button>' +
+      '<button class="btn sm" data-action="secret-path" data-repo="' + r.id + '">secret view</button>';
+  } else if (state.armed === r.id) {
+    actions =
+      '<button class="btn armed sm" data-action="land-confirm" data-repo="' + r.id + '">confirm land</button>' +
+      '<button class="btn ghost sm" data-action="land-cancel" data-repo="' + r.id + '">cancel</button>';
+  } else {
+    actions =
+      '<button class="btn ghost sm" data-action="card-diff" data-repo="' + r.id + '">view diff</button>' +
+      '<button class="btn ghost sm" data-action="card-merge" data-repo="' + r.id + '">preview merge</button>' +
+      '<button class="btn primary sm" data-action="card-land" data-repo="' + r.id + '">land</button>';
+  }
+  const blocked = r.landing === "withheld-secret"
+    ? '<div class="blocked-note"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style="flex:none;margin-top:1px"><rect x="2.5" y="6" width="9" height="6.5" rx="1.4" stroke="#ff8087" stroke-width="1.3"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" stroke="#ff8087" stroke-width="1.3"/></svg><span class="note-body"><b style="color:var(--tx-1)">blocked — secret-class file.</b> <code>config/.env</code> renders key names only. Values stay withheld until an audited Reveal.</span></div>'
+    : "";
+  return '<article class="pcard' + (r.landing === "withheld-secret" ? " blocked" : "") + (state.armed === r.id ? " armed" : "") + '" id="card-' + r.id + '" data-tour-card="' + r.id + '">' +
+    '<div class="pcard-top"><span class="repo-id"><span class="dot ' + (r.landing === "withheld-secret" ? "red" : "brand") + '"></span>' + r.id + "</span>" + landingChip(r) + "</div>" +
+    '<h3 class="pcard-intent">' + esc(r.intent) + "</h3>" +
+    '<div class="pcard-meta">' + meta + "</div>" +
+    '<div class="checks" ' + (r.id === "agent-1" ? 'id="checks-first"' : "") + ">" + checks + "</div>" +
+    blocked +
+    '<div class="pcard-actions" ' + (r.id === "agent-1" ? 'id="land-first"' : "") + ">" + actions + "</div>" +
+  "</article>";
+}
+function conflictMapHTML(){
+  const rows = CONFLICTS.map(c =>
+    '<div class="cm-head"><span class="cm-file">' + esc(c.file) + '</span><span class="cm-kind">' + c.kind + "</span></div>" +
+    '<div class="cm-pair"><span class="pair-chip">' + c.a + '</span><span class="pair-x">×</span><span class="pair-chip">' + c.b + "</span></div>" +
+    '<div class="cm-detail">' + c.detail + "</div>" +
+    '<div class="cm-actions"><button class="btn sm" data-action="conflict-view" data-repo="agent-1">view conflict</button></div>'
+  ).join("");
+  return '<div class="conflict-map" id="conflict-map">' +
+    '<div class="section-label" style="margin-bottom:10px">conflict map <span class="count">' + CONFLICTS.length + " pair</span></div>" + rows + "</div>";
+}
+function pulseStripHTML(){
+  return '<div class="pulse" id="pulse-strip" role="region" aria-label="Platform pulse">' +
+    '<span class="section-label" style="margin:0">platform pulse</span>' +
+    '<span class="pulse-sep"></span>' +
+    '<span class="pulse-item"><span class="dot brand"></span>floors <b>' + PULSE.floors.length + "</b></span>" +
+    '<span class="pulse-sep"></span>' +
+    '<span class="pulse-item">intents router <span class="router-verdict merge-it">agent-3 · merge-it</span></span>' +
+    '<span class="pulse-sep"></span>' +
+    '<span class="pulse-item" style="font-weight:400">upstream merge-back → demo queued · clean</span>' +
+  "</div>";
+}
+function renderTicker(animateFirst){
+  const el = $("#ticker");
+  if (!el) return;
+  el.innerHTML = state.ticker.map((ev, i) => {
+    const age = ageLabel(ev.at);
+    const detail = ev.detail ? ' <span class="ev-detail">' + esc(ev.detail) + "</span>" : "";
+    return '<div class="ticker-row' + (animateFirst && i === 0 ? " in" : "") + '">' +
+      '<span class="dot ' + evDot(ev.type) + '"></span>' +
+      '<span class="ev-type">' + esc(ev.type) + '</span><span class="ev-repo">' + esc(ev.repo) + "</span>" + detail +
+      '<span class="ev-age">' + age + "</span></div>";
+  }).join("");
+}
+function evDot(type){
+  if (type === "repo.landed" || type === "token.minted" || type === "lease.acquired") return "green";
+  if (type === "judge.verdict" || type === "secret.revealed") return "amber";
+  return "brand";
+}
+function ageLabel(at){
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (s < 8) return "now";
+  if (s < 60) return s + "s";
+  const m = Math.round(s / 60);
+  return m + "m";
+}
+function renderConsole(){
+  const cards = REPOS.map(proposalCard).join("");
+  $("#view-console").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Triage console</h1>' +
+    '<p class="page-sub">Agent fleets propose, humans decide, every landing carries a receipt. Namespace <b style="color:var(--tx-1)">demo</b> + 5 proposal repos.</p></div>' +
+    '<button class="btn ghost" data-action="new-proposal">+ New proposal</button></div>' +
+    '<div class="console-grid"><div class="main-col">' +
+      '<div id="proposal-grid" class="prop-grid">' + cards + "</div>" +
+      conflictMapHTML() +
+    "</div>" +
+    '<div class="rail">' +
+      '<div class="rail-panel" id="events-rail"><div class="rail-head"><span class="rail-title">events</span>' +
+      '<span class="rail-live"><span class="dot green pulse"></span>newest-8</span></div>' +
+      '<div class="ticker" id="ticker"></div></div>' +
+      pulseStripHTML() +
+    "</div></div>";
+  renderTicker(false);
+}
+
+/* ================= merge modal (surface 2) ================= */
+function openMerge(repo, mode){
+  state.mergeCtx = { repo: repo, mode: mode || "diff" };
+  state.mergeFile = MERGE_FILES[repo][0];
+  state.mergeRevealed = false;
+  renderMerge();
+}
+function closeMerge(){ state.mergeCtx = null; $("#overlay-root").innerHTML = ""; }
+function renderMerge(){
+  const { repo, mode } = state.mergeCtx;
+  const r = REPOS.find(x => x.id === repo);
+  const tabs = MERGE_FILES[repo].map(f =>
+    '<button role="tab" data-action="merge-tab" data-file="' + esc(f) + '" aria-selected="' + (f === state.mergeFile) + '">' + esc(f) + "</button>").join("");
+  const strip = mode === "preview"
+    ? (repo === "agent-1" || repo === "agent-2"
+      ? '<div class="merge-strip"><span class="mode-badge preview">preview</span><span>Merge preview · <b>' + repo + ' → demo</b></span><span class="dot amber"></span><span><b>1 text conflict</b> · 1 pair · blocked — resolve src/auth.ts before landing</span></div>'
+      : repo === "agent-5"
+      ? '<div class="merge-strip"><span class="mode-badge preview">preview</span><span>Merge preview · <b>' + repo + ' → demo</b></span><span class="dot red"></span><span><b>withheld secret</b> · key names only · judge will skip secret-class</span></div>'
+      : '<div class="merge-strip"><span class="mode-badge preview">preview</span><span>Merge preview · <b>' + repo + ' → demo</b></span><span class="dot green"></span><span><b>clean</b> · no conflicts · ready to land</span></div>')
+    : '<div class="merge-strip"><span class="mode-badge">diff</span><span>' + repo + " · " + esc(r.intent) + "</span><span style=\"margin-left:auto\" class=\"mono\">+" + r.adds + " −" + r.dels + "</span></div>";
+  const body = mergeBodyHTML(repo);
+  $("#overlay-root").innerHTML =
+    '<div class="overlay" data-action="overlay-close" role="presentation">' +
+    '<div class="modal" role="dialog" aria-modal="true" aria-label="Merge view — ' + repo + '">' +
+      '<div class="modal-head"><h2 class="modal-title">Merge · ' + repo + '</h2><span class="modal-sub">' + esc(r.file) + "</span>" +
+      '<button class="modal-close" data-action="modal-close" aria-label="Close merge view">✕</button></div>' +
+      '<div class="modal-body">' + strip +
+      '<div class="file-tabs" role="tablist" aria-label="Changed files">' + tabs + "</div>" +
+      body +
+      commentsHTML(state.mergeFile) +
+      "</div></div></div>";
+  $(".modal-close", $("#overlay-root")).focus();
+}
+function mergeBodyHTML(repo){
+  const f = state.mergeFile;
+  if (f === "src/auth.ts" && (repo === "agent-1" || repo === "agent-2")) return diff3HTML();
+  if (f === "config/.env") return secretStateHTML("merge");
+  const lines = CLEAN_DIFFS[f] || [];
+  return cleanDiffHTML(f, lines);
+}
+function diff3HTML(){
+  let rows = "";
+  let n = 0;
+  DIFF3.forEach(l => {
+    n++;
+    const cls = l.t === "mk" ? "mk" : l.t === "mk2" ? "mk2" : l.t === "mk3" ? "mk3" : l.t;
+    rows += '<div class="dl ' + cls + '"><span class="dl-n">' + n + '</span><span class="dl-t">' + esc(l.x) + "</span></div>";
+  });
+  return '<div class="diff" aria-label="Three-way diff for src/auth.ts">' + rows + "</div>" +
+    '<div class="diff-legend"><span><span class="sw" style="background:rgba(113,112,255,.5)"></span>ours · agent-1 @ 804db99</span>' +
+    '<span><span class="sw" style="background:rgba(39,166,68,.5)"></span>theirs · agent-2 @ d924a70</span>' +
+    '<span><span class="sw" style="background:rgba(232,177,63,.6)"></span>conflict markers</span></div>';
+}
+function cleanDiffHTML(f, lines){
+  let rows = "";
+  let n = 0;
+  lines.forEach(l => { n++; const cls = l.t === "ctx" ? "ctx" : l.t; rows += '<div class="dl ' + cls + '"><span class="dl-n">' + n + '</span><span class="dl-t">' + esc(l.x) + "</span></div>"; });
+  return '<div class="diff" aria-label="Diff for ' + esc(f) + '">' + rows + "</div>" +
+    '<div class="diff-legend"><span><span class="sw" style="background:rgba(39,166,68,.5)"></span>added</span><span><span class="sw" style="background:rgba(229,72,77,.5)"></span>removed</span></div>';
+}
+function secretStateHTML(where){
+  const revealed = where === "merge" ? state.mergeRevealed : state.fileRevealed;
+  const keyChips = '<div class="key-list"><span class="key-chip">DATABASE_URL</span><span class="key-chip">REDIS_URL</span></div>';
+  const granted = revealed
+    ? '<div class="granted"><div class="section-label" style="margin-bottom:8px">granted value</div>' +
+      '<div class="granted-value">' + esc(FILES["agent-5"].find(f => f.type === "secret").granted) + "</div>" +
+      '<div class="audit-note"><span class="dot"></span>reveal audit — config/.env · decision: granted · by you · ' + new Date().toISOString() + "</div></div>"
+    : "";
+  return '<div class="secret-state">' +
+    '<div class="secret-head"><span class="lock-glyph"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.4" stroke="#ff8087" stroke-width="1.3"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" stroke="#ff8087" stroke-width="1.3"/></svg></span>' +
+    '<div><div class="secret-title">secret-class — key names only</div><div class="secret-sub">config/.env · values withheld from render · raw link hidden</div></div></div>' +
+    keyChips +
+    (revealed ? "" : '<button class="btn reveal-btn" data-action="reveal-' + where + '">Reveal</button>') +
+    granted +
+  "</div>";
+}
+function commentsHTML(file){
+  const list = state.comments[file] || [];
+  const rows = list.map(c =>
+    '<div class="comment"><span class="avatar">' + esc(c.author[0]) + "</span>" +
+    '<div class="comment-body"><div class="comment-meta">' + esc(c.author) +
+    (c.line ? ' <span class="comment-line">L' + c.line + "</span>" : "") +
+    ' <span class="comment-time">' + esc(c.time) + " ago</span></div>" +
+    '<div class="comment-text">' + esc(c.text) + "</div></div></div>").join("");
+  return '<div class="comments"><div class="section-label" style="margin-bottom:12px">comments <span class="count">' + list.length + "</span></div>" +
+    rows +
+    '<div class="compose"><textarea id="comment-input" data-file="' + esc(file) + '" maxlength="600" placeholder="Add a comment… (pending compose)"></textarea>' +
+    '<div class="compose-row"><button class="btn sm primary" data-action="comment-send" data-file="' + esc(file) + '">Comment</button>' +
+    '<span class="compose-hint">optimistic append · in-memory for this prototype</span></div></div></div>';
+}
+
+/* ================= land sheet (surfaces 11 + 12) ================= */
+function armLand(repo){ state.armed = repo; renderConsole(); toast(repo + " armed — confirm to open the judge sheet"); }
+function cancelLand(repo){ state.armed = null; renderConsole(); }
+function openLandSheet(repo){
+  state.sheetRepo = repo;
+  state.sheetVariant = "escalate";
+  renderSheet();
+}
+function closeSheet(){ state.sheetRepo = null; state.armed = null; $("#overlay-root").innerHTML = ""; renderConsole(); }
+function verdictVariantHTML(v){
+  if (v === "escalate") return '<div class="verdict-body"><b>Landing blocked — human review required.</b> The judge escalated with 2 codes. Nothing fires from this sheet: it is render-only until a human acts.</div>' +
+    '<div class="code-list"><div class="code-row"><span class="code-kind">risk</span>risk:senior-security:agent-2</div>' +
+    '<div class="code-row"><span class="code-kind">intent</span>intent:contradicts:agent-2</div></div>';
+  if (v === "confirm") return '<div class="verdict-body"><b>Verdict: confirm — converge after rebase.</b> No blocking codes recorded; the conflict pair resolves in preview. Receipt is written only after the human confirms.</div>';
+  if (v === "act") return '<div class="verdict-body"><b>Verdict: act — landing authorized.</b> senior-security attested the overlap; the merge may proceed and the 12-key receipt is written on completion.</div>';
+  if (v === "evidence") return receiptHTML();
+  return '<div class="failclosed"><b>503 — judge unavailable.</b><br>Verdict unrecorded; landing is <b>fail-closed</b> and will not proceed. <code>GET /judge/verdict → 503 · retry with backoff · no fallback path</code></div>';
+}
+function receiptHTML(){
+  const rows = EVIDENCE.map(k =>
+    '<div class="receipt-row"><span class="receipt-k">' + esc(k[0]) + '</span><span class="receipt-v">' + esc(k[1]) + "</span>" +
+    (k[2] ? '<span class="pass-pill">' + esc(k[2]) + "</span>" : "<span></span>") + "</div>").join("");
+  return '<div class="receipt"><div class="receipt-head"><span class="dot green"></span>land evidence receipt · 12 keys</div>' + rows + "</div>";
+}
+function renderSheet(){
+  const repo = state.sheetRepo;
+  const v = state.sheetVariant;
+  const variants = [["escalate","ESCALATE"],["confirm","CONFIRM"],["act","ACT"],["evidence","recorded evidence"],["failclosed","fail-closed"]];
+  const toggle = variants.map(x =>
+    '<button data-action="sheet-variant" data-variant="' + x[0] + '" aria-pressed="' + (v === x[0]) + '">' + x[1] + "</button>").join("");
+  $("#overlay-root").innerHTML =
+    '<div class="overlay" data-action="overlay-close" role="presentation">' +
+    '<div class="sheet" role="dialog" aria-modal="true" aria-label="Land confirmation — ' + repo + '">' +
+      '<div class="modal-head"><h2 class="modal-title">Land proposal · ' + repo + '</h2><span class="modal-sub">two-step · arm → confirm</span>' +
+      '<button class="modal-close" data-action="sheet-close" aria-label="Close land sheet">✕</button></div>' +
+      '<div class="modal-body">' +
+        '<div data-reveal><div class="land-steps"><span class="step done">1 · arm</span><span class="arr">→</span><span class="step now">2 · confirm</span><span style="margin-left:auto;font-weight:400">render-only — never auto-fires</span></div></div>' +
+        '<div data-reveal><div class="verdict-panel"><div class="verdict-row"><span class="verdict-chip ' + (v === "escalate" ? "escalate" : v === "act" ? "act" : v === "confirm" || v === "evidence" ? "confirm" : "escalate") + '" id="verdict-chip">' +
+          (v === "act" ? "ACT" : v === "confirm" ? "CONFIRM" : v === "evidence" ? "RECORDED" : v === "failclosed" ? "503" : "ESCALATE") + "</span>" +
+          '<div class="variant-toggle" role="group" aria-label="Verdict variant">' + toggle + "</div></div>" +
+          '<div id="verdict-body">' + verdictVariantHTML(v) + "</div></div></div>" +
+        '<div data-reveal><div class="judge-panel"><div class="section-label" style="margin-bottom:10px">judge panel</div>' +
+          '<div class="judge-chips">' +
+            '<span class="judge-chip red"><span class="dot"></span>risk · escalate</span>' +
+            '<span class="judge-chip amber"><span class="dot"></span>intent · contradicts</span>' +
+            '<span class="judge-chip amber"><span class="dot"></span>collision · text-conflict</span>' +
+          "</div>" +
+          '<div class="skipped-row"><span style="flex:none;color:var(--tx-3);font-weight:510">skipped[]</span><span>scans the judge skipped: <code>secret-class</code> (withheld from render) · <code>content-secret</code> (value never enters the verdict payload)</span></div>' +
+        "</div></div>" +
+        '<div data-reveal><div class="audit-note" style="border-top:1px dashed rgba(255,255,255,.12);padding-top:12px"><span class="dot"></span>reveal audit — config/.env · decision: granted · by you · ' + new Date().toISOString() + " · key: DATABASE_URL</div></div>" +
+        '<div class="render-only"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5.6" stroke="#7d838b" stroke-width="1.2"/><path d="M7 4.4V7l1.8 1.2" stroke="#7d838b" stroke-width="1.2" stroke-linecap="round"/></svg>This sheet is render-only in the prototype — no landing executes, no state leaves the page.</div>' +
+      "</div>" +
+      '<div class="sheet-foot"><button class="btn primary" disabled title="Render-only in this prototype">Land now — render-only</button>' +
+      '<button class="btn ghost" data-action="sheet-close">Close</button></div>' +
+    "</div></div>";
+}
+
+/* ================= files (surface 3) ================= */
+function fileEntry(repo, path){ return FILES[repo].find(f => f.path === path); }
+function defaultFilePath(repo){ return FILES[repo][0].path; }
+function treeHTML(repo){
+  const dirs = {};
+  const roots = [];
+  FILES[repo].forEach(f => {
+    const parts = f.path.split("/");
+    if (parts.length > 1) {
+      const d = parts[0];
+      (dirs[d] = dirs[d] || []).push(f);
+    } else roots.push(f);
+  });
+  let s = "";
+  Object.keys(dirs).sort().forEach(d => {
+    s += '<div class="tree-dir"><span class="tw">▾</span>' + esc(d) + "/</div>";
+    dirs[d].forEach(f => {
+      const secret = f.type === "secret";
+      s += '<button class="tree-file" data-action="file-select" data-path="' + esc(f.path) + '" aria-current="' + (state.filePath === f.path) + '"><span class="' + (secret ? "f-secret" : "") + '">' + esc(parts_(f.path)) + "</span></button>";
+    });
+  });
+  roots.forEach(f => {
+    s += '<button class="tree-file" data-action="file-select" data-path="' + esc(f.path) + '" aria-current="' + (state.filePath === f.path) + '">' + esc(f.path) + "</button>";
+  });
+  return s;
+}
+function parts_(p){ const a = p.split("/"); return a[a.length - 1]; }
+function viewerHTML(repo){
+  const f = fileEntry(repo, state.filePath);
+  if (!f) return '<div class="viewer-body"><div style="padding:40px;text-align:center;color:var(--tx-2);font-size:13px">Select a file from the tree.</div></div>';
+  const head = '<div class="viewer-head"><nav class="crumbs" aria-label="Breadcrumb">' +
+    '<button class="cr" data-action="files-repo" data-repo="' + repo + '">' + repo + '</button><span class="sep">/</span>' +
+    (f.path.includes("/")
+      ? '<button class="cr" data-action="crumb-dir" data-path="' + esc(f.path.split("/").slice(0, -1).join("/")) + '">' + esc(f.path.split("/").slice(0, -1).join("/")) + '</button><span class="sep">/</span><span class="cr cur">' + esc(parts_(f.path)) + "</span>"
+      : '<span class="cr cur">' + esc(f.path) + "</span>") +
+    "</nav>" +
+    (f.type === "secret" ? "" : '<button class="raw-link" data-action="raw-link" title="Raw content (demo)">raw</button>') +
+    "</div>";
+  let body = "";
+  if (f.type === "text") {
+    const lines = f.content.map((l, i) =>
+      '<div class="dl ctx"><span class="dl-n">' + (i + 1) + '</span><span class="dl-t">' + esc(l) + "</span></div>").join("");
+    body = '<div class="viewer-body"><div class="text-view">' + lines + "</div></div>";
+  } else if (f.type === "binary") {
+    body = '<div class="viewer-body"><div class="meta-table">' +
+      metaRow("name", esc(f.path)) + metaRow("size", f.size) + metaRow("mime type", f.mime) +
+      metaRow("dimensions", f.dims) + metaRow("sha256", f.sha) + metaRow("render", "metadata-only") +
+      '</div><div style="padding:0 16px 16px"><div class="binary-posture"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true" style="flex:none"><rect x="2" y="4" width="22" height="18" rx="3" stroke="#7d838b" stroke-width="1.4"/><circle cx="9" cy="10" r="2.2" stroke="#7d838b" stroke-width="1.4"/><path d="M4 19l6-6 4 4 3-3 5 5" stroke="#7d838b" stroke-width="1.4" stroke-linejoin="round"/></svg><span><b style="color:var(--tx-1)">Binary file — content not rendered.</b><br>The console renders a metadata-only posture for binary assets. No preview, no inline decode.</span></div></div></div>';
+  } else {
+    body = '<div class="viewer-body" style="padding:16px">' + secretStateHTML("file") +
+      (state.fileRevealed ? "" : '<div style="margin-top:12px;font-size:11.5px;color:var(--tx-3)">Reveal is audited — the decision is written to the reveal audit log with <span style="font-family:var(--mono)">decision: granted</span>.</div>') +
+      "</div>";
+  }
+  return head + body;
+}
+function metaRow(k, v){ return '<div class="meta-row"><span class="meta-k">' + k + '</span><span class="meta-v">' + v + "</span></div>"; }
+function renderFiles(){
+  const repo = state.fileRepo;
+  if (state.fileLoading) {
+    $("#view-files").innerHTML =
+      '<div class="page-head"><div><h1 class="page-title">Files</h1><p class="page-sub">Repository browser — text, binary and secret-class viewer states.</p></div></div>' +
+      '<div class="repo-picker">' + REPOS.map(r => '<button data-action="files-repo" data-repo="' + r.id + '" aria-pressed="' + (r.id === repo) + '">' + r.id + "</button>").join("") + "</div>" +
+      '<div class="files-layout"><div class="tree-panel">' + skeletonHTML("lines") + '</div><div class="viewer-panel"><div style="padding:16px">' + skeletonHTML("lines") + "</div></div></div>";
+    return;
+  }
+  $("#view-files").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Files</h1><p class="page-sub">Repository browser — text, binary and secret-class viewer states. Dirs first, mono paths, honest postures.</p></div></div>' +
+    '<div class="repo-picker" role="group" aria-label="Repository picker">' + REPOS.map(r =>
+      '<button data-action="files-repo" data-repo="' + r.id + '" aria-pressed="' + (r.id === repo) + '">' + r.id + "</button>").join("") + "</div>" +
+    '<div class="files-layout"><div class="tree-panel" role="tree" aria-label="File tree">' + treeHTML(repo) + "</div>" +
+    '<div class="viewer-panel">' + viewerHTML(repo) + "</div></div>";
+}
+
+/* ================= history (surface 4) ================= */
+function renderHistory(){
+  const sel = state.histSel ? COMMITS.find(c => c.sha === state.histSel) : null;
+  let detail = "";
+  if (sel) {
+    const files = sel.files.map(f =>
+      '<div class="changed-file"><span class="cf-status ' + f.status + '">' + f.status + '</span><span class="cf-path">' + esc(f.path) + "</span>" +
+      '<span class="cf-delta"><span class="add">+' + f.adds + '</span> <span class="del">−' + f.dels + "</span></span>" +
+      '<span class="chip mono">' + (f.path.split(".").pop() === "md" ? "MD" : "TS") + "</span></div>").join("");
+    detail = '<div class="hist-detail"><div class="hist-detail-head"><span class="commit-sha">' + sel.sha + "</span>" +
+      '<span class="chip">' + sel.author + '</span><span class="chip mono">' + sel.date + "</span>" +
+      '<button class="btn sm ghost" style="margin-left:auto" data-action="hist-back">← back to files</button></div>' +
+      '<div class="section-label" style="margin-bottom:10px">changed files <span class="count">' + sel.files.length + "</span></div>" +
+      files +
+      '<div class="asset-chips">' + sel.assets.map(a => '<span class="chip mono">' + a + "</span>").join("") + "</div>" +
+      (sel.root ? '<div class="root-note"><span class="dot brand"></span><span><b style="color:var(--tx-1)">root commit.</b> The demo baseline — everything above it is agent work. Forked by every proposal repo as <span style="font-family:var(--mono)">base: demo</span>.</span></div>' : "") +
+      "</div>";
+  }
+  $("#view-history").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">History</h1><p class="page-sub">Linear history across the demo namespace. Select a commit to inspect its changed files.</p></div></div>' +
+    '<div class="commit-list">' + COMMITS.map(c =>
+      '<button class="commit" data-action="hist-select" data-sha="' + c.sha + '" aria-current="' + (state.histSel === c.sha) + '">' +
+      '<span class="commit-sha">' + c.sha + "</span>" +
+      '<span class="commit-msg">' + esc(c.msg) + '<div class="commit-sub">' + esc(c.author) + " · " + c.files.length + " file" + (c.files.length > 1 ? "s" : "") + "</div></span>" +
+      '<span class="commit-date">' + c.date + "</span></button>").join("") + "</div>" + detail;
+}
+
+/* ================= forks (surface 5) ================= */
+function renderForks(){
+  const cards = FORKS.map(f => {
+    const clusters = Object.keys(f.clusters).map(k => {
+      const val = f.clusters[k];
+      const measured = val !== null;
+      const pct = measured ? Math.round(val * 100) : 0;
+      return '<div class="cluster"><div class="cluster-k">' + k + '</div>' +
+        (measured
+          ? '<div class="cluster-v">' + val.toFixed(2) + '</div><div class="signal-bar"><i style="width:' + pct + '%"></i></div>'
+          : '<div class="cluster-v unmeasured">unmeasured</div>') +
+        "</div>";
+    }).join("");
+    return '<article class="fork-card"><div class="fork-head"><span class="repo-id"><span class="dot brand"></span>' + f.id + '</span>' +
+      '<span class="lineage" style="margin-left:auto">base: <b>' + f.base + "</b></span></div>" +
+      '<div class="cluster-grid">' + clusters + "</div>" +
+      '<div class="policy-row">' + f.policy.map(p => '<span class="policy-chip">' + p + "</span>").join("") + "</div></article>";
+  }).join("");
+  $("#view-forks").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Forks &amp; signals</h1><p class="page-sub">Every proposal is a fork of <b style="color:var(--tx-1)">demo</b>. Six-cluster signals — fit, trust, liveness, proof, distance, cost — with honest unmeasured states.</p></div></div>' +
+    '<div class="fork-grid">' + cards + "</div>" +
+    '<div class="root-note" style="margin-top:14px"><span class="dot amber"></span><span>agent-3 carries the canonical six-cluster reading: <b style="color:var(--tx-1)">fit 0.98 · trust unmeasured · liveness 0.96 · proof 0.20 · distance 0.00 · cost 0.99</b>. Trust is unrecorded for forks whose harness is unrecorded.</span></div>';
+}
+
+/* ================= sessions (surface 6) ================= */
+function renderSessions(){
+  const rows = SESSIONS.map(s =>
+    '<div class="session"><div class="sess-state"><span class="dot ' + (s.state === "working" ? "green pulse" : "grey") + '"></span>' + s.state + "</div>" +
+    '<div><div class="sess-intent">' + esc(s.intent) + '<div class="commit-sub" style="font-family:var(--mono)">' + s.id + "</div></div></div>" +
+    '<span class="sess-last">' + esc(s.last) + " · " + s.ago + " ago</span></div>").join("");
+  $("#view-sessions").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Sessions</h1><p class="page-sub">Live agent sessions. Steer a session — the instruction lands in the event stream the agents read.</p></div></div>' +
+    '<div class="session-list">' + rows + "</div>" +
+    '<div class="steer-panel"><div class="section-label" style="margin-bottom:12px">steer composer</div>' +
+      '<div class="steer-row"><span style="font-size:12px;color:var(--tx-2)">target</span>' +
+      '<div class="steer-target" role="group" aria-label="Steer target">' + SESSIONS.map(s =>
+        '<button data-action="steer-target" data-repo="' + s.id + '" aria-pressed="' + (state.steerTarget === s.id) + '">' + s.id + "</button>").join("") + "</div></div>" +
+      '<textarea id="steer-input" maxlength="500" placeholder="Steer ' + state.steerTarget + ' — e.g. “rebase onto demo, keep the TTL branch”"></textarea>' +
+      '<div class="compose-row" style="margin-top:9px"><button class="btn primary sm" data-action="steer-send">Send steer</button>' +
+      '<span class="char-count" id="steer-count">0 / 500</span></div>' +
+      '<div class="v1-note"><span class="dot amber"></span><span><b style="color:var(--tx-2)">honest v1 note:</b> steers land in the event stream the agents read — there is no ACK protocol yet. Delivery to the session is eventual, not confirmed.</span></div>' +
+    "</div>";
+}
+
+/* ================= issues (surface 7) ================= */
+function renderIssues(){
+  const rows = ISSUES.map(i =>
+    '<div class="issue"><span class="kind-chip kind-' + i.kind + '">' + i.kind + '</span><span class="sev sev-' + i.sev + '">' + i.sev + "</span>" +
+    '<div class="issue-body"><div class="issue-title">' + esc(i.title) + '</div><div class="issue-sub">' + esc(i.repo) + " · " + esc(i.sub) + "</div></div>" +
+    '<div class="issue-links"><button class="link-btn" data-action="goto" data-view="console" data-repo="' + i.viewRepo + '">view card</button>' +
+    '<button class="link-btn" data-action="goto" data-view="files" data-repo="' + i.viewRepo + '" data-file="' + esc(i.file) + '">view file</button></div></div>').join("");
+  $("#view-issues").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Issues</h1><p class="page-sub">Derived from the triage state — conflicts, withholdings, stale bases and blocked intents. Four kinds, severity-ranked.</p></div></div>' +
+    '<div class="issue-list">' + rows + "</div>";
+}
+
+/* ================= agents + harnesses (surface 8) ================= */
+function renderAgents(){
+  const agentRows = AGENTS.map(a =>
+    '<tr><td class="strong mono">' + a.id + '</td><td><span class="chip mono">' + a.harness + "</span></td>" +
+    "<td>" + a.caps.map(c => '<span class="policy-chip">' + c + "</span>").join(" ") + "</td>" +
+    '<td><span class="policy-chip">land: ' + a.policy.land + '</span> <span class="policy-chip">secrets: ' + a.policy.secrets + "</span></td></tr>").join("");
+  const hRows = HARNESSES.map(h =>
+    '<tr><td class="strong mono">' + h.id + '</td><td><span class="kind-chip kind-blocked-intent" style="border-radius:var(--r-micro)">' + h.kind + "</span></td>" +
+    "<td>" + h.caps.map(c => '<span class="policy-chip">' + c + "</span>").join(" ") + "</td></tr>").join("");
+  $("#view-agents").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Agents &amp; harnesses</h1><p class="page-sub">The fleet roster and the BYO-cli harness registry. Policy is recorded per agent; enforcement is parity-tracked, not yet active.</p></div></div>' +
+    '<div class="section-label">agent roster <span class="count">' + AGENTS.length + "</span></div>" +
+    '<div class="table-wrap"><table class="tbl"><thead><tr><th>agent</th><th>harness</th><th>capabilities</th><th>policy</th></tr></thead><tbody>' + agentRows + "</tbody></table></div>" +
+    '<div class="section-label" style="margin-top:22px">harnesses <span class="count">' + HARNESSES.length + " · kind byo-cli</span></div>" +
+    '<div class="table-wrap"><table class="tbl"><thead><tr><th>harness</th><th>kind</th><th>capabilities</th></tr></thead><tbody>' + hRows + "</tbody></table></div>";
+}
+
+/* ================= parity (surface 9) ================= */
+function renderParity(){
+  const counts = { exceeds: 0, parity: 0, below: 0 };
+  PARITY.forEach(r => counts[r[1]]++);
+  const rows = PARITY.map(r =>
+    '<tr><td class="strong mono">' + r[0] + '</td>' +
+    '<td><span class="verdict-cell ' + r[1] + '"><span class="dot ' + (r[1] === "exceeds" ? "green" : r[1] === "below" ? "amber" : "grey") + '"></span>' + r[1] + "</span></td>" +
+    "<td>" + esc(r[2]) + '</td><td class="mono" style="color:var(--tx-2)">' + esc(r[3]) + "</td></tr>").join("");
+  $("#view-parity").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Parity dashboard</h1><p class="page-sub">Feature parity against the reference platform. ' + PARITY.length + " areas measured — verdicts carry one-line evidence.</p></div></div>" +
+    '<div class="parity-chips"><span class="chip"><span class="dot green"></span>exceeds <b>' + counts.exceeds + "</b></span>" +
+    '<span class="chip"><span class="dot grey"></span>parity <b>' + counts.parity + "</b></span>" +
+    '<span class="chip"><span class="dot amber"></span>below <b>' + counts.below + "</b></span></div>" +
+    '<div class="table-wrap"><table class="tbl"><thead><tr><th>area</th><th>verdict</th><th>note</th><th>evidence</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+    '<div class="root-note" style="margin-top:14px"><span class="dot amber"></span><span>The five <b style="color:var(--tx-1)">below</b> rows are the honest gaps: session-steering, agent-identity-policy, agent-federation, issues, ci. Each names its evidence — nothing is hand-waved.</span></div>';
+}
+
+/* ================= pulse (surface 13) ================= */
+function renderPulse(){
+  const floors = PULSE.floors.map(f =>
+    '<div class="floor-row"><span class="floor-n">F' + f[0] + "</span><span>" + esc(f[1]) + '</span><span class="dot green" style="margin-left:auto"></span></div>').join("");
+  const intents = PULSE.intents.map(i =>
+    '<div class="intent-row"><div><div class="intent-txt">' + esc(i.intent) + '<div class="intent-sub">' + i.repo + " · " + esc(i.why) + "</div></div>" +
+    '<span class="router-verdict ' + i.verdict + '">' + i.repo + " · " + i.verdict + "</span></div>").join("");
+  $("#view-pulse").innerHTML =
+    '<div class="page-head"><div><h1 class="page-title">Platform pulse</h1><p class="page-sub">The convergence layer at a glance — floors, the intents router, and the upstream merge-back queue.</p></div></div>' +
+    '<div class="pulse-grid">' +
+      '<div class="pulse-card"><h3>floors · ' + PULSE.floors.length + '</h3>' + floors + "</div>" +
+      '<div class="pulse-card"><h3>intents router</h3>' + intents + "</div>" +
+    "</div>" +
+    '<div class="pulse" style="margin-bottom:14px"><span class="section-label" style="margin:0">upstream</span><span class="pulse-sep"></span><span class="pulse-item" style="font-weight:400">' + esc(PULSE.upstream) + "</span></div>" +
+    '<div class="root-note"><span class="dot brand"></span><span>The intents router verdicts are derived from the triage state: <b style="color:var(--tx-1)">agent-3 → merge-it</b> (clean, fit 0.98), the conflicting pair holds, and secret-class blocks until an audited reveal.</span></div>';
+}
+
+/* ================= tour (surface 10) ================= */
+const TOUR = [
+  { title:"Welcome to NextGit", body:"The agent-era git platform: a judge-gated, evidence-backed convergence layer. Agent fleets propose changes, humans decide, and every landing carries a receipt. This tour walks the console in eight steps.", target:null },
+  { title:"The proposal grid", body:"Five proposals from the agent fleet — each card carries the repo, the intent, the touched file with ± stats, the landing chip, and the checks strip. agent-5 is blocked: its secret-class file renders key names only.", target:"#proposal-grid" },
+  { title:"The checks strip", body:"Five tri-state checks per proposal: fold, collision, conflicts, secrets, base. Each renders pass, fail, or unknown — and unknown renders neutral, never green. agent-1 and agent-2 both fail conflicts on src/auth.ts.", target:"#checks-first" },
+  { title:"The conflict map", body:"The conflict map pins the shared file: src/auth.ts is claimed by agent-1 × agent-2 as a text-conflict — one pair. It stays visually distinct from the grid until both landings resolve.", target:"#conflict-map" },
+  { title:"Judge & land", body:"Landing is two-step: arm, then confirm. The confirm sheet shows the judge verdict — ESCALATE with codes risk:senior-security:agent-2 and intent:contradicts:agent-2 — plus CONFIRM, ACT, recorded-evidence and fail-closed variants. It is render-only: nothing auto-fires.", target:"#land-first" },
+  { title:"Secrets & reveal", body:"Secret-class files like agent-5's config/.env render key names only — DATABASE_URL and REDIS_URL. Reveal is an explicit, audited action: the granted value appears with a decision: granted audit note.", target:"#card-agent-5" },
+  { title:"Forks & signals", body:"Every proposal is a fork of demo. Six-cluster signals measure fit, trust, liveness, proof, distance and cost — with honest unmeasured states where data doesn't exist yet. Policy chips record land: manual and secrets: refused.", target:"#nav-forks" },
+  { title:"Evidence receipts", body:"The events rail streams the namespace — pushes, steers, verdicts, reveals. Every landing writes a 12-key evidence receipt whose pass condition is mergedSha == testedSha. That's the receipt behind every merge.", target:"#events-rail" },
+];
+function openTour(){
+  if (state.view !== "console") showView("console");
+  state.tour.open = true; state.tour.step = 0;
+  renderTour();
+}
+function closeTour(){ state.tour.open = false; const t = $("#tour-overlay"); if (t) t.remove(); }
+function renderTour(){
+  let ov = $("#tour-overlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "tour-overlay";
+    ov.className = "tour-overlay";
+    ov.innerHTML = '<div class="tour-spot" id="tour-spot"></div><div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-label="Guided tour"></div>';
+    document.body.appendChild(ov);
+  }
+  const step = TOUR[state.tour.step];
+  const card = $("#tour-card");
+  const dots = TOUR.map((_, i) => '<i class="' + (i === state.tour.step ? "on" : "") + '"></i>').join("");
+  card.innerHTML =
+    '<div class="tour-step-label">step ' + (state.tour.step + 1) + " / " + TOUR.length + "</div>" +
+    '<div class="tour-title">' + esc(step.title) + "</div>" +
+    '<div class="tour-body">' + esc(step.body) + "</div>" +
+    '<div class="tour-foot"><div class="tour-dots">' + dots + "</div>" +
+    (state.tour.step > 0 ? '<button class="btn sm ghost" data-action="tour-prev">Back</button>' : "") +
+    (state.tour.step < TOUR.length - 1 ? '<button class="btn sm primary" data-action="tour-next">Next</button>' : '<button class="btn sm primary" data-action="tour-close">Finish</button>') +
+    '<button class="tour-skip" data-action="tour-close">Skip tour</button></div>';
+  requestAnimationFrame(positionTour);
+}
+function positionTour(){
+  if (!state.tour.open) return;
+  const step = TOUR[state.tour.step];
+  const spot = $("#tour-spot"), card = $("#tour-card");
+  if (!spot || !card) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  if (!step.target) {
+    spot.style.cssText = "left:50%;top:50%;width:0;height:0;box-shadow:0 0 0 9999px rgba(2,3,4,.78);border:0";
+    card.style.left = Math.max(16, vw / 2 - 170) + "px";
+    card.style.top = Math.max(16, vh / 2 - 140) + "px";
+    return;
+  }
+  const el = $(step.target);
+  if (!el) { spot.style.display = "none"; card.style.left = "50%"; card.style.top = "40%"; return; }
+  spot.style.display = "";
+  const r = el.getBoundingClientRect();
+  const pad = 7;
+  spot.style.left = (r.left - pad) + "px";
+  spot.style.top = (r.top - pad) + "px";
+  spot.style.width = (r.width + pad * 2) + "px";
+  spot.style.height = (r.height + pad * 2) + "px";
+  const cw = 340;
+  let cx = Math.min(Math.max(16, r.left), vw - cw - 16);
+  let cy = r.bottom + 16;
+  if (cy + 240 > vh) cy = Math.max(16, r.top - 250);
+  card.style.left = cx + "px";
+  card.style.top = cy + "px";
+}
+
+/* ================= view switching ================= */
+const RENDER = { console: renderConsole, files: renderFiles, history: renderHistory, forks: renderForks,
+  sessions: renderSessions, issues: renderIssues, agents: renderAgents, parity: renderParity, pulse: renderPulse };
+const SKELETON = { console: "cards", files: "lines", history: "rows", forks: "cards",
+  sessions: "rows", issues: "rows", agents: "rows", parity: "rows", pulse: "lines" };
+function showView(name){
+  if (state.tour.open) closeTour();
+  state.view = name;
+  $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
+  $$("#main-nav button").forEach(b => {
+    if (b.dataset.view === name) b.setAttribute("aria-current", "page");
+    else if (b.dataset.view) b.removeAttribute("aria-current");
+  });
+  if (!state.loaded[name]) {
+    state.loaded[name] = true;
+    const el = $("#view-" + name);
+    el.innerHTML = skeletonHTML(SKELETON[name] || "lines");
+    setTimeout(() => { if (state.view === name) RENDER[name](); }, 340);
+  } else {
+    RENDER[name]();
+  }
+}
+
+/* ================= ticker engine ================= */
+function pushEvent(ev){
+  ev.at = Date.now();
+  state.ticker.unshift(ev);
+  if (state.ticker.length > 8) state.ticker.pop();
+  renderTicker(true);
+}
+function tick(){
+  if (state.connection !== "live") return;
+  const next = EVENT_POOL[state.poolIdx % EVENT_POOL.length];
+  state.poolIdx++;
+  pushEvent(Object.assign({}, next));
+}
+setInterval(tick, 3000);
+setInterval(() => { if (state.view === "console" && state.loaded.console) renderTicker(false); }, 15000);
+
+/* ================= toasts ================= */
+function toast(msg){
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.innerHTML = '<span class="dot brand"></span><span>' + esc(msg) + "</span>";
+  $("#toasts").appendChild(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 220); }, 2600);
+}
+
+/* ================= actions ================= */
+function gotoView(view, repo, file){
+  showView(view);
+  if (repo && (view === "files")) {
+    state.fileRepo = repo;
+    state.filePath = file || defaultFilePath(repo);
+    state.fileRevealed = false;
+    state.loaded.files = false;   // force skeleton pass for the jump
+    showView("files");
+  }
+  if (repo && view === "console") {
+    const card = $("#card-" + repo);
+    if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); card.style.borderColor = "var(--brand-2)"; setTimeout(() => { card.style.borderColor = ""; }, 900); }
+  }
+}
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const a = el.dataset.action;
+  switch (a) {
+    case "nav": showView(el.dataset.view); break;
+    case "conn-toggle":
+      state.connection = state.connection === "live" ? "polling" : "live";
+      renderConn();
+      toast(state.connection === "live" ? "connection live — event stream resumed" : "polling — event stream paused");
+      break;
+    case "new-proposal": toast("proposals are agent-authored in v1 — this console is read-only for humans"); break;
+    case "card-diff": openMerge(el.dataset.repo, "diff"); break;
+    case "card-merge": openMerge(el.dataset.repo, "preview"); break;
+    case "card-land": armLand(el.dataset.repo); break;
+    case "land-cancel": cancelLand(el.dataset.repo); break;
+    case "land-confirm": openLandSheet(el.dataset.repo); break;
+    case "secret-path": gotoView("files", el.dataset.repo, "config/.env"); break;
+    case "conflict-view": openMerge("agent-1", "diff"); break;
+    case "modal-close": closeMerge(); break;
+    case "sheet-close": closeSheet(); break;
+    case "overlay-close": if (e.target === el) { closeMerge(); closeSheet(); } break;
+    case "merge-tab": state.mergeFile = el.dataset.file; renderMerge(); break;
+    case "reveal-merge": state.mergeRevealed = true; renderMerge(); toast("reveal granted — decision written to the audit log"); break;
+    case "reveal-file": state.fileRevealed = true; renderFiles(); toast("reveal granted — decision written to the audit log"); break;
+    case "comment-send": {
+      const ta = $("#comment-input");
+      const text = ta.value.trim();
+      if (!text) { ta.focus(); break; }
+      const f = ta.dataset.file;
+      (state.comments[f] = state.comments[f] || []).push({ author: "you", line: null, text: text, time: "just now" });
+      ta.value = "";
+      renderMerge();
+      break;
+    }
+    case "files-repo":
+      state.fileRepo = el.dataset.repo;
+      state.filePath = defaultFilePath(el.dataset.repo);
+      state.fileRevealed = false;
+      state.fileLoading = true;
+      renderFiles();
+      setTimeout(() => { state.fileLoading = false; renderFiles(); }, 380);
+      break;
+    case "file-select": state.filePath = el.dataset.path; renderFiles(); break;
+    case "crumb-dir": state.filePath = null; renderFiles(); break;
+    case "raw-link": toast("raw content is stubbed in this prototype — no network in the demo"); break;
+    case "hist-select": state.histSel = el.dataset.sha; renderHistory(); break;
+    case "hist-back": state.histSel = null; renderHistory(); break;
+    case "steer-target": state.steerTarget = el.dataset.repo; renderSessions(); break;
+    case "steer-send": {
+      const ta = $("#steer-input");
+      const text = ta.value.trim();
+      if (!text) { ta.focus(); break; }
+      pushEvent({ type: "session.steered", repo: state.steerTarget, detail: text.length > 42 ? text.slice(0, 42) + "…" : text });
+      ta.value = "";
+      const cc = $("#steer-count"); if (cc) { cc.textContent = "0 / 500"; cc.classList.remove("over"); }
+      toast("steered " + state.steerTarget + " — landed in the event stream (v1: no ACK)");
+      break;
+    }
+    case "goto": gotoView(el.dataset.view, el.dataset.repo, el.dataset.file); break;
+    case "sheet-variant":
+      state.sheetVariant = el.dataset.variant;
+      renderSheet();
+      break;
+    case "tour-open": openTour(); break;
+    case "tour-close": closeTour(); break;
+    case "tour-next": if (state.tour.step < TOUR.length - 1) { state.tour.step++; renderTour(); } break;
+    case "tour-prev": if (state.tour.step > 0) { state.tour.step--; renderTour(); } break;
+  }
+});
+document.addEventListener("input", e => {
+  if (e.target.id === "steer-input") {
+    const cc = $("#steer-count");
+    const n = e.target.value.length;
+    cc.textContent = n + " / 500";
+    cc.classList.toggle("over", n >= 500);
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    if (state.tour.open) { closeTour(); return; }
+    if (state.sheetRepo) { closeSheet(); return; }
+    if (state.mergeCtx) { closeMerge(); return; }
+  }
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target.id === "steer-input") {
+    e.preventDefault();
+    $('[data-action="steer-send"]').click();
+  }
+  if (e.key === "Enter" && e.target.id === "comment-input" && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    $('[data-action="comment-send"]').click();
+  }
+});
+window.addEventListener("resize", positionTour);
+window.addEventListener("scroll", positionTour, true);
+
+/* ================= boot ================= */
+renderHeaderStats();
+renderConn();
+renderConsole();
+</script>
+</body>
+</html>

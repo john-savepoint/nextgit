@@ -1,0 +1,1521 @@
+<!doctype html>
+<!--
+  NextGit — Prototype 10 · Design system: STRIPE (fintech-grade product polish)
+  Single self-contained file. No network. No external fonts/assets. Opens from file://.
+
+  SELF-CHECK (13 surfaces from PROTOTYPE-BRIEF.md):
+    1  Triage console ......... view[data-view=console]: 5 proposal cards, checks strips (fold·collision·conflicts·secrets·base), conflict map (src/auth.ts, agent-1×agent-2, text-conflict), header stats chips, animated ticker, nav, connection live/polling toggle, withheld-secret card (agent-5).
+    2  Merge modal ............ #mergeScrim (modal): file tabs, diff3 conflict (<<<<<<< ours / ======= / >>>>>>> theirs) for src/auth.ts, clean diff (agent-3 docs/quickstart.md), withheld-secret state (agent-5 config/.env), reveal affordance, comments thread + compose (optimistic append), Esc + button close.
+    3  Files browser .......... view[data-view=files]: repo picker agent-1..5, breadcrumb, dir tree (dirs first), TEXT (mono + line numbers), BINARY (metadata-only), SECRET config/.env (key names + Reveal → granted value + audit note), raw link hidden on secret, skeleton while loading.
+    4  History ................ view[data-view=history]: commit list → changed files (status word, ±, asset chips), root-commit note, back-to-files.
+    5  Forks & signals ........ view[data-view=forks]: fork cards w/ six-cluster chips (fit 0.98 · trust unmeasured · liveness 0.96 · proof 0.20 · distance 0.00 · cost 0.99), policy chips (land manual, secrets refused), lineage base: demo.
+    6  Sessions + steer ....... view[data-view=sessions]: state dots (working/idle), intent, last activity; steer composer ≤500 chars → ticker session.steered; honest v1 note.
+    7  Issues ................. view[data-view=issues]: 4 kinds (conflict / withheld-secret / stale-base / blocked-intent), severity, repo, links.
+    8  Agents + Harnesses ..... view[data-view=agents]: roster table (harness, capabilities, policy chips) + harness table (codex/omp/pi, byo-cli kind).
+    9  Parity dashboard ....... view[data-view=parity]: chips 5 exceeds · 8 parity · 5 below; 18-row table w/ verdict chips + evidence.
+   10  Tour ................... #tourOverlay: 8-step stepper (Intro → grid → checks → conflicts → judge & land → secrets & reveal → forks → evidence) w/ Next/Back + progress.
+   11  Receipt + audit ........ #landScrim (land sheet) evidence receipt (12 keys, mergedSha==testedSha pass) + reveal audit note (decision: granted).
+   12  Judge panel ............ inside #landScrim: risk/intent/collision chips, skipped[] reasons (secret-class, content-secret), fail-closed 503 copy.
+   13  Platform pulse strip .... console composite: floors count, intents router verdict `merge-it` (agent-3), upstream merge-back note.
+
+  INTERACTIONS WIRED: view switching (instant DOM toggle + skeleton shimmer), modal open / Esc close, land two-step arm→confirm, reveal click, comment compose (in-memory), animated ticker (newest-8) + connection toggle, judge-variant toggle (ESCALATE/CONFIRM/ACT/recorded-evidence/fail-closed), tour stepper.
+  CONSOLE: no errors — all JS is guarded IIFE, no external calls, no fetch/XHR, no <script src>, no <link href>.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NextGit — Console (Stripe direction)</title>
+<style>
+/* ============================================================
+   STRIPE design tokens — bound to :root verbatim from DESIGN.md
+   ============================================================ */
+:root{
+  /* Primary */
+  --purple:#533afd; --navy:#061b31; --white:#ffffff;
+  /* Brand & dark */
+  --brand-dark:#1c1e54; --dark-navy:#0d253d;
+  /* Accents */
+  --ruby:#ea2261; --magenta:#f96bee; --magenta-light:#ffd7ef;
+  /* Interactive */
+  --purple-hover:#4434d4; --purple-deep:#2e2b8c; --purple-light:#b9b9f9; --purple-mid:#665efd;
+  /* Neutral scale */
+  --label:#273951; --body:#64748d; --success:#15be53; --success-text:#108c3d; --lemon:#9b6829;
+  /* Surface & borders */
+  --border:#e5edf5; --border-purple:#b9b9f9; --border-soft-purple:#d6d9fc; --border-magenta:#ffd7ef; --border-dashed:#362baa;
+  /* Shadows (multi-layer, blue-tinted) */
+  --sh-ambient:rgba(23,23,23,0.06) 0px 3px 6px;
+  --sh-standard:rgba(23,23,23,0.08) 0px 15px 35px;
+  --sh-elevated:rgba(50,50,93,0.25) 0px 30px 45px -30px, rgba(0,0,0,0.1) 0px 18px 36px -18px;
+  --sh-deep:rgba(3,3,39,0.25) 0px 14px 21px -14px, rgba(0,0,0,0.1) 0px 8px 17px -8px;
+  /* Type */
+  --font-sans: sohne-var, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Source Code Pro", "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
+  /* Radius scale — conservative 4–8px */
+  --r-micro:1px; --r:4px; --r-comfort:5px; --r-relaxed:6px; --r-large:8px;
+  /* Spacing base 8 */
+  --sp:8px;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font-sans);
+  font-feature-settings:"ss01" 1;
+  font-weight:300;
+  color:var(--navy);
+  background:var(--white);
+  font-size:16px; line-height:1.4;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+button{font-family:inherit;font-feature-settings:"ss01" 1;}
+::selection{background:var(--purple-light);color:var(--navy);}
+:focus-visible{outline:2px solid var(--purple);outline-offset:2px;border-radius:2px;}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+.mono{font-family:var(--font-mono);}
+a{color:var(--purple);text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+/* ---------- shell ---------- */
+.app-header{
+  position:sticky;top:0;z-index:40;background:rgba(255,255,255,0.82);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+}
+.header-row{max-width:1240px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:20px;}
+.brand{display:flex;align-items:baseline;gap:9px;white-space:nowrap;}
+.brand .mark{
+  display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:var(--r-relaxed);
+  background:linear-gradient(135deg,var(--ruby),var(--magenta));color:#fff;font-weight:400;font-size:15px;
+  box-shadow:var(--sh-ambient);align-self:center;
+}
+.brand b{font-weight:400;font-size:19px;letter-spacing:-0.4px;color:var(--navy);}
+.brand .ns{font-size:12px;color:var(--body);font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--r);padding:1px 6px;background:#fbfcfe;}
+nav.mainnav{display:flex;gap:2px;margin-left:6px;flex-wrap:wrap;}
+nav.mainnav button{
+  border:0;background:transparent;color:var(--navy);font-size:14px;font-weight:400;padding:7px 11px;border-radius:var(--r-relaxed);
+  cursor:pointer;transition:background .14s ease,color .14s ease;
+}
+nav.mainnav button:hover{background:#f4f7fb;}
+nav.mainnav button[aria-current="page"]{color:var(--purple);background:rgba(83,58,253,0.07);}
+.header-spacer{flex:1;}
+.statchips{display:flex;gap:6px;align-items:center;}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:var(--r);border:1px solid var(--border);
+  background:#fbfcfe;font-size:12px;color:var(--label);white-space:nowrap;
+}
+.chip b{font-weight:400;color:var(--navy);font-variant-numeric:tabular-nums;}
+.chip.warn{border-color:rgba(234,34,97,0.35);background:rgba(234,34,97,0.06);}
+.chip.warn b{color:var(--ruby);}
+/* connection toggle */
+.conn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:#fff;border-radius:var(--r-relaxed);
+  padding:6px 11px;cursor:pointer;font-size:13px;color:var(--label);transition:border-color .15s ease,box-shadow .15s;}
+.conn:hover{border-color:var(--border-purple);}
+.conn .dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(21,190,83,0.55);}
+.conn.live .dot{animation:pulse 1.6s ease-out infinite;}
+.conn.polling .dot{background:var(--lemon);animation:pulse-slow 3.2s ease-out infinite;}
+.conn .state{font-weight:400;color:var(--navy);}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(21,190,83,0.5);}70%{box-shadow:0 0 0 7px rgba(21,190,83,0);}100%{box-shadow:0 0 0 0 rgba(21,190,83,0);}}
+@keyframes pulse-slow{0%{box-shadow:0 0 0 0 rgba(155,104,41,0.45);}70%{box-shadow:0 0 0 7px rgba(155,104,41,0);}100%{box-shadow:0 0 0 0 rgba(155,104,41,0);}}
+
+/* ---------- ticker ---------- */
+.ticker{max-width:1240px;margin:0 auto;padding:0 24px;}
+.ticker-bar{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:var(--r-relaxed);
+  background:linear-gradient(180deg,#fdfeff,#f8fafd);padding:7px 12px;overflow:hidden;margin:14px 0 6px;}
+.ticker-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);white-space:nowrap;}
+.ticker-track{position:relative;flex:1;height:22px;overflow:hidden;}
+.ticker-track .ev{
+  position:absolute;inset:0;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--label);
+  animation:evIn .38s cubic-bezier(.22,.61,.36,1) both;
+}
+.ticker-track .ev .code{font-family:var(--font-mono);font-size:12px;color:var(--navy);}
+.ticker-track .ev .at{color:var(--body);font-size:11px;margin-left:auto;font-variant-numeric:tabular-nums;}
+.ticker-track .ev .tag{font-family:var(--font-mono);font-size:10px;border:1px solid var(--border);border-radius:var(--r);padding:0 5px;color:var(--body);background:#fff;}
+@keyframes evIn{from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:none;}}
+
+/* ---------- layout ---------- */
+main{max-width:1240px;margin:0 auto;padding:8px 24px 80px;}
+.view{display:none;animation:viewIn .2s ease both;}
+.view.active{display:block;}
+@keyframes viewIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+.view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:26px 0 4px;flex-wrap:wrap;}
+.view-head h1{font-size:32px;font-weight:300;letter-spacing:-0.64px;line-height:1.1;margin:0;color:var(--navy);}
+.view-head p{margin:6px 0 0;color:var(--body);font-size:15px;max-width:62ch;}
+.view-head .hint{font-size:12px;color:var(--body);}
+
+/* skeleton shimmer */
+.skel-grid{display:none;}
+.view-body.is-loading .skel-grid{display:grid;gap:16px;}
+.view-body.is-loading .content{display:none;}
+.skel{height:118px;border-radius:var(--r-comfort);border:1px solid var(--border);
+  background:linear-gradient(100deg,#f5f8fc 30%,#eef3f9 50%,#f5f8fc 70%);background-size:200% 100%;
+  animation:shimmer 1.15s linear infinite;}
+.skel.tall{height:260px;}
+@keyframes shimmer{from{background-position:200% 0;}to{background-position:-200% 0;}}
+
+/* ---------- cards ---------- */
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:16px;}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r-comfort);box-shadow:var(--sh-elevated);
+  transition:box-shadow .2s ease,transform .2s ease;}
+.card:hover{transform:translateY(-1px);box-shadow:var(--sh-deep);}
+.card-pad{padding:16px 18px;}
+.card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.repo-name{font-family:var(--font-mono);font-size:12px;color:var(--navy);display:flex;align-items:center;gap:7px;}
+.repo-name .g{width:7px;height:7px;border-radius:50%;background:var(--purple);}
+.intent{font-size:22px;font-weight:300;letter-spacing:-0.22px;line-height:1.2;color:var(--navy);margin:12px 0 8px;}
+.meta-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--body);font-family:var(--font-mono);}
+.delta-add{color:var(--success-text);} .delta-del{color:var(--ruby);}
+.card-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.armed-note{margin-top:10px;font-size:12px;color:var(--purple);display:flex;align-items:center;gap:7px;animation:evIn .25s ease both;}
+
+/* status / landing chips */
+.lchip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:400;padding:2px 8px;border-radius:var(--r);border:1px solid var(--border);background:#fbfcfe;color:var(--label);}
+.lchip.ready{border-color:rgba(21,190,83,0.4);background:rgba(21,190,83,0.13);color:var(--success-text);}
+.lchip.withheld{border-color:var(--border-magenta);background:var(--magenta-light);color:#a3175c;}
+.lchip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.75;}
+
+/* checks strip */
+.checks{margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;}
+.checks .cap{font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);margin-bottom:8px;}
+.checks-row{display:flex;gap:7px;flex-wrap:wrap;}
+.check{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 9px;border-radius:var(--r);border:1px solid var(--border);background:#fbfcfe;color:var(--label);}
+.check .k{font-family:var(--font-mono);font-size:11px;color:var(--body);}
+.check .v{font-weight:400;}
+.check.pass{border-color:rgba(21,190,83,0.4);background:rgba(21,190,83,0.1);}
+.check.pass .v{color:var(--success-text);}
+.check.fail{border-color:rgba(234,34,97,0.4);background:rgba(234,34,97,0.07);}
+.check.fail .v{color:var(--ruby);}
+.check.unknown{border-color:var(--border);background:#f2f5f9;}
+.check.unknown .v{color:var(--body);}
+
+/* buttons */
+.btn{font-size:14px;font-weight:400;padding:7px 13px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;
+  transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,color .14s ease;}
+.btn-primary{background:var(--purple);color:#fff;}
+.btn-primary:hover{background:var(--purple-hover);}
+.btn-primary.armed{background:var(--brand-dark);}
+.btn-ghost{background:transparent;color:var(--purple);border-color:var(--border-purple);}
+.btn-ghost:hover{background:rgba(83,58,253,0.05);}
+.btn-quiet{background:#fff;color:var(--label);border-color:var(--border);}
+.btn-quiet:hover{border-color:var(--border-purple);color:var(--purple);}
+.btn-sm{font-size:13px;padding:5px 10px;}
+
+/* ---------- panels / sections ---------- */
+.panel{background:#fff;border:1px solid var(--border);border-radius:var(--r-comfort);box-shadow:var(--sh-standard);margin-top:20px;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.panel-head h2{font-size:22px;font-weight:300;letter-spacing:-0.22px;margin:0;color:var(--navy);}
+.panel-head .sub{font-size:13px;color:var(--body);}
+.panel-pad{padding:18px;}
+
+/* conflict map */
+.conflict-row{display:grid;grid-template-columns:1.1fr auto 1fr;gap:14px;align-items:center;padding:16px;border:1px solid var(--border);
+  border-radius:var(--r-comfort);background:linear-gradient(180deg,#fff, #fdfbff);position:relative;overflow:hidden;}
+.conflict-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--ruby),var(--magenta));}
+.conflict-row .f{font-family:var(--font-mono);font-size:13px;color:var(--navy);}
+.conflict-row .pair{display:flex;align-items:center;gap:8px;justify-content:center;}
+.pill-person{font-family:var(--font-mono);font-size:12px;border:1px solid var(--border-purple);background:rgba(83,58,253,0.06);color:var(--purple);border-radius:var(--r);padding:2px 8px;}
+.pill-person.b{border-color:rgba(234,34,97,0.35);background:rgba(234,34,97,0.06);color:var(--ruby);}
+.conflict-row .kind{font-family:var(--font-mono);font-size:11px;color:var(--body);text-transform:uppercase;letter-spacing:0.06em;}
+.x-mark{color:var(--ruby);font-weight:400;}
+
+/* withheld secret card */
+.secret-card{border-color:var(--border-magenta);background:linear-gradient(180deg,#fff,#fffafd);}
+.secret-card .intent{color:#a3175c;}
+.banner{padding:12px 14px;border-radius:var(--r);border:1px dashed var(--border-dashed);background:rgba(83,58,253,0.03);font-size:13px;color:var(--label);}
+
+/* platform pulse strip */
+.pulse-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0;margin-top:20px;border:1px solid var(--border);border-radius:var(--r-comfort);overflow:hidden;box-shadow:var(--sh-ambient);}
+.pulse-cell{padding:15px 17px;background:#fff;border-right:1px solid var(--border);}
+.pulse-cell:last-child{border-right:0;}
+.pulse-cell .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);}
+.pulse-cell .val{font-size:19px;font-weight:300;letter-spacing:-0.2px;margin-top:6px;color:var(--navy);}
+.pulse-cell .note{font-size:12px;color:var(--body);margin-top:5px;}
+.verdict-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;border:1px solid rgba(21,190,83,0.4);background:rgba(21,190,83,0.12);color:var(--success-text);border-radius:var(--r);padding:3px 8px;}
+
+/* ---------- modal ---------- */
+.modal-scrim{position:fixed;inset:0;background:rgba(6,27,49,0.42);backdrop-filter:blur(3px);z-index:80;display:none;
+  align-items:flex-start;justify-content:center;padding:48px 20px;overflow-y:auto;}
+.modal-scrim.open{display:flex;animation:scrimIn .18s ease both;}
+@keyframes scrimIn{from{opacity:0;}to{opacity:1;}}
+.modal{width:min(960px,100%);background:#fff;border-radius:var(--r-large);box-shadow:var(--sh-deep);border:1px solid var(--border);
+  animation:modalIn .24s cubic-bezier(.22,.61,.36,1) both;overflow:hidden;}
+@keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);}
+.modal-head h2{font-size:22px;font-weight:300;letter-spacing:-0.22px;margin:0;}
+.modal-head .sub{font-size:13px;color:var(--body);margin-top:3px;}
+.x-btn{border:1px solid var(--border);background:#fff;color:var(--label);width:30px;height:30px;border-radius:var(--r);cursor:pointer;font-size:15px;line-height:1;}
+.x-btn:hover{border-color:var(--ruby);color:var(--ruby);}
+.tabs{display:flex;gap:4px;padding:10px 20px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tab{font-family:var(--font-mono);font-size:12px;color:var(--body);background:transparent;border:0;border-bottom:2px solid transparent;
+  padding:8px 10px;cursor:pointer;border-radius:0;display:inline-flex;align-items:center;gap:7px;}
+.tab:hover{color:var(--navy);}
+.tab[aria-selected="true"]{color:var(--purple);border-bottom-color:var(--purple);}
+.tab .sic{font-family:var(--font-sans);}
+.modal-body{padding:18px 20px;max-height:62vh;overflow-y:auto;}
+.tabpane{display:none;}
+.tabpane.active{display:block;animation:viewIn .18s ease both;}
+
+/* diff */
+.diff{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;font-family:var(--font-mono);font-size:12px;line-height:1.85;}
+.diff .ln{display:flex;}
+.diff .ln .g{width:38px;flex:none;text-align:right;padding-right:10px;color:#a9b6c7;background:#fafbfd;border-right:1px solid var(--border);user-select:none;}
+.diff .ln .c{padding:0 12px;white-space:pre-wrap;word-break:break-word;}
+.diff .add{background:rgba(21,190,83,0.1);}
+.diff .add .c{color:#0b5c2b;}
+.diff .del{background:rgba(234,34,97,0.07);}
+.diff .del .c{color:#911c46;}
+.diff .ctx .c{color:var(--label);}
+.diff .marker{background:#f2eefe;}
+.diff .marker .c{color:var(--purple);font-weight:700;}
+.diff .ours .c{color:var(--purple);background:rgba(83,58,253,0.06);}
+.diff .theirs .c{color:var(--ruby);background:rgba(234,34,97,0.06);}
+.diff-cap{font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);margin:0 0 8px;}
+
+/* comments */
+.comments{margin-top:20px;border-top:1px dashed var(--border);padding-top:16px;}
+.comments h3{font-size:15px;font-weight:400;margin:0 0 12px;color:var(--navy);}
+.cmt{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);}
+.cmt .av{width:30px;height:30px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--purple),var(--magenta));color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:400;}
+.cmt .who{font-size:13px;font-weight:400;color:var(--navy);}
+.cmt .who .line{font-family:var(--font-mono);font-size:11px;color:var(--body);font-weight:400;}
+.cmt .txt{font-size:14px;color:var(--label);}
+.compose{display:flex;gap:10px;margin-top:14px;align-items:flex-start;}
+.compose textarea{flex:1;resize:vertical;min-height:44px;border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;
+  font-family:var(--font-sans);font-size:14px;font-weight:300;color:var(--navy);}
+.compose textarea:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(83,58,253,0.12);}
+
+/* secret viewer */
+.secret-box{border:1px dashed var(--border-dashed);border-radius:var(--r-comfort);padding:18px;background:linear-gradient(180deg,#fff,#fdfbff);}
+.secret-box .skey{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);}
+.secret-box .skey:last-of-type{border-bottom:0;}
+.secret-box .skey .kn{font-family:var(--font-mono);font-size:13px;color:var(--navy);}
+.revealed{margin-top:12px;border:1px solid rgba(21,190,83,0.4);background:rgba(21,190,83,0.08);border-radius:var(--r);padding:12px 14px;animation:evIn .3s ease both;}
+.revealed .val{font-family:var(--font-mono);font-size:12px;color:#0b5c2b;word-break:break-all;}
+.audit-note{margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--body);display:flex;align-items:center;gap:8px;}
+.audit-note .seal{border:1px solid var(--border-purple);border-radius:var(--r);padding:1px 6px;color:var(--purple);background:rgba(83,58,253,0.05);}
+
+/* files browser */
+.files-layout{display:grid;grid-template-columns:290px 1fr;gap:18px;margin-top:16px;}
+.picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px;}
+.picker button{font-family:var(--font-mono);font-size:12px;border:1px solid var(--border);background:#fff;border-radius:var(--r);padding:5px 10px;cursor:pointer;color:var(--label);}
+.picker button[aria-pressed="true"]{border-color:var(--border-purple);color:var(--purple);background:rgba(83,58,253,0.06);}
+.tree{border:1px solid var(--border);border-radius:var(--r-comfort);padding:10px;background:#fff;box-shadow:var(--sh-ambient);}
+.tree ul{list-style:none;margin:0;padding:0;}
+.tree li{margin:1px 0;}
+.tree .row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r);cursor:pointer;font-family:var(--font-mono);font-size:12.5px;color:var(--label);border:0;background:transparent;width:100%;text-align:left;}
+.tree .row:hover{background:#f4f7fb;}
+.tree .row[aria-current="true"]{background:rgba(83,58,253,0.07);color:var(--purple);}
+.tree .row.indent{padding-left:26px;}
+.tree .ico{width:14px;text-align:center;color:var(--body);}
+.viewer{border:1px solid var(--border);border-radius:var(--r-comfort);overflow:hidden;background:#fff;box-shadow:var(--sh-ambient);min-height:320px;}
+.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid var(--border);background:#fbfcfe;flex-wrap:wrap;}
+.crumbs{font-family:var(--font-mono);font-size:12.5px;color:var(--body);}
+.crumbs b{color:var(--navy);font-weight:400;}
+.viewer-body{padding:0;}
+.code{font-family:var(--font-mono);font-size:12px;line-height:1.9;}
+.code .ln{display:flex;}
+.code .ln .g{width:44px;flex:none;text-align:right;padding-right:12px;color:#a9b6c7;background:#fafbfd;border-right:1px solid var(--border);user-select:none;}
+.code .ln .c{padding:0 14px;white-space:pre;color:var(--label);}
+.binary-note{padding:34px;text-align:center;color:var(--body);}
+.binary-note .glyph{width:56px;height:56px;margin:0 auto 14px;border-radius:var(--r-large);border:1px solid var(--border);
+  background:repeating-linear-gradient(45deg,#f5f8fc,#f5f8fc 6px,#eef3f9 6px,#eef3f9 12px);}
+.load-tag{display:inline-flex;gap:6px;align-items:center;font-family:var(--font-mono);font-size:10px;color:var(--body);}
+
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:14px;}
+.tbl th{text-align:left;font-weight:400;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--body);font-family:var(--font-mono);
+  padding:10px 14px;border-bottom:1px solid var(--border);background:#fbfcfe;}
+.tbl td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--label);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:0;}
+.tbl tr:hover td{background:#fafcfe;}
+.tbl .prim{color:var(--navy);font-weight:400;}
+.vchip{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:2px 8px;border-radius:var(--r);border:1px solid var(--border);background:#fbfcfe;color:var(--label);}
+.vchip.exceeds{border-color:rgba(21,190,83,0.4);background:rgba(21,190,83,0.12);color:var(--success-text);}
+.vchip.parity{border-color:var(--border-purple);background:rgba(83,58,253,0.07);color:var(--purple);}
+.vchip.below{border-color:rgba(155,104,41,0.4);background:rgba(155,104,41,0.1);color:var(--lemon);}
+.evidence{font-family:var(--font-mono);font-size:11.5px;color:var(--body);}
+
+/* history */
+.commit-list{display:flex;flex-direction:column;gap:2px;}
+.commit{display:grid;grid-template-columns:88px 1fr auto;gap:14px;align-items:center;padding:13px 16px;border:1px solid transparent;border-radius:var(--r-comfort);cursor:pointer;background:#fff;}
+.commit:hover{background:#fafcfe;border-color:var(--border);}
+.commit[aria-current="true"]{border-color:var(--border-purple);background:rgba(83,58,253,0.05);}
+.commit .sha{font-family:var(--font-mono);font-size:12px;color:var(--purple);}
+.commit .msg{font-size:14px;color:var(--navy);}
+.commit .sub{font-size:12px;color:var(--body);font-family:var(--font-mono);margin-top:3px;}
+.commit .when{font-size:12px;color:var(--body);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.assetchip{font-family:var(--font-mono);font-size:10px;border:1px solid var(--border);border-radius:var(--r);padding:1px 6px;color:var(--body);background:#fbfcfe;}
+.assetchip.code{border-color:var(--border-soft-purple);color:var(--purple);background:rgba(83,58,253,0.05);}
+.assetchip.data{border-color:var(--border-magenta);color:#a3175c;background:var(--magenta-light);}
+.root-note{font-size:12.5px;color:var(--body);padding:9px 12px;border:1px dashed var(--border);border-radius:var(--r);margin-bottom:8px;}
+
+/* signals */
+.signal-grid{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;}
+.sig{display:inline-flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;background:#fbfcfe;min-width:70px;}
+.sig .n{font-family:var(--font-mono);font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--body);}
+.sig .v{font-size:14px;color:var(--navy);font-variant-numeric:tabular-nums;}
+.sig.unmeasured{border-style:dashed;}
+.sig.unmeasured .v{color:var(--body);font-family:var(--font-mono);font-size:12px;}
+.polchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+
+/* sessions */
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none;}
+.dot.working{background:var(--success);box-shadow:0 0 0 0 rgba(21,190,83,0.5);animation:pulse 1.8s ease-out infinite;}
+.dot.idle{background:#c3ccd9;}
+.steer{border:1px solid var(--border);border-radius:var(--r-comfort);padding:16px;background:linear-gradient(180deg,#fff,#fbfcff);box-shadow:var(--sh-ambient);}
+.steer textarea{width:100%;border:1px solid var(--border);border-radius:var(--r);padding:11px 12px;font-family:var(--font-sans);font-size:14px;font-weight:300;color:var(--navy);resize:vertical;min-height:74px;}
+.steer textarea:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(83,58,253,0.12);}
+.steer .row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap;}
+.counter{font-family:var(--font-mono);font-size:11px;color:var(--body);}
+.v1note{font-size:12px;color:var(--body);margin-top:10px;border-left:2px solid var(--border-purple);padding-left:10px;}
+
+/* tour */
+.tour-scrim{position:fixed;inset:0;background:rgba(6,27,49,0.5);z-index:90;display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(3px);}
+.tour-scrim.open{display:flex;animation:scrimIn .2s ease both;}
+.tour{width:min(560px,100%);background:#fff;border-radius:var(--r-large);box-shadow:var(--sh-deep);border:1px solid var(--border);overflow:hidden;animation:modalIn .26s cubic-bezier(.22,.61,.36,1) both;}
+.tour-top{padding:22px 24px;background:linear-gradient(135deg,var(--brand-dark),#2a2b6e);color:#fff;}
+.tour-top .kicker{font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.65);}
+.tour-top h3{margin:8px 0 6px;font-size:26px;font-weight:300;letter-spacing:-0.26px;color:#fff;}
+.tour-top p{margin:0;font-size:14px;color:rgba(255,255,255,0.78);}
+.tour-prog{height:3px;background:rgba(255,255,255,0.18);}
+.tour-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--ruby),var(--magenta));transition:width .3s ease;}
+.tour-body{padding:20px 24px;}
+.tour-points{list-style:none;margin:0;padding:0;}
+.tour-points li{display:flex;gap:10px;padding:7px 0;font-size:14px;color:var(--label);}
+.tour-points li .b{width:6px;height:6px;border-radius:50%;background:var(--purple);margin-top:7px;flex:none;}
+.tour-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 24px;border-top:1px solid var(--border);}
+.tour-step{font-family:var(--font-mono);font-size:12px;color:var(--body);}
+.tour-dots{display:flex;gap:5px;}
+.tour-dots i{width:6px;height:6px;border-radius:50%;background:#dbe3ee;}
+.tour-dots i.on{background:var(--purple);}
+
+/* judge / land sheet */
+.verdict{display:flex;align-items:center;gap:12px;padding:15px 16px;border-radius:var(--r-comfort);border:1px solid var(--border);background:#fbfcfe;}
+.verdict.ESCALATE{border-color:rgba(234,34,97,0.4);background:rgba(234,34,97,0.06);}
+.verdict.CONFIRM{border-color:rgba(155,104,41,0.4);background:rgba(155,104,41,0.07);}
+.verdict.ACT{border-color:rgba(21,190,83,0.4);background:rgba(21,190,83,0.09);}
+.verdict.FAIL{border-color:rgba(234,34,97,0.55);background:rgba(234,34,97,0.09);}
+.verdict .big{font-family:var(--font-mono);font-size:19px;letter-spacing:0.02em;}
+.verdict.ESCALATE .big{color:var(--ruby);} .verdict.CONFIRM .big{color:var(--lemon);}
+.verdict.ACT .big{color:var(--success-text);} .verdict.FAIL .big{color:var(--ruby);}
+.variants{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+.variants button{font-family:var(--font-mono);font-size:11px;border:1px solid var(--border);background:#fff;color:var(--label);border-radius:var(--r);padding:4px 9px;cursor:pointer;}
+.variants button[aria-pressed="true"]{border-color:var(--purple);color:var(--purple);background:rgba(83,58,253,0.06);}
+.codes{margin-top:14px;display:flex;flex-direction:column;gap:6px;}
+.code-row{font-family:var(--font-mono);font-size:12px;color:var(--label);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;background:#fbfcfe;display:flex;gap:9px;align-items:center;}
+.code-row .sev{color:var(--ruby);font-weight:500;}
+.judge-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;}
+.jchip{display:inline-flex;flex-direction:column;gap:2px;border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;background:#fff;}
+.jchip .n{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--body);}
+.jchip .v{font-size:13px;font-weight:400;}
+.jchip.hot{border-color:rgba(234,34,97,0.4);background:rgba(234,34,97,0.06);} .jchip.hot .v{color:var(--ruby);}
+.jchip.cool{border-color:rgba(21,190,83,0.4);background:rgba(21,190,83,0.09);} .jchip.cool .v{color:var(--success-text);}
+.skipped{margin-top:12px;}
+.skipped .srow{font-family:var(--font-mono);font-size:12px;color:var(--body);padding:6px 0;border-bottom:1px dashed var(--border);display:flex;gap:9px;}
+.receipt{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:0;border:1px solid var(--border);border-radius:var(--r-comfort);overflow:hidden;margin-top:14px;}
+.rkey{padding:10px 13px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:#fff;}
+.rkey .k{font-family:var(--font-mono);font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--body);}
+.rkey .v{font-family:var(--font-mono);font-size:12.5px;color:var(--navy);margin-top:3px;word-break:break-all;}
+.rkey.pass{background:rgba(21,190,83,0.07);} .rkey.pass .v{color:var(--success-text);}
+.sec-title{font-size:15px;font-weight:400;color:var(--navy);margin:22px 0 4px;}
+.sec-title.first{margin-top:6px;}
+
+/* misc */
+.divider{height:1px;background:var(--border);margin:22px 0;}
+.muted{color:var(--body);}
+.small{font-size:12px;}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.stack-sm{display:flex;flex-direction:column;gap:10px;}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;
+  font-size:13px;padding:10px 16px;border-radius:var(--r-relaxed);box-shadow:var(--sh-deep);opacity:0;pointer-events:none;transition:all .28s ease;z-index:100;}
+.toast.on{opacity:1;transform:translateX(-50%);}
+
+@media (max-width:880px){
+  .files-layout{grid-template-columns:1fr;}
+  .conflict-row{grid-template-columns:1fr;}
+  .header-row{flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="app-header">
+  <div class="header-row">
+    <div class="brand">
+      <span class="mark">N</span>
+      <b>NextGit</b>
+      <span class="ns">demo</span>
+    </div>
+    <nav class="mainnav" id="mainnav" aria-label="Primary">
+      <button data-go="console" aria-current="page">Console</button>
+      <button data-go="files">Files</button>
+      <button data-go="history">History</button>
+      <button data-go="forks">Forks</button>
+      <button data-go="sessions">Sessions</button>
+      <button data-go="issues">Issues</button>
+      <button data-go="parity">Parity</button>
+      <button data-go="agents">Agents</button>
+      <button data-go="tour">Tour</button>
+    </nav>
+    <span class="header-spacer"></span>
+    <div class="statchips" id="statchips" title="Namespace stats">
+      <span class="chip">proposals <b>5</b></span>
+      <span class="chip">shared <b>1</b></span>
+      <span class="chip warn">conflicts <b>1</b></span>
+      <span class="chip">changed <b>4</b></span>
+      <span class="chip">clean <b>3</b></span>
+    </div>
+    <button class="conn live" id="conn" title="Toggle connection mode"><span class="dot"></span><span class="state">live</span></button>
+  </div>
+</header>
+
+<!-- ============ TICKER ============ -->
+<div class="ticker" aria-label="Event stream">
+  <div class="ticker-bar">
+    <span class="ticker-label">event stream</span>
+    <div class="ticker-track" id="tickerTrack" aria-live="polite"><!-- newest-8 events injected --></div>
+  </div>
+</div>
+
+<main>
+  <!-- ================================================================
+       SURFACE 1 — TRIAGE CONSOLE
+       ================================================================ -->
+  <section class="view active" data-view="console" aria-label="Triage console">
+    <div class="view-head">
+      <div>
+        <h1>Proposal triage</h1>
+        <p>Agent fleets propose changes to <span class="mono">demo</span>. Nothing lands without a judge verdict and a receipt. Review, preview, then land in two steps.</p>
+      </div>
+      <span class="hint mono">5 proposals · 1 shared file · 1 conflict</span>
+    </div>
+
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true">
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel tall"></div>
+      </div>
+      <div class="content">
+        <div class="grid-cards" id="proposalGrid"><!-- proposal cards injected --></div>
+
+        <!-- Conflict map -->
+        <section class="panel" aria-label="Conflict map">
+          <div class="panel-head">
+            <div><h2>Conflict map</h2><div class="sub">Text conflicts across proposals on the same file.</div></div>
+            <span class="chip warn">1 pair</span>
+          </div>
+          <div class="panel-pad">
+            <div class="conflict-row">
+              <div><div class="f">src/auth.ts</div><div class="kind">shared file · 1 pair</div></div>
+              <div class="pair">
+                <span class="pill-person">agent-1</span><span class="x-mark">&times;</span><span class="pill-person b">agent-2</span>
+              </div>
+              <div style="text-align:right">
+                <span class="kind">kind: text-conflict</span>
+                <div class="small muted" style="margin-top:4px">agent-2 <b style="color:var(--navy);font-weight:400">conflicts with agent-2</b>-adjacent hunk — resolve before landing either.</div>
+              </div>
+            </div>
+            <div class="banner" style="margin-top:14px">Judge gating: contradictory intents on <span class="mono">src/auth.ts</span> raise <span class="mono">intent:contradicts:agent-2</span>. Land one, or merge the intents by hand.</div>
+          </div>
+        </section>
+
+        <!-- SURFACE 13 — Platform pulse strip -->
+        <section class="pulse-strip" aria-label="Platform pulse">
+          <div class="pulse-cell">
+            <div class="lbl">floors</div>
+            <div class="val">3 active</div>
+            <div class="note">Judge floor · merge floor · evidence floor — all green.</div>
+          </div>
+          <div class="pulse-cell">
+            <div class="lbl">intents router</div>
+            <div class="val"><span class="verdict-chip">merge-it</span></div>
+            <div class="note">agent-3 (docs) routed straight to merge — clean, no collision.</div>
+          </div>
+          <div class="pulse-cell">
+            <div class="lbl">upstream merge-back</div>
+            <div class="val">1 pending</div>
+            <div class="note">demo → upstream once agent-3 lands and the receipt is signed.</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 3 — FILES BROWSER
+       ================================================================ -->
+  <section class="view" data-view="files" aria-label="Files browser">
+    <div class="view-head">
+      <div><h1>Files</h1><p>Browse each proposal's tree. Secret-class files expose key names only until an audited reveal.</p></div>
+      <span class="hint mono">read model · per-repo</span>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel tall"></div><div class="skel"></div></div>
+      <div class="content">
+        <div class="picker" id="repoPicker" role="group" aria-label="Repo picker"><!-- injected --></div>
+        <div class="files-layout">
+          <div class="tree" aria-label="Directory tree"><ul id="fileTree"><!-- injected --></ul></div>
+          <div class="viewer" id="viewer"><!-- injected --></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 4 — HISTORY
+       ================================================================ -->
+  <section class="view" data-view="history" aria-label="History">
+    <div class="view-head">
+      <div><h1>History</h1><p>Commits on <span class="mono">demo</span>. Select a commit to inspect its changed files.</p></div>
+      <span class="hint mono">5 commits</span>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel"></div><div class="skel tall"></div></div>
+      <div class="content">
+        <div class="commit-list" id="commitList"><!-- injected --></div>
+        <section class="panel" aria-label="Changed files">
+          <div class="panel-head">
+            <div><h2 id="histTitle">Changed files</h2><div class="sub mono" id="histSub">select a commit above</div></div>
+            <button class="btn btn-quiet btn-sm" data-go="files">Back to files</button>
+          </div>
+          <div class="panel-pad" id="histFiles"><div class="muted small">No commit selected.</div></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 5 — FORKS & SIGNALS
+       ================================================================ -->
+  <section class="view" data-view="forks" aria-label="Forks and signals">
+    <div class="view-head">
+      <div><h1>Forks &amp; signals</h1><p>Each proposal is a fork with a six-cluster signal read. Unmeasured is honest — it renders neutral, never green.</p></div>
+      <span class="hint mono">6 clusters / fork</span>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+      <div class="content">
+        <div class="grid-cards" id="forkGrid"><!-- injected --></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 6 — SESSIONS + STEER
+       ================================================================ -->
+  <section class="view" data-view="sessions" aria-label="Sessions">
+    <div class="view-head">
+      <div><h1>Sessions</h1><p>Live agent sessions and a steer channel. Steering is v1: it lands in the event stream the agents read.</p></div>
+      <span class="hint mono">4 sessions</span>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel"></div></div>
+      <div class="content">
+        <section class="panel" style="margin-top:0" aria-label="Session rows">
+          <div class="panel-pad" style="padding:0">
+            <table class="tbl">
+              <thead><tr><th style="width:150px">session</th><th>intent</th><th>last activity</th><th style="width:120px">state</th></tr></thead>
+              <tbody id="sessionRows"><!-- injected --></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" aria-label="Steer composer">
+          <div class="panel-head"><div><h2>Steer a session</h2><div class="sub">Send guidance to a working agent.</div></div></div>
+          <div class="panel-pad">
+            <div class="steer">
+              <label class="small muted" for="steerTarget" style="display:block;margin-bottom:6px">Target session</label>
+              <select id="steerTarget" class="mono" style="margin-bottom:12px;border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--navy);background:#fff">
+                <option>agent-1</option><option>agent-2</option>
+              </select>
+              <textarea id="steerText" maxlength="500" placeholder="Steer agent-1: keep the TTL at 3600s, don't touch the token store signature."></textarea>
+              <div class="row">
+                <span class="counter"><span id="steerCount">0</span> / 500</span>
+                <button class="btn btn-primary" id="steerSend">Send steer</button>
+              </div>
+              <div class="v1note">Honest v1 — a steer is appended to the event stream as <span class="mono">session.steered</span>; it is guidance the agents read, not a hard interrupt.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 7 — ISSUES
+       ================================================================ -->
+  <section class="view" data-view="issues" aria-label="Issues">
+    <div class="view-head">
+      <div><h1>Issues</h1><p>Derived from proposal state — conflicts, withheld secrets, stale bases, blocked intents.</p></div>
+      <span class="hint mono">4 issues</span>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel tall"></div></div>
+      <div class="content">
+        <section class="panel" style="margin-top:0" aria-label="Issues list">
+          <div class="panel-pad" style="padding:0">
+            <table class="tbl">
+              <thead><tr><th style="width:150px">kind</th><th>detail</th><th style="width:90px">severity</th><th style="width:80px">repo</th><th style="width:150px">link</th></tr></thead>
+              <tbody id="issueRows"><!-- injected --></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 8 — AGENTS + HARNESSES
+       ================================================================ -->
+  <section class="view" data-view="agents" aria-label="Agents and harnesses">
+    <div class="view-head">
+      <div><h1>Agents &amp; harnesses</h1><p>The roster of proposing agents and the BYO-CLI harnesses they run on.</p></div>
+      <span class="hint mono">4 agents · 3 harnesses</span>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel"></div></div>
+      <div class="content">
+        <section class="panel" style="margin-top:0" aria-label="Agent roster">
+          <div class="panel-head"><div><h2>Agents</h2><div class="sub">capabilities + policy per agent</div></div></div>
+          <div class="panel-pad" style="padding:0">
+            <table class="tbl">
+              <thead><tr><th>agent</th><th>harness</th><th>capabilities</th><th>policy</th></tr></thead>
+              <tbody id="agentRows"><!-- injected --></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel" aria-label="Harnesses">
+          <div class="panel-head"><div><h2>Harnesses</h2><div class="sub">bring-your-own CLI</div></div><span class="chip mono">kind: byo-cli</span></div>
+          <div class="panel-pad" style="padding:0">
+            <table class="tbl">
+              <thead><tr><th>harness</th><th>kind</th><th>capabilities</th></tr></thead>
+              <tbody id="harnessRows"><!-- injected --></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SURFACE 9 — PARITY DASHBOARD
+       ================================================================ -->
+  <section class="view" data-view="parity" aria-label="Parity dashboard">
+    <div class="view-head">
+      <div><h1>Parity dashboard</h1><p>NextGit vs the upstream reference, capability by capability. Honest verdicts, with evidence.</p></div>
+      <div class="row">
+        <span class="vchip exceeds">5 exceeds</span>
+        <span class="vchip parity">8 parity</span>
+        <span class="vchip below">5 below</span>
+      </div>
+    </div>
+    <div class="view-body">
+      <div class="skel-grid" aria-hidden="true"><div class="skel"></div><div class="skel tall"></div></div>
+      <div class="content">
+        <section class="panel" style="margin-top:0" aria-label="Parity table">
+          <div class="panel-head"><div><h2>Capabilities</h2><div class="sub">18 rows · 5 exceeds / 8 parity / 5 below</div></div></div>
+          <div class="panel-pad" style="padding:0">
+            <table class="tbl">
+              <thead><tr><th style="width:220px">capability</th><th style="width:120px">verdict</th><th>evidence</th></tr></thead>
+              <tbody id="parityRows"><!-- injected --></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ================================================================
+     SURFACE 2 — MERGE MODAL (diff3 · clean · secret · reveal · comments)
+     ================================================================ -->
+<div class="modal-scrim" id="mergeScrim" role="dialog" aria-modal="true" aria-label="Merge preview">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="mergeTitle">Merge preview</h2>
+        <div class="sub" id="mergeSub">diff3 against demo</div>
+      </div>
+      <button class="x-btn" data-close="mergeScrim" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="tabs" role="tablist" id="mergeTabs">
+      <button class="tab" role="tab" aria-selected="true" data-tab="diff3">src/auth.ts <span class="sic" style="color:var(--ruby)">conflict</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="clean">docs/quickstart.md <span class="sic" style="color:var(--success-text)">clean</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="secret">config/.env <span class="sic" style="color:#a3175c">withheld</span></button>
+    </div>
+    <div class="modal-body">
+      <!-- diff3 pane -->
+      <div class="tabpane active" data-pane="diff3">
+        <p class="diff-cap">diff3 · agent-1 (ours) vs agent-2 (theirs) · base: 550be50</p>
+        <div class="diff" aria-label="Diff3 conflict for src/auth.ts">
+          <div class="ln ctx"><span class="g">1</span><span class="c">// session refresh — renewed per call</span></div>
+          <div class="ln ctx"><span class="g">2</span><span class="c">export function refreshSession(token) {</span></div>
+          <div class="ln marker"><span class="g">3</span><span class="c">&lt;&lt;&lt;&lt;&lt;&lt;&lt; ours  (agent-1 · Refactor: session refresh with TTL)</span></div>
+          <div class="ln add ours"><span class="g">4</span><span class="c">  const ttl = 60 * 60;</span></div>
+          <div class="ln add"><span class="g">5</span><span class="c">  return store.put(token, { ttl });</span></div>
+          <div class="ln marker"><span class="g">6</span><span class="c">=======</span></div>
+          <div class="ln theirs"><span class="g">7</span><span class="c">  const rotated = rotate(token);</span></div>
+          <div class="ln theirs"><span class="g">8</span><span class="c">  return store.put(rotated, { ttl: 900 });</span></div>
+          <div class="ln marker"><span class="g">9</span><span class="c">&gt;&gt;&gt;&gt;&gt;&gt;&gt; theirs  (agent-2 · Add rotate-on-refresh to auth)</span></div>
+          <div class="ln ctx"><span class="g">10</span><span class="c">}</span></div>
+        </div>
+        <div class="banner" style="margin-top:14px">One text-conflict pair. Lands as <span class="mono">risk:senior-security:agent-2</span> if you take theirs without review.</div>
+
+        <!-- comments thread -->
+        <div class="comments">
+          <h3>Comments · src/auth.ts</h3>
+          <div id="cmtList">
+            <div class="cmt">
+              <span class="av">j</span>
+              <div>
+                <div class="who">john <span class="line">· line 3</span></div>
+                <div class="txt">looks good, ship it</div>
+              </div>
+            </div>
+          </div>
+          <div class="compose">
+            <textarea id="cmtText" placeholder="Add a comment on src/auth.ts…"></textarea>
+            <button class="btn btn-primary" id="cmtSend">Comment</button>
+          </div>
+        </div>
+      </div>
+      <!-- clean pane -->
+      <div class="tabpane" data-pane="clean">
+        <p class="diff-cap">clean diff · agent-3 · docs/quickstart.md · +22 / &minus;5</p>
+        <div class="diff" aria-label="Clean diff for docs/quickstart.md">
+          <div class="ln ctx"><span class="g">1</span><span class="c"># NextGit quickstart</span></div>
+          <div class="ln del"><span class="g">2</span><span class="c">- Run npm install and hope.</span></div>
+          <div class="ln add"><span class="g">2</span><span class="c">+ Install the CLI once: `nextgit up`.</span></div>
+          <div class="ln add"><span class="g">3</span><span class="c">+ Propose a change with your agent, then review it in Console.</span></div>
+          <div class="ln add"><span class="g">4</span><span class="c">+ Landing is judge-gated — read the receipt before you trust it.</span></div>
+          <div class="ln ctx"><span class="g">5</span><span class="c"></span></div>
+          <div class="ln ctx"><span class="g">6</span><span class="c">## Secrets</span></div>
+          <div class="ln add"><span class="g">7</span><span class="c">+ Secret-class files show key names only until an audited reveal.</span></div>
+        </div>
+        <div class="banner" style="margin-top:14px">No collisions. Intents router verdict: <span class="verdict-chip">merge-it</span></div>
+      </div>
+      <!-- secret pane -->
+      <div class="tabpane" data-pane="secret">
+        <p class="diff-cap">secret-class · agent-5 · config/.env · withheld</p>
+        <div class="secret-box" id="mergeSecretBox"><!-- injected --></div>
+        <div class="banner" style="margin-top:14px">The diff is withheld at the content layer — this proposal never leaks secret bytes, even to the judge. Reveal is audited.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SURFACES 11 + 12 — LAND SHEET (judge panel · verdict · evidence receipt)
+     ================================================================ -->
+<div class="modal-scrim" id="landScrim" role="dialog" aria-modal="true" aria-label="Judge verdict and land">
+  <div class="modal" style="width:min(880px,100%)">
+    <div class="modal-head">
+      <div>
+        <h2>Land review — <span class="mono" id="landRepo">agent-1</span></h2>
+        <div class="sub">Judge verdict, evidence receipt, and the two-step land.</div>
+      </div>
+      <button class="x-btn" data-close="landScrim" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <!-- verdict -->
+      <div class="verdict ESCALATE" id="verdictBox">
+        <div>
+          <div class="diff-cap" style="margin:0">judge verdict</div>
+          <div class="big" id="verdictBig">ESCALATE</div>
+        </div>
+        <div class="muted small" id="verdictDesc" style="margin-left:auto;text-align:right;max-width:44ch">A senior-security reviewer must sign off before this lands.</div>
+      </div>
+      <div class="variants" id="variantBtns" role="group" aria-label="Verdict variants">
+        <button data-variant="ESCALATE" aria-pressed="true">ESCALATE</button>
+        <button data-variant="CONFIRM" aria-pressed="false">CONFIRM</button>
+        <button data-variant="ACT" aria-pressed="false">ACT</button>
+        <button data-variant="recorded-evidence" aria-pressed="false">recorded-evidence</button>
+        <button data-variant="fail-closed" aria-pressed="false">fail-closed</button>
+      </div>
+
+      <div class="codes" id="verdictCodes">
+        <div class="code-row"><span class="sev">risk</span> risk:senior-security:agent-2</div>
+        <div class="code-row"><span class="sev">intent</span> intent:contradicts:agent-2</div>
+      </div>
+
+      <!-- SURFACE 12 — judge panel -->
+      <h3 class="sec-title">Judge panel</h3>
+      <div class="judge-chips">
+        <span class="jchip hot"><span class="n">risk</span><span class="v">senior-security</span></span>
+        <span class="jchip hot"><span class="n">intent</span><span class="v">contradicts</span></span>
+        <span class="jchip cool"><span class="n">collision</span><span class="v">none</span></span>
+      </div>
+      <div class="skipped">
+        <div class="srow"><span>skipped[0]</span><span>secret-class · diff withheld at content layer</span></div>
+        <div class="srow"><span>skipped[1]</span><span>content-secret · bytes never materialised</span></div>
+      </div>
+      <div class="banner" style="margin-top:12px">Fail-closed path — when the judge is unavailable this landing returns <span class="mono">503 judge_unavailable</span> and the proposal stays armed, never auto-landed.</div>
+
+      <!-- SURFACE 11 — evidence receipt -->
+      <h3 class="sec-title">Evidence receipt</h3>
+      <div class="receipt" id="receipt"><!-- injected 12 keys --></div>
+      <div class="audit-note" style="margin-top:12px"><span class="seal">audit</span> reveal decision: <b style="font-weight:400;color:var(--success-text)">granted</b> · config/.env · recorded at 2026-10-13T09:14:22Z</div>
+
+      <div class="row" style="margin-top:20px;justify-content:flex-end">
+        <button class="btn btn-quiet" data-close="landScrim">Cancel</button>
+        <button class="btn btn-primary" id="landConfirm">Confirm land</button>
+      </div>
+      <div class="v1note" style="margin-top:10px">Render-only — this prototype shows the flow; nothing fires on its own.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SURFACE 10 — TOUR
+     ================================================================ -->
+<div class="tour-scrim" id="tourOverlay" role="dialog" aria-modal="true" aria-label="Guided tour">
+  <div class="tour" id="tourCard">
+    <div class="tour-top">
+      <div class="kicker">guided tour · <span id="tourKicker">1 of 8</span></div>
+      <h3 id="tourTitle">Welcome to NextGit</h3>
+      <p id="tourDesc">The agent-era git platform. A quick walk through the console and its gates.</p>
+      <div class="tour-prog" style="margin-top:14px"><i id="tourProg" style="width:12.5%"></i></div>
+    </div>
+    <div class="tour-body">
+      <ul class="tour-points" id="tourPoints"><!-- injected --></ul>
+    </div>
+    <div class="tour-foot">
+      <button class="btn btn-quiet btn-sm" id="tourBack">Back</button>
+      <div class="tour-dots" id="tourDots"><!-- injected --></div>
+      <div class="row">
+        <button class="btn btn-quiet btn-sm" data-close="tourOverlay">Skip</button>
+        <button class="btn btn-primary btn-sm" id="tourNext">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(s,r){return (r||document).querySelector(s);};
+  var $$ = function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+
+  /* ============================================================
+     FAKE DATASET (verbatim from PROTOTYPE-BRIEF.md)
+     ============================================================ */
+  var PROPOSALS = [
+    {id:'agent-1', intent:'Refactor: session refresh with TTL', file:'src/auth.ts', plus:4, minus:1, landing:'ready',
+     checks:{fold:'pass',collision:'pass',conflicts:'fail',secrets:'pass',base:'pass'}},
+    {id:'agent-2', intent:'Add rotate-on-refresh to auth', file:'src/auth.ts', plus:9, minus:2, landing:'ready',
+     checks:{fold:'pass',collision:'pass',conflicts:'fail',secrets:'pass',base:'pass'}},
+    {id:'agent-3', intent:'Docs: quickstart polish', file:'docs/quickstart.md', plus:22, minus:5, landing:'ready',
+     checks:{fold:'pass',collision:'pass',conflicts:'pass',secrets:'pass',base:'pass'}},
+    {id:'agent-4', intent:'CLI: tighter error surface', file:'cli/errors.ts', plus:15, minus:8, landing:'ready',
+     checks:{fold:'pass',collision:'pass',conflicts:'pass',secrets:'pass',base:'unknown'}},
+    {id:'agent-5', intent:'Config: move secrets to env', file:'config/.env', plus:2, minus:0, landing:'withheld-secret',
+     checks:{fold:'unknown',collision:'pass',conflicts:'pass',secrets:'fail',base:'pass'}}
+  ];
+
+  var SIGNALS = {
+    'agent-1':{fit:0.91, trust:'unmeasured', liveness:0.88, proof:0.42, distance:0.00, cost:0.97},
+    'agent-2':{fit:0.74, trust:'unmeasured', liveness:0.81, proof:0.35, distance:0.12, cost:0.90},
+    'agent-3':{fit:0.98, trust:'unmeasured', liveness:0.96, proof:0.20, distance:0.00, cost:0.99},
+    'agent-4':{fit:0.83, trust:'unmeasured', liveness:0.70, proof:0.28, distance:0.00, cost:0.94},
+    'agent-5':{fit:0.61, trust:'unmeasured', liveness:0.66, proof:0.15, distance:0.00, cost:0.88}
+  };
+
+  var EVENTS = [
+    {code:'repo.pushed', repo:'agent-1', at:'just now'},
+    {code:'session.steered', repo:'agent-1', at:'1m'},
+    {code:'repo.pushed', repo:'agent-3', at:'2m'},
+    {code:'token.minted', repo:'demo', at:'3m'},
+    {code:'repo.pushed', repo:'agent-2', at:'4m'},
+    {code:'repo.landed', repo:'demo', at:'6m'},
+    {code:'repo.pushed', repo:'agent-5', at:'8m'},
+    {code:'checks.completed', repo:'agent-3', at:'9m'}
+  ];
+  var EVENT_POOL = [
+    {code:'repo.pushed', repo:'agent-4'}, {code:'session.steered', repo:'agent-2'},
+    {code:'token.minted', repo:'demo'}, {code:'judge.verdict', repo:'agent-1'},
+    {code:'repo.pushed', repo:'agent-3'}, {code:'receipt.signed', repo:'demo'},
+    {code:'repo.landed', repo:'demo'}
+  ];
+
+  var COMMITS = [
+    {sha:'550be50', msg:'baseline', author:'demo', date:'2026-10-10 09:00', root:true,
+     files:[{n:'README.md',s:'added',p:34,m:0,chip:'docs'},{n:'src/auth.ts',s:'added',p:18,m:0,chip:'code'},{n:'config/.env',s:'added',p:4,m:0,chip:'data'}]},
+    {sha:'804db99', msg:'agent-1: Refactor — session refresh with TTL', author:'agent-1', date:'2026-10-12 14:20',
+     files:[{n:'src/auth.ts',s:'modified',p:4,m:1,chip:'code'}]},
+    {sha:'d924a70', msg:'agent-2: rotate-on-refresh', author:'agent-2', date:'2026-10-12 15:02',
+     files:[{n:'src/auth.ts',s:'modified',p:9,m:2,chip:'code'}]},
+    {sha:'bd27fcf', msg:'agent-3: docs', author:'agent-3', date:'2026-10-13 07:41',
+     files:[{n:'docs/quickstart.md',s:'modified',p:22,m:5,chip:'docs'}]},
+    {sha:'fcc4210', msg:'agent-4: CLI errors', author:'agent-4', date:'2026-10-13 08:15',
+     files:[{n:'cli/errors.ts',s:'modified',p:15,m:8,chip:'code'},{n:'assets/demo.gif',s:'added',p:0,m:0,chip:'asset'}]}
+  ];
+
+  var ISSUES = [
+    {kind:'conflict', detail:'src/auth.ts · agent-1 × agent-2 · text-conflict (1 pair)', sev:'high', repo:'agent-2', link:'console', linkTxt:'Open conflict map', cls:'hot'},
+    {kind:'withheld-secret', detail:'agent-5 touches config/.env · secret-class, key names only', sev:'block', repo:'agent-5', link:'files', linkTxt:'Open secret viewer', cls:'block'},
+    {kind:'stale-base', detail:'agent-4 based on d924a70 · 1 commit behind tip', sev:'low', repo:'agent-4', link:'files', linkTxt:'Inspect base', cls:'low'},
+    {kind:'blocked-intent', detail:'agent-3 intent routed but not yet landed', sev:'medium', repo:'agent-3', link:'console', linkTxt:'Open proposal', cls:'med'}
+  ];
+
+  var SESSIONS = [
+    {id:'agent-1', state:'working', intent:'Refactor: session refresh with TTL', last:'repo.pushed · 2m ago'},
+    {id:'agent-2', state:'working', intent:'Add rotate-on-refresh to auth', last:'repo.pushed · 4m ago'},
+    {id:'agent-3', state:'idle', intent:'Docs: quickstart polish', last:'repo.pushed · 20m ago'},
+    {id:'agent-4', state:'idle', intent:'CLI: tighter error surface', last:'repo.pushed · 41m ago'}
+  ];
+
+  var AGENTS = [
+    {id:'agent-1', harness:'omp', caps:['propose'], policy:'land: manual · secrets: refused'},
+    {id:'agent-2', harness:'omp', caps:['propose'], policy:'land: manual · secrets: refused'},
+    {id:'agent-3', harness:'unrecorded', caps:['propose'], policy:'land: manual · secrets: refused'},
+    {id:'agent-4', harness:'omp', caps:['propose'], policy:'land: manual · secrets: refused'}
+  ];
+
+  var HARNESSES = [
+    {name:'codex', kind:'byo-cli', caps:'workspace-edit · prompt-args · probe'},
+    {name:'omp', kind:'byo-cli', caps:'workspace-edit · prompt-args · probe'},
+    {name:'pi', kind:'byo-cli', caps:'workspace-edit · prompt-args · probe'}
+  ];
+
+  var PARITY = [
+    {cap:'secret-redaction', v:'exceeds', e:'withheld-secret state ships by default; upstream has none'},
+    {cap:'withheld-secret-state', v:'exceeds', e:'key-names-only rendering + audited reveal'},
+    {cap:'agent-attribution', v:'exceeds', e:'per-agent authorship on every event and commit'},
+    {cap:'evidence-receipts', v:'exceeds', e:'12-key receipt on every landing'},
+    {cap:'audit-trail', v:'exceeds', e:'granted reveals carry decision records'},
+    {cap:'forking-signals', v:'parity', e:'six-cluster read incl. honest unmeasured'},
+    {cap:'merge-queue', v:'parity', e:'ordered, judge-gated queue'},
+    {cap:'proposal-triage', v:'parity', e:'grid + checks strip + conflict map'},
+    {cap:'conflict-detection', v:'parity', e:'text-conflict pairs across proposals'},
+    {cap:'files-browser', v:'parity', e:'tree + text/binary/secret viewer'},
+    {cap:'commit-history', v:'parity', e:'commit list → changed files'},
+    {cap:'judge-panel', v:'parity', e:'risk / intent / collision verdicts'},
+    {cap:'land-flow', v:'parity', e:'two-step arm → confirm'},
+    {cap:'session-steering', v:'below', e:'no steer channel upstream — v1 lands in event stream'},
+    {cap:'agent-identity-policy', v:'below', e:'policy {land: manual, secrets: refused} not expressible upstream'},
+    {cap:'agent-federation', v:'below', e:'cross-namespace proposals unsupported'},
+    {cap:'issues', v:'below', e:'derived kinds (conflict/withheld-secret/stale-base/blocked-intent) unmapped'},
+    {cap:'ci', v:'below', e:'judge-gated checks strip has no upstream analog'}
+  ];
+
+  var RECEIPT = [
+    {k:'repos', v:'demo ← agent-1'}, {k:'commit', v:'7c042f10'},
+    {k:'ancestor', v:'550be50'}, {k:'heads', v:'agent-1@804db99'},
+    {k:'foldHash', v:'f3a9…c21e'}, {k:'checks', v:'fold·collision·conflicts·secrets·base'},
+    {k:'results', v:'4 pass · 1 fail', sub:'merged-sha-equals-tested-sha: pass', pass:true},
+    {k:'mergedSha', v:'7c042f10'}, {k:'testedSha', v:'7c042f10'},
+    {k:'artifactRef', v:'r2://demo/receipts/7c042f10.json'}, {k:'at', v:'2026-10-13T09:14:22Z'},
+    {k:'lease', v:'{provider: "do", leaseId: "lz_9f21"}', wide:true}
+  ];
+
+  var SECRET_KEYS = ['DATABASE_URL','REDIS_URL'];
+  var SECRET_VALUE = 'DATABASE_URL = postgres://demo:FAKE-SECRET-DO-NOT-USE@db.internal:5432/app';
+
+  /* ============================================================
+     TICKER
+     ============================================================ */
+  var track = $('#tickerTrack');
+  function renderTicker(list){
+    track.innerHTML = '';
+    list.slice(0,8).forEach(function(ev,i){
+      var el = document.createElement('div');
+      el.className = 'ev';
+      el.style.animationDelay = (i===0?0:i*0.02)+'s';
+      el.innerHTML = '<span class="tag">'+ev.code+'</span><span class="code">'+ev.repo+'</span>'+
+                     '<span class="at tnum">'+ev.at+'</span>';
+      track.appendChild(el);
+    });
+  }
+  renderTicker(EVENTS);
+  var poolIdx = 0;
+  setInterval(function(){
+    var next = EVENT_POOL[poolIdx % EVENT_POOL.length]; poolIdx++;
+    EVENTS.unshift({code:next.code, repo:next.repo, at:'just now'});
+    EVENTS = EVENTS.slice(0,8);
+    for(var i=1;i<EVENTS.length;i++){ if(EVENTS[i].at==='just now'){ EVENTS[i].at='1m'; } }
+    renderTicker(EVENTS);
+  }, 3000);
+
+  /* ============================================================
+     VIEW SWITCHING + SKELETON
+     ============================================================ */
+  var TOUR_ONLY = false;
+  function showView(name){
+    if(name === 'tour'){ openTour(); return; }
+    $$('.view').forEach(function(v){ v.classList.toggle('active', v.getAttribute('data-view')===name); });
+    $$('#mainnav button').forEach(function(b){ if(b.getAttribute('data-go')===name){ b.setAttribute('aria-current','page'); } else { b.removeAttribute('aria-current'); } });
+    var v = $('.view[data-view="'+name+'"]');
+    if(v){
+      var body = $('.view-body', v);
+      if(body){ body.classList.add('is-loading'); setTimeout(function(){ body.classList.remove('is-loading'); }, 420); }
+    }
+    window.__view = name;
+  }
+  document.addEventListener('click', function(e){
+    var go = e.target.closest('[data-go]');
+    if(go){ showView(go.getAttribute('data-go')); return; }
+    var cl = e.target.closest('[data-close]');
+    if(cl){ var id=cl.getAttribute('data-close'); var el=document.getElementById(id); if(el) el.classList.remove('open'); }
+  });
+
+  /* connection toggle */
+  var conn = $('#conn');
+  conn.addEventListener('click', function(){
+    var live = conn.classList.toggle('live');
+    conn.classList.toggle('polling', !live);
+    $('.state', conn).textContent = live ? 'live' : 'polling';
+    toast(live ? 'Connection mode: live (SSE)' : 'Connection mode: polling every 5s');
+  });
+
+  /* ============================================================
+     TOAST
+     ============================================================ */
+  var toastEl = $('#toast'), toastT;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove('on'); }, 1900);
+  }
+
+  /* ============================================================
+     PROPOSAL CARDS (surface 1)
+     ============================================================ */
+  var CHECK_ORDER = ['fold','collision','conflicts','secrets','base'];
+  function checksStrip(checks){
+    return '<div class="checks"><div class="cap">checks</div><div class="checks-row">' +
+      CHECK_ORDER.map(function(k){
+        var st = checks[k];
+        return '<span class="check '+st+'"><span class="k">'+k+'</span><span class="v">'+st+'</span></span>';
+      }).join('') + '</div></div>';
+  }
+  function proposalCard(p){
+    var secret = p['landing'] === 'withheld-secret';
+    var card = document.createElement('article');
+    card.className = 'card' + (secret ? ' secret-card' : '');
+    card.setAttribute('data-proposal', p.id);
+    card.innerHTML =
+      '<div class="card-pad">' +
+        '<div class="card-top">' +
+          '<span class="repo-name"><span class="g"></span>'+p.id+'</span>' +
+          '<span class="lchip '+p.landing+'">'+p.landing+'</span>' +
+        '</div>' +
+        '<div class="intent">'+p.intent+'</div>' +
+        '<div class="meta-line"><span>'+p.file+'</span>' +
+          '<span class="delta-add">+'+p.plus+'</span><span class="delta-del">&minus;'+p.minus+'</span></div>' +
+        checksStrip(p.checks) +
+        (secret ? '<div class="banner" style="margin-top:12px">Blocked — secret-class file. The diff is withheld; only key names are shown. Use <b style="font-weight:400">secret view</b> to inspect or reveal (audited).</div>' : '') +
+        '<div class="card-actions">' +
+          '<button class="btn btn-quiet btn-sm" data-diff="'+p.id+'">view diff</button>' +
+          '<button class="btn btn-quiet btn-sm" data-merge="'+p.id+'">preview merge</button>' +
+          (secret
+            ? '<button class="btn btn-ghost btn-sm" data-secretview="'+p.id+'">secret view</button>'
+            : '<button class="btn btn-primary btn-sm" data-land="'+p.id+'">land</button>') +
+        '</div>' +
+        '<div class="armed-slot"></div>' +
+      '</div>';
+    return card;
+  }
+  var proposalGrid = $('#proposalGrid');
+  PROPOSALS.forEach(function(p){ proposalGrid.appendChild(proposalCard(p)); });
+
+  /* ============================================================
+     MERGE MODAL (surface 2)
+     ============================================================ */
+  var mergeScrim = $('#mergeScrim');
+  function openMerge(proposalId, tab){
+    var p = PROPOSALS.filter(function(x){return x.id===proposalId;})[0] || PROPOSALS[0];
+    $('#mergeTitle').textContent = 'Merge preview — ' + p.id;
+    $('#mergeSub').textContent = p.intent + ' · ' + p.file;
+    // pick default tab by nature of the proposal
+    var t = tab || (p.landing==='withheld-secret' ? 'secret' : (p.id==='agent-3'||p.id==='agent-4' ? 'clean' : 'diff3'));
+    switchTab(t);
+    mergeScrim.classList.add('open');
+  }
+  function switchTab(which){
+    $$('#mergeTabs .tab').forEach(function(b){ b.setAttribute('aria-selected', String(b.getAttribute('data-tab')===which)); });
+    $$('.tabpane', mergeScrim).forEach(function(pn){ pn.classList.toggle('active', pn.getAttribute('data-pane')===which); });
+  }
+  $('#mergeTabs').addEventListener('click', function(e){
+    var t = e.target.closest('.tab'); if(t){ switchTab(t.getAttribute('data-tab')); }
+  });
+
+  /* secret box shared (merge + files) */
+  function secretBoxHTML(state, idPrefix){
+    var revealed = state && state.revealed;
+    return '' +
+      '<div class="row" style="justify-content:space-between"><span class="mono small" style="color:#a3175c">secret-class — key names only</span>' +
+      '<span class="mono small muted">config/.env</span></div>' +
+      '<div style="margin-top:8px">' +
+        SECRET_KEYS.map(function(k){
+          return '<div class="skey"><span class="kn">'+k+'</span>' +
+            (revealed ? '' : '<span class="mono small muted">[withheld]</span>') + '</div>';
+        }).join('') +
+      '</div>' +
+      (revealed
+        ? '<div class="revealed"><div class="diff-cap" style="margin:0">granted value</div><div class="val">'+SECRET_VALUE+'</div></div>' +
+          '<div class="audit-note"><span class="seal">audit</span> decision: <b style="font-weight:400;color:var(--success-text)">granted</b> · recorded · actor: john</div>'
+        : '<button class="btn btn-ghost btn-sm" style="margin-top:12px" data-reveal="'+idPrefix+'">Reveal (audited)</button>');
+  }
+  function refreshSecret(idPrefix, state){
+    var host = document.getElementById('secretbox-'+idPrefix);
+    if(host) host.innerHTML = secretBoxHTML(state, idPrefix);
+  }
+  $('#mergeSecretBox').innerHTML = '<div id="secretbox-merge"></div>';
+  refreshSecret('merge', {revealed:false});
+
+  // reveal delegation (works for merge + files boxes)
+  document.addEventListener('click', function(e){
+    var rv = e.target.closest('[data-reveal]');
+    if(rv){
+      var prefix = rv.getAttribute('data-reveal');
+      revealState[prefix] = {revealed:true};
+      refreshSecret(prefix, revealState[prefix]);
+      if(prefix==='files'){ renderViewer(); }
+      toast('Reveal granted — audited (config/.env)');
+    }
+  });
+  var revealState = { merge:{revealed:false}, files:{revealed:false} };
+
+  /* comments (in-memory, optimistic) */
+  var cmts = [{who:'john', line:'line 3', txt:'looks good, ship it'}];
+  function renderComments(){
+    var host = $('#cmtList');
+    host.innerHTML = cmts.map(function(c){
+      return '<div class="cmt"><span class="av">'+c.who.charAt(0)+'</span><div><div class="who">'+c.who+
+        ' <span class="line">· '+c.line+'</span></div><div class="txt">'+escapeHtml(c.txt)+'</div></div></div>';
+    }).join('');
+  }
+  renderComments();
+  $('#cmtSend').addEventListener('click', function(){
+    var ta = $('#cmtText'); var v = ta.value.trim();
+    if(!v) return;
+    cmts.push({who:'you', line:'line 3', txt:v});
+    renderComments(); ta.value='';
+    toast('Comment added to src/auth.ts (in-memory)');
+  });
+
+  /* ============================================================
+     LAND FLOW — two-step arm → confirm (surfaces 1, 11, 12)
+     ============================================================ */
+  var landScrim = $('#landScrim');
+  function armslot(card){ return $('.armed-slot', card); }
+  document.addEventListener('click', function(e){
+    // arm
+    var arm = e.target.closest('[data-land]');
+    if(arm){
+      var id = arm.getAttribute('data-land');
+      var card = document.querySelector('.card[data-proposal="'+id+'"]');
+      var slot = armslot(card);
+      if(arm.getAttribute('data-armed')==='1'){
+        openLand(id);
+      } else {
+        arm.setAttribute('data-armed','1');
+        arm.textContent = 'confirm land →';
+        arm.classList.add('armed');
+        slot.innerHTML = '<div class="armed-note"><span class="dot working"></span>Step 1 of 2 — armed. Click again to review the judge verdict.</div>';
+      }
+      return;
+    }
+    // secret view (files)
+    var sv = e.target.closest('[data-secretview]');
+    if(sv){
+      showView('files'); setRepo('agent-5'); setTimeout(function(){ selectFile('config/.env'); }, 460);
+      return;
+    }
+    // diff / merge modal
+    var dv = e.target.closest('[data-diff]');
+    if(dv){ openMerge(dv.getAttribute('data-diff'), 'diff3'); return; }
+    var mv = e.target.closest('[data-merge]');
+    if(mv){ openMerge(mv.getAttribute('data-merge')); return; }
+  });
+
+  function openLand(id){
+    $('#landRepo').textContent = id;
+    setVariant('ESCALATE');
+    landScrim.classList.add('open');
+    // staggered reveal of receipt
+    $$('#receipt .rkey').forEach(function(r,i){ r.style.opacity=0; r.style.transform='translateY(6px)'; r.style.transition='all .28s ease'; setTimeout(function(){ r.style.opacity=1; r.style.transform='none'; }, 40*i); });
+  }
+  $('#receipt').innerHTML = RECEIPT.map(function(r){
+    return '<div class="rkey'+(r.pass?' pass':'')+'"'+(r.wide?' style="grid-column:1/-1"':'')+'><div class="k">'+r.k+'</div><div class="v">'+r.v+'</div>'+(r.sub?'<div class="v" style="color:var(--success-text);margin-top:2px">'+r.sub+'</div>':'')+'</div>';
+  }).join('');
+  var VARIANT_COPY = {
+    'ESCALATE':{desc:'A senior-security reviewer must sign off before this lands.', codes:[['risk','risk:senior-security:agent-2'],['intent','intent:contradicts:agent-2']]},
+    'CONFIRM':{desc:'Human confirmation required — the judge is not certain enough to act.', codes:[['intent','intent:contradicts:agent-2']]},
+    'ACT':{desc:'Judge is confident — proceed to land under recorded evidence.', codes:[]},
+    'recorded-evidence':{desc:'No fresh judge run; landing proceeds strictly against the recorded evidence receipt.', codes:[]},
+    'fail-closed':{desc:'Judge unavailable — fail closed. Proposal stays armed and is never auto-landed.', codes:[['status','503 judge_unavailable']]}
+  };
+  function setVariant(name){
+    var box = $('#verdictBox');
+    box.className = 'verdict ' + (name==='fail-closed'?'FAIL':name);
+    $('#verdictBig').textContent = (name==='fail-closed'?'FAIL-CLOSED':name);
+    var copy = VARIANT_COPY[name] || VARIANT_COPY.ESCALATE;
+    $('#verdictDesc').textContent = copy.desc;
+    $('#verdictCodes').innerHTML = copy.codes.length
+      ? copy.codes.map(function(c){return '<div class="code-row"><span class="sev">'+c[0]+'</span> '+c[1]+'</div>';}).join('')
+      : '<div class="code-row"><span class="sev" style="color:var(--success-text)">ok</span> no blocking codes</div>';
+    $$('#variantBtns button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-variant')===name)); });
+  }
+  $('#variantBtns').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-variant]'); if(b){ setVariant(b.getAttribute('data-variant')); }
+  });
+  $('#landConfirm').addEventListener('click', function(){
+    toast('Land recorded — receipt signed (render-only)');
+    landScrim.classList.remove('open');
+  });
+
+  /* ============================================================
+     FILES BROWSER (surface 3)
+     ============================================================ */
+  var REPO_FILES = {
+    'agent-1':[{t:'dir',n:'src'},{t:'file',n:'src/auth.ts',kind:'text'},{t:'file',n:'README.md',kind:'text'}],
+    'agent-2':[{t:'dir',n:'src'},{t:'file',n:'src/auth.ts',kind:'text'},{t:'file',n:'README.md',kind:'text'}],
+    'agent-3':[{t:'dir',n:'docs'},{t:'file',n:'docs/quickstart.md',kind:'text'},{t:'file',n:'README.md',kind:'text'}],
+    'agent-4':[{t:'dir',n:'cli'},{t:'file',n:'cli/errors.ts',kind:'text'},{t:'file',n:'assets/demo.gif',kind:'binary'},{t:'file',n:'README.md',kind:'text'}],
+    'agent-5':[{t:'dir',n:'config'},{t:'file',n:'config/.env',kind:'secret'},{t:'file',n:'README.md',kind:'text'}]
+  };
+  var TEXT_FILE = {
+    'src/auth.ts':'// session refresh — renewed per call\nexport function refreshSession(token) {\n  const ttl = 60 * 60;\n  return store.put(token, { ttl });\n}\n',
+    'README.md':'# NextGit\n\nAgent-era git. Judge-gated, evidence-backed.\n',
+    'docs/quickstart.md':'# NextGit quickstart\n\nInstall the CLI once: `nextgit up`.\nPropose with your agent, review in Console.\n',
+    'cli/errors.ts':'export function fail(code, detail) {\n  throw new NextGitError(code, detail);\n}\n'
+  };
+  var currentRepo = 'agent-1', currentFile = 'src/auth.ts';
+  var picker = $('#repoPicker');
+  PROPOSALS.forEach(function(p){
+    var b=document.createElement('button'); b.textContent=p.id; b.setAttribute('aria-pressed', String(p.id===currentRepo));
+    b.addEventListener('click', function(){ setRepo(p.id); });
+    picker.appendChild(b);
+  });
+  function setRepo(id){
+    currentRepo = id;
+    $$('#repoPicker button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.textContent===id)); });
+    currentFile = REPO_FILES[id].filter(function(f){return f.t==='file';})[0].n;
+    renderTree(); renderViewer();
+  }
+  function renderTree(){
+    var ul = $('#fileTree'); ul.innerHTML='';
+    REPO_FILES[currentRepo].forEach(function(f){
+      var li=document.createElement('li');
+      if(f.t==='dir'){
+        li.innerHTML='<div class="row tree-row"><span class="ico">▸</span>'+f.n+'/</div>';
+        li.firstChild.className='row'; li.firstChild.style.cursor='default';
+        li.firstChild.innerHTML='<span class="ico">▪</span>'+f.n+'/';
+      } else {
+        var b=document.createElement('button');
+        b.className='row indent'+(f.n===currentFile?'':'');
+        b.setAttribute('aria-current', String(f.n===currentFile));
+        b.innerHTML='<span class="ico">'+fileIcon(f.kind)+'</span>'+f.n;
+        (function(fn){ b.addEventListener('click', function(){ selectFile(fn); }); })(f.n);
+        li.appendChild(b);
+      }
+      ul.appendChild(li);
+    });
+  }
+  function fileIcon(kind){ return kind==='secret'?'🔑':kind==='binary'?'◫':'≡'; }
+  function selectFile(name){
+    currentFile = name; revealState.files = {revealed:false};
+    renderTree(); renderViewer();
+  }
+  function renderViewer(){
+    var v = $('#viewer');
+    var rec = REPO_FILES[currentRepo].filter(function(f){return f.n===currentFile;})[0] || {kind:'text',n:currentFile};
+    var hiddenRaw = rec.kind === 'secret';
+    var head = '<div class="viewer-head"><div class="crumbs"><b>'+currentRepo+'</b> / '+
+      currentFile.split('/').map(function(s){return s;}).join(' / ')+'</div>' +
+      '<div class="row">'+ (hiddenRaw ? '<span class="load-tag">raw link hidden on secret-class</span>' : '<a class="small" href="#" onclick="return false">raw</a>') +'</div></div>';
+    var body='';
+    if(rec.kind==='secret'){
+      body='<div class="viewer-body" style="padding:18px"><div id="secretbox-files"></div></div>';
+    } else if(rec.kind==='binary'){
+      body='<div class="viewer-body"><div class="binary-note"><div class="glyph"></div><div>Binary asset — metadata only</div><div class="mono small" style="margin-top:6px">assets/demo.gif · image/gif · 412 KB · no text preview</div></div></div>';
+    } else {
+      var lines = (TEXT_FILE[currentFile]||'// (no preview)').replace(/\n$/,'').split('\n');
+      body='<div class="viewer-body"><div class="code">'+lines.map(function(l,i){
+        return '<div class="ln"><span class="g">'+(i+1)+'</span><span class="c">'+escapeHtml(l||' ')+'</span></div>';
+      }).join('')+'</div></div>';
+    }
+    v.innerHTML = head + body;
+    if(rec.kind==='secret'){ refreshSecret('files', revealState.files); }
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  setRepo('agent-1');
+
+  /* ============================================================
+     HISTORY (surface 4)
+     ============================================================ */
+  var commitList = $('#commitList');
+  function renderCommits(){
+    commitList.innerHTML='';
+    COMMITS.slice().reverse().forEach(function(c){
+      var row=document.createElement('div');
+      row.className='commit'; row.setAttribute('role','button'); row.tabIndex=0;
+      row.innerHTML='<span class="sha">'+c.sha+'</span>' +
+        '<span><div class="msg">'+escapeHtml(c.msg)+'</div><div class="sub">'+c.author+' · '+c.date+'</div></span>' +
+        '<span class="when tnum">'+c.files.length+' file'+(c.files.length>1?'s':'')+'</span>';
+      row.addEventListener('click', function(){ selectCommit(c.sha); });
+      row.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectCommit(c.sha);} });
+      commitList.appendChild(row);
+    });
+  }
+  function selectCommit(sha){
+    var c = COMMITS.filter(function(x){return x.sha===sha;})[0]; if(!c) return;
+    $$('#commitList .commit').forEach(function(r,i){ r.setAttribute('aria-current', String(r.querySelector('.sha').textContent===sha)); });
+    $('#histTitle').textContent = c.sha + ' — ' + c.msg;
+    $('#histSub').textContent = c.author + ' · ' + c.date;
+    var host = $('#histFiles');
+    var html = '';
+    if(c.root){ html += '<div class="root-note">Root commit — no parent to diff against. Files shown as of first write.</div>'; }
+    html += '<table class="tbl"><thead><tr><th>file</th><th style="width:110px">status</th><th style="width:110px">changes</th><th style="width:200px">assets</th></tr></thead><tbody>';
+    c.files.forEach(function(f){
+      var chipCls = f.chip==='data' ? 'data' : (f.chip==='code'?'code':'');
+      html += '<tr><td class="prim mono">'+f.n+'</td><td>'+f.s+'</td>' +
+        '<td class="mono"><span class="delta-add">+'+f.p+'</span> <span class="delta-del">&minus;'+f.m+'</span></td>' +
+        '<td><span class="assetchip '+chipCls+'">'+f.chip+'</span></td></tr>';
+    });
+    html += '</tbody></table>';
+    host.innerHTML = html;
+  }
+  renderCommits();
+  selectCommit('804db99');
+
+  /* ============================================================
+     FORKS & SIGNALS (surface 5)
+     ============================================================ */
+  var forkGrid = $('#forkGrid');
+  PROPOSALS.forEach(function(p){
+    var s = SIGNALS[p.id];
+    var card=document.createElement('article'); card.className='card';
+    function sig(name,val){
+      if(val==='unmeasured'){ return '<span class="sig unmeasured"><span class="n">'+name+'</span><span class="v">unmeasured</span></span>'; }
+      return '<span class="sig"><span class="n">'+name+'</span><span class="v">'+(typeof val==='number'?val.toFixed(2):val)+'</span></span>';
+    }
+    card.innerHTML='<div class="card-pad">' +
+      '<div class="card-top"><span class="repo-name"><span class="g"></span>'+p.id+'</span>' +
+      '<span class="chip mono">base: demo</span></div>' +
+      '<div class="intent" style="font-size:19px">'+p.intent+'</div>' +
+      '<div class="signal-grid">'+sig('fit',s.fit)+sig('trust',s.trust)+sig('liveness',s.liveness)+sig('proof',s.proof)+sig('distance',s.distance)+sig('cost',s.cost)+'</div>' +
+      '<div class="polchips"><span class="chip">land manual</span><span class="chip">secrets refused</span></div>' +
+      '</div>';
+    forkGrid.appendChild(card);
+  });
+
+  /* ============================================================
+     SESSIONS + STEER (surface 6)
+     ============================================================ */
+  var sessionRows = $('#sessionRows');
+  SESSIONS.forEach(function(s){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td class="prim mono">'+s.id+'</td><td>'+s.intent+'</td>' +
+      '<td class="evidence">'+s.last+'</td>' +
+      '<td><span class="row" style="gap:7px"><span class="dot '+(s.state==='working'?'working':'idle')+'"></span>'+s.state+'</span></td>';
+    sessionRows.appendChild(tr);
+  });
+  var steerText = $('#steerText');
+  steerText.addEventListener('input', function(){ $('#steerCount').textContent = steerText.value.length; });
+  $('#steerSend').addEventListener('click', function(){
+    var v = steerText.value.trim(); if(!v) return;
+    var tgt = $('#steerTarget').value;
+    EVENTS.unshift({code:'session.steered', repo:tgt, at:'just now'});
+    EVENTS = EVENTS.slice(0,8); renderTicker(EVENTS);
+    steerText.value=''; $('#steerCount').textContent='0';
+    toast('Steer sent → event stream (session.steered ' + tgt + ')');
+  });
+
+  /* ============================================================
+     ISSUES (surface 7)
+     ============================================================ */
+  var issueRows = $('#issueRows');
+  ISSUES.forEach(function(it){
+    var sevCls = it.sev==='high'?'fail':it.sev==='block'?'fail':it.sev==='low'?'unknown':'';
+    var chipCls = it.kind==='conflict'?'fail':(it.kind==='withheld-secret'?'unknown':(it.kind==='stale-base'?'unknown':''));
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><span class="check '+(chipCls||'')+'" style="border-radius:4px"><span class="v">'+it.kind+'</span></span></td>' +
+      '<td class="prim">'+it.detail+'</td>' +
+      '<td><span class="vchip '+(it.sev==='high'?'below':'')+'">'+it.sev+'</span></td>' +
+      '<td class="mono">'+it.repo+'</td>' +
+      '<td><button class="btn btn-quiet btn-sm" data-go="'+it.link+'">'+it.linkTxt+'</button></td>';
+    issueRows.appendChild(tr);
+  });
+
+  /* ============================================================
+     AGENTS + HARNESSES (surface 8)
+     ============================================================ */
+  var agentRows = $('#agentRows');
+  AGENTS.forEach(function(a){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td class="prim mono">'+a.id+'</td>' +
+      '<td><span class="chip mono">'+a.harness+'</span></td>' +
+      '<td>'+a.caps.map(function(c){return '<span class="assetchip code">'+c+'</span>';}).join(' ')+'</td>' +
+      '<td><span class="chip">'+a.policy.split(' · ')[0]+'</span> <span class="chip">'+a.policy.split(' · ')[1]+'</span></td>';
+    agentRows.appendChild(tr);
+  });
+  var harnessRows = $('#harnessRows');
+  HARNESSES.forEach(function(h){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td class="prim mono">'+h.name+'</td><td><span class="chip mono">'+h.kind+'</span></td><td class="evidence">'+h.caps+'</td>';
+    harnessRows.appendChild(tr);
+  });
+
+  /* ============================================================
+     PARITY (surface 9)
+     ============================================================ */
+  var parityRows = $('#parityRows');
+  PARITY.forEach(function(r){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td class="prim mono">'+r.cap+'</td>' +
+      '<td><span class="vchip '+r.v+'">'+r.v+'</span></td>' +
+      '<td class="evidence">'+escapeHtml(r.e)+'</td>';
+    parityRows.appendChild(tr);
+  });
+
+  /* ============================================================
+     TOUR (surface 10)
+     ============================================================ */
+  var TOUR = [
+    {t:'Welcome to NextGit', d:'The agent-era git platform. A quick walk through the console and its gates.', p:['Judge-gated, evidence-backed convergence layer','Every landing carries a receipt','Honest state over confident fiction']},
+    {t:'The proposal grid', d:'Five agent proposals, each a fork off the demo base. Repo, intent, file, and a landing chip.', p:['agent-1..agent-5 propose changes','Landing chip: ready or withheld-secret','Actions: view diff · preview merge · land']},
+    {t:'The checks strip', d:'Every card carries five tri-state checks. Unknown renders neutral — it is never green.', p:['fold · collision · conflicts · secrets · base','pass / fail / unknown','Honest unknowns beat fake confidence']},
+    {t:'Conflicts', d:'When two proposals touch the same file, the conflict map pairs them and marks the kind.', p:['src/auth.ts shared by agent-1 × agent-2','kind: text-conflict','Resolve before landing either']},
+    {t:'Judge & land', d:'Landing is two steps: arm, then confirm against the judge verdict.', p:['Verdict: ESCALATE / CONFIRM / ACT','Codes: risk, intent','Fail-closed when the judge is unavailable']},
+    {t:'Secrets & reveal', d:'Secret-class files show key names only. Reveal is audited and records a decision.', p:['config/.env withholds its diff','Keys: DATABASE_URL, REDIS_URL','Reveal → granted, with an audit note']},
+    {t:'Forks & signals', d:'Each fork carries a six-cluster signal read — including an honest unmeasured.', p:['fit · trust · liveness · proof · distance · cost','Trust: unmeasured','Policy: land manual · secrets refused']},
+    {t:'Evidence receipt', d:'Every landing emits a 12-key receipt, including merged-sha == tested-sha.', p:['12 evidence keys','merged-sha-equals-tested-sha: pass','audit record for granted reveals']}
+  ];
+  var tourIdx = 0, tourScrim = $('#tourOverlay');
+  function renderTour(){
+    var s = TOUR[tourIdx];
+    $('#tourKicker').textContent = (tourIdx+1)+' of '+TOUR.length;
+    $('#tourTitle').textContent = s.t;
+    $('#tourDesc').textContent = s.d;
+    $('#tourProg').style.width = ((tourIdx+1)/TOUR.length*100)+'%';
+    $('#tourPoints').innerHTML = s.p.map(function(x){return '<li><span class="b"></span><span>'+escapeHtml(x)+'</span></li>';}).join('');
+    $('#tourDots').innerHTML = TOUR.map(function(_,i){return '<i class="'+(i<=tourIdx?'on':'')+'"></i>';}).join('');
+    $('#tourBack').style.visibility = tourIdx===0 ? 'hidden' : 'visible';
+    $('#tourNext').textContent = tourIdx===TOUR.length-1 ? 'Finish' : 'Next';
+  }
+  function openTour(){ tourScrim.classList.add('open'); renderTour(); }
+  $('#tourNext').addEventListener('click', function(){
+    if(tourIdx===TOUR.length-1){ tourScrim.classList.remove('open'); showView('console'); return; }
+    tourIdx++; renderTour();
+  });
+  $('#tourBack').addEventListener('click', function(){ if(tourIdx>0){ tourIdx--; renderTour(); } });
+  renderTour();
+
+  /* ============================================================
+     GLOBAL — Esc closes any open modal/overlay
+     ============================================================ */
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){
+      $$('.modal-scrim.open, .tour-scrim.open').forEach(function(m){ m.classList.remove('open'); });
+    }
+  });
+
+  // initial view
+  showView('console');
+})();
+</script>
+</body>
+</html>

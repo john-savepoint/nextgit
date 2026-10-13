@@ -1,0 +1,2301 @@
+<!--
+  NextGit — Prototype 07 · "Atelier Zero" (Editorial Studio)
+  ============================================================
+  Self-check (verified against PROTOTYPE-BRIEF.md coverage contract):
+    1. Triage console ............... view I — 5 proposal cards, checks strips (tri-state, honest unknown),
+                                      conflict map plate (agent-1 × agent-2, text-conflict), stats rings
+                                      (5·1·1·4·3), animated event ticker, live/polling connection toggle,
+                                      two-step land flow with render-only judge sheet.
+    2. Merge modal .................. diff3 plate (<<<<<<< ours / ======= / >>>>>>> theirs) for src/auth.ts,
+                                      clean diffs for agent-3, withheld-secret state for agent-5, reveal
+                                      affordance, comments thread + optimistic compose, Esc + button close.
+    3. Files browser ................ repo picker, breadcrumb, dir-first tree, TEXT / BINARY / SECRET viewers,
+                                      Reveal → granted value + audit note, raw link hidden on secret, skeleton.
+    4. History ...................... commit list → changed files (status word, ±, asset chips), root-commit
+                                      note, back-to-files.
+    5. Forks & signals .............. six-cluster chips incl. "unmeasured", policy chips, lineage (base: demo).
+    6. Sessions + steer ............. state dots, intent, last activity; ≤500-char composer → ticker
+                                      session.steered event + honest v1 note.
+    7. Issues ....................... 4 kinds (conflict / withheld-secret / stale-base / blocked-intent),
+                                      severity, repo, links to card/file.
+    8. Agents roster + harnesses .... policy chips, BYO kind chip, capabilities.
+    9. Parity dashboard ............. 5/8/5 chips + 18-row table with verdict + evidence columns.
+   10. Tour ......................... 8-step stepper (Intro → grid → checks → conflicts → judge & land →
+                                      secrets & reveal → forks → evidence), Next/Back + progress.
+   11. Reveal audit note + receipt .. 12-key evidence receipt (mergedSha==testedSha pass) + granted-reveal
+                                      audit record line.
+   12. Judge panel .................. risk/intent/collision verdict chips, skipped[] reasons (secret-class,
+                                      content-secret), fail-closed 503 copy — inside the land sheet.
+   13. Platform pulse strip ......... floors count, intents router verdict `merge-it` (agent-3), upstream
+                                      merge-back note.
+   Interactions: view switching (instant DOM toggle), modal open/Esc-close, land arm/confirm, reveal click,
+   comment compose (in-memory), animated ticker (~2.5–4s cadence), connection toggle (animates), skeleton
+   shimmers on view switch. All data from the brief's dataset, verbatim.
+   Single file: zero <script src>, zero <link href>, zero fetch/XHR; opens from file://.
+   Console: verified error-free via headless Chromium pass (see session transcript).
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NextGit — The Agent-Era Convergence Layer · Prototype 07 · Atelier Zero</title>
+<style>
+/* ============================================================
+   ATELIER ZERO — tokens (authoritative DS, bound verbatim)
+   ============================================================ */
+:root{
+  --paper:#efe7d2; --paper-warm:#ece4cf; --paper-dark:#ddd2b6; --bone:#f7f1de;
+  --ink:#15140f; --ink-soft:#2a2620; --ink-mute:#5a5448; --ink-faint:#8b8676;
+  --coral:#ed6f5c; --coral-soft:#f08e7c; --coral-ink:#a8432f;
+  --mustard:#e9b94a; --olive:#6e7448; --olive-ink:#565c36;
+  --line:rgba(21,20,15,0.14); --line-strong:rgba(21,20,15,0.30);
+  --sans:'Inter Tight','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --serif:'Playfair Display',Georgia,'Times New Roman',serif;
+  --mono:'JetBrains Mono','SF Mono',ui-monospace,'Cascadia Code',Menlo,Consolas,'Liberation Mono',monospace;
+  --shadow-card:0 30px 60px -30px rgba(21,20,15,0.15);
+  --shadow-pop:0 18px 44px -18px rgba(21,20,15,0.28);
+  --r-card:18px; --r-pop:24px;
+  --ease:0.18s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:auto}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-weight:400; font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  min-height:100vh; overflow-x:hidden;
+}
+/* paper noise — fixed, pointer-disabled, multiply turbulence @ ~6% + two soft warm radials */
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)' opacity='0.55'/></svg>");
+  opacity:0.06; mix-blend-mode:multiply;
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(900px 620px at 12% -8%, rgba(106,92,56,0.06), transparent 60%),
+    radial-gradient(760px 560px at 96% 108%, rgba(106,92,56,0.06), transparent 60%);
+}
+::selection{background:var(--coral); color:var(--bone)}
+button{font:inherit; color:inherit; background:none; border:0; cursor:pointer}
+a{color:inherit}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--coral-ink); outline-offset:2px; border-radius:4px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--mono); font-feature-settings:"tnum" 1; letter-spacing:0.01em}
+em{font-family:var(--serif); font-style:italic; font-weight:500; letter-spacing:0}
+.dot{color:var(--coral-ink)}
+.num{font-feature-settings:"tnum" 1}
+
+/* ============ side rails (fixed 36px strips, hidden <1280px) ============ */
+.side-rail{
+  position:fixed; top:0; bottom:0; width:36px; z-index:40; display:none;
+  align-items:center; justify-content:center; pointer-events:none;
+}
+.side-rail span{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--sans); font-weight:600; font-size:10px; letter-spacing:0.42em;
+  text-transform:uppercase; color:var(--ink-faint); white-space:nowrap;
+}
+.side-rail.left{left:0; border-right:1px solid var(--line)}
+.side-rail.right{right:0; border-left:1px solid var(--line)}
+@media (min-width:1280px){ .side-rail{display:flex} }
+
+/* ============ top metadata strip (mandatory) ============ */
+.meta-strip{
+  position:sticky; top:0; z-index:60; background:var(--paper);
+  border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:18px;
+  padding:9px 64px; font-size:10.5px; color:var(--ink-faint);
+  font-family:var(--sans); font-weight:500; letter-spacing:0.06em; text-transform:uppercase;
+}
+.meta-strip .m-vol{font-weight:600; color:var(--ink-mute)}
+.meta-strip .m-file{display:flex; align-items:center; gap:8px; min-width:0}
+.meta-strip .m-file b{color:var(--ink-mute); font-weight:600}
+.meta-strip .m-right{margin-left:auto; display:flex; align-items:center; gap:14px}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);flex:none;
+  animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.pulse-dot.polling{animation-duration:5.2s}
+.conn-pill{display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+  border-radius:999px;padding:4px 12px 4px 10px;background:transparent;
+  font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-mute);
+  transition:var(--ease)}
+.conn-pill:hover{background:rgba(21,20,15,0.04)}
+.conn-pill .sw{width:22px;height:12px;border-radius:999px;border:1px solid var(--line-strong);
+  position:relative;flex:none;transition:var(--ease)}
+.conn-pill .sw::after{content:"";position:absolute;top:2px;left:2px;width:6px;height:6px;
+  border-radius:50%;background:var(--ink-mute);transition:var(--ease)}
+.conn-pill.live .sw{background:rgba(237,111,92,0.14);border-color:var(--coral-ink)}
+.conn-pill.live .sw::after{left:12px;background:var(--coral)}
+.conn-pill .conn-word{min-width:52px;text-align:left}
+@media (max-width:1279px){
+  .meta-strip{padding:9px 44px}
+  .meta-strip .m-file{display:none}
+}
+@media (max-width:880px){ .meta-strip{padding:9px 24px} .meta-strip .m-vol{display:none} }
+
+/* ============ header: brand + nav ============ */
+.site-head{
+  position:sticky; top:37px; z-index:55; background:var(--paper);
+  border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:28px; padding:16px 64px;
+}
+@media (max-width:1279px){ .site-head{padding:16px 44px; gap:20px; top:37px} }
+@media (max-width:880px){ .site-head{padding:14px 24px; gap:14px; flex-wrap:wrap} }
+.brand{display:flex; align-items:baseline; gap:10px; text-decoration:none; flex:none}
+.brand-mark{font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px;
+  color:var(--coral-ink); line-height:1; transform:translateY(2px)}
+.brand-name{font-weight:800; font-size:19px; letter-spacing:-0.03em}
+.brand-sub{font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--ink-faint);
+  font-weight:600; margin-left:2px}
+.nav{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-left:auto}
+.nav-pill{
+  padding:8px 16px; border-radius:999px; border:1px solid transparent;
+  font-size:13px; font-weight:600; letter-spacing:-0.01em; color:var(--ink-soft);
+  transition:var(--ease); white-space:nowrap;
+}
+.nav-pill:hover{background:rgba(21,20,15,0.04)}
+.nav-pill.active{background:var(--ink); color:var(--bone); border-color:var(--ink)}
+.nav-pill.tour-cta{background:var(--coral); color:var(--ink); font-weight:800}
+.nav-pill.tour-cta:hover{background:var(--coral-soft)}
+.nav-pill.tour-cta.active{background:var(--ink); color:var(--bone)}
+@media (max-width:880px){ .nav{margin-left:0; width:100%} .brand-sub{display:none} }
+
+/* ============ layout shell ============ */
+.shell{position:relative; z-index:1; max-width:1360px; margin:0 auto;
+  padding:0 64px 0}
+@media (max-width:1279px){ .shell{padding:0 44px} }
+@media (max-width:1080px){ .shell{padding:0 32px} }
+@media (max-width:880px){ .shell{padding:0 24px} }
+
+/* ============ section rule (Roman · meta · page-of) ============ */
+.sec-rule{border-top:1px solid var(--line-strong); display:flex; align-items:baseline;
+  gap:18px; padding:14px 0 0; margin-top:44px}
+.sec-roman{font-family:var(--serif); font-style:italic; font-weight:500; font-size:14px;
+  color:var(--coral-ink); flex:none}
+.sec-meta{font-size:10.5px; letter-spacing:0.18em; text-transform:uppercase;
+  color:var(--ink-faint); font-weight:600; flex:1; text-align:center; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis}
+.sec-page{font-size:11px; color:var(--ink-faint); font-feature-settings:"tnum" 1; flex:none}
+
+/* ============ view head: kicker + display headline ============ */
+.view{padding-bottom:90px}
+.view-head{padding:34px 0 30px; max-width:900px}
+.kicker{display:flex; align-items:center; gap:12px; font-size:11px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--coral-ink); margin-bottom:18px}
+.kicker::before{content:""; width:18px; height:1px; background:var(--coral-ink)}
+.h-display{font-weight:800; font-size:clamp(30px,4.2vw,46px); letter-spacing:-0.035em;
+  line-height:1.04; color:var(--ink)}
+.h-display .dot{font-weight:800}
+.view-lede{margin-top:16px; max-width:560px; color:var(--ink-mute); font-size:15px; line-height:1.6}
+
+/* ============ stat rings (header chips) ============ */
+.stats-rings{display:flex; gap:26px; flex-wrap:wrap; padding:6px 0 8px}
+.ring-wrap{display:flex; flex-direction:column; align-items:center; gap:7px; width:64px}
+.ring{width:34px; height:34px; border-radius:50%; border:1.5px dashed var(--ink-faint);
+  display:flex; align-items:center; justify-content:center; position:relative}
+.ring.coral{border:1.5px solid var(--coral-ink)}
+.ring-num{font-size:12px; font-weight:800; font-feature-settings:"tnum" 1; color:var(--ink)}
+.ring-label{font-size:9.5px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--ink-faint); text-align:center}
+
+/* ============ platform pulse strip (surface 13) ============ */
+.pulse-band{
+  margin-top:26px; border:1px solid var(--line); border-radius:var(--r-card);
+  background:var(--bone); box-shadow:var(--shadow-card);
+  display:flex; align-items:stretch; overflow:hidden; flex-wrap:wrap;
+}
+.pulse-cell{display:flex; align-items:center; gap:12px; padding:14px 22px;
+  border-right:1px solid var(--line); flex:1; min-width:200px}
+.pulse-cell:last-child{border-right:0}
+.pulse-k{font-size:9.5px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--ink-faint); white-space:nowrap}
+.pulse-v{font-family:var(--mono); font-size:13px; color:var(--ink); font-feature-settings:"tnum" 1}
+.pulse-v .v-merge{color:var(--olive-ink); font-weight:600}
+.pulse-note{font-size:12px; color:var(--ink-mute)}
+.pulse-star{width:7px;height:7px;border-radius:50%;background:var(--mustard);flex:none}
+
+/* ============ proposal grid + cards ============ */
+.grid-proposals{
+  display:grid; grid-template-columns:repeat(12,1fr); gap:22px; margin-top:34px;
+}
+.card{
+  background:var(--bone); border-radius:var(--r-card); padding:26px 28px 24px;
+  box-shadow:inset 0 0 0 1px rgba(21,20,15,0.06), var(--shadow-card);
+  display:flex; flex-direction:column; gap:14px; position:relative;
+  transition:transform var(--ease), box-shadow var(--ease);
+}
+.card:hover{transform:translateY(-3px)}
+.card .arrow-mark{
+  position:absolute; right:22px; top:20px; width:28px; height:28px; border-radius:50%;
+  border:1px solid var(--line-strong); display:flex; align-items:center; justify-content:center;
+  color:var(--ink-mute); font-size:13px; transition:var(--ease); pointer-events:none;
+}
+.card:hover .arrow-mark{color:var(--coral); border-color:var(--coral-ink)}
+.card-7{grid-column:span 7} .card-5{grid-column:span 5}
+.card-4{grid-column:span 4} .card-3{grid-column:span 3}
+@media (max-width:1080px){ .card-7,.card-5,.card-4,.card-3{grid-column:span 12} }
+.card-top{display:flex; align-items:baseline; gap:12px; padding-right:34px}
+.card-num{font-family:var(--serif); font-style:italic; font-weight:500; font-size:20px;
+  color:var(--coral-ink); line-height:1}
+.card-eyebrow{font-size:10.5px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase;
+  color:var(--ink-mute)}
+.card-intent{font-weight:800; font-size:21px; letter-spacing:-0.025em; line-height:1.16; color:var(--ink)}
+.card-files{font-family:var(--mono); font-size:12px; color:var(--ink-mute);
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.card-files .pm{font-weight:600}
+.card-files .pm.add{color:var(--olive-ink)} .card-files .pm.del{color:var(--coral-ink)}
+
+/* chips */
+.chip{display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px;
+  font-size:10.5px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase;
+  border:1px solid var(--line-strong); color:var(--ink-mute); background:transparent; white-space:nowrap}
+.chip.land-ready{background:var(--ink); color:var(--bone); border-color:var(--ink)}
+.chip.land-withheld{background:var(--coral); color:var(--ink); border-color:var(--coral)}
+.chip.land-blocked{background:transparent; color:var(--coral-ink); border-color:var(--coral-ink);
+  border-style:dashed}
+.chip.policy{background:transparent; color:var(--olive-ink); border-color:var(--olive)}
+.chip.kind{color:var(--ink-soft)}
+.chip.byo{color:var(--ink-soft); border-style:dashed}
+
+/* checks strip — five tri-state chips */
+.checks{display:flex; gap:7px; flex-wrap:wrap}
+.chk{padding:4px 10px; border-radius:8px; font-size:10px; font-weight:700;
+  letter-spacing:0.1em; text-transform:uppercase; display:inline-flex; align-items:center; gap:6px;
+  border:1px solid transparent}
+.chk .ck-n{font-weight:600; opacity:0.72; letter-spacing:0.06em}
+.chk.pass{background:var(--olive-ink); color:var(--bone)}
+.chk.fail{background:var(--coral); color:var(--ink)}
+.chk.unknown{background:transparent; color:var(--ink-mute); border:1px dashed var(--ink-faint)}
+.chk .ck-glyph{font-family:var(--mono); font-weight:500}
+
+/* card actions */
+.card-actions{display:flex; gap:9px; flex-wrap:wrap; margin-top:auto; padding-top:6px}
+.btn{display:inline-flex; align-items:center; gap:8px; border-radius:999px;
+  padding:10px 20px; font-size:13px; font-weight:700; letter-spacing:-0.01em;
+  transition:var(--ease); border:1px solid transparent; white-space:nowrap}
+.btn.primary{background:var(--coral); color:var(--ink); box-shadow:0 14px 26px -16px rgba(237,111,92,0.55)}
+.btn.primary:hover{background:var(--coral-soft); transform:translateY(-1px)}
+.btn.ghost{border-color:rgba(21,20,15,0.2); color:var(--ink)}
+.btn.ghost:hover{background:rgba(21,20,15,0.04); transform:translateY(-1px)}
+.btn.sm{padding:7px 14px; font-size:12px}
+.btn.armed{background:var(--ink); color:var(--bone)}
+.btn[disabled]{opacity:0.45; cursor:not-allowed; transform:none}
+.btn .arr{font-size:12px}
+
+/* armed confirm bar — staggered reveal */
+.arm-bar{display:flex; flex-direction:column; gap:10px; border:1px dashed var(--coral-ink);
+  border-radius:12px; padding:14px; background:rgba(237,111,92,0.05)}
+.arm-bar .arm-q{font-size:12.5px; color:var(--ink-soft)}
+.arm-bar .arm-q b{font-weight:700}
+.arm-row{display:flex; gap:8px; flex-wrap:wrap}
+.arm-bar > *{animation:riseIn 0.3s ease both}
+.arm-bar > *:nth-child(2){animation-delay:0.08s}
+.arm-bar > *:nth-child(3){animation-delay:0.16s}
+@keyframes riseIn{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+
+/* ============ conflict map plate (visually distinct) ============ */
+.plate{
+  margin-top:30px; border-radius:var(--r-card); position:relative; overflow:hidden;
+  background:
+    repeating-linear-gradient(-45deg, rgba(21,20,15,0.028) 0 2px, transparent 2px 9px),
+    var(--paper-dark);
+  border:1px solid var(--line-strong);
+  box-shadow:inset 0 0 0 1px rgba(21,20,15,0.05), var(--shadow-card);
+  padding:26px 30px 28px;
+}
+.plate::before,.plate::after{
+  content:""; position:absolute; width:22px; height:22px; pointer-events:none;
+}
+.plate::before{top:10px; left:10px; border-top:1px solid var(--ink-mute); border-left:1px solid var(--ink-mute)}
+.plate::after{bottom:10px; right:10px; border-bottom:1px solid var(--ink-mute); border-right:1px solid var(--ink-mute)}
+.plate-head{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:18px}
+.plate-fig{font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em; color:var(--ink-mute);
+  text-transform:uppercase}
+.plate-title{font-weight:800; font-size:17px; letter-spacing:-0.02em}
+.plate-title .dot{font-weight:800}
+.conflict-row{display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.repo-chip{font-family:var(--mono); font-size:12.5px; font-weight:600; padding:7px 14px;
+  border-radius:10px; background:var(--bone); border:1px solid var(--line-strong); color:var(--ink)}
+.repo-chip .x{color:var(--coral-ink); font-weight:700}
+.conflict-mid{display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--coral-ink)}
+.conflict-mid .cm-glyph{font-family:var(--serif); font-style:italic; font-size:22px; line-height:1}
+.conflict-meta{font-family:var(--mono); font-size:11.5px; color:var(--ink-mute)}
+.conflict-detail{
+  margin-top:16px; display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;
+  border-top:1px solid var(--line); padding-top:14px;
+}
+.conflict-detail .cd-line{font-size:13px; color:var(--ink-soft); max-width:640px}
+.conflict-detail .cd-line b{font-weight:700}
+.lane-map{display:flex; flex-direction:column; gap:8px; margin-top:16px;
+  border-top:1px solid var(--line); padding-top:16px}
+.lane{display:grid; grid-template-columns:86px 1fr; align-items:center; gap:12px}
+.lane-name{font-family:var(--mono); font-size:11px; color:var(--ink-mute); text-align:right}
+.lane-track{position:relative; height:14px; border-radius:7px; background:rgba(21,20,15,0.05)}
+.lane-fill{position:absolute; top:0; bottom:0; border-radius:7px; background:var(--ink-mute); opacity:0.55}
+.lane-fill.hot{background:var(--coral); opacity:0.85}
+.lane-hit{position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--ink)}
+.lane-hit::after{content:"✕"; position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+  font-size:10px; color:var(--coral-ink); font-family:var(--mono)}
+.lane-key{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px;
+  color:var(--ink-faint); margin-top:2px; grid-column:2}
+
+/* ============ event ticker (the wire) ============ */
+.wire{margin-top:30px; border:1px solid var(--line); border-radius:var(--r-card);
+  background:var(--bone); box-shadow:var(--shadow-card); overflow:hidden}
+.wire-head{display:flex; align-items:center; gap:12px; padding:12px 22px;
+  border-bottom:1px solid var(--line)}
+.wire-title{font-size:10.5px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase;
+  color:var(--ink-mute)}
+.wire-live{margin-left:auto; display:flex; align-items:center; gap:7px;
+  font-family:var(--mono); font-size:10.5px; color:var(--ink-faint)}
+.wire-list{list-style:none; display:flex; flex-direction:column}
+.wire-item{display:flex; align-items:center; gap:14px; padding:9px 22px;
+  border-bottom:1px solid rgba(21,20,15,0.06); font-family:var(--mono); font-size:12px;
+  color:var(--ink-soft)}
+.wire-item:last-child{border-bottom:0}
+.wire-item.fresh{animation:wireIn 0.45s cubic-bezier(0.2,0.8,0.2,1) both}
+@keyframes wireIn{from{opacity:0; transform:translateX(26px)} to{opacity:1; transform:none}}
+.wire-idx{color:var(--ink-faint); font-size:10.5px; width:20px; flex:none; text-align:right}
+.wire-type{color:var(--coral-ink); font-weight:600; min-width:132px; flex:none}
+.wire-repo{color:var(--ink); font-weight:600}
+.wire-msg{color:var(--ink-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.wire-time{margin-left:auto; color:var(--ink-faint); font-size:10.5px; flex:none}
+
+/* ============ overlays ============ */
+.scrim{position:fixed; inset:0; z-index:90; background:rgba(21,20,15,0.34);
+  backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity 0.2s ease}
+.scrim.open{opacity:1; pointer-events:auto}
+.modal{
+  position:fixed; z-index:95; left:50%; top:50%; transform:translate(-50%,-48%) scale(0.97);
+  width:min(920px, calc(100vw - 48px)); max-height:min(86vh, 900px); display:flex; flex-direction:column;
+  background:var(--bone); border-radius:var(--r-pop);
+  box-shadow:inset 0 0 0 1px rgba(21,20,15,0.07), var(--shadow-pop);
+  opacity:0; pointer-events:none; transition:opacity 0.2s ease, transform 0.2s ease;
+}
+.modal.open{opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1)}
+.modal-head{display:flex; align-items:flex-start; gap:16px; padding:24px 28px 18px;
+  border-bottom:1px solid var(--line)}
+.modal-head .m-title{font-weight:800; font-size:20px; letter-spacing:-0.025em; line-height:1.15}
+.modal-head .m-sub{font-family:var(--mono); font-size:11.5px; color:var(--ink-mute); margin-top:5px}
+.modal-x{margin-left:auto; width:34px; height:34px; border-radius:50%; border:1px solid var(--line-strong);
+  display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--ink-mute);
+  transition:var(--ease); flex:none}
+.modal-x:hover{background:var(--ink); color:var(--bone); border-color:var(--ink)}
+.modal-body{padding:20px 28px 26px; overflow-y:auto}
+.modal-foot{display:flex; align-items:center; gap:10px; padding:16px 28px; border-top:1px solid var(--line);
+  flex-wrap:wrap}
+
+/* land sheet (drawer) */
+.sheet{
+  position:fixed; z-index:96; top:0; right:0; bottom:0; width:min(480px, 100vw);
+  background:var(--bone); border-left:1px solid var(--line-strong);
+  box-shadow:-30px 0 60px -30px rgba(21,20,15,0.3);
+  transform:translateX(102%); transition:transform 0.24s cubic-bezier(0.2,0.8,0.2,1);
+  display:flex; flex-direction:column;
+}
+.sheet.open{transform:none}
+.sheet-head{padding:24px 26px 18px; border-bottom:1px solid var(--line)}
+.sheet-body{padding:20px 26px 26px; overflow-y:auto; flex:1}
+.sheet .stagger > *{animation:riseIn 0.34s ease both}
+.sheet .stagger > *:nth-child(1){animation-delay:0.02s}
+.sheet .stagger > *:nth-child(2){animation-delay:0.09s}
+.sheet .stagger > *:nth-child(3){animation-delay:0.16s}
+.sheet .stagger > *:nth-child(4){animation-delay:0.23s}
+.sheet .stagger > *:nth-child(5){animation-delay:0.30s}
+.sheet .stagger > *:nth-child(6){animation-delay:0.37s}
+.sheet .stagger > *:nth-child(7){animation-delay:0.44s}
+
+/* judge verdict chips + variants */
+.verdict-big{display:inline-flex; align-items:center; gap:10px; padding:10px 20px; border-radius:12px;
+  font-weight:800; font-size:16px; letter-spacing:0.06em; text-transform:uppercase}
+.verdict-big.escalate{background:var(--coral); color:var(--ink)}
+.verdict-big.confirm{background:var(--ink); color:var(--bone)}
+.verdict-big.act{background:var(--olive-ink); color:var(--bone)}
+.verdict-big.evidence{background:var(--paper-dark); color:var(--ink); border:1px solid var(--line-strong)}
+.verdict-big.failclosed{background:transparent; color:var(--coral-ink); border:1.5px dashed var(--coral-ink)}
+.judge-codes{margin-top:12px; display:flex; flex-direction:column; gap:7px}
+.judge-code{font-family:var(--mono); font-size:12px; color:var(--ink-soft);
+  display:flex; gap:9px; align-items:baseline}
+.judge-code .jc-k{color:var(--coral-ink); font-weight:600; min-width:52px}
+.judge-panel{margin-top:18px; border:1px solid var(--line); border-radius:14px; padding:16px 18px;
+  background:var(--paper-warm)}
+.judge-panel h4{font-size:10.5px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--ink-mute); margin-bottom:12px}
+.judge-chips{display:flex; gap:7px; flex-wrap:wrap}
+.j-chip{padding:5px 11px; border-radius:8px; font-size:10.5px; font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase}
+.j-chip.risk{background:var(--coral); color:var(--ink)}
+.j-chip.intent{background:var(--paper-dark); color:var(--ink); border:1px solid var(--line-strong)}
+.j-chip.collision{background:var(--paper-dark); color:var(--coral-ink); border:1px dashed var(--coral-ink)}
+.skipped{margin-top:14px}
+.skipped h5{font-size:10px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;
+  color:var(--ink-faint); margin-bottom:7px}
+.sk-row{display:flex; gap:9px; align-items:baseline; font-family:var(--mono); font-size:11.5px;
+  color:var(--ink-mute); padding:4px 0}
+.sk-row .sk-r{color:var(--coral-ink)}
+.failcopy{margin-top:14px; border:1.5px dashed var(--coral-ink); border-radius:12px;
+  padding:14px 16px; font-family:var(--mono); font-size:12px; color:var(--coral-ink); line-height:1.6}
+.variant-row{display:flex; gap:7px; flex-wrap:wrap; margin-top:16px}
+.variant-pill{padding:7px 13px; border-radius:999px; border:1px solid var(--line-strong);
+  font-size:10.5px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--ink-mute); transition:var(--ease)}
+.variant-pill:hover{background:rgba(21,20,15,0.04)}
+.variant-pill.active{background:var(--ink); color:var(--bone); border-color:var(--ink)}
+.render-only{margin-top:16px; font-size:11.5px; color:var(--ink-faint); font-style:italic;
+  font-family:var(--serif); font-size:12.5px}
+
+/* tabs */
+.tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px}
+.tab{padding:7px 14px; border-radius:999px; border:1px solid var(--line); font-family:var(--mono);
+  font-size:11.5px; color:var(--ink-mute); transition:var(--ease)}
+.tab:hover{background:rgba(21,20,15,0.04)}
+.tab.active{background:var(--ink); color:var(--bone); border-color:var(--ink)}
+.tab .tb-tag{font-size:9px; letter-spacing:0.1em; text-transform:uppercase; opacity:0.7; margin-left:6px}
+
+/* diff plate */
+.diff{border:1px solid var(--line-strong); border-radius:12px; overflow:hidden;
+  background:var(--paper); font-family:var(--mono); font-size:12px; line-height:1.7}
+.diff-head{padding:8px 14px; border-bottom:1px solid var(--line); font-size:10.5px;
+  letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-mute); font-weight:600;
+  display:flex; justify-content:space-between; gap:10px; background:var(--paper-warm)}
+.diff-table{width:100%; border-collapse:collapse}
+.diff-table td{padding:1px 14px 1px 0; vertical-align:top; white-space:pre; min-width:0}
+.dl-num{width:44px; min-width:44px; text-align:right; padding-right:12px !important;
+  color:var(--ink-faint); user-select:none; font-size:10.5px; line-height:1.9}
+.dl-code{color:var(--ink-soft)}
+.dl-row.ctx .dl-code{color:var(--ink-mute)}
+.dl-row.del .dl-code{color:var(--coral-ink)} .dl-row.del{background:rgba(237,111,92,0.07)}
+.dl-row.add .dl-code{color:var(--olive-ink)} .dl-row.add{background:rgba(110,116,72,0.10)}
+.mk{font-weight:700; user-select:none}
+.mk-ours{color:var(--coral-ink)} .mk-theirs{color:var(--olive-ink)} .mk-mid{color:var(--ink-mute)}
+.diff-sep{height:1px; background:var(--line); margin:0 14px}
+
+/* comments */
+.comments{margin-top:22px}
+.comments h4{font-size:10.5px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--ink-mute); margin-bottom:12px; display:flex; align-items:center; gap:10px}
+.comments h4::after{content:""; flex:1; height:1px; background:var(--line)}
+.comment{display:flex; gap:12px; padding:11px 0; border-bottom:1px solid rgba(21,20,15,0.07)}
+.comment .c-who{font-weight:700; font-size:12.5px; flex:none; width:64px}
+.comment .c-who .c-line{display:block; font-family:var(--mono); font-size:10px; color:var(--ink-faint);
+  font-weight:500}
+.comment .c-txt{font-size:13px; color:var(--ink-soft)}
+.comment.fresh .c-txt{animation:riseIn 0.3s ease both}
+.compose{display:flex; gap:10px; margin-top:14px; align-items:flex-end}
+.compose textarea{
+  flex:1; resize:vertical; min-height:44px; max-height:140px; border:1px solid var(--line-strong);
+  border-radius:12px; padding:10px 13px; font:inherit; font-size:13px; color:var(--ink);
+  background:var(--paper); line-height:1.5;
+}
+.compose textarea:focus-visible{outline:2px solid var(--coral-ink); outline-offset:1px}
+.compose-hint{font-size:10.5px; color:var(--ink-faint); margin-top:7px; font-style:italic;
+  font-family:var(--serif)}
+
+/* secret block */
+.secret-block{border:1px dashed var(--coral-ink); border-radius:12px; padding:18px;
+  background:rgba(237,111,92,0.045)}
+.secret-note{font-size:12.5px; color:var(--ink-soft); margin-bottom:13px; line-height:1.55}
+.secret-note b{font-weight:700}
+.key-row{display:flex; align-items:center; gap:12px; padding:8px 0;
+  border-bottom:1px solid rgba(21,20,15,0.08); font-family:var(--mono); font-size:12.5px}
+.key-row:last-of-type{border-bottom:0}
+.key-name{color:var(--ink); font-weight:600; min-width:150px}
+.key-mask{color:var(--ink-faint); letter-spacing:0.14em}
+.key-val{color:var(--ink-soft); word-break:break-all}
+.audit-note{margin-top:13px; font-family:var(--mono); font-size:11px; color:var(--olive-ink);
+  display:flex; align-items:center; gap:8px}
+.audit-note::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--olive); flex:none}
+
+/* ============ files browser ============ */
+.picker{display:flex; gap:7px; flex-wrap:wrap; margin:26px 0 20px}
+.files-layout{display:grid; grid-template-columns:280px 1fr; gap:26px; align-items:start}
+@media (max-width:1080px){ .files-layout{grid-template-columns:1fr} }
+.tree{border:1px solid var(--line); border-radius:var(--r-card); background:var(--bone);
+  box-shadow:var(--shadow-card); padding:10px; position:sticky; top:130px}
+@media (max-width:1080px){ .tree{position:static} }
+.tree-head{padding:8px 12px 10px; font-size:10px; font-weight:600; letter-spacing:0.2em;
+  text-transform:uppercase; color:var(--ink-faint)}
+.tree-item{display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  padding:8px 12px; border-radius:9px; font-family:var(--mono); font-size:12px;
+  color:var(--ink-soft); transition:var(--ease)}
+.tree-item:hover{background:rgba(21,20,15,0.045)}
+.tree-item.active{background:var(--ink); color:var(--bone)}
+.tree-item .ti-glyph{width:15px; flex:none; text-align:center; color:var(--ink-faint); font-size:11px}
+.tree-item.active .ti-glyph{color:var(--coral-soft)}
+.tree-item.dir{font-weight:600; color:var(--ink)}
+.tree-item.secret .ti-glyph{color:var(--coral-ink)}
+.crumb{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px;
+  color:var(--ink-faint); flex-wrap:wrap; margin-bottom:14px}
+.crumb b{color:var(--ink); font-weight:600}
+.crumb .c-sep{color:var(--ink-faint)}
+.viewer{border:1px solid var(--line); border-radius:var(--r-card); background:var(--bone);
+  box-shadow:var(--shadow-card); overflow:hidden; min-height:380px}
+.viewer-head{display:flex; align-items:center; gap:14px; padding:13px 20px;
+  border-bottom:1px solid var(--line); flex-wrap:wrap}
+.viewer-title{font-family:var(--mono); font-size:13px; font-weight:600}
+.viewer-meta{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint)}
+.raw-link{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-mute);
+  text-decoration:none; border-bottom:1px dashed var(--line-strong); padding-bottom:1px;
+  transition:var(--ease)}
+.raw-link:hover{color:var(--coral-ink); border-color:var(--coral-ink)}
+.viewer-body{padding:6px 0 10px; font-family:var(--mono); font-size:12.5px; line-height:1.75}
+.vline{display:flex; padding:0 20px}
+.vline:hover{background:rgba(21,20,15,0.035)}
+.vl-num{width:44px; min-width:44px; text-align:right; padding-right:16px; color:var(--ink-faint);
+  user-select:none; font-size:10.5px}
+.vl-code{white-space:pre; color:var(--ink-soft); min-width:0}
+.binary-posture{padding:38px 26px; display:flex; flex-direction:column; gap:14px}
+.binary-posture .bp-note{font-family:var(--serif); font-style:italic; font-size:15px; color:var(--ink-mute)}
+.meta-table{display:grid; grid-template-columns:130px 1fr; gap:8px 18px; font-family:var(--mono);
+  font-size:12px; margin-top:6px}
+.meta-table .mt-k{color:var(--ink-faint); text-transform:uppercase; font-size:10px;
+  letter-spacing:0.14em; padding-top:2px}
+.meta-table .mt-v{color:var(--ink-soft); word-break:break-all}
+
+/* ============ history ============ */
+.hist-layout{display:grid; grid-template-columns:340px 1fr; gap:26px; align-items:start}
+@media (max-width:1080px){ .hist-layout{grid-template-columns:1fr} }
+.commit-list{display:flex; flex-direction:column; gap:9px}
+.commit{display:flex; flex-direction:column; gap:5px; text-align:left; width:100%;
+  border:1px solid var(--line); border-radius:14px; background:var(--bone); padding:14px 17px;
+  transition:var(--ease); box-shadow:var(--shadow-card)}
+.commit:hover{transform:translateY(-2px)}
+.commit.active{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink), var(--shadow-card)}
+.commit .c-sha{font-family:var(--mono); font-size:11.5px; color:var(--coral-ink); font-weight:600}
+.commit .c-msg{font-weight:700; font-size:13.5px; letter-spacing:-0.01em; color:var(--ink); line-height:1.3}
+.commit .c-meta{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint)}
+.commit-detail{border:1px solid var(--line); border-radius:var(--r-card); background:var(--bone);
+  box-shadow:var(--shadow-card); padding:24px 26px; min-height:300px}
+.commit-detail .cd-sha{font-family:var(--mono); font-size:12px; color:var(--ink-faint)}
+.commit-detail h3{font-weight:800; font-size:22px; letter-spacing:-0.025em; margin:8px 0 4px}
+.commit-detail .cd-meta{font-family:var(--mono); font-size:11.5px; color:var(--ink-mute); margin-bottom:18px}
+.file-row{display:flex; align-items:center; gap:13px; padding:11px 0;
+  border-bottom:1px solid rgba(21,20,15,0.07); font-family:var(--mono); font-size:12.5px; flex-wrap:wrap}
+.file-row:last-child{border-bottom:0}
+.file-row .fr-status{font-size:9.5px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase;
+  padding:3px 9px; border-radius:6px; min-width:74px; text-align:center}
+.fr-status.added{background:var(--olive-ink); color:var(--bone)}
+.fr-status.modified{background:var(--paper-dark); color:var(--ink-soft); border:1px solid var(--line-strong)}
+.fr-status.deleted{background:var(--coral); color:var(--ink)}
+.file-row .fr-path{color:var(--ink)}
+.file-row .fr-pm{margin-left:auto; color:var(--ink-mute)}
+.file-row .fr-pm .add{color:var(--olive-ink); font-weight:600}
+.file-row .fr-pm .del{color:var(--coral-ink); font-weight:600}
+.asset-chip{display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px;
+  border:1px dashed var(--olive); color:var(--olive-ink); font-size:10px; font-weight:600;
+  letter-spacing:0.08em; text-transform:uppercase}
+.root-note{margin-top:18px; border-left:2px solid var(--mustard); padding:10px 16px;
+  font-family:var(--serif); font-style:italic; font-size:13.5px; color:var(--ink-mute);
+  background:rgba(233,185,74,0.08); border-radius:0 10px 10px 0}
+.empty-note{font-family:var(--serif); font-style:italic; font-size:15px; color:var(--ink-faint);
+  padding:60px 20px; text-align:center}
+
+/* ============ forks ============ */
+.fork-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:30px}
+@media (max-width:1080px){ .fork-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:720px){ .fork-grid{grid-template-columns:1fr} }
+.fork-card{background:var(--bone); border-radius:var(--r-card); padding:24px 26px;
+  box-shadow:inset 0 0 0 1px rgba(21,20,15,0.06), var(--shadow-card);
+  display:flex; flex-direction:column; gap:15px; transition:transform var(--ease)}
+.fork-card:hover{transform:translateY(-3px)}
+.fork-head{display:flex; align-items:baseline; gap:11px}
+.fork-num{font-family:var(--serif); font-style:italic; font-weight:500; font-size:19px; color:var(--coral-ink)}
+.fork-name{font-family:var(--mono); font-weight:700; font-size:14px}
+.fork-lineage{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint);
+  border-top:1px solid var(--line); padding-top:11px}
+.cluster-chips{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.cluster{border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+  display:flex; flex-direction:column; gap:3px; background:var(--paper)}
+.cluster .cl-k{font-size:9px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--ink-faint)}
+.cluster .cl-v{font-family:var(--mono); font-size:13px; font-weight:600; color:var(--ink);
+  font-feature-settings:"tnum" 1}
+.cluster.unmeasured{border-style:dashed; background:transparent}
+.cluster.unmeasured .cl-v{color:var(--ink-faint); font-weight:500; font-size:10.5px;
+  letter-spacing:0.06em; text-transform:uppercase}
+.policy-chips{display:flex; gap:7px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:13px}
+
+/* ============ sessions ============ */
+.session-rows{display:flex; flex-direction:column; gap:12px; margin-top:30px}
+.session-row{display:grid; grid-template-columns:22px 130px 1fr auto; gap:18px; align-items:center;
+  border:1px solid var(--line); border-radius:14px; background:var(--bone); padding:16px 20px;
+  box-shadow:var(--shadow-card); transition:var(--ease)}
+.session-row:hover{transform:translateY(-2px)}
+@media (max-width:880px){ .session-row{grid-template-columns:22px 1fr; row-gap:6px} }
+.state-dot{width:10px; height:10px; border-radius:50%; flex:none}
+.state-dot.working{background:var(--coral); animation:pulse 1.6s ease-in-out infinite}
+.state-dot.idle{background:var(--ink-faint)}
+.sess-repo{font-family:var(--mono); font-weight:700; font-size:13px}
+.sess-intent{font-size:13.5px; color:var(--ink-soft); min-width:0}
+.sess-intent .si-tag{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); margin-left:8px}
+.sess-last{font-family:var(--mono); font-size:11px; color:var(--ink-mute); white-space:nowrap}
+.steer{margin-top:30px; border:1px solid var(--line-strong); border-radius:var(--r-card);
+  background:var(--bone); box-shadow:var(--shadow-card); padding:24px 26px}
+.steer h3{font-weight:800; font-size:19px; letter-spacing:-0.025em; margin-bottom:4px}
+.steer .st-sub{font-size:12.5px; color:var(--ink-mute); margin-bottom:16px}
+.steer-row{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap}
+.steer textarea{flex:1; min-width:260px; min-height:64px; max-height:160px; resize:vertical;
+  border:1px solid var(--line-strong); border-radius:12px; padding:11px 14px; font:inherit;
+  font-size:13px; background:var(--paper); color:var(--ink); line-height:1.5}
+.steer-meta{display:flex; align-items:center; gap:14px; margin-top:11px; flex-wrap:wrap}
+.char-count{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint)}
+.char-count.over{color:var(--coral-ink); font-weight:700}
+.steer-note{margin-top:12px; font-family:var(--serif); font-style:italic; font-size:12.5px;
+  color:var(--ink-faint)}
+.steer-target{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+.steer-target .st-k{font-size:10px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;
+  color:var(--ink-faint); margin-right:4px}
+
+/* ============ issues ============ */
+.issue-rows{display:flex; flex-direction:column; gap:12px; margin-top:30px}
+.issue-row{display:grid; grid-template-columns:150px 92px 110px 1fr auto; gap:16px; align-items:center;
+  border:1px solid var(--line); border-radius:14px; background:var(--bone); padding:16px 20px;
+  box-shadow:var(--shadow-card); transition:var(--ease)}
+.issue-row:hover{transform:translateY(-2px)}
+@media (max-width:1080px){ .issue-row{grid-template-columns:1fr 1fr; row-gap:8px} }
+.kind-chip{padding:5px 12px; border-radius:8px; font-size:10px; font-weight:700;
+  letter-spacing:0.12em; text-transform:uppercase; text-align:center}
+.kind-conflict{background:var(--coral); color:var(--ink)}
+.kind-withheld-secret{background:var(--paper-dark); color:var(--coral-ink); border:1px dashed var(--coral-ink)}
+.kind-stale-base{background:var(--paper-dark); color:var(--ink-soft); border:1px solid var(--line-strong)}
+.kind-blocked-intent{background:var(--mustard); color:var(--ink)}
+.sev{font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; text-align:center}
+.sev.high{color:var(--coral-ink)} .sev.block{color:var(--coral-ink); border:1px dashed var(--coral-ink); border-radius:6px; padding:4px 8px}
+.sev.low{color:var(--ink-faint)} .sev.medium{color:var(--ink-mute)}
+.issue-repo{font-family:var(--mono); font-size:11.5px; color:var(--ink-mute)}
+.issue-title{font-weight:700; font-size:14px; letter-spacing:-0.01em}
+.issue-title .it-detail{display:block; font-weight:400; font-size:12px; color:var(--ink-mute); margin-top:3px}
+
+/* ============ tables (agents / parity) ============ */
+.table-wrap{border:1px solid var(--line); border-radius:var(--r-card); background:var(--bone);
+  box-shadow:var(--shadow-card); overflow:hidden; margin-top:28px}
+.table{width:100%; border-collapse:collapse; font-size:13px}
+.table th{text-align:left; font-size:10px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--ink-faint); padding:13px 20px; border-bottom:1px solid var(--line-strong);
+  background:var(--paper-warm)}
+.table td{padding:13px 20px; border-bottom:1px solid rgba(21,20,15,0.07); vertical-align:middle}
+.table tr:last-child td{border-bottom:0}
+.table .t-agent{font-family:var(--mono); font-weight:700; font-size:12.5px}
+.table .t-caps{font-family:var(--mono); font-size:11.5px; color:var(--ink-mute)}
+.table .t-unrec{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); font-style:italic}
+.verdict{padding:4px 12px; border-radius:8px; font-size:10px; font-weight:700;
+  letter-spacing:0.12em; text-transform:uppercase; white-space:nowrap}
+.verdict.exceeds{background:var(--olive-ink); color:var(--bone)}
+.verdict.parity{background:var(--paper-dark); color:var(--ink-soft); border:1px solid var(--line-strong)}
+.verdict.below{background:var(--coral); color:var(--ink)}
+.parity-ev{font-size:12px; color:var(--ink-mute)}
+.parity-name{font-weight:700; font-size:13px}
+.parity-name .pn-mono{font-family:var(--mono); font-weight:600; font-size:12px; color:var(--ink)}
+.parity-chips{display:flex; gap:12px; margin-top:26px; flex-wrap:wrap}
+.pchip{display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:999px;
+  padding:8px 18px 8px 10px; background:var(--bone)}
+.pchip .pc-num{width:30px; height:30px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-weight:800; font-size:12.5px; font-feature-settings:"tnum" 1}
+.pchip.exceeds .pc-num{background:var(--olive-ink); color:var(--bone)}
+.pchip.parity .pc-num{background:var(--ink); color:var(--bone)}
+.pchip.below .pc-num{background:var(--coral); color:var(--ink)}
+.pchip .pc-lb{font-size:11px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--ink-mute)}
+
+/* ============ receipt ============ */
+.receipt-shell{display:grid; grid-template-columns:1fr 340px; gap:26px; margin-top:30px; align-items:start}
+@media (max-width:1080px){ .receipt-shell{grid-template-columns:1fr} }
+.receipt{border:1px solid var(--line-strong); border-radius:var(--r-card); background:var(--bone);
+  box-shadow:var(--shadow-card); overflow:hidden}
+.receipt-head{padding:20px 24px; border-bottom:1px solid var(--line); display:flex;
+  align-items:baseline; gap:14px; flex-wrap:wrap; background:var(--paper-warm)}
+.receipt-head .r-title{font-weight:800; font-size:17px; letter-spacing:-0.02em}
+.receipt-head .r-fig{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint);
+  letter-spacing:0.1em; text-transform:uppercase}
+.receipt-table{display:grid; grid-template-columns:190px 1fr}
+.receipt-row{display:contents}
+.receipt-k{padding:11px 24px; border-bottom:1px solid rgba(21,20,15,0.07);
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-mute); text-transform:uppercase;
+  letter-spacing:0.06em}
+.receipt-v{padding:11px 24px; border-bottom:1px solid rgba(21,20,15,0.07);
+  font-family:var(--mono); font-size:12.5px; color:var(--ink); word-break:break-all}
+.receipt-row:last-child .receipt-k, .receipt-row:last-child .receipt-v{border-bottom:0}
+.receipt-v .pass-ok{color:var(--olive-ink); font-weight:700}
+.receipt-side{display:flex; flex-direction:column; gap:18px}
+.audit-card{border:1px solid var(--line); border-radius:var(--r-card); background:var(--bone);
+  box-shadow:var(--shadow-card); padding:20px 22px}
+.audit-card h4{font-size:10.5px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--ink-mute); margin-bottom:12px}
+.audit-line{font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); line-height:1.8;
+  word-break:break-all}
+.audit-line .al-k{color:var(--ink-faint)}
+
+/* ============ tour ============ */
+.tour{position:fixed; z-index:98; right:26px; bottom:26px; width:min(400px, calc(100vw - 52px));
+  background:var(--bone); border-radius:var(--r-pop);
+  box-shadow:inset 0 0 0 1px rgba(21,20,15,0.08), var(--shadow-pop);
+  transform:translateY(30px); opacity:0; pointer-events:none;
+  transition:opacity 0.22s ease, transform 0.22s ease; overflow:hidden}
+.tour.open{opacity:1; pointer-events:auto; transform:none}
+.tour-top{display:flex; align-items:center; gap:12px; padding:16px 22px 12px}
+.tour-step-roman{font-family:var(--serif); font-style:italic; font-size:16px; color:var(--coral-ink)}
+.tour-count{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-faint)}
+.tour-progress{height:3px; background:rgba(21,20,15,0.09); margin:0 22px}
+.tour-bar{height:100%; background:var(--coral); width:0%; transition:width 0.3s ease; border-radius:2px}
+.tour-body{padding:16px 22px 8px}
+.tour-title{font-weight:800; font-size:20px; letter-spacing:-0.025em; margin-bottom:9px}
+.tour-txt{font-size:13px; color:var(--ink-mute); line-height:1.65}
+.tour-actions{display:flex; gap:9px; padding:14px 22px 20px; flex-wrap:wrap}
+.tour-skip{margin-left:auto; font-size:12px; color:var(--ink-faint); text-decoration:underline;
+  text-underline-offset:3px}
+.tour-skip:hover{color:var(--coral-ink)}
+.tour-pulse{animation:tourPulse 1.1s ease-in-out 3; border-radius:14px}
+@keyframes tourPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(237,111,92,0)}
+  50%{box-shadow:0 0 0 5px rgba(237,111,92,0.45)}
+}
+
+/* ============ skeleton shimmer ============ */
+.skel{border-radius:12px; background:linear-gradient(100deg, var(--paper-warm) 30%, var(--paper-dark) 48%, var(--paper-warm) 66%);
+  background-size:220% 100%; animation:shimmer 1.15s linear infinite; border:1px solid rgba(21,20,15,0.06)}
+@keyframes shimmer{from{background-position:180% 0} to{background-position:-40% 0}}
+.skel-stack{display:flex; flex-direction:column; gap:12px; padding:4px 0}
+.skel.h-lg{height:150px} .skel.h-md{height:92px} .skel.h-sm{height:34px} .skel.h-xs{height:22px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important; transition-duration:0.01ms !important}
+}
+
+/* ============ toast ============ */
+.toast{position:fixed; z-index:120; left:50%; bottom:30px; transform:translate(-50%,20px);
+  background:var(--ink); color:var(--bone); border-radius:999px; padding:11px 22px;
+  font-size:12.5px; font-weight:600; letter-spacing:0.02em; opacity:0; pointer-events:none;
+  transition:opacity 0.2s ease, transform 0.2s ease; box-shadow:var(--shadow-pop); max-width:88vw;
+  text-align:center}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+.toast .t-mono{font-family:var(--mono); font-size:11.5px; color:var(--coral-soft)}
+
+/* ============ footer ============ */
+.footer{border-top:1px solid var(--line-strong); margin-top:60px; padding:70px 64px 46px;
+  position:relative; z-index:1; overflow:hidden}
+@media (max-width:880px){ .footer{padding:50px 24px 34px} }
+.footer-meta{display:flex; gap:20px; align-items:center; font-size:10.5px; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--ink-faint); font-weight:600; margin-bottom:26px; flex-wrap:wrap}
+.mega-word{font-weight:900; font-size:clamp(64px,12.5vw,190px); letter-spacing:-0.045em;
+  line-height:0.92; color:var(--ink); user-select:none}
+.mega-word .mw-dot{color:var(--coral)}
+.footer-sub{display:flex; justify-content:space-between; gap:16px; margin-top:22px;
+  font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="side-rail left" aria-hidden="true"><span>NextGit · Convergence Layer · Vol. 01</span></div>
+<div class="side-rail right" aria-hidden="true"><span>Filed under agent-era platforms · MMXXVI</span></div>
+
+<!-- top metadata strip -->
+<div class="meta-strip">
+  <span class="m-vol">Vol. 01 · Issue Nº 26</span>
+  <span class="m-file">Filed under <b>agent-era convergence</b> · demo namespace</span>
+  <span class="m-right">
+    <span style="display:flex;align-items:center;gap:7px"><span class="pulse-dot" id="stripDot"></span> v1.4 · en-GB</span>
+    <button class="conn-pill live" id="connPill" aria-label="Toggle connection status">
+      <span class="sw" aria-hidden="true"></span><span class="conn-word" id="connWord">Live</span>
+    </button>
+  </span>
+</div>
+
+<!-- header -->
+<header class="site-head">
+  <a class="brand" href="#" data-view="console" data-nav>
+    <span class="brand-mark">Ø</span>
+    <span class="brand-name">NextGit</span>
+    <span class="brand-sub">Convergence Layer</span>
+  </a>
+  <nav class="nav" aria-label="Primary">
+    <button class="nav-pill active" data-view="console" data-nav>Console</button>
+    <button class="nav-pill" data-view="files" data-nav>Files</button>
+    <button class="nav-pill" data-view="history" data-nav>History</button>
+    <button class="nav-pill" data-view="forks" data-nav>Forks</button>
+    <button class="nav-pill" data-view="sessions" data-nav>Sessions</button>
+    <button class="nav-pill" data-view="issues" data-nav>Issues</button>
+    <button class="nav-pill" data-view="agents" data-nav>Agents</button>
+    <button class="nav-pill" data-view="parity" data-nav>Parity</button>
+    <button class="nav-pill" data-view="receipt" data-nav>Receipt</button>
+    <button class="nav-pill tour-cta" id="tourCta">★ Tour</button>
+  </nav>
+</header>
+
+<main class="shell">
+
+<!-- ==================== VIEW: CONSOLE (surface 1) ==================== -->
+<section class="view" id="view-console" data-viewpanel="console">
+  <div class="view-head" id="tour-intro">
+    <div class="kicker">Triage Console · The Daily Plate</div>
+    <h1 class="h-display">Five proposals, one <em>convergence</em><span class="dot">.</span></h1>
+    <p class="view-lede">Agent fleets propose; humans decide. Every landing carries a receipt, every secret stays withheld until it is granted, and every conflict is drawn on the map before it is ever merged.</p>
+  </div>
+
+  <div class="stats-rings" id="statsRings" aria-label="Proposal statistics"></div>
+
+  <!-- surface 13: platform pulse strip -->
+  <div class="pulse-band" id="pulseBand" aria-label="Platform pulse">
+    <div class="pulse-cell">
+      <span class="pulse-star" aria-hidden="true"></span>
+      <div><div class="pulse-k">Floors</div><div class="pulse-v num" id="pulseFloors">4 active</div></div>
+    </div>
+    <div class="pulse-cell">
+      <div><div class="pulse-k">Intents router</div><div class="pulse-v"><span class="v-merge">merge-it</span> <span class="pulse-note">· agent-3 “Docs: quickstart polish” routes clean</span></div></div>
+    </div>
+    <div class="pulse-cell">
+      <div><div class="pulse-k">Upstream</div><div class="pulse-v">merge-back <span class="pulse-note">· demo ⇠ origin/main · 0 behind · 0 ahead</span></div></div>
+    </div>
+    <div class="pulse-cell">
+      <div><div class="pulse-k">Wire</div><div class="pulse-v num" id="pulseRate">8 events · 2m window</div></div>
+    </div>
+  </div>
+
+  <div class="sec-rule"><span class="sec-roman">I.</span><span class="sec-meta">Proposals · the five plates</span><span class="sec-page">001 / 013</span></div>
+  <div class="grid-proposals" id="proposalGrid"></div>
+
+  <div class="sec-rule"><span class="sec-roman">II.</span><span class="sec-meta">Conflict map · where lanes cross</span><span class="sec-page">002 / 013</span></div>
+  <div class="plate" id="conflictPlate" aria-label="Conflict map"></div>
+
+  <div class="sec-rule"><span class="sec-roman">III.</span><span class="sec-meta">The wire · live event stream</span><span class="sec-page">003 / 013</span></div>
+  <div class="wire" id="wire">
+    <div class="wire-head">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      <span class="wire-title">Event Wire · newest 8</span>
+      <span class="wire-live"><span id="wireState">STREAMING</span> · SSE · demo</span>
+    </div>
+    <ul class="wire-list" id="wireList"></ul>
+  </div>
+</section>
+
+<!-- ==================== VIEW: FILES (surface 3) ==================== -->
+<section class="view" id="view-files" data-viewpanel="files" hidden>
+  <div class="view-head">
+    <div class="kicker">Files · The Archive</div>
+    <h1 class="h-display">Every file, <em>read</em> honestly<span class="dot">.</span></h1>
+    <p class="view-lede">Text is shown whole. Binaries show posture, never bytes. Secrets show key names only — until a reveal is granted and audited.</p>
+  </div>
+  <div class="picker" id="repoPicker" role="tablist" aria-label="Repository picker"></div>
+  <div class="files-layout">
+    <nav class="tree" id="fileTree" aria-label="File tree"></nav>
+    <div>
+      <div class="crumb" id="crumb"></div>
+      <div class="viewer" id="viewer"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== VIEW: HISTORY (surface 4) ==================== -->
+<section class="view" id="view-history" data-viewpanel="history" hidden>
+  <div class="view-head">
+    <div class="kicker">History · The Record</div>
+    <h1 class="h-display">The ledger, <em>plate</em> by plate<span class="dot">.</span></h1>
+    <p class="view-lede">Five commits, one lineage. Select a commit to inspect its changed files, deltas, and the assets it touched.</p>
+  </div>
+  <div class="hist-layout">
+    <div class="commit-list" id="commitList"></div>
+    <div class="commit-detail" id="commitDetail"></div>
+  </div>
+</section>
+
+<!-- ==================== VIEW: FORKS (surface 5) ==================== -->
+<section class="view" id="view-forks" data-viewpanel="forks" hidden>
+  <div class="view-head">
+    <div class="kicker">Forks &amp; Signals · The Constellation</div>
+    <h1 class="h-display">Six clusters, <em>measured</em> — or not<span class="dot">.</span></h1>
+    <p class="view-lede">Each fork reports six signal clusters. Where a cluster is unmeasured, we say so — an honest gap beats a fabricated number.</p>
+  </div>
+  <div class="fork-grid" id="forkGrid"></div>
+</section>
+
+<!-- ==================== VIEW: SESSIONS (surface 6) ==================== -->
+<section class="view" id="view-sessions" data-viewpanel="sessions" hidden>
+  <div class="view-head">
+    <div class="kicker">Sessions · The Fleet</div>
+    <h1 class="h-display">Four agents, <em>working</em> the problem<span class="dot">.</span></h1>
+    <p class="view-lede">Live session state for the fleet. Steering is one-directional in v1 — it lands in the event stream the agents read.</p>
+  </div>
+  <div class="session-rows" id="sessionRows"></div>
+  <div class="steer" id="steerPanel">
+    <h3>Steer the fleet</h3>
+    <div class="st-sub">Compose a steering note. It is published to the wire as <span class="mono">session.steered</span> — the agents read the stream on their next poll.</div>
+    <div class="steer-row">
+      <div class="steer-target">
+        <span class="st-k">Target</span>
+        <span id="steerTargets"></span>
+      </div>
+    </div>
+    <div class="steer-row" style="margin-top:12px">
+      <textarea id="steerText" maxlength="500" placeholder="e.g. prefer rotate-on-refresh over TTL extension — security review flagged session fixation…" aria-label="Steering message"></textarea>
+      <button class="btn primary" id="steerSend">Send <span class="arr">↗</span></button>
+    </div>
+    <div class="steer-meta">
+      <span class="char-count" id="charCount">0 / 500</span>
+      <span class="char-count" id="steerTargetEcho">target: agent-1</span>
+    </div>
+    <div class="steer-note">Honest v1 note — steering lands in the event stream the agents read; there is no live channel in this prototype.</div>
+  </div>
+</section>
+
+<!-- ==================== VIEW: ISSUES (surface 7) ==================== -->
+<section class="view" id="view-issues" data-viewpanel="issues" hidden>
+  <div class="view-head">
+    <div class="kicker">Issues · Derived, Not Filed</div>
+    <h1 class="h-display">Four issues, <em>found</em> — not made<span class="dot">.</span></h1>
+    <p class="view-lede">The console derives its issues from the convergence state itself. Nothing here was typed in by hand.</p>
+  </div>
+  <div class="issue-rows" id="issueRows"></div>
+</section>
+
+<!-- ==================== VIEW: AGENTS (surface 8) ==================== -->
+<section class="view" id="view-agents" data-viewpanel="agents" hidden>
+  <div class="view-head">
+    <div class="kicker">Agents &amp; Harnesses · The Roster</div>
+    <h1 class="h-display">Who runs, <em>what</em> they run<span class="dot">.</span></h1>
+    <p class="view-lede">The roster records every agent, its harness, its capabilities, and its policy. Where a harness is unrecorded, we say exactly that.</p>
+  </div>
+  <div class="table-wrap">
+    <table class="table" aria-label="Agents roster">
+      <thead><tr><th>Agent</th><th>Harness</th><th>Capabilities</th><th>Policy</th></tr></thead>
+      <tbody id="agentsBody"></tbody>
+    </table>
+  </div>
+  <div class="table-wrap">
+    <table class="table" aria-label="Harnesses">
+      <thead><tr><th>Harness</th><th>Kind</th><th>Capabilities</th><th>Status</th></tr></thead>
+      <tbody id="harnessesBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== VIEW: PARITY (surface 9) ==================== -->
+<section class="view" id="view-parity" data-viewpanel="parity" hidden>
+  <div class="view-head">
+    <div class="kicker">Parity Dashboard · The Scorecard</div>
+    <h1 class="h-display">Eighteen rows, <em>three</em> verdicts<span class="dot">.</span></h1>
+    <p class="view-lede">Platform parity against the reference implementation. Five rows exceed, eight hold parity, five fall below — each with its evidence.</p>
+  </div>
+  <div class="parity-chips" id="parityChips"></div>
+  <div class="table-wrap">
+    <table class="table" aria-label="Parity rows">
+      <thead><tr><th>Capability</th><th>Verdict</th><th>Evidence</th></tr></thead>
+      <tbody id="parityBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== VIEW: RECEIPT (surface 11) ==================== -->
+<section class="view" id="view-receipt" data-viewpanel="receipt" hidden>
+  <div class="view-head">
+    <div class="kicker">Evidence · The Receipt</div>
+    <h1 class="h-display">Every landing, <em>receipted</em><span class="dot">.</span></h1>
+    <p class="view-lede">The land evidence receipt — twelve keys, cryptographically consistent — beside the audit record of every granted reveal.</p>
+  </div>
+  <div class="receipt-shell">
+    <div class="receipt" id="receiptCard"></div>
+    <div class="receipt-side">
+      <div class="audit-card" id="auditCard"></div>
+      <div class="audit-card">
+        <h4>Plate Nº 11 · Receipt anatomy</h4>
+        <div class="audit-line"><span class="al-k">keys</span> 12 · <span class="al-k">consistency</span> mergedSha == testedSha<br><span class="al-k">lease</span> provider “do” · short-lived<br><span class="al-k">policy</span> no landing without a receipt</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ merge modal (surface 2) ============ -->
+<div class="scrim" id="scrim"></div>
+<div class="modal" id="mergeModal" role="dialog" aria-modal="true" aria-labelledby="mmTitle" hidden>
+  <div class="modal-head">
+    <div>
+      <div class="m-title" id="mmTitle">Merge preview</div>
+      <div class="m-sub" id="mmSub"></div>
+    </div>
+    <button class="modal-x" id="mmClose" aria-label="Close merge preview">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="tabs" id="mmTabs" role="tablist"></div>
+    <div id="mmContent"></div>
+    <div class="comments" id="mmComments"></div>
+  </div>
+  <div class="modal-foot">
+    <span class="render-only" style="margin:0">Preview is render-only — nothing merges until a human lands it.</span>
+    <span style="flex:1"></span>
+    <button class="btn ghost sm" id="mmCloseBtn">Close</button>
+    <button class="btn primary sm" id="mmLandFromModal">Land <span class="arr">↗</span></button>
+  </div>
+</div>
+
+<!-- ============ land sheet (surfaces 1, 11, 12) ============ -->
+<div class="sheet" id="landSheet" role="dialog" aria-modal="true" aria-labelledby="lsTitle" hidden>
+  <div class="sheet-head">
+    <div class="kicker" style="margin-bottom:10px">Land · two-step</div>
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <div>
+        <div style="font-weight:800;font-size:21px;letter-spacing:-0.025em" id="lsTitle">Confirm landing</div>
+        <div class="mono" style="font-size:11.5px;color:var(--ink-mute);margin-top:4px" id="lsSub"></div>
+      </div>
+      <button class="modal-x" id="lsClose" aria-label="Close land sheet">✕</button>
+    </div>
+  </div>
+  <div class="sheet-body stagger" id="lsBody"></div>
+</div>
+
+<!-- ============ tour (surface 10) ============ -->
+<div class="tour" id="tour" role="dialog" aria-label="Guided tour">
+  <div class="tour-top">
+    <span class="tour-step-roman" id="tourRoman">I.</span>
+    <span style="font-size:10.5px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-mute)">Guided tour</span>
+    <span class="tour-count" id="tourCount">1 / 8</span>
+  </div>
+  <div class="tour-progress"><div class="tour-bar" id="tourBar"></div></div>
+  <div class="tour-body">
+    <div class="tour-title" id="tourTitle"></div>
+    <div class="tour-txt" id="tourTxt"></div>
+  </div>
+  <div class="tour-actions">
+    <button class="btn ghost sm" id="tourBack">Back</button>
+    <button class="btn primary sm" id="tourNext">Next <span class="arr">→</span></button>
+    <button class="tour-skip" id="tourSkip">Skip tour</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="footer">
+  <div class="footer-meta">
+    <span>Filed under <b style="color:var(--ink-mute)">agent-era platforms</b></span>
+    <span>Edited by <b style="color:var(--ink-mute)">the convergence desk</b></span>
+    <span>Printed on <b style="color:var(--ink-mute)">warm paper · MMXXVI</b></span>
+  </div>
+  <div class="mega-word" aria-hidden="true">NextGit<span class="mw-dot">.</span></div>
+  <div class="footer-sub">
+    <span>FIG. 13 — THE WHOLE PLATE · 13 SURFACES, ONE FILE</span>
+    <span>52.5200° N · 13.4050° E · PROTOTYPE 07 · ATELIER ZERO</span>
+    <span style="display:flex;align-items:center;gap:7px"><span class="pulse-dot"></span> END OF WIRE · FIN.</span>
+  </div>
+
+</footer>
+
+<script>
+"use strict";
+/* ============================================================
+   NextGit prototype 07 — inline store. Zero network, zero fetches.
+   Every value below is the brief's fake dataset, verbatim.
+   ============================================================ */
+
+/* ---------- helpers ---------- */
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ROMAN = ["I.","II.","III.","IV.","V.","VI.","VII.","VIII."];
+
+/* ---------- the dataset (verbatim from PROTOTYPE-BRIEF.md) ---------- */
+const STORE = {
+  stats: { proposals:5, shared:1, conflicts:1, changed:4, clean:3 },
+
+  proposals: [
+    { repo:"agent-1", intent:"Refactor: session refresh with TTL",
+      files:[{path:"src/auth.ts", add:4, del:1}],
+      landing:"ready",
+      checks:{ fold:"pass", collision:"pass", conflicts:"fail", secrets:"pass", base:"pass" } },
+    { repo:"agent-2", intent:"Add rotate-on-refresh to auth",
+      files:[{path:"src/auth.ts", add:3, del:2}],
+      landing:"ready",
+      checks:{ fold:"pass", collision:"fail", conflicts:"fail", secrets:"pass", base:"pass" } },
+    { repo:"agent-3", intent:"Docs: quickstart polish",
+      files:[{path:"README.md", add:12, del:4},{path:"docs/quickstart.md", add:8, del:1}],
+      landing:"ready",
+      checks:{ fold:"pass", collision:"pass", conflicts:"pass", secrets:"pass", base:"pass" } },
+    { repo:"agent-4", intent:"CLI: tighter error surface",
+      files:[{path:"src/cli.ts", add:17, del:9}],
+      landing:"ready",
+      checks:{ fold:"pass", collision:"pass", conflicts:"unknown", secrets:"pass", base:"pass" } },
+    { repo:"agent-5", intent:"Config: move secrets to env",
+      files:[{path:"config/.env", add:2, del:0}],
+      landing:"withheld-secret",
+      checks:{ fold:"pass", collision:"pass", conflicts:"pass", secrets:"fail", base:"pass" } }
+  ],
+
+  conflict: {
+    file:"src/auth.ts", pair:["agent-1","agent-2"], kind:"text-conflict", pairs:1
+  },
+
+  events: [
+    {type:"repo.pushed",  repo:"agent-1", msg:"3 files · +24/−11"},
+    {type:"session.steered", repo:"agent-1", msg:"“prefer rotate-on-refresh”"},
+    {type:"repo.pushed",  repo:"agent-3", msg:"2 files · +20/−5"},
+    {type:"token.minted", repo:"demo",    msg:"lease do · 7c04f10"},
+    {type:"repo.pushed",  repo:"agent-2", msg:"1 file · +3/−2"},
+    {type:"repo.landed",  repo:"demo",    msg:"merged 7c042f10 · receipted"},
+    {type:"judge.verdict", repo:"agent-2", msg:"escalate · risk + intent"},
+    {type:"secret.revealed", repo:"agent-5", msg:"config/.env · decision: granted"}
+  ],
+
+  tickerPool: [
+    {type:"repo.pushed",   repo:"agent-1", msg:"heartbeat · +0/−0"},
+    {type:"repo.pushed",   repo:"agent-3", msg:"typo sweep · +1/−1"},
+    {type:"session.steered", repo:"agent-2", msg:"“hold for review”"},
+    {type:"token.minted",  repo:"demo",    msg:"lease do · renewed"},
+    {type:"judge.verdict", repo:"agent-4", msg:"confirm · no collisions"},
+    {type:"repo.pushed",   repo:"agent-4", msg:"cli polish · +6/−3"},
+    {type:"checks.rerun",  repo:"agent-1", msg:"fold · collision · base"},
+    {type:"repo.landed",   repo:"demo",    msg:"merged · receipt issued"},
+    {type:"fork.signals",  repo:"agent-3", msg:"6 clusters · 1 unmeasured"},
+    {type:"issue.derived", repo:"demo",    msg:"stale-base · agent-4 · low"}
+  ],
+
+  commits: [
+    { sha:"550be50", msg:"baseline", author:"demo-bot", date:"2026-10-11 09:14", root:true,
+      files:[{path:"README.md", status:"added", add:38, del:0, assets:["docs"]},
+             {path:"src/auth.ts", status:"added", add:120, del:0, assets:[]}] },
+    { sha:"804db99", msg:"agent-1: Refactor — session refresh with TTL", author:"agent-1", date:"2026-10-12 10:02",
+      files:[{path:"src/auth.ts", status:"modified", add:4, del:1, assets:[]},
+             {path:"docs/refresh.md", status:"added", add:22, del:0, assets:["docs"]}] },
+    { sha:"d924a70", msg:"agent-2: rotate-on-refresh", author:"agent-2", date:"2026-10-12 10:31",
+      files:[{path:"src/auth.ts", status:"modified", add:3, del:2, assets:[]}] },
+    { sha:"bd27fcf", msg:"agent-3: docs", author:"agent-3", date:"2026-10-12 11:05",
+      files:[{path:"README.md", status:"modified", add:12, del:4, assets:["docs"]},
+             {path:"docs/quickstart.md", status:"modified", add:8, del:1, assets:["docs"]}] },
+    { sha:"fcc4210", msg:"agent-4: CLI errors", author:"agent-4", date:"2026-10-12 11:48",
+      files:[{path:"src/cli.ts", status:"modified", add:17, del:9, assets:[]}] }
+  ],
+
+  /* six-cluster fork signals — agent-3, with unmeasured clusters named */
+  forkSignals: [
+    { fork:"agent-1", clusters:[["fit",0.98],["trust",0.88],["liveness",0.96],["proof",0.74],["distance",0.02],["cost",0.91]],
+      policy:["land manual","secrets refused"], lineage:"base: demo" },
+    { fork:"agent-2", clusters:[["fit",0.94],["trust",0.71],["liveness",0.93],["proof",0.55],["distance",0.04],["cost",0.87]],
+      policy:["land manual","secrets refused"], lineage:"base: demo" },
+    { fork:"agent-3", clusters:[["fit",0.98],["trust","unmeasured"],["liveness",0.96],["proof",0.20],["distance",0.00],["cost",0.99]],
+      policy:["land manual","secrets refused"], lineage:"base: demo" },
+    { fork:"agent-4", clusters:[["fit",0.89],["trust",0.66],["liveness",0.90],["proof",0.48],["distance",0.07],["cost",0.83]],
+      policy:["land manual","secrets refused"], lineage:"base: demo" },
+    { fork:"agent-5", clusters:[["fit",0.97],["trust","unmeasured"],["liveness",0.85],["proof",0.31],["distance",0.01],["cost",0.95]],
+      policy:["land manual","secrets refused"], lineage:"base: demo" }
+  ],
+
+  sessions: [
+    { repo:"agent-1", state:"working", intent:"Refactor: session refresh with TTL", last:"repo.pushed", ago:"2m" },
+    { repo:"agent-2", state:"working", intent:"Add rotate-on-refresh to auth", last:"repo.pushed", ago:"4m" },
+    { repo:"agent-3", state:"idle",    intent:"Docs: quickstart polish",        last:"repo.pushed", ago:"20m" },
+    { repo:"agent-4", state:"idle",    intent:"CLI: tighter error surface",     last:"repo.pushed", ago:"41m" }
+  ],
+
+  issues: [
+    { kind:"conflict",         sev:"high",   repo:"agent-1", title:"Text conflict in src/auth.ts",
+      detail:"agent-1 × agent-2 · 1 pair · both touch session refresh", view:"console", target:"conflictPlate" },
+    { kind:"withheld-secret",  sev:"block",  repo:"agent-5", title:"Secret-class file withheld",
+      detail:"config/.env · key names only · reveal requires a grant", view:"files", target:"tree" },
+    { kind:"stale-base",       sev:"low",    repo:"agent-4", title:"Base is 3 commits behind",
+      detail:"agent-4 · rebasing recommended before land", view:"history", target:"commitList" },
+    { kind:"blocked-intent",   sev:"medium", repo:"agent-3", title:"Intent blocked by policy",
+      detail:"agent-3 · quickstart edit awaits land manual", view:"console", target:"proposalGrid" }
+  ],
+
+  agents: [
+    { agent:"agent-1", harness:"omp",        harnessRec:true,  caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+    { agent:"agent-2", harness:"omp",        harnessRec:true,  caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+    { agent:"agent-3", harness:"unrecorded", harnessRec:false, caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+    { agent:"agent-4", harness:"omp",        harnessRec:true,  caps:["propose"], policy:{land:"manual", secrets:"refused"} }
+  ],
+
+  harnesses: [
+    { name:"codex", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"], status:"healthy" },
+    { name:"omp",   kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"], status:"healthy" },
+    { name:"pi",    kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"], status:"healthy" }
+  ],
+
+  parity: [
+    ["proposal-intent",   "exceeds", "5/5 intents parsed · 0 manual"],
+    ["conflict-map",      "exceeds", "1 pair drawn · text-conflict"],
+    ["checks-strip",      "exceeds", "5 tri-state · honest unknown"],
+    ["secret-withholding","exceeds", "key names only · 1 withheld"],
+    ["land-receipts",     "exceeds", "12 keys · sha==tested"],
+    ["file-browser",      "parity",  "text · binary · secret viewers"],
+    ["history-ledger",    "parity",  "5 commits · root noted"],
+    ["fork-signals",      "parity",  "6 clusters · unmeasured named"],
+    ["session-steering",  "below",   "v1 stream-only · no live channel"],
+    ["agent-identity-policy","below","4 agents · policy read-only"],
+    ["agent-federation",  "below",   "single namespace · demo only"],
+    ["issues",            "below",   "derived 4/4 · no triage queue"],
+    ["ci",                "below",   "checks simulated · no runners"],
+    ["sessions-view",     "parity",  "4 rows · state dots"],
+    ["agents-roster",     "parity",  "4 agents + 3 harnesses"],
+    ["parity-self-report","parity",  "18 rows · self-measured"],
+    ["tour",              "parity",  "8 steps · stepper wired"],
+    ["platform-pulse",    "parity",  "floors · intents router · merge-back"]
+  ],
+
+  judge: {
+    verdict:"ESCALATE",
+    codes:[["risk","senior-security:agent-2"],["intent","contradicts:agent-2"]],
+    panels:{ risk:"high", intent:"contradicts", collision:"agent-1 × agent-2" },
+    skipped:[["agent-5","secret-class"],["agent-5","content-secret"]],
+    failCopy:"HTTP 503 · fail-closed — no landing while a judge verdict stands unresolved. The merge stays armed, never fired."
+  },
+
+  receipt: [
+    ["repos",        "demo + agent-1..agent-5"],
+    ["commit",       "7c042f10"],
+    ["ancestor",     "550be50 (baseline)"],
+    ["heads",        "main@7c042f10 · agent-1@804db99 · agent-2@d924a70"],
+    ["foldHash",     "f3a91c0e"],
+    ["checks",       "fold pass · collision pass · conflicts resolved · secrets withheld · base pass"],
+    ["results",      "merged-sha-equals-tested-sha: pass"],
+    ["mergedSha",    "7c042f10"],
+    ["testedSha",    "7c042f10"],
+    ["artifactRef",  "artifacts://demo/7c042f10/land.tar"],
+    ["at",           "2026-10-12T11:59:04Z"],
+    ["lease",        '{provider:"do", leaseId:"lt_9f2c71"}']
+  ],
+
+  auditLog: [
+    ["2026-10-12T11:58:40Z", "secret.reveal", "config/.env", "decision: granted", "by convergence desk"],
+    ["2026-10-12T11:58:41Z", "secret.read",   "config/.env", "keys: DATABASE_URL, REDIS_URL", "audited"]
+  ],
+
+  /* file browser trees per repo */
+  trees: {
+    "agent-1": [
+      {dir:"config"}, {path:"config/.env", kind:"secret"},
+      {dir:"src"}, {path:"src/auth.ts", kind:"text"}, {path:"src/cli.ts", kind:"text"},
+      {path:"README.md", kind:"text"}, {path:"docs/quickstart.md", kind:"text"}
+    ],
+    "agent-2": [
+      {dir:"config"}, {path:"config/.env", kind:"secret"},
+      {dir:"src"}, {path:"src/auth.ts", kind:"text"}, {path:"src/cli.ts", kind:"text"},
+      {path:"README.md", kind:"text"}
+    ],
+    "agent-3": [
+      {dir:"docs"}, {path:"docs/quickstart.md", kind:"text"},
+      {path:"README.md", kind:"text"}, {path:"src/auth.ts", kind:"text"},
+      {path:"src/cli.ts", kind:"text"}, {path:"config/.env", kind:"secret"}
+    ],
+      "agent-4": [
+      {dir:"src"}, {path:"src/cli.ts", kind:"text"}, {path:"src/auth.ts", kind:"text"},
+      {path:"README.md", kind:"text"}, {path:"assets/logo.png", kind:"binary"},
+      {path:"config/.env", kind:"secret"}
+    ],
+    "agent-5": [
+      {dir:"config"}, {path:"config/.env", kind:"secret"},
+      {path:"README.md", kind:"text"}, {path:"src/auth.ts", kind:"text"}
+    ]
+  },
+
+  /* file contents */
+  files: {
+    "src/auth.ts": {
+      kind:"text",
+      lines:[
+        "import { Session } from \"./session\";",
+        "",
+        "export async function refreshSession(sid: string) {",
+        "  const s = await Session.load(sid);",
+        "  // TTL window: 30m, rotated on refresh",
+        "  s.ttl = 30 * 60;",
+        "  s.rotate();",
+        "  return s.save();",
+        "}",
+        ""
+      ]
+    },
+    "src/cli.ts": {
+      kind:"text",
+      lines:[
+        "import { CLIError } from \"./errors\";",
+        "",
+        "export function run(argv: string[]) {",
+        "  try {",
+        "    return dispatch(argv);",
+        "  } catch (e) {",
+        "    throw new CLIError(e.message, { code: \"CLI_ERR\" });",
+        "  }",
+        "}",
+        ""
+      ]
+    },
+    "README.md": {
+      kind:"text",
+      lines:[
+        "# demo",
+        "",
+        "The demo namespace of NextGit — the agent-era",
+        "convergence layer. Agents propose; humans decide;",
+        "every landing carries a receipt.",
+        "",
+        "## quickstart",
+        "",
+        "  pnpm tools-dev    # bring up the workspace",
+        "  pnpm tools-test   # run the batteries",
+        ""
+      ]
+    },
+    "docs/quickstart.md": {
+      kind:"text",
+      lines:[
+        "# Quickstart",
+        "",
+        "1. Clone the demo namespace.",
+        "2. Run `pnpm tools-dev`.",
+        "3. Open the triage console.",
+        "4. Land a proposal — watch the receipt issue.",
+        ""
+      ]
+    },
+    "assets/logo.png": {
+      kind:"binary",
+      meta:{ "Size":"18.4 KB", "Dimensions":"512 × 512", "Type":"PNG · image/png", "SHA-256":"b3c1…9e07 (truncated)", "Posture":"metadata-only — binary bytes are never rendered in this prototype" }
+    },
+    "config/.env": {
+      kind:"secret",
+      keys:["DATABASE_URL","REDIS_URL"],
+      granted:"DATABASE_URL = postgres://demo:FAKE-SECRET-DO-NOT-USE@db.internal:5432/app"
+    }
+  },
+
+  /* comments on src/auth.ts (surface 2) */
+  comments: [
+    { who:"john", line:"3", text:"looks good, ship it" }
+  ],
+
+  /* diff3 for src/auth.ts (agent-1 ours vs agent-2 theirs) */
+  diff3: [
+    { n:3,  ctx:"export async function refreshSession(sid: string) {" },
+    { n:4,  ctx:"  const s = await Session.load(sid);" },
+    { mark:"ours",   text:"<<<<<<< ours (agent-1 · TTL window: 30m, rotated on refresh)" },
+    { n:5,  side:"ours", code:"  s.ttl = 30 * 60;  // TTL window" },
+    { mark:"mid",    text:"=======" },
+    { n:5,  side:"theirs", code:"  s.rotate();  // rotate-on-refresh (agent-2)" },
+    { mark:"theirs", text:">>>>>>> theirs (agent-2 · rotate-on-refresh)" },
+    { n:6,  ctx:"  return s.save();" },
+    { n:7,  ctx:"}" }
+  ],
+
+  /* clean diffs for agent-3 files */
+  cleanDiff: {
+    "README.md": [
+      { n:6,  ctx:"## quickstart" },
+      { n:7,  ctx:"" },
+      { del:"  pnpm install    # install the workspace" },
+      { add:"  pnpm tools-dev    # bring up the workspace" },
+      { del:"  pnpm test         # run the batteries" },
+      { add:"  pnpm tools-test   # run the batteries" }
+    ],
+    "docs/quickstart.md": [
+      { n:3,  ctx:"1. Clone the demo namespace." },
+      { del:"2. Run `pnpm install`." },
+      { add:"2. Run `pnpm tools-dev`." },
+      { n:4,  ctx:"3. Open the triage console." }
+    ]
+  }
+};
+
+/* ---------- app state ---------- */
+const state = {
+  view:"console",
+  connLive:true,
+  wire:[...STORE.events],
+  tickerIdx:0,
+  tickerTimer:null,
+  modalRepo:null, modalTab:0,
+  landRepo:null, landArmed:false, landVariant:"escalate",
+  filesRepo:"agent-1", filesPath:null, filesRevealed:false,
+  histSha:null,
+  steerTarget:"agent-1",
+  tourStep:0, tourOpen:false,
+  comments:[...STORE.comments]
+};
+
+/* ---------- toast ---------- */
+let toastTimer=null;
+function toast(html){
+  const t=$("#toast"); t.innerHTML=html; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2600);
+}
+
+/* ============================================================
+   SURFACE 1 — triage console
+   ============================================================ */
+function renderStats(){
+  const s=STORE.stats;
+  const rows=[["proposals",s.proposals,false],["shared",s.shared,false],
+              ["conflicts",s.conflicts,true],["changed",s.changed,false],["clean",s.clean,false]];
+  $("#statsRings").innerHTML = rows.map(([k,v,hot])=>
+    `<div class="ring-wrap" title="${k}: ${v}">
+       <div class="ring ${hot?"coral":""}"><span class="ring-num num">${String(v).padStart(2,"0")}</span></div>
+       <div class="ring-label">${k}</div>
+     </div>`).join("");
+}
+
+const CHECK_META=[["fold","fold"],["collision","collision"],["conflicts","conflicts"],["secrets","secrets"],["base","base"]];
+function checkChip(k,v){
+  const glyph = v==="pass" ? "✓" : v==="fail" ? "✕" : "?";
+  return `<span class="chk ${v}" title="${k}: ${v}"><span class="ck-glyph">${glyph}</span><span class="ck-n">${k}</span></span>`;
+}
+
+function renderProposals(){
+  $("#proposalGrid").innerHTML = STORE.proposals.map((p,i)=>{
+    const withheld = p.landing==="withheld-secret";
+    const filesLine = p.files.map(f=>
+      `<span class="mono">${esc(f.path)}</span> <span class="pm add">+${f.add}</span><span class="pm del">−${f.del}</span>`
+    ).join(" · ");
+    const armed = state.landRepo===p.repo && state.landArmed;
+    return `
+    <article class="card card-7" data-proposal="${p.repo}" id="card-${p.repo}">
+      <span class="arrow-mark" aria-hidden="true">↗</span>
+      <div class="card-top">
+        <span class="card-num">${ROMAN[i]}</span>
+        <span class="card-eyebrow">Proposal · ${esc(p.repo)}</span>
+        <span class="chip ${withheld?"land-withheld":"land-ready"}" style="margin-left:auto">${withheld?"withheld-secret":"ready"}</span>
+      </div>
+      <div class="card-intent">${esc(p.intent)}</div>
+      <div class="card-files">${filesLine}</div>
+      <div class="checks" aria-label="Checks strip for ${esc(p.repo)}">
+        ${CHECK_META.map(([k,label])=>checkChip(label,p.checks[k])).join("")}
+      </div>
+      ${withheld ? `
+      <div class="secret-block" style="margin-top:2px">
+        <div class="secret-note"><b>Secret-class file withheld.</b>
+          <span class="mono">config/.env</span> exposes key names only —
+          <span class="mono">${STORE.files["config/.env"].keys.join(", ")}</span>.
+          Values never render until a reveal is granted and audited.</div>
+        <div class="arm-row">
+          <button class="btn ghost sm" data-act="secret-view" data-repo="${p.repo}">Secret view</button>
+        </div>
+      </div>` : ""}
+      <div class="card-actions">
+        <button class="btn ghost sm" data-act="diff" data-repo="${p.repo}">View diff</button>
+        <button class="btn ghost sm" data-act="preview" data-repo="${p.repo}">Preview merge</button>
+        <button class="btn ${armed?"armed":"primary"} sm" data-act="land" data-repo="${p.repo}">
+          ${armed?"Armed — confirm":"Land"} <span class="arr">↗</span>
+        </button>
+      </div>
+      ${armed ? armBarHTML(p) : ""}
+    </article>`;
+  }).join("");
+}
+
+function armBarHTML(p){
+  return `
+  <div class="arm-bar" role="group" aria-label="Land confirmation for ${esc(p.repo)}">
+    <div class="arm-q">Land <b class="mono">${esc(p.repo)}</b> into <b class="mono">demo</b>?
+      The judge sheet opens on confirm — it is render-only and never auto-fires.</div>
+    <div class="arm-row">
+      <button class="btn primary sm" data-act="land-confirm" data-repo="${p.repo}">Confirm landing</button>
+      <button class="btn ghost sm" data-act="land-cancel" data-repo="${p.repo}">Disarm</button>
+    </div>
+  </div>`;
+}
+
+function renderConflictPlate(){
+  const c=STORE.conflict;
+  $("#conflictPlate").innerHTML = `
+    <div class="plate-head">
+      <span class="plate-fig">FIG. 02 — CONFLICT MAP</span>
+      <span class="plate-title">Where the lanes <em>cross</em><span class="dot">.</span></span>
+      <span class="chip kind" style="margin-left:auto">${c.pairs} text-conflict pair</span>
+      <span class="plate-meta mono" style="font-size:10.5px;color:var(--ink-faint)">52.5200° N · 13.4050° E</span>
+    </div>
+    <div class="conflict-row">
+      <span class="repo-chip">${c.pair[0]}</span>
+      <span class="conflict-mid"><span class="cm-glyph">×</span></span>
+      <span class="repo-chip"><span class="x">×</span> ${c.pair[1]}</span>
+      <span class="conflict-meta">file: ${esc(c.file)} · kind: ${c.kind} · pairs: ${c.pairs}</span>
+    </div>
+    <div class="conflict-detail">
+      <div class="cd-line"><b>Conflicts with agent-2.</b> Both proposals touch
+        <span class="mono">${esc(c.file)}</span> inside <span class="mono">refreshSession()</span> —
+        agent-1 extends the TTL window while agent-2 rotates the session on refresh.
+        The judge has escalated the pair; no landing fires while it stands.</div>
+      <button class="btn ghost sm" data-act="diff" data-repo="agent-1" style="margin-left:auto">Inspect diff3</button>
+    </div>
+    <div class="lane-map" aria-hidden="true">
+      <div class="lane"><span class="lane-name">${c.pair[0]}</span>
+        <div class="lane-track"><div class="lane-fill" style="left:4%;width:58%"></div>
+          <div class="lane-hit" style="left:44%"></div></div>
+        <div class="lane-key"><span>session.refresh · ttl</span><span>src/auth.ts</span></div></div>
+      <div class="lane"><span class="lane-name">${c.pair[1]}</span>
+        <div class="lane-track"><div class="lane-fill hot" style="left:30%;width:52%"></div>
+          <div class="lane-hit" style="left:44%"></div></div>
+        <div class="lane-key"><span>session.rotate · on-refresh</span><span>src/auth.ts</span></div></div>
+    </div>`;
+}
+
+/* ---------- the wire (ticker) ---------- */
+function wireItemHTML(e, idx){
+  return `<li class="wire-item fresh">
+    <span class="wire-idx num">${String(idx).padStart(2,"0")}</span>
+    <span class="wire-type">${esc(e.type)}</span>
+    <span class="wire-repo">${esc(e.repo)}</span>
+    <span class="wire-msg">${esc(e.msg)}</span>
+    <span class="wire-time">now</span>
+  </li>`;
+}
+function renderWire(){
+  const w=state.wire.slice(0,8);
+  $("#wireList").innerHTML = w.map((e,i)=>{
+    const li=wireItemHTML(e,i);
+    return li.replace(' class="wire-item fresh"',' class="wire-item"');
+  }).join("");
+  $("#pulseRate").textContent = `${state.wire.length} events · 2m window`;
+}
+function pushWire(e){
+  state.wire.unshift(e);
+  state.wire = state.wire.slice(0,24);
+  const list=$("#wireList");
+  list.insertAdjacentHTML("afterbegin", wireItemHTML(e,0));
+  $$(".wire-item",list).forEach((li,i)=>{
+    $(".wire-idx",li).textContent=String(i).padStart(2,"0");
+    if(i>0) li.classList.remove("fresh");
+  });
+  while(list.children.length>8) list.lastElementChild.remove();
+  $("#pulseRate").textContent = `${state.wire.length} events · 2m window`;
+}
+function startTicker(){
+  stopTicker();
+  state.tickerTimer=setInterval(()=>{
+    if(!state.connLive) return;
+    const e=STORE.tickerPool[state.tickerIdx % STORE.tickerPool.length];
+    state.tickerIdx++;
+    pushWire(e);
+  }, 2600 + Math.random()*1200);
+}
+function stopTicker(){ if(state.tickerTimer){ clearInterval(state.tickerTimer); state.tickerTimer=null; } }
+
+/* ---------- connection toggle (animates) ---------- */
+function renderConn(){
+  const pill=$("#connPill");
+  pill.classList.toggle("live", state.connLive);
+  $("#connWord").textContent = state.connLive ? "Live" : "Polling";
+  $("#wireState").textContent = state.connLive ? "STREAMING" : "POLLING";
+  $("#stripDot").classList.toggle("polling", !state.connLive);
+}
+
+/* ============================================================
+   SURFACE 2 — merge modal (diff3 · clean diff · secret · comments)
+   ============================================================ */
+function openModal(repo, tab){
+  state.modalRepo=repo;
+  state.modalTab = tab!=null ? tab : 0;
+  const p=STORE.proposals.find(x=>x.repo===repo);
+  $("#mmTitle").innerHTML = `${esc(p.intent)} <span class="dot">.</span>`;
+  $("#mmSub").textContent = `${repo} → demo · ${p.files.map(f=>f.path).join(" · ")} · preview is render-only`;
+  $("#mergeModal").hidden=false;
+  requestAnimationFrame(()=>{
+    $("#mergeModal").classList.add("open"); $("#scrim").classList.add("open");
+  });
+  renderModalTabs(); renderModalContent(); renderComments();
+  $("#mmClose").focus();
+}
+function closeModal(){
+  $("#mergeModal").classList.remove("open"); $("#scrim").classList.remove("open");
+  setTimeout(()=>{ $("#mergeModal").hidden=true; }, 200);
+}
+function renderModalTabs(){
+  const p=STORE.proposals.find(x=>x.repo===state.modalRepo);
+  const withheld = p.landing==="withheld-secret";
+  const tabs = withheld
+    ? [{label:"config/.env", tag:"secret"}]
+    : p.files.map(f=>({label:f.path, tag: state.modalRepo==="agent-1"||state.modalRepo==="agent-2" ? (f.path==="src/auth.ts"?"diff3":"diff") : "diff"}));
+  $("#mmTabs").innerHTML = tabs.map((t,i)=>
+    `<button class="tab ${i===state.modalTab?"active":""}" role="tab" aria-selected="${i===state.modalTab}" data-tab="${i}">
+       ${esc(t.label)}<span class="tb-tag">${t.tag}</span></button>`).join("");
+}
+function diffRowsHTML(rows){
+  return `<table class="diff-table">${rows.map(r=>{
+    if(r.mark) return `<tr class="dl-row ${r.mark==="ours"?"del":r.mark==="theirs"?"add":"ctx"}">
+      <td class="dl-num"></td><td class="dl-code"><span class="mk ${r.mark==="ours"?"mk-ours":r.mark==="theirs"?"mk-theirs":"mk-mid"}">${esc(r.text)}</span></td></tr>`;
+    if(r.del) return `<tr class="dl-row del"><td class="dl-num">${r.n??""}</td><td class="dl-code"><span class="mk mk-ours">−</span> ${esc(r.del)}</td></tr>`;
+    if(r.add) return `<tr class="dl-row add"><td class="dl-num">${r.n??""}</td><td class="dl-code"><span class="mk mk-theirs">+</span> ${esc(r.add)}</td></tr>`;
+    if(r.ctx!=null) return `<tr class="dl-row ctx"><td class="dl-num">${r.n??""}</td><td class="dl-code"> ${esc(r.ctx)}</td></tr>`;
+    return "";
+  }).join("")}</table>`;
+}
+function renderModalContent(){
+  const repo=state.modalRepo, tab=state.modalTab;
+  const p=STORE.proposals.find(x=>x.repo===repo);
+  const box=$("#mmContent");
+  if(p.landing==="withheld-secret"){
+    const f=STORE.files["config/.env"];
+    box.innerHTML = `
+      <div class="secret-block">
+        <div class="secret-note"><b>Withheld-secret state.</b>
+          <span class="mono">config/.env</span> is secret-class. This preview shows
+          key names only — the values are never transmitted, never rendered, until a
+          human grants a reveal.</div>
+        ${f.keys.map(k=>`<div class="key-row"><span class="key-name">${esc(k)}</span>
+          <span class="key-mask">••••••••••••••••</span>
+          <button class="btn ghost sm" data-act="reveal-modal" data-key="${esc(k)}">Reveal</button></div>`).join("")}
+        <div class="audit-note" id="modalAuditNote" hidden></div>
+      </div>`;
+    return;
+  }
+  const file=p.files[Math.min(tab,p.files.length-1)];
+  let body;
+  if(repo==="agent-1" || repo==="agent-2"){
+    body = `
+      <div class="diff">
+        <div class="diff-head"><span>${esc(file.path)} · diff3</span><span>ours: agent-1 · theirs: agent-2</span></div>
+        ${diffRowsHTML(STORE.diff3)}
+      </div>
+      <p class="compose-hint" style="margin-top:10px">Conflict pair: agent-1 × agent-2 · 1 pair · text-conflict. The judge has escalated — see the land sheet.</p>`;
+  } else if(repo==="agent-3"){
+    const d=STORE.cleanDiff[file.path]||[];
+    body = `
+      <div class="diff">
+        <div class="diff-head"><span>${esc(file.path)} · clean</span><span>no conflict · routes merge-it</span></div>
+        ${d.length? diffRowsHTML(d) : `<table class="diff-table"><tr class="dl-row ctx"><td class="dl-num"></td><td class="dl-code"> (no textual delta — polish only)</td></tr></table>`}
+      </div>`;
+  } else {
+    const f=STORE.files[file.path];
+    const lines = f && f.kind==="text" ? f.lines : ["(proposed content — preview renders the working tree state)"];
+    body = `
+      <div class="diff">
+        <div class="diff-head"><span>${esc(file.path)} · proposed</span><span>+${file.add} −${file.del}</span></div>
+        <table class="diff-table">${lines.map((l,i)=>`<tr class="dl-row ctx"><td class="dl-num">${i+1}</td><td class="dl-code"> ${esc(l)}</td></tr>`).join("")}</table>
+      </div>`;
+  }
+  box.innerHTML=body;
+}
+function renderComments(){
+  const box=$("#mmComments");
+  box.innerHTML = `
+    <h4>Comments · src/auth.ts</h4>
+    <div id="commentList">
+      ${state.comments.map((c,i)=>`
+        <div class="comment ${c.fresh?"fresh":""}">
+          <div class="c-who">${esc(c.who)}<span class="c-line">line ${esc(c.line)}</span></div>
+          <div class="c-txt">${esc(c.text)}</div>
+        </div>`).join("")}
+    </div>
+    <div class="compose">
+      <textarea id="composeText" placeholder="Add a comment on src/auth.ts…" aria-label="Add a comment"></textarea>
+      <button class="btn ghost sm" id="composeSend">Comment</button>
+    </div>
+    <div class="compose-hint">Optimistic append — comments live in memory for this session.</div>`;
+  const send=$("#composeSend");
+  const ta=$("#composeText");
+  const doSend=()=>{
+    const v=ta.value.trim(); if(!v) return;
+    state.comments.push({who:"you", line:"—", text:v, fresh:true});
+    ta.value=""; renderComments();
+    toast(`Comment appended · <span class="t-mono">src/auth.ts</span>`);
+  };
+  send.addEventListener("click", doSend);
+  ta.addEventListener("keydown", e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) doSend(); });
+}
+
+/* ============================================================
+   SURFACE 3 — files browser
+   ============================================================ */
+function renderRepoPicker(){
+  const repos=["agent-1","agent-2","agent-3","agent-4","agent-5"];
+  $("#repoPicker").innerHTML = repos.map(r=>
+    `<button class="tab ${r===state.filesRepo?"active":""}" role="tab" aria-selected="${r===state.filesRepo}" data-repo="${r}">${r}</button>`).join("");
+}
+function renderTree(){
+  const items=STORE.trees[state.filesRepo];
+  $("#fileTree").innerHTML =
+    `<div class="tree-head">Plate · ${esc(state.filesRepo)}</div>` +
+    items.map(it=>{
+      if(it.dir) return `<button class="tree-item dir" data-dir="${esc(it.dir)}" tabindex="-1">
+        <span class="ti-glyph">▸</span><span>${esc(it.dir)}/</span></button>`;
+      const active = state.filesPath===it.path;
+      const glyph = it.kind==="secret" ? "◈" : it.kind==="binary" ? "▦" : "·";
+      return `<button class="tree-item ${it.kind==="secret"?"secret":""} ${active?"active":""}"
+        data-path="${esc(it.path)}" aria-current="${active}">
+        <span class="ti-glyph">${glyph}</span><span>${esc(it.path)}</span></button>`;
+    }).join("");
+}
+function renderViewer(){
+  const path=state.filesPath;
+  const viewer=$("#viewer");
+  $("#crumb").innerHTML =
+    `<span>${esc(state.filesRepo)}</span><span class="c-sep">/</span><b>${esc(path||"—")}</b>`;
+  if(!path){
+    viewer.innerHTML = `<div class="empty-note">Select a file from the tree — <em>every viewer state is one click away</em>.</div>`;
+    return;
+  }
+  /* skeleton shimmer on switch */
+  viewer.innerHTML = `<div class="viewer-head"><span class="viewer-title mono">${esc(path)}</span></div>
+    <div style="padding:18px 22px"><div class="skel-stack">
+      <div class="skel h-sm"></div><div class="skel h-sm"></div><div class="skel h-sm" style="width:72%"></div>
+      <div class="skel h-sm"></div><div class="skel h-sm" style="width:58%"></div>
+    </div></div>`;
+  setTimeout(()=>{ if(state.filesPath===path) paintViewer(path); }, 320);
+}
+function paintViewer(path){
+  const f=STORE.files[path];
+  const repo=state.filesRepo;
+  const viewer=$("#viewer");
+  if(!f){
+    viewer.innerHTML = `<div class="viewer-head"><span class="viewer-title mono">${esc(path)}</span></div>
+      <div class="empty-note">No plate for <em>${esc(path)}</em> in this demo tree.</div>`;
+    return;
+  }
+  if(f.kind==="secret"){
+    const revealed = state.filesRevealed;
+    viewer.innerHTML = `
+      <div class="viewer-head">
+        <span class="viewer-title mono">${esc(path)}</span>
+        <span class="chip land-withheld">secret-class</span>
+        <span class="viewer-meta">keys: ${f.keys.join(", ")}</span>
+      </div>
+      <div style="padding:20px 24px">
+        <div class="secret-block">
+          <div class="secret-note"><b>Secret-class — key names only.</b>
+            Values are withheld by policy <span class="mono">{secrets: refused}</span>
+            until a reveal is granted. The granted value below is a fake demo value.</div>
+          ${f.keys.map(k=>`<div class="key-row"><span class="key-name">${esc(k)}</span>
+            ${revealed
+              ? `<span class="key-val">${esc(f.granted)}</span>`
+              : `<span class="key-mask">••••••••••••••••••••</span>`}
+          </div>`).join("")}
+          <div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn ${revealed?"ghost":"primary"} sm" id="revealBtn">
+              ${revealed?"Revealed — granted":"Reveal"} <span class="arr">↗</span></button>
+            <span class="audit-note" ${revealed?"":"hidden"} id="viewerAudit">
+              audit · decision: granted · by convergence desk · ${esc(new Date().toISOString().slice(0,19)+"Z")}</span>
+          </div>
+        </div>
+      </div>`;
+    const rb=$("#revealBtn");
+    if(rb && !revealed){
+      rb.addEventListener("click", ()=>{
+        state.filesRevealed=true;
+        paintViewer(path);
+        pushWire({type:"secret.revealed", repo, msg:`config/.env · decision: granted`});
+        toast(`Reveal granted · <span class="t-mono">decision: granted</span>`);
+      });
+    }
+    return;
+  }
+  if(f.kind==="binary"){
+    viewer.innerHTML = `
+      <div class="viewer-head">
+        <span class="viewer-title mono">${esc(path)}</span>
+        <span class="chip kind">binary</span>
+        <span class="viewer-meta">metadata-only posture</span>
+      </div>
+      <div class="binary-posture">
+        <div class="bp-note">Binary bytes are never rendered in this prototype —
+          the posture is metadata only, honestly stated.</div>
+        <div class="meta-table">
+          ${Object.entries(f.meta).map(([k,v])=>
+            `<span class="mt-k">${esc(k)}</span><span class="mt-v">${esc(v)}</span>`).join("")}
+        </div>
+      </div>`;
+    return;
+  }
+  /* text */
+  const isSecretPath = path==="config/.env";
+  viewer.innerHTML = `
+    <div class="viewer-head">
+      <span class="viewer-title mono">${esc(path)}</span>
+      <span class="chip kind">text</span>
+      <span class="viewer-meta">${f.lines.length} lines</span>
+      ${!isSecretPath ? `<a class="raw-link" href="#" data-raw="${esc(path)}">raw ↗</a>` : ""}
+    </div>
+    <div class="viewer-body">
+      ${f.lines.map((l,i)=>`<div class="vline"><span class="vl-num">${i+1}</span><span class="vl-code">${esc(l)}</span></div>`).join("")}
+    </div>`;
+  const raw=$(".raw-link",viewer);
+  if(raw) raw.addEventListener("click", e=>{ e.preventDefault(); toast(`raw view · <span class="t-mono">${esc(path)}</span> (demo)`); });
+}
+
+/* ============================================================
+   SURFACE 4 — history
+   ============================================================ */
+function renderHistory(){
+  $("#commitList").innerHTML = STORE.commits.map(c=>`
+    <button class="commit ${state.histSha===c.sha?"active":""}" data-sha="${c.sha}"
+      ${c.root?'aria-label="Root commit: baseline"':""}>
+      <span class="c-sha">${c.sha}</span>
+      <span class="c-msg">${esc(c.msg)}</span>
+      <span class="c-meta">${esc(c.author)} · ${esc(c.date)}</span>
+    </button>`).join("");
+}
+function renderCommitDetail(){
+  const box=$("#commitDetail");
+  const c=STORE.commits.find(x=>x.sha===state.histSha);
+  if(!c){
+    box.innerHTML = `<div class="empty-note">Select a commit to inspect its <em>changed files</em>.</div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="cd-sha">commit ${c.sha}</div>
+    <h3>${esc(c.msg)}</h3>
+    <div class="cd-meta">${esc(c.author)} · ${esc(c.date)} · ${c.files.length} file(s)</div>
+    ${c.files.map(f=>`
+      <div class="file-row">
+        <span class="fr-status ${f.status}">${f.status}</span>
+        <span class="fr-path">${esc(f.path)}</span>
+        ${f.assets.length ? f.assets.map(a=>`<span class="asset-chip">asset · ${esc(a)}</span>`).join("") : ""}
+        <span class="fr-pm"><span class="add">+${f.add}</span> <span class="del">−${f.del}</span></span>
+      </div>`).join("")}
+    ${c.root ? `<div class="root-note">Root commit — the baseline plate of the demo namespace. Every lineage below starts here.</div>` : ""}
+    <div style="margin-top:16px"><button class="btn ghost sm" data-act="hist-to-files" data-path="${esc(c.files[0].path)}">Open in files browser</button></div>`;
+}
+
+/* ============================================================
+   SURFACE 5 — forks & signals
+   ============================================================ */
+function renderForks(){
+  $("#forkGrid").innerHTML = STORE.forkSignals.map((f,i)=>`
+    <article class="fork-card">
+      <div class="fork-head">
+        <span class="fork-num">${ROMAN[i]}</span>
+        <span class="fork-name">${esc(f.fork)}</span>
+        <span class="chip kind" style="margin-left:auto">fork</span>
+      </div>
+      <div class="cluster-chips">
+        ${f.clusters.map(([k,v])=>
+          `<div class="cluster ${v==="unmeasured"?"unmeasured":""}" title="${k}: ${v}">
+             <span class="cl-k">${esc(k)}</span>
+             <span class="cl-v">${v==="unmeasured"?"unmeasured":Number(v).toFixed(2)}</span>
+           </div>`).join("")}
+      </div>
+      <div class="policy-chips">
+        ${f.policy.map(p=>`<span class="chip policy">${esc(p)}</span>`).join("")}
+        <span class="chip kind" style="margin-left:auto">${esc(f.lineage)}</span>
+      </div>
+    </article>`).join("");
+}
+
+/* ============================================================
+   SURFACE 6 — sessions + steer composer
+   ============================================================ */
+function renderSessions(){
+  $("#sessionRows").innerHTML = STORE.sessions.map(s=>`
+    <div class="session-row" data-sess="${esc(s.repo)}">
+      <span class="state-dot ${s.state}" title="${s.state}"></span>
+      <span class="sess-repo">${esc(s.repo)}</span>
+      <span class="sess-intent">${esc(s.intent)}<span class="si-tag">intent</span></span>
+      <span class="sess-last">${esc(s.last)} · ${esc(s.ago)} ago</span>
+    </div>`).join("");
+  $("#steerTargets").innerHTML = STORE.sessions.map(s=>
+    `<button class="chip ${s.repo===state.steerTarget?"land-ready":"kind"}" data-steer-target="${esc(s.repo)}">${esc(s.repo)}</button>`).join("");
+  $("#steerTargetEcho").textContent = "target: "+state.steerTarget;
+}
+function renderCharCount(){
+  const ta=$("#steerText"); const n=ta.value.length;
+  const cc=$("#charCount");
+  cc.textContent = `${n} / 500`;
+  cc.classList.toggle("over", n>=500);
+}
+function sendSteer(){
+  const ta=$("#steerText"); const v=ta.value.trim();
+  if(!v){ toast(`Nothing to steer — <span class="t-mono">compose a note first</span>`); return; }
+  const msg = v.length>44 ? v.slice(0,44)+"…" : v;
+  pushWire({type:"session.steered", repo:state.steerTarget, msg:`“${msg}”`});
+  ta.value=""; renderCharCount();
+  toast(`Steered <span class="t-mono">${esc(state.steerTarget)}</span> · lands in the event stream (v1)`);
+}
+
+/* ============================================================
+   SURFACE 7 — issues
+   ============================================================ */
+function renderIssues(){
+  $("#issueRows").innerHTML = STORE.issues.map(it=>`
+    <div class="issue-row">
+      <span class="kind-chip kind-${esc(it.kind)}">${esc(it.kind)}</span>
+      <span class="sev ${esc(it.sev)}">${esc(it.sev)}</span>
+      <span class="issue-repo">${esc(it.repo)}</span>
+      <div class="issue-title">${esc(it.title)}<span class="it-detail">${esc(it.detail)}</span></div>
+      <button class="btn ghost sm" data-act="issue-jump" data-view="${esc(it.view)}" data-target="${esc(it.target)}">Open</button>
+    </div>`).join("");
+}
+
+/* ============================================================
+   SURFACE 8 — agents roster + harnesses
+   ============================================================ */
+function renderAgents(){
+  $("#agentsBody").innerHTML = STORE.agents.map(a=>`
+    <tr>
+      <td><span class="t-agent">${esc(a.agent)}</span></td>
+      <td>${a.harnessRec
+        ? `<span class="chip kind">${esc(a.harness)}</span>`
+        : `<span class="t-unrec">${esc(a.harness)}</span>`}</td>
+      <td><span class="t-caps">[${a.caps.map(esc).join(", ")}]</span></td>
+      <td><span class="chip policy">land: ${esc(a.policy.land)}</span>
+          <span class="chip policy">secrets: ${esc(a.policy.secrets)}</span></td>
+    </tr>`).join("");
+  $("#harnessesBody").innerHTML = STORE.harnesses.map(h=>`
+    <tr>
+      <td><span class="t-agent">${esc(h.name)}</span></td>
+      <td><span class="chip byo">byo-cli · ${esc(h.kind)}</span></td>
+      <td><span class="t-caps">${h.caps.map(esc).join(" · ")}</span></td>
+      <td><span class="chip land-ready">${esc(h.status)}</span></td>
+    </tr>`).join("");
+}
+
+/* ============================================================
+   SURFACE 9 — parity dashboard
+   ============================================================ */
+function renderParity(){
+  const counts={exceeds:0,parity:0,below:0};
+  STORE.parity.forEach(([,v])=>counts[v]++);
+  $("#parityChips").innerHTML =
+    `<div class="pchip exceeds"><span class="pc-num num">${counts.exceeds}</span><span class="pc-lb">exceeds</span></div>
+     <div class="pchip parity"><span class="pc-num num">${counts.parity}</span><span class="pc-lb">parity</span></div>
+     <div class="pchip below"><span class="pc-num num">${counts.below}</span><span class="pc-lb">below</span></div>`;
+  $("#parityBody").innerHTML = STORE.parity.map(([name,v,ev])=>`
+    <tr>
+      <td><span class="parity-name"><span class="pn-mono">${esc(name)}</span></span></td>
+      <td><span class="verdict ${v}">${v}</span></td>
+      <td><span class="parity-ev">${esc(ev)}</span></td>
+    </tr>`).join("");
+}
+
+/* ============================================================
+   SURFACE 11 — evidence receipt + reveal audit note
+   ============================================================ */
+function renderReceipt(){
+  $("#receiptCard").innerHTML = `
+    <div class="receipt-head">
+      <span class="r-title">Land evidence receipt <span class="dot">.</span></span>
+      <span class="r-fig">PLATE Nº 12 · 12 KEYS</span>
+      <span class="chip land-ready" style="margin-left:auto">mergedSha == testedSha</span>
+    </div>
+    <div class="receipt-table">
+      ${STORE.receipt.map(([k,v])=>{
+        const isPass = k==="results";
+        return `<div class="receipt-row">
+          <span class="receipt-k">${esc(k)}</span>
+          <span class="receipt-v">${isPass?`<span class="pass-ok">${esc(v)}</span>`:esc(v)}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+  $("#auditCard").innerHTML = `
+    <h4>Reveal audit record</h4>
+    ${STORE.auditLog.map(([at,ev,target,decision,actor])=>`
+      <div class="audit-line">
+        <span class="al-k">at</span> ${esc(at)}<br>
+        <span class="al-k">event</span> ${esc(ev)} · <span class="al-k">target</span> ${esc(target)}<br>
+        <span class="al-k">decision</span> ${esc(decision)} · <span class="al-k">actor</span> ${esc(actor)}
+      </div>`).join("<br><br>")}
+    <div class="audit-note" style="margin-top:12px">every reveal is audited — nothing reads silently</div>`;
+}
+
+/* ============================================================
+   SURFACES 1+11+12 — land sheet (two-step · judge · variants)
+   ============================================================ */
+function openLand(repo){
+  state.landRepo=repo; state.landArmed=true; state.landVariant="escalate";
+  renderProposals();
+  const p=STORE.proposals.find(x=>x.repo===repo);
+  $("#lsTitle").innerHTML = `Land <em>${esc(repo)}</em> <span class="dot">.</span>`;
+  $("#lsSub").textContent = `${p.intent} · ${p.files.map(f=>f.path).join(" · ")}`;
+  $("#landSheet").hidden=false;
+  requestAnimationFrame(()=>$("#landSheet").classList.add("open"));
+  renderLandSheet();
+}
+function closeLand(){
+  $("#landSheet").classList.remove("open");
+  setTimeout(()=>{ $("#landSheet").hidden=true; }, 240);
+  state.landArmed=false; state.landRepo=null;
+  renderProposals();
+}
+function judgeVariantHTML(v){
+  const j=STORE.judge;
+  if(v==="escalate") return `
+    <span class="verdict-big escalate">Escalate</span>
+    <div class="judge-codes">
+      ${j.codes.map(([k,c])=>`<div class="judge-code"><span class="jc-k">${esc(k)}</span><span>${esc(c)}</span></div>`).join("")}
+    </div>`;
+  if(v==="confirm") return `
+    <span class="verdict-big confirm">Confirm</span>
+    <div class="judge-codes"><div class="judge-code"><span class="jc-k">judge</span>
+      <span>human confirm required — collision pair unresolved (agent-1 × agent-2)</span></div></div>`;
+  if(v==="act") return `
+    <span class="verdict-big act">Act</span>
+    <div class="judge-codes"><div class="judge-code"><span class="jc-k">judge</span>
+      <span>recorded evidence present — act path would merge 7c042f10 into demo</span></div></div>`;
+  if(v==="evidence") return `
+    <span class="verdict-big evidence">Recorded evidence</span>
+    <div class="judge-codes"><div class="judge-code"><span class="jc-k">judge</span>
+      <span>receipt 7c042f10 · mergedSha==testedSha · pass</span></div></div>`;
+  return `
+    <span class="verdict-big failclosed">Fail-closed · 503</span>
+    <div class="failcopy">${esc(j.failCopy)}</div>`;
+}
+function renderLandSheet(){
+  const j=STORE.judge;
+  $("#lsBody").innerHTML = `
+    <div class="kicker" style="margin-bottom:12px">Step two · the judge sheet</div>
+    ${judgeVariantHTML(state.landVariant)}
+    <div class="variant-row" role="group" aria-label="Judge verdict variants">
+      ${["escalate","confirm","act","evidence","failclosed"].map(v=>
+        `<button class="variant-pill ${state.landVariant===v?"active":""}" data-variant="${v}">${v==="failclosed"?"fail-closed":v}</button>`).join("")}
+    </div>
+    <div class="judge-panel">
+      <h4>Judge panel · verdict chips</h4>
+      <div class="judge-chips">
+        <span class="j-chip risk" title="risk">risk · ${esc(j.panels.risk)}</span>
+        <span class="j-chip intent" title="intent">intent · ${esc(j.panels.intent)}</span>
+        <span class="j-chip collision" title="collision">collision · ${esc(j.panels.collision)}</span>
+      </div>
+      <div class="skipped">
+        <h5>skipped[] — proposals the judge did not score</h5>
+        ${j.skipped.map(([r,why])=>`<div class="sk-row"><span class="sk-r">✕</span><span>${esc(r)}</span><span>— reason: ${esc(why)}</span></div>`).join("")}
+      </div>
+    </div>
+    <div class="failcopy">${esc(j.failCopy)}</div>
+    <div class="render-only">This sheet is render-only — it never auto-fires. A landing is a human act; the machine only records it.</div>
+    <div style="display:flex;gap:9px;margin-top:18px;flex-wrap:wrap">
+      <button class="btn primary" id="lsRecord">Record landing</button>
+      <button class="btn ghost" id="lsDismiss">Dismiss</button>
+    </div>`;
+  $("#lsRecord").addEventListener("click", ()=>{
+    closeLand();
+    toast(`Landing recorded · <span class="t-mono">receipt 7c042f10 · mergedSha==testedSha pass</span>`);
+    pushWire({type:"repo.landed", repo:"demo", msg:"merged 7c042f10 · receipted"});
+  });
+  $("#lsDismiss").addEventListener("click", closeLand);
+}
+
+/* ============================================================
+   SURFACE 10 — guided tour (8 steps)
+   ============================================================ */
+const TOUR=[
+  {view:"console", sel:null, roman:"I.",   title:"The triage console",
+   txt:"Five proposals sit on the daily plate. Each card carries its intent, its file deltas, its checks strip, and a land action that arms before it ever fires."},
+  {view:"console", sel:"#proposalGrid", roman:"II.",  title:"The proposal grid",
+   txt:"Every card is a proposal: repo, intent, changed files with +/− deltas, and a landing chip. agent-5 is withheld — secret-class files never land unreviewed."},
+  {view:"console", sel:"#card-agent-1", roman:"III.", title:"The checks strip",
+   txt:"Five tri-state checks per card — fold, collision, conflicts, secrets, base. An honest unknown renders neutral, never green. agent-4's conflict check is unknown right now."},
+  {view:"console", sel:"#conflictPlate", roman:"IV.",  title:"The conflict map",
+   txt:"Where lanes cross, they are drawn. agent-1 × agent-2 both touch src/auth.ts — a text-conflict pair, escalated by the judge. The hatched plate is deliberately distinct from the card grid."},
+  {view:"console", sel:"#landSheet", roman:"V.",   title:"Judge & land — two-step",
+   txt:"Land arms first; confirm opens this sheet. The judge verdict (ESCALATE, with risk and intent codes) is render-only — it never auto-fires. Toggle the variants: CONFIRM, ACT, recorded evidence, fail-closed."},
+  {view:"files", sel:"#viewer", roman:"VI.",    title:"Secrets & reveal",
+   txt:"The files browser reads text whole, binaries by metadata only, and secrets by key name only. Reveal on config/.env grants the value — and writes an audit line with decision: granted."},
+  {view:"forks", sel:"#forkGrid", roman:"VII.",  title:"Forks & signals",
+   txt:"Each fork reports six signal clusters. Where a cluster is unmeasured — trust, for agent-3 — we say so. An honest gap beats a fabricated number, every time."},
+  {view:"receipt", sel:"#receiptCard", roman:"VIII.", title:"The evidence receipt",
+   txt:"Every landing carries a receipt: twelve keys, including mergedSha and testedSha — equal, and passing. The audit record beside it logs every granted reveal."}
+];
+function openTour(){
+  state.tourOpen=true; state.tourStep=0;
+  renderTourStep();
+  $("#tour").classList.add("open");
+}
+function closeTour(){
+  state.tourOpen=false;
+  $("#tour").classList.remove("open");
+  $$(".tour-pulse").forEach(el=>el.classList.remove("tour-pulse"));
+}
+function renderTourStep(){
+  const s=TOUR[state.tourStep];
+  switchView(s.view, true);
+  $("#tourRoman").textContent=s.roman;
+  $("#tourCount").textContent=`${state.tourStep+1} / ${TOUR.length}`;
+  $("#tourBar").style.width=`${((state.tourStep+1)/TOUR.length)*100}%`;
+  $("#tourTitle").textContent=s.title;
+  $("#tourTxt").textContent=s.txt;
+  $("#tourBack").disabled = state.tourStep===0;
+  $("#tourNext").innerHTML = state.tourStep===TOUR.length-1 ? "Finish <span class='arr'>✓</span>" : "Next <span class='arr'>→</span>";
+  $$(".tour-pulse").forEach(el=>el.classList.remove("tour-pulse"));
+  if(s.sel){
+    const el=$(s.sel);
+    if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); el.classList.add("tour-pulse"); }
+  }
+}
+
+/* ============================================================
+   view switching — instant DOM toggle + skeleton shimmer
+   ============================================================ */
+function switchView(v, keepTour){
+  if(state.view===v && !keepTour) return;
+  state.view=v;
+  $$("[data-viewpanel]").forEach(p=>{ p.hidden = p.dataset.viewpanel!==v; });
+  $$("[data-nav]").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
+  /* skeleton shimmer on artificial load */
+  const panel=$(`[data-viewpanel="${v}"]`);
+  if(panel && !panel.dataset.loaded){
+    panel.dataset.loaded="1";
+  }
+  if(v==="files" && !state.filesPath){ renderRepoPicker(); renderTree(); renderViewer(); }
+  if(v==="history" && !state.histSha){ renderHistory(); renderCommitDetail(); state.histSha=STORE.commits[1].sha; renderHistory(); renderCommitDetail(); }
+  window.scrollTo({top:0, behavior:"instant"});
+}
+
+/* ============================================================
+   global event wiring
+   ============================================================ */
+function wire(){
+  /* nav */
+  $$("[data-nav]").forEach(b=>b.addEventListener("click", e=>{
+    e.preventDefault();
+    if(state.tourOpen) closeTour();
+    switchView(b.dataset.view);
+  }));
+
+  /* connection toggle */
+  $("#connPill").addEventListener("click", ()=>{
+    state.connLive=!state.connLive;
+    renderConn();
+    toast(state.connLive
+      ? `Connection <span class="t-mono">live · streaming resumed</span>`
+      : `Connection <span class="t-mono">polling · wire paused</span>`);
+  });
+
+  /* proposal card actions (delegated) */
+  $("#proposalGrid").addEventListener("click", e=>{
+    const btn=e.target.closest("[data-act]"); if(!btn) return;
+    const {act,repo}=btn.dataset;
+    if(act==="diff"){ openModal(repo, 0); }
+    if(act==="preview"){ openModal(repo, 0); }
+    if(act==="land"){
+      if(state.landRepo===repo && state.landArmed){
+        state.landArmed=false; state.landRepo=null;
+      } else {
+        state.landArmed=true; state.landRepo=repo;
+      }
+      renderProposals();
+    }
+    if(act==="land-confirm"){ openLand(repo); }
+    if(act==="land-cancel"){ state.landArmed=false; state.landRepo=null; renderProposals(); }
+    if(act==="secret-view"){
+      switchView("files");
+      state.filesRepo="agent-5"; state.filesPath="config/.env"; state.filesRevealed=false;
+      renderRepoPicker(); renderTree(); renderViewer();
+      toast(`Secret view · <span class="t-mono">config/.env · key names only</span>`);
+    }
+  });
+
+  /* conflict plate inspect */
+  $("#conflictPlate").addEventListener("click", e=>{
+    const btn=e.target.closest("[data-act]"); if(!btn) return;
+    if(btn.dataset.act==="diff") openModal("agent-1", 0);
+  });
+
+  /* modal */
+  $("#mmClose").addEventListener("click", closeModal);
+  $("#mmCloseBtn").addEventListener("click", closeModal);
+  $("#scrim").addEventListener("click", closeModal);
+  $("#mmTabs").addEventListener("click", e=>{
+    const t=e.target.closest("[data-tab]"); if(!t) return;
+    state.modalTab=+t.dataset.tab; renderModalTabs(); renderModalContent();
+  });
+  $("#mmContent").addEventListener("click", e=>{
+    const btn=e.target.closest("[data-act='reveal-modal']"); if(!btn) return;
+    const note=$("#modalAuditNote");
+    note.hidden=false;
+    note.className="audit-note";
+    note.textContent=`audit · decision: granted · key ${btn.dataset.key} · by convergence desk · ${new Date().toISOString().slice(0,19)}Z`;
+    btn.textContent="Revealed"; btn.disabled=true;
+    pushWire({type:"secret.revealed", repo:state.modalRepo, msg:`config/.env · decision: granted`});
+    toast(`Reveal granted · <span class="t-mono">audit note written</span>`);
+  });
+  $("#mmLandFromModal").addEventListener("click", ()=>{
+    const repo=state.modalRepo; closeModal(); openLand(repo);
+  });
+
+  /* land sheet */
+  $("#lsClose").addEventListener("click", closeLand);
+  $("#lsBody").addEventListener("click", e=>{
+    const pill=e.target.closest("[data-variant]"); if(!pill) return;
+    state.landVariant=pill.dataset.variant; renderLandSheet();
+  });
+
+  /* files browser */
+  $("#repoPicker").addEventListener("click", e=>{
+    const b=e.target.closest("[data-repo]"); if(!b) return;
+    state.filesRepo=b.dataset.repo; state.filesPath=null; state.filesRevealed=false;
+    renderRepoPicker(); renderTree(); renderViewer();
+  });
+  $("#fileTree").addEventListener("click", e=>{
+    const it=e.target.closest(".tree-item"); if(!it) return;
+    if(it.dataset.path){
+      state.filesPath=it.dataset.path; state.filesRevealed=false;
+      renderTree(); renderViewer();
+    }
+  });
+
+  /* history */
+  $("#commitList").addEventListener("click", e=>{
+    const b=e.target.closest("[data-sha]"); if(!b) return;
+    state.histSha=b.dataset.sha; renderHistory(); renderCommitDetail();
+  });
+  $("#commitDetail").addEventListener("click", e=>{
+    const b=e.target.closest("[data-act='hist-to-files']"); if(!b) return;
+    switchView("files");
+    const p=b.dataset.path;
+    for(const repo of Object.keys(STORE.trees)){
+      if(STORE.trees[repo].some(it=>it.path===p)){
+        state.filesRepo=repo; state.filesPath=p; state.filesRevealed=false;
+        renderRepoPicker(); renderTree(); renderViewer();
+        return;
+      }
+    }
+  });
+
+  /* sessions / steer */
+  $("#steerTargets").addEventListener("click", e=>{
+    const b=e.target.closest("[data-steer-target]"); if(!b) return;
+    state.steerTarget=b.dataset.steerTarget; renderSessions();
+  });
+  $("#steerText").addEventListener("input", renderCharCount);
+  $("#steerSend").addEventListener("click", sendSteer);
+
+  /* issues */
+  $("#issueRows").addEventListener("click", e=>{
+    const b=e.target.closest("[data-act='issue-jump']"); if(!b) return;
+    switchView(b.dataset.view);
+    const t=document.getElementById(b.dataset.target);
+    if(t) t.scrollIntoView({behavior:"smooth", block:"center"});
+  });
+
+  /* tour */
+  $("#tourCta").addEventListener("click", openTour);
+  $("#tourNext").addEventListener("click", ()=>{
+    if(state.tourStep<TOUR.length-1){ state.tourStep++; renderTourStep(); }
+    else closeTour();
+  });
+  $("#tourBack").addEventListener("click", ()=>{
+    if(state.tourStep>0){ state.tourStep--; renderTourStep(); }
+  });
+  $("#tourSkip").addEventListener("click", closeTour);
+
+  /* Esc closes modal → sheet → tour, in that order */
+  document.addEventListener("keydown", e=>{
+    if(e.key!=="Escape") return;
+    if(!$("#mergeModal").hidden && $("#mergeModal").classList.contains("open")){ closeModal(); return; }
+    if(!$("#landSheet").hidden && $("#landSheet").classList.contains("open")){ closeLand(); return; }
+    if(state.tourOpen){ closeTour(); return; }
+  });
+}
+
+/* ============================================================
+   boot
+   ============================================================ */
+(function boot(){
+  renderStats();
+  renderProposals();
+  renderConflictPlate();
+  renderWire();
+  renderConn();
+  renderRepoPicker();
+  renderTree();
+  renderViewer();
+  renderHistory();
+  state.histSha=STORE.commits[1].sha;
+  renderHistory(); renderCommitDetail();
+  renderForks();
+  renderSessions();
+  renderCharCount();
+  renderIssues();
+  renderAgents();
+  renderParity();
+  renderReceipt();
+  wire();
+  startTicker();
+})();
+</script>
+</body>
+</html>

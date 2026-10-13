@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NextGit — 10 design directions (prototypes)</title>
+<style>
+  :root { color-scheme: dark; --bg:#0a0c10; --card:#12151c; --line:#232936; --text:#e8ecf3; --dim:#9aa4b5; --accent:#6ea8fe; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 40px 28px 8px; max-width: 1180px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.01em; }
+  p.sub { margin: 0; color: var(--dim); }
+  main { max-width: 1180px; margin: 20px auto 60px; padding: 0 28px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  a.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 18px 16px; text-decoration: none; color: inherit; transition: transform .15s ease, border-color .15s ease; }
+  a.card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .n { font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); letter-spacing: .08em; }
+  .ds { font-size: 18px; font-weight: 650; margin: 8px 0 4px; }
+  .blurb { color: var(--dim); font-size: 13.5px; }
+  .open { margin-top: 12px; font: 600 12px/1 ui-monospace, monospace; color: var(--dim); }
+  a.card:hover .open { color: var(--accent); }
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 28px 50px; color: var(--dim); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>NextGit — ten design directions</h1>
+  <p class="sub">The same product (13 surfaces, identical fake data, working interactions) rendered through ten Open Design design systems. Click any card. Pure prototypes: inline HTML/CSS/JS, no backend.</p>
+</header>
+<main id="grid"></main>
+<footer>Generated from the Open Design Bridge (skill: frontend-design) — one prototype per direction, built in isolated worktrees. Not connected to the platform: fake data, local interactions.</footer>
+<script>
+  const dirs = [
+    ["01", "linear-app", "Dense, dark, crisp — the snappy-tool benchmark.", "proto-01"],
+    ["02", "vercel", "Mono/geometric black-white minimalism.", "proto-02"],
+    ["03", "github", "Native developer surface (Primer-like).", "proto-03"],
+    ["04", "raycast", "Command-first chrome, keyboard-driven lists.", "proto-04"],
+    ["05", "mission-control", "Fleet-ops HUD — steering consoles for agents.", "proto-05"],
+    ["06", "neobrutalism", "Heavy borders, flat bold color, raw type.", "proto-06"],
+    ["07", "atelier-zero", "Editorial studio — refined type pairing.", "proto-07"],
+    ["08", "glassmorphism", "Layered translucency and depth.", "proto-08"],
+    ["09", "warp", "Terminal-native, mono-led blocks.", "proto-09"],
+    ["10", "stripe", "Fintech-grade product polish (the safe benchmark).", "proto-10"],
+  ];
+  document.getElementById("grid").innerHTML = dirs.map(([n, ds, blurb, dir]) => `
+    <a class="card" href="./${dir}/index.html">
+      <div class="n">DIRECTION ${n}</div>
+      <div class="ds">${ds}</div>
+      <div class="blurb">${blurb}</div>
+      <div class="open">open prototype →</div>
+    </a>`).join("");
+</script>
+</body>
+</html>

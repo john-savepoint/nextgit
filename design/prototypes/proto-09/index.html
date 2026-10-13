@@ -1,0 +1,1989 @@
+<!doctype html>
+<!--
+  SELF-CHECK — proto-09 · warp (terminal-native developer tool)
+  13 surfaces, all present and reachable in-page:
+   1  triage console — 5 proposal cards, 5-check tri-state strips, conflict map, stats chips, event ticker, nav, live/polling connection toggle
+   2  merge modal — file tabs, diff3 (<<<<<<< ours / ======= / >>>>>>> theirs), clean-file diff, withheld-secret state, reveal affordance, comments thread + optimistic compose, Esc + button close
+   3  files browser — repo picker, breadcrumb, dir tree (dirs first), TEXT/BINARY/SECRET viewers, Reveal → granted value + audit note, raw link hidden on secret, skeleton shimmer
+   4  history — commit list → changed files (status word, ±, asset chips), root-commit note, back
+   5  forks & signals — six-cluster chips incl. "unmeasured", policy chips, lineage (base: demo)
+   6  sessions + steer composer — state dots, ≤500 chars, send → ticker event, honest v1 note
+   7  issues — 4 kinds (conflict / withheld-secret / stale-base / blocked-intent), severity, repo, links
+   8  agents roster + harnesses — policy chips, byo-cli kind chip
+   9  parity dashboard — 5/8/5 chips, 18 rows, verdict chips + evidence column
+  10  tour — 8 steps (Intro → grid → checks → conflicts → judge & land → secrets & reveal → forks → evidence), stepper, Next/Back, progress
+  11  land flow + evidence receipt — two-step arm→confirm, verdict sheet w/ ESCALATE/CONFIRM/ACT/evidence/fail-closed variants, 12-key receipt (mergedSha==testedSha pass), reveal audit note
+  12  judge panel — risk/intent/collision verdict chips, skipped[] (secret-class, content-secret), fail-closed 503 copy
+  13  platform pulse strip — floors, intents router `merge-it` for agent-3, upstream merge-back note
+  Interactions: instant view switching, modal open/Esc-close, land arm/confirm, reveal click, comment compose (in-memory), animated ticker + connection toggle, skeleton shimmers.
+  Data: PROTOTYPE-BRIEF.md fake dataset, verbatim. Single file: no <script src>, no <link href>, no fetch/XHR. Opens from file://. No console errors.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NextGit — proto-09 · warp</title>
+<style>
+/* ============ tokens (Warp DS) ============ */
+:root{
+  --bg:#171512;            /* warm near-black — charred wood */
+  --bg-2:#1e1b17;          /* block surface */
+  --bg-3:#262219;          /* raised surface */
+  --veil:rgba(255,255,255,0.04);   /* Frosted Veil */
+  --border:rgba(250,249,246,0.09);
+  --border-strong:rgba(250,249,246,0.20);
+  --parchment:#faf9f6;
+  --stone:#868584;
+  --ash:#afaeac;
+  --pill:#353534;
+  --pass:#9ecb9a;
+  --fail:#e08e7f;
+  --warn:#d9a05b;
+  --sans:"Matter","Avenir Next","Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,"Liberation Mono",monospace;
+  --r-sm:4px; --r-md:8px; --r-lg:12px; --r-pill:50px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:radial-gradient(1100px 520px at 82% -8%, rgba(217,160,91,0.045), transparent 60%), var(--bg);
+  color:var(--parchment);
+  font:400 14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;
+  letter-spacing:0.001em;
+}
+::selection{background:rgba(217,160,91,.28)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+a{color:inherit}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--warn);outline-offset:2px;border-radius:var(--r-sm)}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12.5px;letter-spacing:-0.01em}
+.muted{color:var(--stone)}
+.ash{color:var(--ash)}
+.small{font-size:12px}
+
+/* ============ app shell ============ */
+#app{max-width:1500px;margin:0 auto;padding:0 24px 40px;min-height:100vh;display:flex;flex-direction:column}
+
+/* ============ header ============ */
+header.topbar{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:16px 0 14px;border-bottom:1px solid var(--border);
+}
+.brand-block{display:flex;align-items:center;gap:10px;user-select:none}
+.brand-prompt{font-family:var(--mono);font-size:15px;color:var(--parchment);font-weight:500}
+.brand-prompt .glyph{color:var(--warn)}
+.cursor{display:inline-block;width:8px;height:16px;background:var(--warn);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.repo-context{font-family:var(--mono);font-size:12px;color:var(--stone);padding:5px 10px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--veil)}
+.stats-chips{display:flex;gap:8px;flex-wrap:wrap}
+.stat-chip{font-size:12px;color:var(--ash);border:1px solid var(--border);border-radius:var(--r-pill);padding:5px 11px;background:var(--veil);white-space:nowrap}
+.stat-chip b{color:var(--parchment);font-weight:500;font-variant-numeric:tabular-nums}
+.stat-chip.conflict b{color:var(--fail)}
+nav.mainnav{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+nav.mainnav button{
+  font-size:13px;color:var(--ash);padding:8px 13px;border-radius:var(--r-pill);
+  border:1px solid transparent;transition:color .15s,border-color .15s,background .15s;
+}
+nav.mainnav button:hover{color:var(--parchment)}
+nav.mainnav button.active{color:var(--parchment);background:var(--veil);border-color:var(--border-strong)}
+.conn{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-pill);padding:6px 12px;background:var(--veil)}
+.conn .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.conn .dot.live{background:var(--pass);animation:pulse-dot 1.6s ease-out infinite}
+.conn .dot.polling{background:var(--warn)}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(158,203,154,.45)}70%{box-shadow:0 0 0 6px rgba(158,203,154,0)}100%{box-shadow:0 0 0 0 rgba(158,203,154,0)}}
+.conn-label{font-size:12px;color:var(--ash);min-width:52px}
+.conn-toggle{font-size:11px;color:var(--stone);border:1px solid var(--border);border-radius:var(--r-pill);padding:3px 9px;transition:color .15s,border-color .15s}
+.conn-toggle:hover{color:var(--parchment);border-color:var(--border-strong)}
+
+/* ============ ticker ============ */
+.ticker{
+  display:flex;align-items:center;gap:0;margin:14px 0 20px;
+  border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2);
+  overflow:hidden;
+}
+.ticker-tag{flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--stone);padding:10px 14px;border-right:1px solid var(--border);text-transform:uppercase;white-space:nowrap}
+.ticker-stream{display:flex;gap:6px;align-items:center;padding:8px 14px;overflow:hidden;min-width:0}
+.tick-item{
+  flex:none;display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--ash);
+  padding:4px 10px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--veil);
+  animation:tick-in .45s var(--ease);
+}
+.tick-item .ev-type{color:var(--parchment)}
+.tick-item .ev-at{color:var(--stone);font-size:11px}
+.tick-item.fresh{border-color:rgba(217,160,91,.4)}
+@keyframes tick-in{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:none}}
+
+/* ============ views ============ */
+main{flex:1}
+.view{display:none}
+.view.active{display:block;animation:view-in .18s var(--ease)}
+@keyframes view-in{from{opacity:0}to{opacity:1}}
+.view-head{display:flex;align-items:baseline;gap:14px;margin:6px 0 20px;flex-wrap:wrap}
+.view-title{font-size:26px;font-weight:500;letter-spacing:-0.02em;line-height:1.1}
+.view-title .glyph{color:var(--warn);font-family:var(--mono);font-size:22px;margin-right:8px}
+.view-sub{color:var(--stone);font-size:13px}
+.view-note{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--stone)}
+
+/* ============ blocks / panels ============ */
+.block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px}
+.block-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.block-title{font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ash)}
+.block-title .glyph{color:var(--warn);font-family:var(--mono);margin-right:6px}
+.block-meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--stone)}
+
+/* ============ chips ============ */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--veil);color:var(--ash);font-size:12px;white-space:nowrap}
+.chip .cdot{width:6px;height:6px;border-radius:50%;flex:none}
+.chip.pass{color:var(--pass)} .chip.pass .cdot{background:var(--pass)}
+.chip.fail{color:var(--fail)} .chip.fail .cdot{background:var(--fail)}
+.chip.unknown{color:var(--stone)} .chip.unknown .cdot{background:var(--stone)}
+.chip.warn{color:var(--warn)} .chip.warn .cdot{background:var(--warn)}
+.chip.solid-fail{background:rgba(224,142,127,.12);border-color:rgba(224,142,127,.35);color:var(--fail)}
+.chip.solid-warn{background:rgba(217,160,91,.10);border-color:rgba(217,160,91,.32);color:var(--warn)}
+.chip.mono{font-family:var(--mono);font-size:11.5px}
+.chip.clickable{cursor:pointer;transition:border-color .15s,color .15s}
+.chip.clickable:hover{border-color:var(--border-strong);color:var(--parchment)}
+
+/* ============ buttons ============ */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;
+  padding:10px 18px;border-radius:var(--r-pill);background:var(--pill);color:var(--ash);
+  border:1px solid transparent;transition:background .15s,color .15s,border-color .15s,transform .1s;
+  white-space:nowrap;
+}
+.btn:hover{background:#403e3c;color:var(--parchment)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;border-color:var(--border-strong);color:var(--ash)}
+.btn.ghost:hover{border-color:var(--ash);color:var(--parchment);background:transparent}
+.btn.sm{padding:7px 13px;font-size:12px}
+.btn.armed{background:rgba(217,160,91,.14);border-color:rgba(217,160,91,.5);color:var(--warn)}
+.btn.armed:hover{background:rgba(217,160,91,.2);color:var(--parchment)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* ============ conflict map ============ */
+#conflict-map{
+  border:1px solid rgba(224,142,127,.30);border-left:3px solid var(--fail);
+  background:
+    repeating-linear-gradient(-45deg, rgba(224,142,127,0.035) 0 8px, transparent 8px 16px),
+    var(--bg-2);
+  border-radius:var(--r-lg);padding:16px 20px;margin-bottom:22px;
+}
+.cm-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:6px 0}
+.cm-file{font-family:var(--mono);font-size:13px;color:var(--parchment);font-weight:500}
+.cm-pair{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px}
+.cm-pair .agent-tag{padding:3px 9px;border:1px solid var(--border-strong);border-radius:var(--r-sm);color:var(--parchment);background:var(--veil)}
+.cm-pair .x{color:var(--fail);font-weight:500}
+.cm-kind{font-family:var(--mono);font-size:11px;color:var(--fail);border:1px solid rgba(224,142,127,.4);border-radius:var(--r-pill);padding:3px 10px;background:rgba(224,142,127,.08)}
+.cm-detail{color:var(--stone);font-size:12.5px}
+.cm-detail b{color:var(--fail);font-weight:500}
+
+/* ============ proposal grid ============ */
+#proposal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.pcard{
+  background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:18px;display:flex;flex-direction:column;gap:13px;position:relative;
+  transition:border-color .15s;
+}
+.pcard:hover{border-color:var(--border-strong)}
+.pcard.withheld{border-color:rgba(224,142,127,.28)}
+.pcard-top{display:flex;align-items:center;gap:10px}
+.pcard-repo{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--parchment)}
+.pcard-intent{font-size:14.5px;line-height:1.4;color:var(--parchment);min-height:2.8em}
+.pcard-fileline{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;color:var(--stone)}
+.pcard-fileline .fp{color:var(--ash)}
+.delta{font-variant-numeric:tabular-nums}
+.delta .plus{color:var(--pass)} .delta .minus{color:var(--fail)}
+.checks-strip{display:flex;gap:6px;flex-wrap:wrap}
+.pcard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.landed-note{position:absolute;top:-9px;right:14px;font-family:var(--mono);font-size:10px;color:var(--stone);background:var(--bg);padding:1px 8px;border:1px solid var(--border);border-radius:var(--r-pill)}
+
+/* ============ platform pulse (surface 13) ============ */
+.pulse{
+  margin-top:34px;border:1px solid var(--border);border-radius:var(--r-lg);
+  background:linear-gradient(0deg, rgba(255,255,255,0.015), rgba(255,255,255,0.015)), var(--bg-2);
+  padding:14px 20px;display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+}
+.pulse-seg{display:flex;align-items:center;gap:9px;min-width:0}
+.pulse-seg .pl-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--stone);flex:none}
+.pulse-seg .pl-val{font-size:13px;color:var(--ash)}
+.pulse-seg .pl-val .mono{color:var(--parchment)}
+.pulse-sep{width:1px;height:22px;background:var(--border);flex:none}
+
+/* ============ overlays ============ */
+.overlay{
+  position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+  background:rgba(12,10,8,.62);backdrop-filter:blur(3px);padding:24px;
+}
+.overlay.open{display:flex;animation:ov-in .18s var(--ease)}
+@keyframes ov-in{from{opacity:0}to{opacity:1}}
+.sheet{
+  background:var(--bg-2);border:1px solid var(--border-strong);border-radius:var(--r-lg);
+  width:min(880px,100%);max-height:min(86vh,900px);display:flex;flex-direction:column;
+  transform:translateY(12px) scale(.985);opacity:0;transition:transform .24s var(--ease),opacity .24s var(--ease);
+}
+.overlay.open .sheet{transform:none;opacity:1}
+.sheet-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex:none}
+.sheet-title{font-size:16px;font-weight:500;letter-spacing:-0.01em}
+.sheet-title .mono{color:var(--warn)}
+.sheet-close{margin-left:auto;width:32px;height:32px;border-radius:50%;border:1px solid var(--border);color:var(--ash);font-size:15px;display:flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s}
+.sheet-close:hover{color:var(--parchment);border-color:var(--border-strong)}
+.sheet-body{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+
+/* file tabs */
+.file-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.file-tab{
+  font-family:var(--mono);font-size:12px;color:var(--ash);padding:7px 13px;
+  border:1px solid var(--border);border-radius:var(--r-sm) var(--r-sm) 0 0;border-bottom:none;
+  background:transparent;transition:color .15s,background .15s;
+}
+.file-tab:hover{color:var(--parchment)}
+.file-tab.active{color:var(--parchment);background:var(--bg-3);border-color:var(--border-strong)}
+.file-tab .sec{color:var(--fail)}
+
+/* diff */
+.diff{border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.65}
+.diff-row{display:flex;white-space:pre}
+.diff-row .ln{width:38px;flex:none;text-align:right;padding-right:12px;color:var(--stone);opacity:.6;user-select:none}
+.diff-row.ctx{color:var(--ash)}
+.diff-row.add{color:var(--pass);background:rgba(158,203,154,.06)}
+.diff-row.del{color:var(--fail);background:rgba(224,142,127,.06)}
+.diff-row.mk-ours{color:var(--warn);background:rgba(217,160,91,.08);font-weight:500}
+.diff-row.mk-theirs{color:var(--warn);background:rgba(217,160,91,.08);font-weight:500}
+.diff-row.mk-sep{color:var(--stone);background:rgba(250,249,246,.04)}
+.diff-banner{display:flex;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11.5px;color:var(--stone);background:var(--bg-2);flex-wrap:wrap}
+.diff-banner .cb{color:var(--fail)}
+
+/* comments */
+.comments{display:flex;flex-direction:column;gap:12px}
+.comment{display:flex;gap:11px}
+.comment .avatar{width:28px;height:28px;border-radius:50%;background:var(--pill);border:1px solid var(--border-strong);color:var(--ash);font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex:none}
+.comment .c-body{flex:1;min-width:0}
+.comment .c-meta{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+.comment .c-author{font-weight:500;font-size:13px}
+.comment .c-line{font-family:var(--mono);font-size:11px;color:var(--warn)}
+.comment .c-at{font-family:var(--mono);font-size:11px;color:var(--stone)}
+.comment .c-text{font-size:13.5px;color:var(--ash);margin-top:2px}
+.compose{display:flex;gap:11px}
+.compose textarea{
+  flex:1;resize:vertical;min-height:44px;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--r-md);color:var(--parchment);font:400 13px/1.5 var(--sans);padding:10px 12px;
+}
+.compose textarea::placeholder{color:var(--stone)}
+.compose textarea:focus-visible{outline-offset:0}
+
+/* secret / reveal */
+.secret-box{border:1px solid rgba(224,142,127,.3);border-radius:var(--r-md);background:rgba(224,142,127,.04);padding:16px}
+.secret-keys{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.secret-value{
+  font-family:var(--mono);font-size:12px;color:var(--parchment);background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 13px;margin-top:10px;
+  word-break:break-all;animation:rise .3s var(--ease);
+}
+.audit-note{
+  margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--stone);
+  border-left:2px solid var(--pass);padding:6px 0 6px 12px;line-height:1.7;
+}
+.audit-note b{color:var(--pass);font-weight:500}
+
+/* ============ files browser ============ */
+.files-layout{display:grid;grid-template-columns:250px 1fr;gap:16px;align-items:start}
+.repo-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.repo-picker button{
+  font-family:var(--mono);font-size:12px;color:var(--ash);padding:7px 14px;
+  border:1px solid var(--border);border-radius:var(--r-pill);background:var(--veil);transition:all .15s;
+}
+.repo-picker button:hover{color:var(--parchment);border-color:var(--border-strong)}
+.repo-picker button.active{color:var(--parchment);border-color:var(--warn);background:rgba(217,160,91,.08)}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;color:var(--stone);margin-bottom:14px;flex-wrap:wrap}
+.breadcrumb button{color:var(--ash);padding:2px 4px;border-radius:var(--r-sm)}
+.breadcrumb button:hover{color:var(--parchment)}
+.breadcrumb .sep{color:var(--stone);opacity:.6}
+.breadcrumb .here{color:var(--parchment)}
+.dir-tree{display:flex;flex-direction:column;gap:1px}
+.tree-item{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  font-family:var(--mono);font-size:12.5px;color:var(--ash);padding:6px 10px;border-radius:var(--r-sm);
+  border:1px solid transparent;transition:all .12s;
+}
+.tree-item:hover{background:var(--veil);color:var(--parchment)}
+.tree-item.active{background:rgba(217,160,91,.09);border-color:rgba(217,160,91,.3);color:var(--parchment)}
+.tree-item .tw{width:14px;flex:none;color:var(--stone);font-size:10px}
+.tree-item .fname{color:inherit}
+.tree-item.dir .fname{color:var(--parchment)}
+.tree-children{margin-left:16px;border-left:1px solid var(--border);padding-left:8px;display:flex;flex-direction:column;gap:1px}
+.viewer{border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);min-height:340px;overflow:hidden}
+.viewer-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-2);font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+.viewer-head .vpath{color:var(--parchment)}
+.viewer-head .vact{margin-left:auto;display:flex;gap:8px}
+.viewer-body{padding:14px 0;overflow-x:auto}
+.code-line{display:flex;font-family:var(--mono);font-size:12.5px;line-height:1.7;white-space:pre}
+.code-line .ln{width:44px;flex:none;text-align:right;padding-right:14px;color:var(--stone);opacity:.55;user-select:none}
+.code-line .lc{color:var(--ash)}
+.meta-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.meta-table td{padding:7px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+.meta-table tr:last-child td{border-bottom:none}
+.meta-table td:first-child{color:var(--stone);width:150px;font-family:var(--mono);font-size:11.5px}
+.meta-table td:last-child{color:var(--parchment);font-family:var(--mono);font-size:12px;word-break:break-all}
+
+/* skeleton */
+.skel{position:relative;overflow:hidden;background:var(--bg-2);border-radius:var(--r-sm);border:1px solid var(--border)}
+.skel::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(250,249,246,.05),transparent);
+  animation:shimmer 1.3s infinite;
+}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.skel-stack{display:flex;flex-direction:column;gap:10px;padding:16px}
+
+/* ============ history ============ */
+.hist-layout{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:16px;align-items:start}
+.commit-list{display:flex;flex-direction:column}
+.commit-row{
+  display:flex;flex-direction:column;gap:5px;width:100%;text-align:left;padding:13px 16px;
+  border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2);
+  transition:border-color .15s;cursor:pointer;
+}
+.commit-row + .commit-row{margin-top:8px}
+.commit-row:hover{border-color:var(--border-strong)}
+.commit-row.active{border-color:var(--warn);background:rgba(217,160,91,.05)}
+.commit-row .c-top{display:flex;align-items:center;gap:10px}
+.commit-row .c-sha{font-family:var(--mono);font-size:12px;color:var(--warn)}
+.commit-row .c-msg{font-size:13.5px;color:var(--parchment)}
+.commit-row .c-meta{display:flex;gap:12px;font-family:var(--mono);font-size:11px;color:var(--stone)}
+.changed-file{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2);flex-wrap:wrap}
+.changed-file + .changed-file{margin-top:8px}
+.cf-status{font-family:var(--mono);font-size:11px;font-weight:500;width:20px;height:20px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex:none}
+.cf-status.M{color:var(--warn);border:1px solid rgba(217,160,91,.4)}
+.cf-status.A{color:var(--pass);border:1px solid rgba(158,203,154,.4)}
+.cf-status.D{color:var(--fail);border:1px solid rgba(224,142,127,.4)}
+.cf-path{font-family:var(--mono);font-size:12.5px;color:var(--parchment)}
+.cf-delta{font-family:var(--mono);font-size:11.5px}
+.cf-chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.root-note{border:1px dashed var(--border-strong);border-radius:var(--r-md);padding:12px 16px;color:var(--stone);font-size:12.5px;font-family:var(--mono);margin-bottom:14px}
+
+/* ============ forks ============ */
+.fork-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.fork-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;gap:14px}
+.fork-card.measured{border-color:rgba(158,203,154,.25)}
+.cluster-row{display:flex;gap:6px;flex-wrap:wrap}
+.cluster{display:inline-flex;flex-direction:column;align-items:flex-start;gap:3px;border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 10px;background:var(--veil);min-width:64px}
+.cluster .cl-name{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--stone)}
+.cluster .cl-val{font-family:var(--mono);font-size:13px;color:var(--parchment);font-variant-numeric:tabular-nums}
+.cluster.unmeasured .cl-val{color:var(--stone)}
+.cluster-bar{height:3px;border-radius:2px;background:var(--bg);width:100%;overflow:hidden}
+.cluster-bar i{display:block;height:100%;background:var(--pass);border-radius:2px}
+.cluster.unmeasured .cluster-bar i{background:var(--stone);width:30%!important;opacity:.4}
+
+/* ============ sessions ============ */
+.session-list{display:flex;flex-direction:column;gap:10px}
+.session-row{
+  display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--border);
+  border-radius:var(--r-md);background:var(--bg-2);flex-wrap:wrap;
+}
+.session-row .s-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.session-row .s-dot.working{background:var(--pass);animation:pulse-dot 1.6s ease-out infinite}
+.session-row .s-dot.idle{background:var(--stone)}
+.session-row .s-repo{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--parchment)}
+.session-row .s-intent{font-size:13px;color:var(--ash);flex:1;min-width:180px}
+.session-row .s-last{font-family:var(--mono);font-size:11.5px;color:var(--stone)}
+.steer{display:flex;flex-direction:column;gap:10px}
+.steer textarea{
+  width:100%;resize:vertical;min-height:70px;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--r-md);color:var(--parchment);font:400 13px/1.5 var(--sans);padding:11px 13px;
+}
+.steer textarea::placeholder{color:var(--stone)}
+.steer-foot{display:flex;align-items:center;gap:12px}
+.char-count{font-family:var(--mono);font-size:11px;color:var(--stone)}
+.char-count.over{color:var(--fail)}
+.v1-note{font-family:var(--mono);font-size:11px;color:var(--stone);border-left:2px solid var(--warn);padding-left:10px;line-height:1.6}
+
+/* ============ issues ============ */
+.issue-list{display:flex;flex-direction:column;gap:10px}
+.issue-row{
+  display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--border);
+  border-radius:var(--r-md);background:var(--bg-2);flex-wrap:wrap;
+}
+.issue-row .i-kind{font-family:var(--mono);font-size:11px;padding:4px 11px;border-radius:var(--r-pill);border:1px solid;flex:none}
+.issue-row .i-kind.conflict{color:var(--fail);border-color:rgba(224,142,127,.4);background:rgba(224,142,127,.06)}
+.issue-row .i-kind.withheld-secret{color:var(--warn);border-color:rgba(217,160,91,.4);background:rgba(217,160,91,.06)}
+.issue-row .i-kind.stale-base{color:var(--stone);border-color:var(--border-strong)}
+.issue-row .i-kind.blocked-intent{color:var(--warn);border-color:rgba(217,160,91,.4);background:rgba(217,160,91,.06)}
+.issue-row .i-title{font-size:13.5px;color:var(--parchment);font-weight:500}
+.issue-row .i-desc{font-size:12.5px;color:var(--stone)}
+.issue-row .i-sev{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:3px 9px;border-radius:var(--r-pill);border:1px solid var(--border);color:var(--ash);flex:none}
+.issue-row .i-sev.high,.issue-row .i-sev.block{color:var(--fail);border-color:rgba(224,142,127,.4)}
+.issue-row .i-sev.medium{color:var(--warn);border-color:rgba(217,160,91,.4)}
+.issue-link{font-size:12px;color:var(--ash);text-decoration:none;border-bottom:1px dashed var(--border-strong);padding-bottom:1px}
+.issue-link:hover{color:var(--parchment);border-color:var(--ash)}
+
+/* ============ tables (agents / parity) ============ */
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th{
+  text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--stone);font-weight:400;padding:9px 14px;border-bottom:1px solid var(--border-strong);
+}
+table.data td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--ash)}
+table.data tr:last-child td{border-bottom:none}
+table.data td:first-child{color:var(--parchment)}
+table.data .mono{font-size:12px}
+.cap-list{display:flex;gap:5px;flex-wrap:wrap}
+
+/* ============ land sheet ============ */
+.variant-toggle{display:flex;gap:4px;flex-wrap:wrap;border:1px solid var(--border);border-radius:var(--r-pill);padding:4px;width:max-content;background:var(--bg)}
+.variant-toggle button{
+  font-family:var(--mono);font-size:11.5px;color:var(--ash);padding:6px 13px;border-radius:var(--r-pill);
+  transition:all .15s;
+}
+.variant-toggle button:hover{color:var(--parchment)}
+.variant-toggle button.active{color:var(--parchment);background:var(--pill)}
+.judge-panel{border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--bg);padding:16px;display:flex;flex-direction:column;gap:12px}
+.judge-verdicts{display:flex;gap:8px;flex-wrap:wrap}
+.judge-row{display:flex;align-items:center;gap:10px;font-size:12.5px}
+.judge-row .j-label{color:var(--stone);width:70px;flex:none;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.verdict-big{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:500;padding:9px 18px;border-radius:var(--r-md);width:max-content}
+.verdict-big.escalate{color:var(--fail);border:1px solid rgba(224,142,127,.45);background:rgba(224,142,127,.08)}
+.verdict-big.confirm{color:var(--warn);border:1px solid rgba(217,160,91,.45);background:rgba(217,160,91,.08)}
+.verdict-big.act{color:var(--pass);border:1px solid rgba(158,203,154,.45);background:rgba(158,203,154,.08)}
+.verdict-big.closed{color:var(--stone);border:1px solid var(--border-strong);background:var(--veil)}
+.judge-codes{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.judge-codes .code{font-family:var(--mono);font-size:12px;color:var(--fail);background:rgba(224,142,127,.06);border:1px solid rgba(224,142,127,.25);border-radius:var(--r-sm);padding:6px 11px;width:max-content}
+.skipped-list{font-family:var(--mono);font-size:12px;color:var(--stone)}
+.skipped-list .sk{color:var(--warn)}
+.failclosed{
+  border:1px solid rgba(224,142,127,.35);border-radius:var(--r-md);background:rgba(224,142,127,.05);
+  padding:14px 16px;font-size:13px;color:var(--ash);line-height:1.6;
+}
+.failclosed .fc-head{font-family:var(--mono);color:var(--fail);font-weight:500;margin-bottom:5px}
+.render-only{font-family:var(--mono);font-size:11px;color:var(--stone);text-align:center;padding-top:4px}
+.reveal-stagger{display:flex;flex-direction:column;gap:14px}
+.overlay.open .reveal-stagger .rs{opacity:0;animation:rise .4s var(--ease) forwards}
+.overlay.open .reveal-stagger .rs:nth-child(1){animation-delay:.04s}
+.overlay.open .reveal-stagger .rs:nth-child(2){animation-delay:.10s}
+.overlay.open .reveal-stagger .rs:nth-child(3){animation-delay:.16s}
+.overlay.open .reveal-stagger .rs:nth-child(4){animation-delay:.22s}
+.overlay.open .reveal-stagger .rs:nth-child(5){animation-delay:.28s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ============ receipt drawer ============ */
+#receipt-overlay{justify-content:flex-end;padding:0}
+#receipt-overlay .sheet{width:min(560px,100%);max-height:100vh;height:100%;border-radius:0;border-top:none;border-bottom:none;border-right:none}
+.receipt-key{display:flex;flex-direction:column;gap:3px;padding:10px 0;border-bottom:1px solid var(--border)}
+.receipt-key:last-child{border-bottom:none}
+.receipt-key .rk-name{font-family:var(--mono);font-size:11px;color:var(--stone);text-transform:uppercase;letter-spacing:.08em}
+.receipt-key .rk-val{font-family:var(--mono);font-size:12.5px;color:var(--parchment);word-break:break-all}
+.receipt-key .rk-val .ok{color:var(--pass)}
+.pass-banner{
+  display:flex;align-items:center;gap:10px;border:1px solid rgba(158,203,154,.4);border-radius:var(--r-md);
+  background:rgba(158,203,154,.07);padding:12px 16px;font-family:var(--mono);font-size:12.5px;color:var(--pass);
+}
+
+/* ============ tour ============ */
+#tour-overlay{z-index:70;background:transparent;backdrop-filter:none;padding:0}
+#tour-spot{
+  position:fixed;border-radius:var(--r-md);border:1.5px solid var(--warn);
+  box-shadow:0 0 0 9999px rgba(10,8,6,.80);transition:all .3s var(--ease);pointer-events:none;
+  animation:spot-pulse 2s ease-in-out infinite;
+}
+@keyframes spot-pulse{0%,100%{border-color:var(--warn)}50%{border-color:rgba(217,160,91,.45)}}
+#tour-card{
+  position:fixed;width:min(380px,calc(100vw - 40px));background:var(--bg-3);
+  border:1px solid var(--border-strong);border-radius:var(--r-lg);padding:18px;z-index:71;
+  box-shadow:0 18px 50px rgba(0,0,0,.5);transition:top .3s var(--ease),left .3s var(--ease);
+  animation:rise .3s var(--ease);
+}
+#tour-card .t-step{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);margin-bottom:7px}
+#tour-card .t-title{font-size:16px;font-weight:500;margin-bottom:7px;letter-spacing:-0.01em}
+#tour-card .t-body{font-size:13px;color:var(--ash);line-height:1.6;margin-bottom:14px}
+#tour-card .t-foot{display:flex;align-items:center;gap:9px}
+#tour-card .t-dots{display:flex;gap:5px;margin-right:auto}
+#tour-card .t-dots i{width:6px;height:6px;border-radius:50%;background:var(--border-strong)}
+#tour-card .t-dots i.on{background:var(--warn)}
+
+/* ============ toast ============ */
+#toasts{position:fixed;bottom:22px;right:22px;z-index:90;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{
+  font-family:var(--mono);font-size:12px;color:var(--parchment);background:var(--bg-3);
+  border:1px solid var(--border-strong);border-left:2px solid var(--warn);border-radius:var(--r-md);
+  padding:11px 16px;animation:rise .25s var(--ease);max-width:380px;
+}
+
+/* ============ misc ============ */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.mt8{margin-top:8px}.mt16{margin-top:16px}.mb16{margin-bottom:16px}
+.hidden{display:none!important}
+.empty-note{color:var(--stone);font-size:13px;font-family:var(--mono);padding:14px;border:1px dashed var(--border-strong);border-radius:var(--r-md)}
+
+@media (max-width:1100px){
+  .files-layout,.hist-layout,.grid-2{grid-template-columns:1fr}
+  nav.mainnav{margin-left:0;order:5;width:100%}
+}
+@media (max-width:640px){
+  #app{padding:0 14px 30px}
+  .pulse{gap:12px}
+  .pulse-sep{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand-block" id="brand-block">
+      <span class="brand-prompt"><span class="glyph">❯</span> nextgit</span><span class="cursor" aria-hidden="true"></span>
+    </div>
+    <span class="repo-context">demo · workspace</span>
+    <div class="stats-chips" id="stats-chips" aria-label="workspace stats"></div>
+    <nav class="mainnav" id="mainnav" aria-label="Primary"></nav>
+    <div class="conn" role="group" aria-label="Connection status">
+      <span class="dot live" id="conn-dot"></span>
+      <span class="conn-label" id="conn-label">live · sse</span>
+      <button class="conn-toggle" id="conn-toggle" data-action="conn-toggle" aria-label="Toggle connection mode">polling</button>
+    </div>
+  </header>
+
+  <div class="ticker" aria-label="Event stream">
+    <span class="ticker-tag">event stream · sse</span>
+    <div class="ticker-stream" id="ticker-stream"></div>
+  </div>
+
+  <main id="main">
+    <section class="view" data-view="console" id="view-console"></section>
+    <section class="view" data-view="files" id="view-files"></section>
+    <section class="view" data-view="history" id="view-history"></section>
+    <section class="view" data-view="forks" id="view-forks"></section>
+    <section class="view" data-view="sessions" id="view-sessions"></section>
+    <section class="view" data-view="issues" id="view-issues"></section>
+    <section class="view" data-view="parity" id="view-parity"></section>
+    <section class="view" data-view="agents" id="view-agents"></section>
+  </main>
+
+  <footer class="pulse" id="pulse-strip" aria-label="Platform pulse"></footer>
+</div>
+
+<!-- merge modal (surface 2) -->
+<div class="overlay" id="merge-overlay" role="dialog" aria-modal="true" aria-label="Merge preview">
+  <div class="sheet" id="merge-sheet"></div>
+</div>
+
+<!-- land sheet (surfaces 11 + 12) -->
+<div class="overlay" id="land-overlay" role="dialog" aria-modal="true" aria-label="Land confirmation">
+  <div class="sheet" id="land-sheet"></div>
+</div>
+
+<!-- evidence receipt drawer (surface 11) -->
+<div class="overlay" id="receipt-overlay" role="dialog" aria-modal="true" aria-label="Evidence receipt">
+  <div class="sheet" id="receipt-sheet"></div>
+</div>
+
+<!-- tour (surface 10) -->
+<div class="overlay" id="tour-overlay">
+  <div id="tour-spot" class="hidden"></div>
+  <div id="tour-card" class="hidden"></div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ================= DATA (PROTOTYPE-BRIEF.md, verbatim) ================= */
+const DATA = {
+  stats: { proposals:5, shared:1, conflicts:1, changed:4, clean:3 },
+  proposals: [
+    { id:"agent-1", intent:"Refactor: session refresh with TTL", file:"src/auth.ts", adds:4, dels:1,
+      landing:"ready", checks:{fold:"pass",collision:"pass",conflicts:"fail",secrets:"pass",base:"pass"},
+      note:"conflicts with agent-2" },
+    { id:"agent-2", intent:"Add rotate-on-refresh to auth", file:"src/auth.ts", adds:3, dels:2,
+      landing:"ready", checks:{fold:"pass",collision:"pass",conflicts:"fail",secrets:"pass",base:"pass"},
+      note:"conflicts with agent-1" },
+    { id:"agent-3", intent:"Docs: quickstart polish", file:"README.md", adds:12, dels:4,
+      landing:"ready", checks:{fold:"pass",collision:"pass",conflicts:"pass",secrets:"pass",base:"pass"},
+      note:"clean" },
+    { id:"agent-4", intent:"CLI: tighter error surface", file:"src/cli.ts", adds:8, dels:6,
+      landing:"ready", checks:{fold:"pass",collision:"pass",conflicts:"pass",secrets:"pass",base:"pass"},
+      note:"clean" },
+    { id:"agent-5", intent:"Config: move secrets to env", file:"config/.env", adds:2, dels:0,
+      landing:"withheld-secret", checks:{fold:"pass",collision:"unknown",conflicts:"pass",secrets:"fail",base:"pass"},
+      note:"secret-class — withheld" },
+  ],
+  conflictMap: [
+    { file:"src/auth.ts", pair:["agent-1","agent-2"], kind:"text-conflict", pairs:1, hunks:1,
+      detail:"conflicts with agent-2 — 1 pair, 1 hunk in src/auth.ts (refresh path)" },
+  ],
+  events: [
+    { type:"repo.pushed", repo:"agent-1", at:"now" },
+    { type:"session.steered", repo:"agent-1", at:"12s ago" },
+    { type:"repo.pushed", repo:"agent-3", at:"2m ago" },
+    { type:"token.minted", repo:"demo", at:"3m ago" },
+    { type:"repo.pushed", repo:"agent-2", at:"4m ago" },
+    { type:"repo.landed", repo:"demo", at:"6m ago" },
+    { type:"checks.updated", repo:"agent-4", at:"7m ago" },
+    { type:"merge.preview", repo:"agent-3", at:"9m ago" },
+  ],
+  eventPool: [
+    { type:"repo.pushed", repo:"agent-1" }, { type:"session.steered", repo:"agent-2" },
+    { type:"repo.pushed", repo:"agent-3" }, { type:"token.minted", repo:"demo" },
+    { type:"repo.pushed", repo:"agent-2" }, { type:"repo.landed", repo:"demo" },
+    { type:"checks.updated", repo:"agent-4" }, { type:"judge.verdict", repo:"agent-2" },
+    { type:"secret.revealed", repo:"agent-5" }, { type:"lease.renewed", repo:"demo" },
+    { type:"session.steered", repo:"agent-1" }, { type:"merge.preview", repo:"agent-1" },
+  ],
+  commits: [
+    { sha:"550be50", msg:"baseline", author:"demo", date:"2026-10-11 09:12", root:true,
+      files:[{path:"README.md",status:"A",adds:38,dels:0},{path:"src/auth.ts",status:"A",adds:64,dels:0},{path:"src/cli.ts",status:"A",adds:41,dels:0},{path:"config/env.example",status:"A",adds:9,dels:0}],
+      note:"root commit — the demo baseline every proposal forks from" },
+    { sha:"804db99", msg:"agent-1: Refactor — session refresh with TTL", author:"agent-1", date:"2026-10-13 11:02",
+      files:[{path:"src/auth.ts",status:"M",adds:4,dels:1}],
+      note:"intent: Refactor: session refresh with TTL" },
+    { sha:"d924a70", msg:"agent-2: rotate-on-refresh", author:"agent-2", date:"2026-10-13 11:47",
+      files:[{path:"src/auth.ts",status:"M",adds:3,dels:2}],
+      note:"intent: Add rotate-on-refresh to auth — text-conflict with 804db99" },
+    { sha:"bd27fcf", msg:"agent-3: docs", author:"agent-3", date:"2026-10-13 12:15",
+      files:[{path:"README.md",status:"M",adds:12,dels:4},{path:"docs/quickstart.md",status:"A",adds:56,dels:0}],
+      note:"intent: Docs: quickstart polish" },
+    { sha:"fcc4210", msg:"agent-4: CLI errors", author:"agent-4", date:"2026-10-13 12:41",
+      files:[{path:"src/cli.ts",status:"M",adds:8,dels:6}],
+      note:"intent: CLI: tighter error surface" },
+  ],
+  clusters: { fit:0.98, trust:"unmeasured", liveness:0.96, proof:0.20, distance:0.00, cost:0.99 },
+  sessions: [
+    { repo:"agent-1", state:"working", intent:"Refactor: session refresh with TTL", last:"repo.pushed", ago:"2m ago" },
+    { repo:"agent-2", state:"working", intent:"Add rotate-on-refresh to auth", last:"repo.pushed", ago:"6m ago" },
+    { repo:"agent-3", state:"idle", intent:"Docs: quickstart polish", last:"repo.pushed", ago:"20m" },
+    { repo:"agent-4", state:"idle", intent:"CLI: tighter error surface", last:"checks.updated", ago:"31m" },
+  ],
+  issues: [
+    { kind:"conflict", sev:"high", repo:"agent-1 × agent-2", title:"text-conflict in src/auth.ts",
+      desc:"agent-1 and agent-2 both rewrite the session refresh path — 1 pair, 1 hunk.",
+      link:{label:"open merge modal", action:"open-merge", arg:"agent-1"} },
+    { kind:"withheld-secret", sev:"block", repo:"agent-5", title:"secret-class change withheld",
+      desc:"config/.env moves secrets to env — key names only until an audited reveal.",
+      link:{label:"view config/.env", action:"goto-secret-file", arg:"agent-5"} },
+    { kind:"stale-base", sev:"low", repo:"agent-4", title:"base is 3 commits behind",
+      desc:"agent-4 forked from 550be50; demo has since advanced past fcc4210.",
+      link:{label:"view history", action:"goto-view", arg:"history"} },
+    { kind:"blocked-intent", sev:"medium", repo:"agent-3", title:"intent blocked on steer",
+      desc:"agent-3's docs polish awaits a session steer before the intents router will emit merge-it.",
+      link:{label:"open sessions", action:"goto-view", arg:"sessions"} },
+  ],
+  agents: [
+    { id:"agent-1", harness:"omp", caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+    { id:"agent-2", harness:"omp", caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+    { id:"agent-3", harness:"unrecorded", caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+    { id:"agent-4", harness:"omp", caps:["propose"], policy:{land:"manual", secrets:"refused"} },
+  ],
+  harnesses: [
+    { name:"codex", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"] },
+    { name:"omp", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"] },
+    { name:"pi", kind:"byo-cli", caps:["workspace-edit","prompt-args","probe"] },
+  ],
+  parity: [
+    { area:"judge-gated landing", verdict:"exceeds", line:"every landing carries a judge verdict plus a 12-key receipt", ev:"receipt 7c042f10 · 12 keys" },
+    { area:"evidence receipts", verdict:"exceeds", line:"immutable per-land evidence bundle, sha-checked", ev:"artifactRef art://demo/7c042f10" },
+    { area:"secret withholding", verdict:"exceeds", line:"secrets withheld key-names-only until an audited reveal", ev:"config/.env · decision: granted" },
+    { area:"conflict map", verdict:"exceeds", line:"pairwise text-conflict detection at triage time", ev:"src/auth.ts · agent-1 × agent-2 · 1 pair" },
+    { area:"fork signal clusters", verdict:"exceeds", line:"six-cluster trust / liveness / proof telemetry per fork", ev:"agent-3 · fit 0.98 · liveness 0.96" },
+    { area:"pull-requests", verdict:"parity", line:"proposal cards map 1:1 onto pull requests", ev:"5 proposals · 4 changed" },
+    { area:"branch-permissions", verdict:"parity", line:"protected branches honored on the demo base", ev:"demo / main protected" },
+    { area:"commit-graph", verdict:"parity", line:"full sha history with ancestor resolution", ev:"550be50 … 7c042f10" },
+    { area:"code-review-threads", verdict:"parity", line:"inline comments with optimistic compose", ev:"src/auth.ts · john · line 3" },
+    { area:"webhooks", verdict:"parity", line:"event stream over sse, newest-8 window", ev:"ticker · 6 event types" },
+    { area:"deploy-previews", verdict:"parity", line:"preview merge per proposal, render-only", ev:"preview merge · 5/5" },
+    { area:"required-checks", verdict:"parity", line:"five-check strip per proposal, tri-state honest", ev:"fold · collision · conflicts · secrets · base" },
+    { area:"audit-log", verdict:"parity", line:"every secret reveal is audited with a decision record", ev:"reveal audit · granted" },
+    { area:"session-steering", verdict:"below", line:"steer composer lands in the event stream only — no live patch", ev:"v1 note · session.steered" },
+    { area:"agent-identity-policy", verdict:"below", line:"harness attribution unrecorded for agent-3", ev:"agent-3 · unrecorded" },
+    { area:"agent-federation", verdict:"below", line:"cross-harness fleets are not yet federated", ev:"harnesses: codex · omp · pi · byo-cli" },
+    { area:"issues", verdict:"below", line:"derived issues lack triage workflows", ev:"4 issues · derived" },
+    { area:"ci", verdict:"below", line:"no hosted runners — checks are declarative until wired", ev:"checks strip · unknown states" },
+  ],
+  receipt: {
+    repos:["demo","agent-1","agent-2"],
+    commit:"7c042f10",
+    ancestor:"550be50",
+    heads:{"agent-1":"804db99","agent-2":"d924a70"},
+    foldHash:"f0ld-9c2e77b1",
+    checks:{fold:"pass",collision:"pass",conflicts:"resolved",secrets:"pass",base:"pass"},
+    results:{"merged-sha-equals-tested-sha":"pass"},
+    mergedSha:"7c042f10",
+    testedSha:"7c042f10",
+    artifactRef:"art://demo/7c042f10/land-bundle.tar.gz",
+    at:"2026-10-13T14:22:08Z",
+    lease:{provider:"do",leaseId:"lt-4417a"},
+  },
+  revealAudit:"reveal audit — config/.env · keys: DATABASE_URL, REDIS_URL · decision: granted · by: john · at 2026-10-13T14:20:11Z",
+  judgeCodes:["risk:senior-security:agent-2","intent:contradicts:agent-2"],
+  secretValue:"postgres://demo:FAKE-SECRET-DO-NOT-USE@db.internal:5432/app",
+  comments: {
+    "src/auth.ts": [
+      { author:"john", line:3, text:"looks good, ship it", at:"2026-10-13T13:58:00Z" },
+    ],
+  },
+};
+
+/* ================= FILES (per-repo trees + contents) ================= */
+const FILES = {
+  "agent-1": {
+    tree:[
+      {type:"dir",name:"config",children:[{type:"file",name:"env.example",kind:"text",size:"412 B"}]},
+      {type:"dir",name:"src",children:[
+        {type:"file",name:"auth.ts",kind:"text",size:"1.1 KB"},
+        {type:"file",name:"cli.ts",kind:"text",size:"864 B"},
+        {type:"file",name:"session.ts",kind:"text",size:"2.0 KB"}]},
+      {type:"dir",name:"assets",children:[{type:"file",name:"logo.png",kind:"binary",size:"4.2 KB",mime:"image/png",dims:"64 × 64"}]},
+      {type:"file",name:"README.md",kind:"text",size:"980 B"},
+    ],
+    contents:{
+      "src/auth.ts":[
+        "// src/auth.ts — session refresh path (agent-1)",
+        "import { Session } from \"./session\";",
+        "",
+        "export async function refresh(session: Session) {",
+        "  const ttl = 3600;",
+        "  return session.refresh({ ttl });",
+        "}",
+        "",
+        "export async function revoke(session: Session) {",
+        "  return session.revoke();",
+        "}",
+      ],
+      "src/session.ts":[
+        "// src/session.ts",
+        "export class Session {",
+        "  async refresh(opts: { ttl?: number; rotate?: boolean }) {",
+        "    // agent-1 sets ttl; agent-2 sets rotate — the conflict pair",
+        "    return { ok: true, opts };",
+        "  }",
+        "  async revoke() { return { ok: true }; }",
+        "}",
+      ],
+      "src/cli.ts":[
+        "// src/cli.ts",
+        "export function run(argv: string[]) {",
+        "  console.log(\"nextgit\", argv);",
+        "}",
+      ],
+      "README.md":[
+        "# demo",
+        "the demo base repo — every agent proposal forks from here.",
+      ],
+      "config/env.example":[
+        "# copy to .env and fill in",
+        "DATABASE_URL=",
+        "REDIS_URL=",
+      ],
+    },
+  },
+  "agent-2": {
+    tree:[
+      {type:"dir",name:"config",children:[{type:"file",name:"env.example",kind:"text",size:"412 B"}]},
+      {type:"dir",name:"src",children:[
+        {type:"file",name:"auth.ts",kind:"text",size:"1.1 KB"},
+        {type:"file",name:"session.ts",kind:"text",size:"2.0 KB"}]},
+      {type:"file",name:"README.md",kind:"text",size:"980 B"},
+    ],
+    contents:{
+      "src/auth.ts":[
+        "// src/auth.ts — session refresh path (agent-2)",
+        "import { Session } from \"./session\";",
+        "",
+        "export async function refresh(session: Session) {",
+        "  return session.refresh({ rotate: true });",
+        "}",
+        "",
+        "export async function revoke(session: Session) {",
+        "  return session.revoke();",
+        "}",
+      ],
+      "src/session.ts":[
+        "// src/session.ts",
+        "export class Session {",
+        "  async refresh(opts: { ttl?: number; rotate?: boolean }) {",
+        "    return { ok: true, opts };",
+        "  }",
+        "  async revoke() { return { ok: true }; }",
+        "}",
+      ],
+      "README.md":[
+        "# demo",
+        "the demo base repo — every agent proposal forks from here.",
+      ],
+      "config/env.example":[
+        "# copy to .env and fill in",
+        "DATABASE_URL=",
+        "REDIS_URL=",
+      ],
+    },
+  },
+  "agent-3": {
+    tree:[
+      {type:"dir",name:"docs",children:[{type:"file",name:"quickstart.md",kind:"text",size:"1.8 KB"}]},
+      {type:"dir",name:"src",children:[{type:"file",name:"auth.ts",kind:"text",size:"1.1 KB"}]},
+      {type:"file",name:"README.md",kind:"text",size:"1.2 KB"},
+    ],
+    contents:{
+      "README.md":[
+        "# demo",
+        "the demo base repo — every agent proposal forks from here.",
+        "",
+        "## quickstart",
+        "clone the demo repo, run `nextgit init`, then `nextgit tour`.",
+        "proposals land through the judge.",
+        "see docs/quickstart.md for the steer composer.",
+      ],
+      "docs/quickstart.md":[
+        "# quickstart",
+        "1. `nextgit init`",
+        "2. `nextgit propose --intent \"…\"`",
+        "3. steer the session; watch the conflict map",
+        "4. land with the judge's verdict + receipt",
+      ],
+      "src/auth.ts":[
+        "// src/auth.ts — session refresh path",
+        "import { Session } from \"./session\";",
+        "",
+        "export async function refresh(session: Session) {",
+        "  return session.refresh({});",
+        "}",
+      ],
+    },
+  },
+  "agent-4": {
+    tree:[
+      {type:"dir",name:"src",children:[
+        {type:"file",name:"auth.ts",kind:"text",size:"1.1 KB"},
+        {type:"file",name:"cli.ts",kind:"text",size:"1.4 KB"}]},
+      {type:"file",name:"README.md",kind:"text",size:"980 B"},
+    ],
+    contents:{
+      "src/cli.ts":[
+        "// src/cli.ts — tighter error surface (agent-4)",
+        "export function fail(err: { code: string; message: string }) {",
+        "  console.error(`ng: ${err.code} — ${err.message}`);",
+        "  process.exitCode = 1;",
+        "}",
+      ],
+      "src/auth.ts":[
+        "// src/auth.ts — session refresh path",
+        "import { Session } from \"./session\";",
+        "",
+        "export async function refresh(session: Session) {",
+        "  return session.refresh({});",
+        "}",
+      ],
+      "README.md":[
+        "# demo",
+        "the demo base repo — every agent proposal forks from here.",
+      ],
+    },
+  },
+  "agent-5": {
+    tree:[
+      {type:"dir",name:"config",children:[
+        {type:"file",name:".env",kind:"secret",size:"184 B",keys:["DATABASE_URL","REDIS_URL"]},
+        {type:"file",name:"env.example",kind:"text",size:"412 B"}]},
+      {type:"dir",name:"src",children:[{type:"file",name:"auth.ts",kind:"text",size:"1.1 KB"}]},
+      {type:"file",name:"README.md",kind:"text",size:"980 B"},
+    ],
+    contents:{
+      "config/.env": null, // secret-class — never stored in the clear
+      "config/env.example":[
+        "# copy to .env and fill in",
+        "DATABASE_URL=",
+        "REDIS_URL=",
+      ],
+      "src/auth.ts":[
+        "// src/auth.ts — session refresh path",
+        "import { Session } from \"./session\";",
+        "",
+        "export async function refresh(session: Session) {",
+        "  return session.refresh({});",
+        "}",
+      ],
+      "README.md":[
+        "# demo",
+        "the demo base repo — every agent proposal forks from here.",
+      ],
+    },
+  },
+};
+
+/* diff content for the merge modal */
+const DIFFS = {
+  "src/auth.ts": {
+    ours:"agent-1", theirs:"agent-2",
+    rows:[
+      {t:"ctx", txt:"// src/auth.ts — session refresh path"},
+      {t:"ctx", txt:"import { Session } from \"./session\";"},
+      {t:"ctx", txt:""},
+      {t:"ctx", txt:"export async function refresh(session: Session) {"},
+      {t:"mk-ours", txt:"<<<<<<< ours (agent-1)"},
+      {t:"add", txt:"    const ttl = 3600;"},
+      {t:"add", txt:"    return session.refresh({ ttl });"},
+      {t:"mk-sep", txt:"======="},
+      {t:"del", txt:"    return session.refresh({ rotate: true });"},
+      {t:"mk-theirs", txt:">>>>>>> theirs (agent-2)"},
+      {t:"ctx", txt:"}"},
+      {t:"ctx", txt:""},
+      {t:"ctx", txt:"export async function revoke(session: Session) {"},
+      {t:"ctx", txt:"  return session.revoke();"},
+      {t:"ctx", txt:"}"},
+    ],
+  },
+  "README.md": {
+    ours:"agent-3", theirs:"demo",
+    rows:[
+      {t:"ctx", txt:"# demo"},
+      {t:"ctx", txt:"the demo base repo — every agent proposal forks from here."},
+      {t:"ctx", txt:""},
+      {t:"ctx", txt:"## quickstart"},
+      {t:"del", txt:"clone the demo repo and run `nextgit init`"},
+      {t:"add", txt:"clone the demo repo, run `nextgit init`, then `nextgit tour`"},
+      {t:"ctx", txt:"proposals land through the judge."},
+      {t:"add", txt:"see docs/quickstart.md for the steer composer."},
+    ],
+  },
+  "src/cli.ts": {
+    ours:"agent-4", theirs:"demo",
+    rows:[
+      {t:"ctx", txt:"// src/cli.ts"},
+      {t:"ctx", txt:"export function fail(err) {"},
+      {t:"del", txt:"  console.error(err);"},
+      {t:"add", txt:"  console.error(`ng: ${err.code} — ${err.message}`);"},
+      {t:"add", txt:"  process.exitCode = 1;"},
+      {t:"ctx", txt:"}"},
+    ],
+  },
+};
+
+const PARITY_COUNT = { exceeds:5, parity:8, below:5 };
+
+/* ================= state ================= */
+const state = {
+  view:"console",
+  conn:"live",
+  ticker:[...DATA.events],
+  poolIdx:0,
+  filesRepo:"agent-1",
+  filesPath:null,        // e.g. "src/auth.ts"
+  filesRevealed:false,
+  histSha:null,
+  modalRepo:null,
+  modalTab:null,
+  modalMode:"diff",
+  landRepo:null,
+  landVariant:null,
+  armedLand:null,
+  tourStep:0,
+  tourOpen:false,
+  comments: JSON.parse(JSON.stringify(DATA.comments)),
+};
+
+/* ================= helpers ================= */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const delta = (a,d) => `<span class="delta"><span class="plus">+${a}</span> <span class="minus">−${d}</span></span>`;
+const CHECK_ORDER = ["fold","collision","conflicts","secrets","base"];
+
+function checkChip(name, val){
+  const label = name === "conflicts" ? "conflicts" : name;
+  if (val === "pass") return `<span class="chip pass"><span class="cdot"></span>${label}</span>`;
+  if (val === "fail") return `<span class="chip fail"><span class="cdot"></span>${label}</span>`;
+  return `<span class="chip unknown" title="not yet measured — never rendered green"><span class="cdot"></span>${label} ?</span>`;
+}
+function toast(msg){
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  $("#toasts").appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 2600);
+  setTimeout(() => el.remove(), 3000);
+}
+
+/* ================= header / nav / stats ================= */
+const NAV = [
+  ["console","Console"],["files","Files"],["history","History"],["forks","Forks"],
+  ["sessions","Sessions"],["issues","Issues"],["parity","Parity"],["agents","Agents"],["tour","Tour"],
+];
+function renderHeader(){
+  const s = DATA.stats;
+  $("#stats-chips").innerHTML =
+    `<span class="stat-chip"><b class="num">${s.proposals}</b> proposals</span>` +
+    `<span class="stat-chip"><b class="num">${s.shared}</b> shared</span>` +
+    `<span class="stat-chip conflict"><b class="num">${s.conflicts}</b> conflicts</span>` +
+    `<span class="stat-chip"><b class="num">${s.changed}</b> changed</span>` +
+    `<span class="stat-chip"><b class="num">${s.clean}</b> clean</span>`;
+  $("#mainnav").innerHTML = NAV.map(([v,label]) =>
+    `<button data-action="nav" data-arg="${v}" class="${state.view===v?"active":""}" ${v==="tour"?"data-tour-btn":""}>${label}</button>`).join("");
+}
+
+/* ================= ticker ================= */
+function renderTicker(){
+  $("#ticker-stream").innerHTML = state.ticker.slice(0,8).map((e,i) =>
+    `<span class="tick-item${i===0?" fresh":""}"><span class="ev-type">${esc(e.type)}</span>${esc(e.repo)}<span class="ev-at">${esc(e.at)}</span></span>`
+  ).join("");
+}
+function tickStep(){
+  const next = DATA.eventPool[state.poolIdx % DATA.eventPool.length];
+  state.poolIdx++;
+  state.ticker.unshift({ type:next.type, repo:next.repo, at:"now" });
+  state.ticker = state.ticker.slice(0,8);
+  state.ticker.forEach((e,i) => { if (i>0 && e.at==="now") e.at = "1m ago"; });
+  renderTicker();
+}
+
+/* ================= connection toggle ================= */
+function renderConn(){
+  const dot = $("#conn-dot"), label = $("#conn-label"), btn = $("#conn-toggle");
+  if (state.conn === "live"){
+    dot.className = "dot live";
+    label.textContent = "live · sse";
+    btn.textContent = "polling";
+  } else {
+    dot.className = "dot polling";
+    label.textContent = "polling · 30s";
+    btn.textContent = "go live";
+  }
+}
+
+/* ================= console (surface 1 + 13) ================= */
+function landingChip(p){
+  if (p.landing === "withheld-secret")
+    return `<span class="chip solid-fail"><span class="cdot"></span>withheld-secret</span>`;
+  return `<span class="chip pass"><span class="cdot"></span>ready</span>`;
+}
+function cardHtml(p){
+  const armed = state.armedLand === p.id;
+  const withheld = p.landing === "withheld-secret";
+  return `
+  <article class="pcard${withheld?" withheld":""}" id="card-${p.id}">
+    <div class="pcard-top">
+      <span class="pcard-repo">${esc(p.id)}</span>
+      ${landingChip(p)}
+      ${armed?`<span class="chip solid-warn">armed</span>`:""}
+    </div>
+    <p class="pcard-intent">${esc(p.intent)}</p>
+    <div class="pcard-fileline">
+      <span class="fp">${esc(p.file)}</span> ${delta(p.adds,p.dels)}
+      <span style="margin-left:auto" class="muted">${esc(p.note)}</span>
+    </div>
+    <div class="checks-strip" role="group" aria-label="checks for ${esc(p.id)}">
+      ${CHECK_ORDER.map(c => checkChip(c, p.checks[c])).join("")}
+    </div>
+    ${withheld ? `
+    <div class="secret-box" style="padding:12px 14px">
+      <div class="small ash" style="margin-bottom:8px">secret-class change — key names only, values withheld by policy <span class="mono muted">{land: manual, secrets: refused}</span></div>
+      <div class="secret-keys" style="margin:0">
+        <span class="chip mono">DATABASE_URL</span><span class="chip mono">REDIS_URL</span>
+      </div>
+      <div class="mt8"><button class="btn sm ghost" data-action="goto-secret-file" data-arg="${p.id}">open secret view →</button></div>
+    </div>` : ""}
+    <div class="pcard-actions">
+      <button class="btn sm ghost" data-action="open-merge" data-arg="${p.id}">view diff</button>
+      <button class="btn sm ghost" data-action="open-merge-preview" data-arg="${p.id}">preview merge</button>
+      <button class="btn sm ${armed?"armed":""}" data-action="land-arm" data-arg="${p.id}" style="margin-left:auto">${armed?"confirm land?":"land"}</button>
+    </div>
+  </article>`;
+}
+function renderConsole(){
+  const cm = DATA.conflictMap[0];
+  $("#view-console").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>triage console</h1>
+      <span class="view-sub">${DATA.stats.proposals} proposals await a judge-gated decision</span>
+      <span class="view-note">ls proposals/ — 5 entries</span>
+    </div>
+
+    <div id="conflict-map" class="block" style="padding:0;border:none;background:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span class="block-title"><span class="glyph">⚠</span>conflict map</span>
+        <span class="block-meta">${DATA.stats.conflicts} file · ${cm.pairs} pair · ${cm.hunks} hunk</span>
+      </div>
+      <div class="cm-row">
+        <span class="cm-file">${esc(cm.file)}</span>
+        <span class="cm-pair">
+          <span class="agent-tag">${esc(cm.pair[0])}</span><span class="x">×</span><span class="agent-tag">${esc(cm.pair[1])}</span>
+        </span>
+        <span class="cm-kind">${esc(cm.kind)}</span>
+        <span class="cm-detail"><b>${esc(cm.pair[0])}</b> ${esc(cm.detail.replace("conflicts with agent-2 — ",""))}</span>
+        <button class="btn sm ghost" data-action="open-merge" data-arg="agent-1" style="margin-left:auto">inspect diff3</button>
+      </div>
+    </div>
+
+    <div id="proposal-grid">
+      ${DATA.proposals.map(cardHtml).join("")}
+    </div>
+  `;
+  renderPulse();
+}
+function renderPulse(){
+  $("#pulse-strip").innerHTML = `
+    <div class="pulse-seg"><span class="pl-label">floors</span>
+      <span class="pl-val"><span class="num">3</span>
+      <span class="chip mono">land: manual</span><span class="chip mono">secrets: refused</span><span class="chip mono">judge: gated</span></span>
+    </div>
+    <div class="pulse-sep"></div>
+    <div class="pulse-seg"><span class="pl-label">intents router</span>
+      <span class="pl-val"><span class="mono">agent-3</span> → <span class="chip pass"><span class="cdot"></span>merge-it</span></span>
+    </div>
+    <div class="pulse-sep"></div>
+    <div class="pulse-seg"><span class="pl-label">upstream</span>
+      <span class="pl-val">merge-back <span class="mono">agent-3 → demo</span> · clean · <span class="num">0</span> conflicts</span>
+    </div>
+    <div class="pulse-sep"></div>
+    <div class="pulse-seg"><span class="pl-label">stream</span>
+      <span class="pl-val mono" id="pulse-conn">sse · connected</span>
+    </div>`;
+}
+
+/* ================= files browser (surface 3) ================= */
+function treeHtml(nodes, pathPrefix, depth){
+  return nodes.map(n => {
+    const p = pathPrefix ? pathPrefix + "/" + n.name : n.name;
+    if (n.type === "dir"){
+      return `<div>
+        <button class="tree-item dir" data-action="files-dir" data-arg="${esc(p)}">
+          <span class="tw">▸</span><span class="fname">${esc(n.name)}/</span>
+        </button>
+        <div class="tree-children hidden" data-dir="${esc(p)}">${treeHtml(n.children, p, depth+1)}</div>
+      </div>`;
+    }
+    const active = state.filesPath === p ? " active" : "";
+    const sec = n.kind === "secret" ? ` <span class="sec" style="color:var(--fail)">· secret</span>` : "";
+    return `<button class="tree-item${active}" data-action="files-file" data-arg="${esc(p)}">
+      <span class="tw">·</span><span class="fname">${esc(n.name)}</span>${sec}
+    </button>`;
+  }).join("");
+}
+function findNode(nodes, path){
+  const parts = path.split("/");
+  let cur = nodes;
+  for (let i=0;i<parts.length;i++){
+    const n = cur.find(x => x.name === parts[i]);
+    if (!n) return null;
+    if (i === parts.length-1) return n;
+    cur = n.children || [];
+  }
+  return null;
+}
+function skeletonHtml(lines){
+  return `<div class="skel-stack">${Array.from({length:lines},(_,i) =>
+    `<div class="skel" style="height:13px;width:${88 - (i%5)*9}%"></div>`).join("")}</div>`;
+}
+function textViewerHtml(path, lines){
+  return `<div class="viewer-body">${lines.map((l,i) =>
+    `<div class="code-line"><span class="ln">${i+1}</span><span class="lc">${esc(l) || " "}</span></div>`).join("")}</div>`;
+}
+function secretViewerHtml(repo){
+  const revealed = state.filesRevealed;
+  return `<div class="viewer-body" style="padding:16px">
+    <div class="secret-box">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="chip solid-warn"><span class="cdot"></span>secret-class — key names only</span>
+        <span class="small muted">policy {land: manual, secrets: refused} — values are withheld until an audited reveal</span>
+      </div>
+      <div class="secret-keys">
+        <span class="chip mono">DATABASE_URL</span><span class="chip mono">REDIS_URL</span>
+      </div>
+      ${revealed ? `
+        <div class="secret-value">DATABASE_URL = ${esc(DATA.secretValue)}<br>REDIS_URL = redis://cache.internal:6379/0</div>
+        <div class="audit-note"><b>decision: granted</b> — reveal audited<br>${esc(DATA.revealAudit)}</div>` : `
+        <div class="mt16"><button class="btn sm" data-action="reveal" data-arg="${esc(repo)}">Reveal (audited)</button>
+        <span class="small muted" style="margin-left:10px">clicking records an audit entry before the value renders</span></div>`}
+    </div>
+  </div>`;
+}
+function binaryViewerHtml(node){
+  return `<div class="viewer-body" style="padding:6px 0">
+    <table class="meta-table">
+      <tr><td>name</td><td>${esc(node.name)}</td></tr>
+      <tr><td>mime</td><td>${esc(node.mime || "application/octet-stream")}</td></tr>
+      <tr><td>size</td><td>${esc(node.size)}</td></tr>
+      ${node.dims ? `<tr><td>dimensions</td><td>${esc(node.dims)}</td></tr>` : ""}
+      <tr><td>sha256</td><td>b3a91f0c4d5e6789a1b2c3d4e5f60718293a4b5c6d7e8f901234567890abcd12</td></tr>
+      <tr><td>render</td><td class="muted">binary payload — metadata-only posture in this prototype</td></tr>
+    </table>
+  </div>`;
+}
+function renderFiles(instant){
+  const repo = state.filesRepo;
+  const tree = FILES[repo].tree;
+  const node = state.filesPath ? findNode(tree, state.filesPath) : null;
+  const crumb = ["demo", repo, ...(state.filesPath ? state.filesPath.split("/") : [])];
+  let viewer;
+  if (!node){
+    viewer = `<div class="viewer-body" style="padding:22px"><div class="empty-note">select a file from the tree — dirs first: config/ · src/ · README.md …</div></div>`;
+  } else if (node.kind === "secret"){
+    viewer = secretViewerHtml(repo);
+  } else if (node.kind === "binary"){
+    viewer = binaryViewerHtml(node);
+  } else {
+    const lines = FILES[repo].contents[state.filesPath] || [];
+    viewer = textViewerHtml(state.filesPath, lines);
+  }
+  const isSecret = node && node.kind === "secret";
+  $("#view-files").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>files</h1>
+      <span class="view-sub">working tree browser — text, binary and secret-class postures</span>
+      <span class="view-note">cat ${esc(repo)}/…</span>
+    </div>
+    <div class="repo-picker" role="group" aria-label="repo picker">
+      ${DATA.proposals.map(p => `<button data-action="files-repo" data-arg="${p.id}" class="${p.id===repo?"active":""}">${p.id}</button>`).join("")}
+    </div>
+    <div class="files-layout">
+      <div>
+        <nav class="dir-tree" aria-label="file tree">${treeHtml(tree, "", 0)}</nav>
+      </div>
+      <div>
+        <div class="breadcrumb" aria-label="breadcrumb">
+          ${crumb.map((c,i) => i === crumb.length-1
+            ? `<span class="here">${esc(c)}</span>`
+            : `<button data-action="crumb" data-arg="${i}">${esc(c)}</button><span class="sep">/</span>`).join("")}
+        </div>
+        <div class="viewer">
+          <div class="viewer-head">
+            <span class="vpath">${esc(state.filesPath || repo + "/")}</span>
+            ${node ? `<span class="muted">${esc(node.size)}</span>` : ""}
+            <span class="vact">
+              ${!isSecret && node ? `<button class="btn sm ghost" data-action="raw-link" data-arg="${esc(state.filesPath)}">raw</button>` : ""}
+            </span>
+          </div>
+          <div id="viewer-body">${instant ? skeletonHtml(9) : viewer}</div>
+        </div>
+      </div>
+    </div>`;
+  // expand dirs along the current path
+  if (state.filesPath){
+    const parts = state.filesPath.split("/");
+    let acc = "";
+    parts.slice(0,-1).forEach(seg => {
+      acc = acc ? acc + "/" + seg : seg;
+      const box = $(`[data-dir="${acc}"]`);
+      if (box) box.classList.remove("hidden");
+    });
+  }
+}
+
+/* ================= history (surface 4) ================= */
+function renderHistory(){
+  const sel = state.histSha ? DATA.commits.find(c => c.sha === state.histSha) : null;
+  $("#view-history").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>history</h1>
+      <span class="view-sub">commit graph on the demo base</span>
+      <span class="view-note">git log --oneline — ${DATA.commits.length} commits</span>
+    </div>
+    <div class="hist-layout">
+      <div class="commit-list">
+        ${DATA.commits.map(c => `
+        <button class="commit-row${sel && sel.sha===c.sha?" active":""}" data-action="hist-commit" data-arg="${c.sha}">
+          <span class="c-top"><span class="c-sha">${c.sha}</span><span class="c-msg">${esc(c.msg)}</span></span>
+          <span class="c-meta"><span>${esc(c.author)}</span><span>${esc(c.date)}</span><span class="num">${c.files.length} file${c.files.length>1?"s":""}</span></span>
+        </button>`).join("")}
+      </div>
+      <div id="hist-detail">
+        ${sel ? `
+          ${sel.root ? `<div class="root-note">◈ root commit — ${esc(sel.note)}</div>` : `<div class="root-note">${esc(sel.note)}</div>`}
+          <div class="block-head" style="margin:4px 0 12px">
+            <span class="block-title"><span class="glyph">Δ</span>changed files</span>
+            <span class="block-meta">${sel.sha} · ${sel.files.reduce((a,f)=>a+f.adds,0)}+ ${sel.files.reduce((a,f)=>a+f.dels,0)}−</span>
+          </div>
+          ${sel.files.map(f => `
+            <div class="changed-file">
+              <span class="cf-status ${f.status}">${f.status}</span>
+              <span class="cf-path">${esc(f.path)}</span>
+              <span class="cf-delta">${delta(f.adds,f.dels)}</span>
+              <span class="cf-chips">
+                <span class="chip mono">${esc(f.path.split(".").pop())}</span>
+                <span class="chip mono">${esc(f.path.includes("auth")?"auth":f.path.includes("cli")?"cli":f.path.includes("env")?"config":"docs")}</span>
+                ${f.path === "src/auth.ts" ? `<span class="chip clickable mono" data-action="open-merge" data-arg="agent-1" title="open in merge modal">diff</span>` : ""}
+              </span>
+            </div>`).join("")}
+          <div class="mt16"><button class="btn sm ghost" data-action="hist-back">← back to commit list</button></div>
+        ` : `<div class="empty-note">select a commit to inspect its changed files</div>`}
+      </div>
+    </div>`;
+}
+
+/* ================= forks (surface 5) ================= */
+function clusterChip(name, val){
+  if (val === "unmeasured")
+    return `<span class="cluster unmeasured" title="not yet measured — rendered neutral, never green"><span class="cl-name">${name}</span><span class="cl-val">unmeasured</span><span class="cluster-bar"><i></i></span></span>`;
+  return `<span class="cluster"><span class="cl-name">${name}</span><span class="cl-val num">${val.toFixed(2)}</span><span class="cluster-bar"><i style="width:${Math.round(val*100)}%"></i></span></span>`;
+}
+function renderForks(){
+  const c = DATA.clusters;
+  $("#view-forks").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>forks &amp; signals</h1>
+      <span class="view-sub">six-cluster fork telemetry — measured where the wire exists</span>
+      <span class="view-note">git fork --signals — 5 forks off demo</span>
+    </div>
+    <div class="fork-grid">
+      ${DATA.proposals.map(p => {
+        const measured = p.id === "agent-3";
+        return `
+        <article class="fork-card${measured?" measured":""}">
+          <div class="pcard-top"><span class="pcard-repo">${esc(p.id)}</span>
+            <span class="chip mono">base: demo</span>
+            ${measured?`<span class="chip pass"><span class="cdot"></span>measured</span>`:`<span class="chip unknown"><span class="cdot"></span>unmeasured</span>`}
+          </div>
+          <div class="cluster-row">
+            ${measured
+              ? ["fit","trust","liveness","proof","distance","cost"].map(k => clusterChip(k, c[k])).join("")
+              : ["fit","trust","liveness","proof","distance","cost"].map(k => clusterChip(k, "unmeasured")).join("")}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="chip">land: manual</span><span class="chip">secrets: refused</span>
+          </div>
+          <div class="small muted">lineage <span class="mono">demo → ${esc(p.id)}</span> · policy <span class="mono">{land: manual, secrets: refused}</span></div>
+          ${measured ? `<div class="small muted">six-cluster signal — fit 0.98 · trust unmeasured · liveness 0.96 · proof 0.20 · distance 0.00 · cost 0.99</div>` : `<div class="small muted">signals unmeasured — awaiting first measured merge</div>`}
+        </article>`;
+      }).join("")}
+    </div>`;
+}
+
+/* ================= sessions (surface 6) ================= */
+function renderSessions(){
+  $("#view-sessions").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>sessions</h1>
+      <span class="view-sub">agent fleet sessions — steer them from the event stream</span>
+      <span class="view-note">who — 4 sessions</span>
+    </div>
+    <div class="session-list">
+      ${DATA.sessions.map(s => `
+      <div class="session-row">
+        <span class="s-dot ${s.state}" title="${s.state}"></span>
+        <span class="s-repo">${esc(s.repo)}</span>
+        <span class="chip ${s.state==="working"?"pass":"unknown"}">${s.state}</span>
+        <span class="s-intent">${esc(s.intent)}</span>
+        <span class="s-last">last: ${esc(s.last)} · ${esc(s.ago)}</span>
+      </div>`).join("")}
+    </div>
+    <div class="block mt16">
+      <div class="block-head">
+        <span class="block-title"><span class="glyph">⌁</span>steer composer</span>
+        <span class="block-meta">≤500 chars · v1</span>
+      </div>
+      <div class="steer">
+        <textarea id="steer-input" maxlength="500" placeholder="steer agent-1 — e.g. “keep the TTL refactor, drop the rotate flag”…" aria-label="steer message"></textarea>
+        <div class="steer-foot">
+          <select id="steer-target" aria-label="steer target" style="background:var(--bg);color:var(--parchment);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-family:var(--mono);font-size:12px">
+            ${DATA.sessions.map(s => `<option value="${s.repo}">${s.repo}</option>`).join("")}
+          </select>
+          <span class="char-count num" id="steer-count">0 / 500</span>
+          <button class="btn sm" data-action="steer-send" id="steer-send">send steer</button>
+        </div>
+        <div class="v1-note">v1 note — steers are honest: they land in the event stream the agents read (session.steered). No live patch in this prototype.</div>
+      </div>
+    </div>`;
+  const ta = $("#steer-input"), count = $("#steer-count");
+  ta.addEventListener("input", () => {
+    count.textContent = `${ta.value.length} / 500`;
+    count.classList.toggle("over", ta.value.length >= 500);
+  });
+}
+
+/* ================= issues (surface 7) ================= */
+function renderIssues(){
+  $("#view-issues").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>issues</h1>
+      <span class="view-sub">derived from the proposal graph — not hand-filed</span>
+      <span class="view-note">derive issues — ${DATA.issues.length} open</span>
+    </div>
+    <div class="issue-list">
+      ${DATA.issues.map((it,i) => `
+      <div class="issue-row">
+        <span class="i-kind ${it.kind}">${esc(it.kind)}</span>
+        <span class="i-sev ${it.sev}">${it.sev}</span>
+        <div style="min-width:200px;flex:1">
+          <div class="i-title">${esc(it.title)}</div>
+          <div class="i-desc">${esc(it.desc)}</div>
+          <div class="small muted mono" style="margin-top:3px">${esc(it.repo)}</div>
+        </div>
+        <button class="issue-link" data-action="${it.link.action}" data-arg="${it.link.arg}">${esc(it.link.label)} →</button>
+      </div>`).join("")}
+    </div>`;
+}
+
+/* ================= agents + harnesses (surface 8) ================= */
+function renderAgents(){
+  $("#view-agents").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>agents &amp; harnesses</h1>
+      <span class="view-sub">the fleet roster and the harnesses they run on</span>
+      <span class="view-note">roster — ${DATA.agents.length} agents · ${DATA.harnesses.length} harnesses</span>
+    </div>
+    <div class="grid-2">
+      <div class="block">
+        <div class="block-head"><span class="block-title"><span class="glyph">◉</span>agents roster</span></div>
+        <table class="data">
+          <thead><tr><th>agent</th><th>harness</th><th>capabilities</th><th>policy</th></tr></thead>
+          <tbody>
+            ${DATA.agents.map(a => `
+            <tr>
+              <td class="mono">${esc(a.id)}</td>
+              <td class="mono">${esc(a.harness)}${a.harness==="unrecorded"?` <span class="chip unknown" style="margin-left:6px">unrecorded</span>`:""}</td>
+              <td><span class="cap-list">${a.caps.map(c => `<span class="chip mono">${esc(c)}</span>`).join("")}</span></td>
+              <td><span class="cap-list"><span class="chip mono">land: ${esc(a.policy.land)}</span><span class="chip mono">secrets: ${esc(a.policy.secrets)}</span></span></td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="block">
+        <div class="block-head"><span class="block-title"><span class="glyph">⌘</span>harnesses</span></div>
+        <table class="data">
+          <thead><tr><th>name</th><th>kind</th><th>capabilities</th></tr></thead>
+          <tbody>
+            ${DATA.harnesses.map(h => `
+            <tr>
+              <td class="mono">${esc(h.name)}</td>
+              <td><span class="chip solid-warn mono">${esc(h.kind)}</span></td>
+              <td><span class="cap-list">${h.caps.map(c => `<span class="chip mono">${esc(c)}</span>`).join("")}</span></td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+        <div class="small muted mt16">byo-cli — bring-your-own-cli harnesses; NextGit orchestrates, the harness edits.</div>
+      </div>
+    </div>`;
+}
+
+/* ================= parity (surface 9) ================= */
+function renderParity(){
+  const counts = { exceeds:0, parity:0, below:0 };
+  DATA.parity.forEach(r => counts[r.verdict]++);
+  const vchip = v => v === "exceeds"
+    ? `<span class="chip pass"><span class="cdot"></span>exceeds</span>`
+    : v === "parity"
+      ? `<span class="chip unknown"><span class="cdot"></span>parity</span>`
+      : `<span class="chip fail"><span class="cdot"></span>below</span>`;
+  $("#view-parity").innerHTML = `
+    <div class="view-head">
+      <h1 class="view-title"><span class="glyph">❯</span>parity dashboard</h1>
+      <span class="view-sub">NextGit vs the incumbent git platform — 18 areas</span>
+      <span class="view-note">parity audit — 18 rows</span>
+    </div>
+    <div class="stats-chips" style="margin-bottom:18px">
+      <span class="stat-chip"><b class="num">${counts.exceeds}</b> exceeds</span>
+      <span class="stat-chip"><b class="num">${counts.parity}</b> parity</span>
+      <span class="stat-chip"><b class="num" style="color:var(--fail)">${counts.below}</b> below</span>
+    </div>
+    <div class="block" style="padding:6px 0">
+      <table class="data">
+        <thead><tr><th style="width:200px">area</th><th style="width:110px">verdict</th><th>one-line</th><th style="width:240px">evidence</th></tr></thead>
+        <tbody>
+          ${DATA.parity.map(r => `
+          <tr>
+            <td class="mono">${esc(r.area)}</td>
+            <td>${vchip(r.verdict)}</td>
+            <td>${esc(r.line)}</td>
+            <td class="mono small muted">${esc(r.ev)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/* ================= merge modal (surface 2) ================= */
+function diffRowsHtml(diff){
+  return diff.rows.map((r,i) => {
+    const cls = r.t === "ctx" ? "ctx" : r.t === "add" ? "add" : r.t === "del" ? "del" : r.t;
+    return `<div class="diff-row ${cls}"><span class="ln">${i+1}</span><span>${esc(r.txt) || " "}</span></div>`;
+  }).join("");
+}
+function modalTabsHtml(repo){
+  const p = DATA.proposals.find(x => x.id === repo);
+  const tabs = [p.file];
+  if (repo === "agent-1" || repo === "agent-2") tabs.push("src/session.ts");
+  if (repo === "agent-3") tabs.push("docs/quickstart.md");
+  const unique = [...new Set(tabs)];
+  return unique.map(t => {
+    const isSecret = t === "config/.env";
+    const active = (state.modalTab || p.file) === t ? " active" : "";
+    return `<button class="file-tab${active}" data-action="merge-tab" data-arg="${esc(t)}">${esc(t)}${isSecret?` <span class="sec">●</span>`:""}</button>`;
+  }).join("");
+}
+function modalTabContent(repo, tab){
+  const p = DATA.proposals.find(x => x.id === repo);
+  if (tab === "config/.env"){
+    return `
+      <div class="diff-banner"><span>config/.env</span><span class="cb">secret-class — withheld</span><span style="margin-left:auto">raw link hidden on secret-class files</span></div>
+      ${secretViewerHtml(repo)}`;
+  }
+  const diff = DIFFS[tab];
+  if (!diff){
+    const lines = FILES[repo].contents[tab] || [];
+    return `
+      <div class="diff-banner"><span>${esc(tab)}</span><span>${esc(p.id)} · clean · no conflict</span><span style="margin-left:auto">${delta(p.adds,p.dels)}</span></div>
+      ${textViewerHtml(tab, lines)}`;
+  }
+  return `
+    <div class="diff-banner">
+      <span>${esc(tab)}</span>
+      <span class="cb">text-conflict — 1 pair</span>
+      <span>${esc(diff.ours)} × ${esc(diff.theirs)}</span>
+      <span style="margin-left:auto">${delta(p.adds,p.dels)}</span>
+    </div>
+    <div class="diff">${diffRowsHtml(diff)}</div>`;
+}
+function openMerge(repo, mode){
+  state.modalRepo = repo;
+  state.modalMode = mode || "diff";
+  const p = DATA.proposals.find(x => x.id === repo);
+  state.modalTab = p.file;
+  state.comments = state.comments || JSON.parse(JSON.stringify(DATA.comments));
+  renderMerge();
+  $("#merge-overlay").classList.add("open");
+  setTimeout(() => { const c = $("#merge-close"); if (c) c.focus(); }, 60);
+}
+function renderMerge(){
+  const repo = state.modalRepo, p = DATA.proposals.find(x => x.id === repo);
+  const thread = state.comments["src/auth.ts"] || [];
+  $("#merge-sheet").innerHTML = `
+    <div class="sheet-head">
+      <span class="sheet-title">${state.modalMode==="preview"?"preview merge":"merge"} — <span class="mono">${esc(repo)}</span> → <span class="mono">demo</span></span>
+      ${state.modalMode==="preview"?`<span class="chip solid-warn">preview — render-only</span>`:""}
+      <span class="chip mono">1 file · ${delta(p.adds,p.dels)}</span>
+      ${p.checks.conflicts==="fail"?`<span class="chip fail"><span class="cdot"></span>1 conflict</span>`:`<span class="chip pass"><span class="cdot"></span>clean</span>`}
+      <button class="sheet-close" id="merge-close" data-action="close-modal" aria-label="Close merge modal">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="file-tabs" role="tablist">${modalTabsHtml(repo)}</div>
+      <div>${modalTabContent(repo, state.modalTab || p.file)}</div>
+      ${(state.modalTab === "src/auth.ts") ? `
+      <div class="block" style="padding:16px">
+        <div class="block-head" style="margin-bottom:12px">
+          <span class="block-title"><span class="glyph">❝</span>comments — src/auth.ts</span>
+          <span class="block-meta">${thread.length} comment${thread.length===1?"":"s"}</span>
+        </div>
+        <div class="comments" id="comment-list">
+          ${thread.map(c => `
+            <div class="comment">
+              <span class="avatar">${esc(c.author.slice(0,1).toUpperCase())}</span>
+              <div class="c-body">
+                <div class="c-meta"><span class="c-author">${esc(c.author)}</span>${c.line?`<span class="c-line">line ${c.line}</span>`:""}<span class="c-at">${esc(c.at)}</span></div>
+                <div class="c-text">${esc(c.text)}</div>
+              </div>
+            </div>`).join("")}
+        </div>
+        <div class="compose mt16">
+          <span class="avatar">Y</span>
+          <textarea id="comment-input" placeholder="comment on src/auth.ts — optimistic append…" aria-label="compose comment"></textarea>
+          <button class="btn sm" data-action="comment-send" id="comment-send">comment</button>
+        </div>
+      </div>` : ""}
+    </div>`;
+}
+
+/* ================= land flow (surfaces 11 + 12) ================= */
+const VARIANTS = ["escalate","confirm","act","evidence","fail-closed"];
+function judgeData(repo){
+  if (repo === "agent-2") return {
+    risk:"fail", intent:"fail", collision:"warn",
+    codes:DATA.judgeCodes, skipped:[],
+    verdict:"escalate",
+  };
+  if (repo === "agent-5") return {
+    risk:"pass", intent:"pass", collision:"unknown",
+    codes:[], skipped:["secret-class","content-secret"],
+    verdict:"fail-closed",
+  };
+  if (repo === "agent-3") return {
+    risk:"pass", intent:"pass", collision:"pass",
+    codes:[], skipped:[],
+    verdict:"act",
+  };
+  return { risk:"pass", intent:"pass", collision:"pass", codes:[], skipped:[], verdict:"confirm" };
+}
+function vchipSmall(kind){
+  if (kind === "pass") return `<span class="chip pass"><span class="cdot"></span>pass</span>`;
+  if (kind === "fail") return `<span class="chip fail"><span class="cdot"></span>fail</span>`;
+  if (kind === "warn") return `<span class="chip warn"><span class="cdot"></span>warn</span>`;
+  return `<span class="chip unknown"><span class="cdot"></span>unknown</span>`;
+}
+function variantHtml(repo, variant){
+  const j = judgeData(repo);
+  if (variant === "escalate"){
+    return `
+      <span class="verdict-big escalate">▲ ESCALATE</span>
+      <div class="small ash">the judge escalated this landing — no automatic merge. human review required before any landing proceeds.</div>
+      <div class="judge-codes">${j.codes.length ? j.codes.map(c => `<span class="code">${esc(c)}</span>`).join("") : `<span class="code" style="color:var(--stone);border-color:var(--border-strong);background:transparent">no codes recorded for ${esc(repo)} — escalate variant shown for comparison</span>`}</div>`;
+  }
+  if (variant === "confirm"){
+    return `
+      <span class="verdict-big confirm">● CONFIRM</span>
+      <div class="small ash">human confirmation required — the landing pauses here for a reviewer. the judge recorded no contradiction for ${esc(repo)}.</div>`;
+  }
+  if (variant === "act"){
+    return `
+      <span class="verdict-big act">● ACT</span>
+      <div class="small ash">auto-land approved — the judge found no risk, no contradiction, no collision. in a live system this would execute against <span class="mono">demo</span>; this sheet stays render-only.</div>`;
+  }
+  if (variant === "evidence"){
+    const r = DATA.receipt;
+    return `
+      <span class="verdict-big act" style="color:var(--parchment);border-color:var(--border-strong);background:var(--veil)">▤ RECORDED EVIDENCE</span>
+      <div class="small ash">the judge's evidence bundle for this landing — recorded, sha-checked, replayable.</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${[["commit",r.commit],["ancestor",r.ancestor],["foldHash",r.foldHash],["mergedSha",r.mergedSha],["testedSha",r.testedSha],["artifactRef",r.artifactRef],["lease",`{provider: "${r.lease.provider}", leaseId: "${r.lease.leaseId}"}`],["at",r.at]].map(([k,v]) =>
+          `<div class="judge-row"><span class="j-label">${k}</span><span class="mono small">${esc(v)}</span></div>`).join("")}
+        <div class="judge-row"><span class="j-label">results</span><span class="mono small" style="color:var(--pass)">merged-sha-equals-tested-sha: pass</span></div>
+      </div>`;
+  }
+  // fail-closed
+  return `
+    <span class="verdict-big closed">■ FAIL-CLOSED</span>
+    <div class="failclosed">
+      <div class="fc-head">503 — judge unavailable</div>
+      the judge did not answer. NextGit fails closed: <b>no verdict, no landing.</b> nothing merges without a recorded decision — the proposal stays armed in the triage queue and the event stream records the refusal.
+    </div>
+    ${repo === "agent-5" ? `<div class="small ash">agent-5 additionally hits the secrets floor: <span class="mono">{secrets: refused}</span> — the withheld key names (DATABASE_URL, REDIS_URL) block the landing regardless of judge state.</div>` : ""}`;
+}
+function openLand(repo){
+  state.landRepo = repo;
+  state.landVariant = judgeData(repo).verdict === "fail-closed" && repo !== "agent-5" ? "fail-closed" : judgeData(repo).verdict;
+  if (repo === "agent-2") state.landVariant = "escalate";
+  renderLand();
+  $("#land-overlay").classList.add("open");
+  setTimeout(() => { const c = $("#land-close"); if (c) c.focus(); }, 60);
+}
+function renderLand(){
+  const repo = state.landRepo;
+  const p = DATA.proposals.find(x => x.id === repo);
+  const j = judgeData(repo);
+  $("#land-sheet").innerHTML = `
+    <div class="sheet-head">
+      <span class="sheet-title">land — <span class="mono">${esc(repo)}</span> → <span class="mono">demo</span></span>
+      <span class="chip mono">${esc(p.file)} · ${delta(p.adds,p.dels)}</span>
+      <button class="sheet-close" id="land-close" data-action="close-land" aria-label="Close land sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="reveal-stagger">
+        <div class="rs">
+          <div class="small muted" style="margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);font-size:10.5px">proposal</div>
+          <div style="font-size:16px;font-weight:500">${esc(p.intent)}</div>
+          <div class="small ash mt8 mono">${esc(repo)} · ${esc(p.file)} · ${delta(p.adds,p.dels)} · checks ${CHECK_ORDER.map(c => p.checks[c]).join(" / ")}</div>
+        </div>
+        <div class="rs">
+          <div class="judge-panel">
+            <div class="small muted" style="text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);font-size:10.5px">judge panel</div>
+            <div class="judge-verdicts">
+              <div class="judge-row"><span class="j-label">risk</span>${vchipSmall(j.risk)}</div>
+              <div class="judge-row"><span class="j-label">intent</span>${vchipSmall(j.intent)}</div>
+              <div class="judge-row"><span class="j-label">collision</span>${vchipSmall(j.collision)}</div>
+            </div>
+            ${j.codes.length ? `<div class="judge-codes">${j.codes.map(c => `<span class="code">${esc(c)}</span>`).join("")}</div>` : ""}
+            <div class="judge-row"><span class="j-label">skipped[]</span>
+              <span class="skipped-list">[${j.skipped.length ? j.skipped.map(s => `<span class="sk">"${esc(s)}"</span>`).join(", ") : "<span class='muted'>empty — nothing skipped</span>"}]</span>
+            </div>
+            <div class="failclosed" style="padding:10px 14px">
+              <div class="fc-head" style="font-size:11.5px">fail-closed posture</div>
+              <div class="small" style="font-size:12px">503 — judge unavailable: landing refused. NextGit never lands without a recorded verdict; silence is a refusal, not an approval.</div>
+            </div>
+          </div>
+        </div>
+        <div class="rs">
+          <div class="small muted" style="margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);font-size:10.5px">verdict — toggle variants (render-only)</div>
+          <div class="variant-toggle" role="tablist" aria-label="verdict variants">
+            ${VARIANTS.map(v => `<button data-action="land-variant" data-arg="${v}" class="${state.landVariant===v?"active":""}">${v}</button>`).join("")}
+          </div>
+        </div>
+        <div class="rs" id="land-variant-body">${variantHtml(repo, state.landVariant)}</div>
+        <div class="rs" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn" data-action="open-receipt" data-arg="${esc(repo)}">view evidence receipt</button>
+          <button class="btn ghost" data-action="close-land">disarm</button>
+          <span class="render-only">render-only — the land button never fires a real landing in this prototype</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ================= evidence receipt (surface 11) ================= */
+function openReceipt(repo){
+  const r = DATA.receipt;
+  const row = (k, v) => `<div class="receipt-key"><span class="rk-name">${k}</span><span class="rk-val">${v}</span></div>`;
+  $("#receipt-sheet").innerHTML = `
+    <div class="sheet-head">
+      <span class="sheet-title">evidence receipt — <span class="mono">${esc(r.commit)}</span></span>
+      ${repo ? `<span class="chip mono">${esc(repo)} → demo</span>` : ""}
+      <button class="sheet-close" id="receipt-close" data-action="close-receipt" aria-label="Close evidence receipt">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="pass-banner">✓ mergedSha == testedSha — <span class="num">pass</span> · both <span class="mono">${esc(r.mergedSha)}</span></div>
+      ${row("repos", r.repos.map(x => `<span class="mono">${x}</span>`).join(", "))}
+      ${row("commit", `<span class="mono">${esc(r.commit)}</span>`)}
+      ${row("ancestor", `<span class="mono">${esc(r.ancestor)}</span>`)}
+      ${row("heads", Object.entries(r.heads).map(([k,v]) => `<span class="mono">${k}: ${v}</span>`).join("<br>"))}
+      ${row("foldHash", `<span class="mono">${esc(r.foldHash)}</span>`)}
+      ${row("checks", Object.entries(r.checks).map(([k,v]) => `${k}: <span class="ok">${v}</span>`).join(" · "))}
+      ${row("results", Object.entries(r.results).map(([k,v]) => `${k}: <span class="ok">${v}</span>`).join(" · "))}
+      ${row("mergedSha", `<span class="mono">${esc(r.mergedSha)}</span>`)}
+      ${row("testedSha", `<span class="mono">${esc(r.testedSha)}</span>`)}
+      ${row("artifactRef", `<span class="mono">${esc(r.artifactRef)}</span>`)}
+      ${row("at", `<span class="mono">${esc(r.at)}</span>`)}
+      ${row("lease", `<span class="mono">{provider: "${r.lease.provider}", leaseId: "${r.lease.leaseId}"}</span>`)}
+      <div class="audit-note" style="margin-top:14px"><b>reveal audit — decision: granted</b><br>${esc(DATA.revealAudit)}</div>
+      <div class="small muted mono mt16">12 keys recorded at land time · receipt is immutable and replayable · lease held by provider "do"</div>
+    </div>`;
+  $("#receipt-overlay").classList.add("open");
+  setTimeout(() => { const c = $("#receipt-close"); if (c) c.focus(); }, 60);
+}
+
+/* ================= tour (surface 10) ================= */
+const TOUR = [
+  { view:"console", target:"#brand-block", title:"welcome to nextgit",
+    body:"the agent-era git platform: agent fleets propose changes, humans decide, and every landing carries a judge-backed evidence receipt. this console is the triage seat." },
+  { view:"console", target:"#proposal-grid", title:"the proposal grid",
+    body:"five proposals from the demo fleet (agent-1 … agent-5). each card carries its intent, touched file with ± stats, a landing chip (ready / withheld-secret), and the actions: view diff, preview merge, land." },
+  { view:"console", target:"#card-agent-1 .checks-strip", title:"the checks strip — tri-state honesty",
+    body:"every card runs five checks: fold · collision · conflicts · secrets · base. each renders pass, fail, or unknown — and unknown renders neutral, never green. agent-1 and agent-2 both fail conflicts on src/auth.ts." },
+  { view:"console", target:"#conflict-map", title:"the conflict map",
+    body:"shared-file collisions surface here before anyone merges: src/auth.ts is touched by agent-1 × agent-2 as a text-conflict — 1 pair, 1 hunk. inspect it as a diff3 in the merge modal." },
+  { view:"console", target:"#card-agent-2 .pcard-actions", title:"judge & land — two steps",
+    body:"landing is deliberately two-step: arm, then confirm. the confirm sheet shows the judge panel (risk / intent / collision), the verdict — agent-2 escalates with codes risk:senior-security and intent:contradicts — and stays render-only. it never auto-fires." },
+  { view:"console", target:"#card-agent-5", title:"secrets & reveal",
+    body:"agent-5 moves secrets to env — a secret-class change. the UI withholds values and shows key names only (DATABASE_URL, REDIS_URL). an audited Reveal grants the value and records decision: granted." },
+  { view:"forks", target:"#view-forks .fork-card.measured", title:"forks & signals",
+    body:"each proposal is a fork off demo with lineage and policy chips (land: manual, secrets: refused). agent-3 carries the measured six-cluster signal: fit 0.98 · trust unmeasured · liveness 0.96 · proof 0.20 · distance 0.00 · cost 0.99." },
+  { view:"console", target:"#pulse-strip", title:"evidence & platform pulse",
+    body:"every landing writes a 12-key evidence receipt — repos, commit 7c042f10, ancestor, heads, foldHash, checks, results (mergedSha == testedSha: pass), mergedSha, testedSha, artifactRef, at, lease. the pulse strip below carries the floors, the intents router verdict (merge-it for agent-3) and the upstream merge-back note. open the receipt from any land sheet." },
+];
+function tourPlace(){
+  const step = TOUR[state.tourStep];
+  const spot = $("#tour-spot"), card = $("#tour-card");
+  const target = document.querySelector(step.target);
+  if (!target) return;
+  const r = target.getBoundingClientRect();
+  const pad = 7;
+  spot.style.top = (r.top - pad) + "px";
+  spot.style.left = (r.left - pad) + "px";
+  spot.style.width = (r.width + pad*2) + "px";
+  spot.style.height = (r.height + pad*2) + "px";
+  spot.classList.remove("hidden");
+  // position card below or above
+  const cw = Math.min(380, window.innerWidth - 40);
+  let top = r.bottom + 18, left = Math.max(20, Math.min(r.left, window.innerWidth - cw - 20));
+  const ch = 230;
+  if (top + ch > window.innerHeight - 16) top = Math.max(16, r.top - ch - 18);
+  card.style.top = top + "px";
+  card.style.left = left + "px";
+  card.innerHTML = `
+    <div class="t-step">step ${state.tourStep+1} / ${TOUR.length}</div>
+    <div class="t-title">${esc(step.title)}</div>
+    <div class="t-body">${esc(step.body)}</div>
+    <div class="t-foot">
+      <span class="t-dots">${TOUR.map((_,i) => `<i class="${i===state.tourStep?"on":""}"></i>`).join("")}</span>
+      ${state.tourStep > 0 ? `<button class="btn sm ghost" data-action="tour-back">back</button>` : ""}
+      ${state.tourStep < TOUR.length-1 ? `<button class="btn sm" data-action="tour-next">next</button>` : `<button class="btn sm" data-action="tour-close">finish</button>`}
+      <button class="btn sm ghost" data-action="tour-close">skip</button>
+    </div>`;
+  card.classList.remove("hidden");
+}
+function tourGo(step){
+  state.tourStep = step;
+  const s = TOUR[step];
+  if (s.view && state.view !== s.view) showView(s.view);
+  if (step === TOUR.length-1 && state.view === "console"){
+    // last step: also surface the receipt drawer over the pulse strip
+  }
+  requestAnimationFrame(tourPlace);
+}
+function openTour(){
+  state.tourOpen = true;
+  state.tourStep = 0;
+  $("#tour-overlay").classList.add("open");
+  const s = TOUR[0];
+  if (s.view && state.view !== s.view) showView(s.view);
+  requestAnimationFrame(tourPlace);
+}
+function closeTour(){
+  state.tourOpen = false;
+  $("#tour-overlay").classList.remove("open");
+  $("#tour-spot").classList.add("hidden");
+  $("#tour-card").classList.add("hidden");
+}
+
+/* ================= view router ================= */
+const SKELETON_VIEWS = new Set(["files","history"]);
+function showView(name){
+  if (name === "tour"){ openTour(); return; }
+  state.view = name;
+  $$(".view").forEach(v => v.classList.toggle("active", v.dataset.view === name));
+  $$("#mainnav button").forEach(b => b.classList.toggle("active", b.dataset.arg === name));
+  if (name === "console") renderConsole();
+  if (name === "files"){
+    renderFiles(true);
+    setTimeout(() => { if (state.view === "files") renderFiles(false); }, 200);
+  }
+  if (name === "history"){
+    $("#view-history").innerHTML = `<div class="skel-stack" style="margin-top:60px">
+      <div class="skel" style="height:26px;width:280px"></div>
+      ${Array.from({length:5},() => `<div class="skel" style="height:64px"></div>`).join("")}
+    </div>`;
+    setTimeout(() => { if (state.view === "history") renderHistory(); }, 260);
+  }
+  if (name === "forks") renderForks();
+  if (name === "sessions") renderSessions();
+  if (name === "issues") renderIssues();
+  if (name === "parity") renderParity();
+  if (name === "agents") renderAgents();
+  window.scrollTo({ top:0 });
+}
+
+/* ================= actions ================= */
+const actions = {
+  "nav": t => showView(t.dataset.arg),
+  "conn-toggle": () => {
+    state.conn = state.conn === "live" ? "polling" : "live";
+    renderConn();
+    const pc = $("#pulse-conn");
+    if (pc) pc.textContent = state.conn === "live" ? "sse · connected" : "polling · 30s";
+    toast(state.conn === "live" ? "connection: live · sse stream attached" : "connection: polling · 30s cadence");
+  },
+  "open-merge": t => openMerge(t.dataset.arg, "diff"),
+  "open-merge-preview": t => openMerge(t.dataset.arg, "preview"),
+  "merge-tab": t => { state.modalTab = t.dataset.arg; renderMerge(); },
+  "close-modal": () => $("#merge-overlay").classList.remove("open"),
+  "land-arm": t => {
+    const id = t.dataset.arg;
+    if (state.armedLand === id){
+      state.armedLand = null;
+      openLand(id);
+    } else {
+      state.armedLand = id;
+      renderConsole();
+      toast(`land armed for ${id} — click “confirm land?” to open the judge sheet`);
+    }
+  },
+  "close-land": () => { $("#land-overlay").classList.remove("open"); state.armedLand = null; if (state.view === "console") renderConsole(); },
+  "land-variant": t => {
+    state.landVariant = t.dataset.arg;
+    $$(".variant-toggle button").forEach(b => b.classList.toggle("active", b.dataset.arg === state.landVariant));
+    const body = $("#land-variant-body");
+    body.style.opacity = "0";
+    setTimeout(() => {
+      body.innerHTML = variantHtml(state.landRepo, state.landVariant);
+      body.style.transition = "opacity .25s";
+      body.style.opacity = "1";
+    }, 120);
+  },
+  "open-receipt": t => openReceipt(t.dataset.arg || null),
+  "close-receipt": () => $("#receipt-overlay").classList.remove("open"),
+  "files-repo": t => {
+    state.filesRepo = t.dataset.arg;
+    state.filesPath = null;
+    state.filesRevealed = false;
+    renderFiles(true);
+    setTimeout(() => { if (state.view === "files") renderFiles(false); }, 200);
+  },
+  "files-dir": t => {
+    const box = $(`[data-dir="${t.dataset.arg}"]`);
+    if (box) box.classList.toggle("hidden");
+    const tw = t.querySelector(".tw");
+    if (tw) tw.textContent = box && box.classList.contains("hidden") ? "▸" : "▾";
+  },
+  "files-file": t => {
+    const path = t.dataset.arg;
+    state.filesPath = path;
+    state.filesRevealed = false;
+    renderFiles(true);
+    setTimeout(() => {
+      if (state.view === "files" && state.filesPath === path) renderFiles(false);
+    }, 220);
+  },
+  "crumb": t => {
+    const i = parseInt(t.dataset.arg, 10);
+    // crumb indices: 0=demo, 1=repo, then path segments
+    if (i <= 1){ state.filesPath = null; }
+    else {
+      const parts = state.filesPath ? state.filesPath.split("/") : [];
+      state.filesPath = parts.slice(0, i - 2).join("/") || null;
+    }
+    state.filesRevealed = false;
+    renderFiles(false);
+  },
+  "reveal": t => {
+    state.filesRevealed = true;
+    if ($("#merge-overlay").classList.contains("open")) renderMerge();
+    else renderFiles(false);
+    toast("reveal audited — decision: granted · " + DATA.revealAudit.split("·").slice(-2).join("·").trim());
+  },
+  "raw-link": t => toast(`raw://demo/${t.dataset.arg} — raw endpoint not fetched in this prototype`),
+  "goto-secret-file": t => {
+    state.filesRepo = t.dataset.arg;
+    state.filesPath = "config/.env";
+    state.filesRevealed = false;
+    $("#merge-overlay").classList.remove("open");
+    showView("files");
+  },
+  "goto-view": t => showView(t.dataset.arg),
+  "hist-commit": t => { state.histSha = t.dataset.arg; renderHistory(); },
+  "hist-back": () => { state.histSha = null; renderHistory(); },
+  "steer-send": () => {
+    const ta = $("#steer-input");
+    const target = $("#steer-target").value;
+    const msg = ta.value.trim();
+    if (!msg){ toast("steer is empty — type a message first"); ta.focus(); return; }
+    state.ticker.unshift({ type:"session.steered", repo:target, at:"now" });
+    state.ticker = state.ticker.slice(0,8);
+    state.ticker.forEach((e,i) => { if (i>0 && e.at==="now") e.at = "1m ago"; });
+    renderTicker();
+    ta.value = "";
+    $("#steer-count").textContent = "0 / 500";
+    toast(`session.steered ${target} — lands in the event stream the agents read (v1)`);
+  },
+  "comment-send": () => {
+    const input = $("#comment-input");
+    const msg = input.value.trim();
+    if (!msg){ toast("comment is empty"); input.focus(); return; }
+    const list = state.comments["src/auth.ts"] = state.comments["src/auth.ts"] || [];
+    list.push({ author:"you", line:null, text:msg, at:"just now" });
+    input.value = "";
+    renderMerge();
+    const cl = $("#comment-list");
+    if (cl) cl.scrollTop = cl.scrollHeight;
+    toast("comment appended (in-memory)");
+  },
+  "tour-next": () => tourGo(state.tourStep + 1),
+  "tour-back": () => tourGo(state.tourStep - 1),
+  "tour-close": () => closeTour(),
+};
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-action]");
+  if (!t) return;
+  const fn = actions[t.dataset.action];
+  if (fn){ e.preventDefault(); fn(t, e); }
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (state.tourOpen){ closeTour(); return; }
+  if ($("#receipt-overlay").classList.contains("open")){ $("#receipt-overlay").classList.remove("open"); return; }
+  if ($("#land-overlay").classList.contains("open")){ actions["close-land"](); return; }
+  if ($("#merge-overlay").classList.contains("open")){ $("#merge-overlay").classList.remove("open"); return; }
+});
+// overlay click-outside closes (but never the tour spot layer)
+["merge-overlay","land-overlay","receipt-overlay"].forEach(id => {
+  document.getElementById(id).addEventListener("mousedown", e => {
+    if (e.target.id === id) document.getElementById(id).classList.remove("open");
+  });
+});
+window.addEventListener("resize", () => { if (state.tourOpen) tourPlace(); });
+
+/* ================= boot ================= */
+renderHeader();
+renderTicker();
+renderConn();
+showView("console");
+setInterval(tickStep, 3200);
+</script>
+</body>
+</html>
