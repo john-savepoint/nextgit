@@ -26,6 +26,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
 import { mintRepoToken, gitAuthEnv, writeAgentManifest } from "./lib/tokens.mjs";
+import { assertPushBudgetGit } from "./lib/push-guard.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -152,6 +153,10 @@ async function main() {
     one("notes", "add", "-m", NOTE, "HEAD");
     // Forced mirror (derived state: mirror := refs/notes/commits). Forks inherit stale
     // mirrors from the base; an unforced push is rejected non-ff (2026-10-10).
+    // Push budget (fail closed BEFORE the wire call): the ~64 MiB Artifacts
+    // cap returns an opaque 500 above 63 MiB — an over-budget push is refused
+    // here (PushBudgetError) and never leaves the box.
+    assertPushBudgetGit(dir, ["main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes"]);
     one("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
 
     const head = one("rev-parse", "HEAD");

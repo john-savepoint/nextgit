@@ -41,6 +41,9 @@ node platform/scripts/secret-fixture.mjs    # agent-5 — the secret-class fixtu
 
 # 3. the state gate — expects 25/25
 node platform/scripts/demo-verify.mjs
+
+# 4. (optional, pre-submission) verify the competition eligibility package
+bun porting/tests/submission-eligibility.test.mjs
 ```
 
 Open the worker URL: `/` for the triage app, `/tour.html` for the guided tour. To ship one: click **Land into demo** on a clean card (the platform commits and pushes it for you).

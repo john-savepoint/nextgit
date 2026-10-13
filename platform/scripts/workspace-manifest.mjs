@@ -242,6 +242,9 @@ function assembleManifest(platformRoot) {
   recipe: pushRecipe,
   // Notes + mirror forced (`+`): mirror is derived single-writer state; forks inherit
   // stale mirrors and unforced mirror pushes are rejected non-ff (2026-10-10).
+  // Budget: this push is guarded before the wire call — the runner measures the
+  // actual git objects it would carry and refuses past 16 MiB (4x under the
+  // ~64 MiB Artifacts cap; CONTRACT "Push budget (incremental pushes)").
   refspecs: [BRANCH_REF, `+${NOTES_REF}`, `+refs/notes/commits:refs/heads/${NOTES_BRANCH}`],
  };
  const contract = {
