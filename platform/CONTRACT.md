@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.4 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
+Version: v3.5 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -710,6 +710,27 @@ data: { "type": "repo.pushed", "repo": "agent-1", "ref": "main", "after": "<40-h
 
 **Errors**: HTTP 200 for the stream. A hub dispatch error that precedes any SSE frame written is `503 { ok: false, error: "events-unavailable" }`.
 
+## GET /harnesses
+
+**Federation manifest** — the BYO (bring-your-own) onboarding read surface: the table of third-party agent harnesses the platform can dispatch, served as a static, deploy-time-bundled declaration (`platform/harnesses.json`). Companion to the internal dispatch registry (`platform/scripts/harnesses.json`), which carries the dispatch internals this surface deliberately omits. Read-only, credential-free (NFR-6).
+
+**Request**: `GET /harnesses` (no query parameters; namespace-wide, like `/health`).
+
+**Response**: `200` with `{ "ok": true, "harnesses": [{ "name", "kind", "capabilities", "docs" }] }`.
+
+- `name` — the harness's identifier (the dispatch registry's `id` for the same harness: `codex`, `omp`, `pi`).
+- `kind` — `"byo-cli"`: the harness is brought by the operator and dispatched through the declarative registry (§Harness onboarding (BYO)); the platform does not host it.
+- `capabilities` — the closed capability vocabulary the harness declares: `workspace-edit` (edits files in its own isolated clone), `prompt-args` (accepts the task prompt as a CLI argument), `probe` (empirically proven by the probe contract — judged by the on-disk artifact, never the CLI's self-report).
+- `docs` — the harness vendor's own documentation URL (an operator-facing pointer; never a platform-internal path).
+
+**Egress law (AD-9 / NFR-3):** dispatch internals NEVER egress through this surface. The internal registry's `bin`, `args`, `env`, `notes`, `probeBudgetMs` live only in `platform/scripts/harnesses.json` and are never served here; a caller wanting to dispatch must read the registry file, not this API. No secret-class content is constructible: the manifest ships no credentials, and push tokens are minted per-dispatch inside the runner's `git` wrapper (§Harness onboarding (BYO), contract 4).
+
+**Validation:** the manifest is validated fail-closed at module load (`validateFederationRegistry` in `platform/src/index.ts`): exactly the closed schema `{name, kind, capabilities, docs}` per entry (any unknown key — including a reserved `endpoint` — is rejected), non-blank unique names, `kind === "byo-cli"`, a non-empty unique capability set drawn from the vocabulary, and an `https://` docs URL. A malformed manifest throws before the first request is served — the worker never boots with an unvalidated registry.
+
+**Posture:** the route is tabled in `ROUTES` (`GET`, `read`), so the `authorize()` chokepoint gates it: deny mode ⇒ `401 {ok:false,error:"unauthorized"}`; demo mode runs with no repo/base/repos to adjudicate (the `/health` posture). Deliberately UNBOUND: no `ROUTE_RATE_LIMITS` row (the `/tree` `/commits` posture — the payload is a fixed static array, cheaper than an unbound `/changes`). The `hosted` kind is reserved for a future hosted-agent surface and ships ZERO populated entries (no marketplace).
+
+**Errors:** `200` is the only success shape. Wrong method ⇒ `405 {ok:false,error:"method-not-allowed"}` (the API boundary law); the route takes no input, so there is no `400`.
+
 ## UI
 
 `GET /` serves the triage UI (`platform/ui/` via wrangler assets). API routes fall through to the worker.
@@ -787,6 +808,16 @@ git push origin main +refs/notes/commits +refs/notes/commits:refs/heads/nextgit-
 **4. Credential rule.** The agent subprocess env carries **no push credential**. The minted token lives only in the runner's `git` wrapper — `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_0` / `GIT_CONFIG_VALUE_0` carrying `Authorization: Bearer …`, applied per-call in `runAgent`'s `git()` helper — while the agent subprocess inherits only ambient env plus the entry's `env` map.
 
 **Validation contract.** `--check-harness` validates exactly the named file (ambient `NEXTGIT_HARNESSES` can neither pollute the verdict nor the exit code): a missing argument exits 2; a file that cannot be read or parsed reports `{field: "file"}`; structural violations (schema above) and semantic violations (no `{prompt}` placeholder with no `stdinPrompt`, unresolvable `bin`) are all collected and reported, fail-closed with exit 1.
+
+**5. End-to-end onboarding (the third-party flow).** Onboarding a new agent CLI is a declaration, not a code edit, and completes in three steps — all on the operator's machine, none inside the platform worker:
+
+1. **Declare** the harness in the dispatch registry (`platform/scripts/harnesses.json`, or a BYO overlay via `NEXTGIT_HARNESSES`) per contract 1's schema.
+2. **Prove** it: `--check-harness <file>` exits 0 and the probe contract (contract 2) passes — the harness created `hello.txt` in a throwaway clone, judged by the on-disk artifact.
+3. **Advertise** it: add the federation entry (`{name, kind:"byo-cli", capabilities, docs}`) to `platform/harnesses.json`, which `GET /harnesses` serves after fail-closed module-load validation (§GET /harnesses).
+
+The agent itself pushes its work via git-over-HTTPS per contract 3's three-refspec push (the runner performs it after the agent exits; agents never push). An onboarded harness may call the platform's **read API** (the tabled `GET` routes) and the runner's push — **nothing else**: no write route, no secret-class read, and no credential. No push credential ever appears in the agent's environment (contract 4) — the token lives only in the runner's `git` wrapper.
+
+**No marketplace.** The federation surface is a BYO declaration table, not a hosted-agent catalog: the `hosted` kind is reserved and ships ZERO populated entries. A hosted third-party agent surface would be a separate contract (its own route family, auth model, and lifecycle) and is deliberately NOT defined here.
 
 ## Authorization (FR-45 / AD-9)
 

@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 19 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments)", ROUTES.length === 19, `got ${ROUTES?.length}`);
+check("C: ROUTES has 20 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /harnesses)", ROUTES.length === 20, `got ${ROUTES?.length}`);
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
 let routeMap = {};
@@ -205,6 +205,7 @@ check("C: /commits → GET read (authorize-covered; the read API's history half)
 // routeMap keys by path so it cannot pin both — find each entry explicitly.
 check("C: /comments → GET read (authorize-covered)", ROUTES.some((r) => r.path === "/comments" && r.method === "GET" && r.action === "read"));
 check("C: /comments → POST write (authorize + csrf-covered)", ROUTES.some((r) => r.path === "/comments" && r.method === "POST" && r.action === "write"));
+check("C: /harnesses → GET read (authorize-covered; the federation manifest)", routeMap["/harnesses"]?.method === "GET" && routeMap["/harnesses"]?.action === "read", `got ${J(routeMap["/harnesses"] ? { method: routeMap["/harnesses"].method, action: routeMap["/harnesses"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
 check("C: DYNAMIC_ROUTES has 4 entries (landings, proposals, asset, raw)", DYNAMIC_ROUTES.length === 4, `got ${DYNAMIC_ROUTES?.length}`);

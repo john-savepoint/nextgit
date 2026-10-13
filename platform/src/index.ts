@@ -42,6 +42,7 @@ import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 import { isAssetPointer, parseAssetPointer, readVerifiedBlob, BlobIntegrityError, type AssetPointer } from "./assets";
 import { computeSixClusterSignals, type SixClusterSignals } from "./fork-signals";
 import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealCapability, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
+import federationHarnesses from "../harnesses.json";
 
 export interface Env {
  ARTIFACTS: Artifacts;
@@ -63,6 +64,106 @@ export interface Env {
  /** Best-effort KV audit sink for POST /reveal decisions (content-free). */
  REVEAL_AUDIT?: KVNamespace;
 }
+
+// ---------------------------------------------------------------------------
+// Federation harness manifest (GET /harnesses) — the BYO onboarding
+// surface. The manifest is a bundled, deploy-time artifact
+// (platform/harnesses.json), validated fail-closed at module load:
+// a malformed entry throws before the first request is served, so
+// a bad registry can never ship a response shape. The wire schema
+// is closed — exactly {name, kind, capabilities, docs} — and every
+// entry is a read-only declaration: dispatch internals (bin, args,
+// env, notes, probeBudgetMs) live ONLY in platform/scripts/harnesses.json
+// and never egress through this surface (CONTRACT.md §GET /harnesses,
+// egress law).
+// ---------------------------------------------------------------------------
+
+/**
+ * One federation harness entry — the wire shape of GET /harnesses.
+ * `capabilities` is the closed capability vocabulary; `docs` is the
+ * harness vendor's own documentation URL (operator-facing pointer,
+ * never a platform-internal path).
+ */
+export interface FederationHarness {
+ name: string;
+ kind: "byo-cli";
+ capabilities: string[];
+ docs: string;
+}
+
+/** The capability vocabulary — the closed set a federation entry may declare. */
+const FEDERATION_CAPABILITIES: Record<string, true> = {
+ "workspace-edit": true,
+ "prompt-args": true,
+ "probe": true,
+};
+
+/**
+ * Fail-closed validator for the federation manifest (CONTRACT.md
+ * §GET /harnesses). Runs once at module load over the bundled JSON;
+ * ANY violation throws — the worker must not boot with a registry
+ * that would serve an unvalidated shape. Closed-schema laws:
+ * exactly {name, kind, capabilities, docs}; name/kind non-blank
+ * strings (kind must be "byo-cli"); capabilities a non-empty array
+ * of unique vocabulary members; docs an http(s) URL. Duplicate
+ * names are rejected. An `endpoint` key (or any other unknown key)
+ * is rejected — hosted entries are reserved and ship zero-populated.
+ */
+export function validateFederationRegistry(
+ entries: unknown,
+): FederationHarness[] {
+ if (!Array.isArray(entries)) {
+  throw new Error("federation manifest must be a JSON array");
+ }
+ const seen = new Set<string>();
+ return entries.map((entry, index) => {
+  if (!isPlainObject(entry)) {
+   throw new Error(`federation entry ${index} must be an object`);
+  }
+  const keys = Object.keys(entry).sort();
+  if (keys.join(",") !== "capabilities,docs,kind,name") {
+   throw new Error(
+    `federation entry ${index} must carry exactly {name,kind,capabilities,docs} (got ${keys.join(",")})`,
+   );
+  }
+  const { name, kind, capabilities, docs } = entry;
+  if (typeof name !== "string" || name.trim() === "") {
+   throw new Error(`federation entry ${index} name must be a non-blank string`);
+  }
+  if (seen.has(name)) {
+   throw new Error(`federation entry ${index} duplicates name "${name}"`);
+  }
+  seen.add(name);
+  if (kind !== "byo-cli") {
+   throw new Error(`federation entry ${index} kind must be "byo-cli" (got ${JSON.stringify(kind)})`);
+  }
+  if (!Array.isArray(capabilities) || capabilities.length === 0) {
+   throw new Error(`federation entry ${index} capabilities must be a non-empty array`);
+  }
+  const caps = new Set<string>();
+  for (const cap of capabilities) {
+   if (typeof cap !== "string" || !(cap in FEDERATION_CAPABILITIES)) {
+    throw new Error(`federation entry ${index} capability ${JSON.stringify(cap)} is not in the vocabulary`);
+   }
+   if (caps.has(cap)) {
+    throw new Error(`federation entry ${index} capability "${cap}" is duplicated`);
+   }
+   caps.add(cap);
+  }
+  if (typeof docs !== "string" || !/^https:\/\//.test(docs)) {
+   throw new Error(`federation entry ${index} docs must be an https URL`);
+  }
+  return { name, kind, capabilities: [...capabilities], docs };
+ });
+}
+
+/**
+ * The validated federation manifest — the exact payload GET
+ * /harnesses serves. Constructed once at module load; a malformed
+ * manifest throws here (the process fails to boot, never serves
+ * an unvalidated registry).
+ */
+const FEDERATION_HARNESSES: FederationHarness[] = validateFederationRegistry(federationHarnesses);
 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
 const MAX_PATCH_CHARS = 30_000; // truncate inline patches
@@ -2609,6 +2710,23 @@ async function handleEvents(_request: Request, env: Env): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// GET /harnesses — the federation manifest (the BYO onboarding read
+// surface). Namespace-wide, parameter-free, read-only, credential-free
+// (NFR-6): the authorize() chokepoint gates it (demo mode gate) and
+// nothing else — there is no repo/base/repos to adjudicate, and no
+// per-repo read is made (the /health posture). Deliberately UNBOUND:
+// the route carries no ROUTE_RATE_LIMITS row (the /tree / /commits
+// posture — the manifest is a fixed static array, cheaper than an
+// unbound /changes). The payload is the module-load-validated
+// FEDERATION_HARNESSES — dispatch internals (bin/args/env/notes) never
+// egress: they live only in the dispatch registry
+// (platform/scripts/harnesses.json), never in the federation manifest.
+// ---------------------------------------------------------------------------
+async function handleHarnesses(_request: Request, _env: Env): Promise<Response> {
+ return Response.json({ ok: true, harnesses: FEDERATION_HARNESSES });
+}
+
+// ---------------------------------------------------------------------------
 // GET /floors — the Floor / Project entity (AD-14 client protocol): one
 // floor per namespace repo, served from the same bounded `list()` discovery
 // seam /proposals auto-discovery uses. `branch` is the list entry's
@@ -3408,6 +3526,13 @@ export const ROUTES: RouteEntry[] = [
  // authorize() + csrfGate.
  { path: "/comments", method: "GET", action: "read", handler: handleCommentsGet },
  { path: "/comments", method: "POST", action: "write", handler: handleCommentsPost },
+ // Federation harness manifest (CONTRACT.md §GET /harnesses): the
+ // BYO onboarding read surface. GET, read-only, parameter-free —
+ // the authorize() chokepoint covers it (the /health posture:
+ // namespace-wide, no repo/base/repos to adjudicate); deliberately
+ // unbound (the /tree / /commits posture — ROUTE_RATE_LIMITS
+ // carries no /harnesses row; the payload is a fixed static array).
+ { path: "/harnesses", method: "GET", action: "read", handler: handleHarnesses },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
@@ -3452,8 +3577,8 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
  // Wave-14: the checks strip module + inline review comments.
-  "/js/checks.js": true,
-"/js/comments.js": true,
+ "/js/checks.js": true,
+ "/js/comments.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
  // Wave-14: the commit-history page + the forks panel modules.
  "/history.html": true, "/js/history-page.js": true,
