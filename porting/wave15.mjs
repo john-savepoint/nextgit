@@ -63,7 +63,7 @@ export async function validate(root = process.cwd()) {
       if (!row) problems.push(`missing from store: ${id}`);
       else {
         if (row.status !== "pending") problems.push(`not pending (${row.status}): ${id}`);
-        if (!row.check) problems.push(`no check_cmd: ${id}`);
+        if (!(row.check_cmd ?? row.check)) problems.push(`no check_cmd: ${id}`);
         const deps = (row.deps ?? "").split(",").map((s) => s.trim()).filter(Boolean);
         const unmet = deps.filter((d) => !done.has(d));
         if (unmet.length) problems.push(`dep-gated (${unmet.join(",")}): ${id}`);
