@@ -1302,3 +1302,29 @@ html, body {
     animation: none !important;
   }
 }
+
+/* Per-proposal checks strip (wave-14). Tri-state; `unknown` is neutral —
+   never green (the honesty law). Text uses AA-safe tokens; state is carried
+   by the border/background tint plus the detail copy. */
+.checks-strip {
+  display: flex; flex-wrap: wrap; gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+.check {
+  display: inline-flex; align-items: center; gap: var(--space-sm);
+  padding: 0 var(--space-md-plus);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere;
+}
+.check-label {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 0.625rem;
+}
+.check-detail { font-family: var(--font-mono); color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
+.check-pass { border-color: var(--status-green-border); background: var(--status-green-bg); }
+.check-fail { border-color: var(--status-red-border); background: var(--status-red-bg); }
+.check-unknown { border-color: var(--status-neutral-border); background: var(--status-neutral-bg); }

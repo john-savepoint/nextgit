@@ -6,6 +6,7 @@ import { state, el } from "./state.js";
 import { fetchJson, escapeHtml, formatTime } from "./api.js";
 import { getConflictSeverity, renderConflicts } from "./conflicts.js";
 import { renderLandVerdict } from "../land-verdict.js";
+import { checksStripHtml } from "./checks.js";
 
 /**
  * Fetch and render proposals + conflicts
@@ -327,6 +328,8 @@ export function renderProposals() {
               ${actionButtonsHtml}
             </div>
           </div>
+
+          ${checksStripHtml(p, { base: data.base, conflicts: data.conflicts })}
 
           ${intent
      ? `<div class="proposal-intent"><span class="intent-label">intent:</span>${intent}</div>`
