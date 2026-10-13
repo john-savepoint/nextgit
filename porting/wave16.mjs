@@ -49,7 +49,7 @@ export const plan = {
       lenses: ["quality", "spec-fit", "security", "resilience"],
       ids: [
         "nextgit-attach-signed-validation-evidence-to-every-change",
-        "nextgit-change-set-identity-stable-per-proposal-identity-fingerprint",
+        "nextgit-e16-impl-changeset-fingerprint",
         "nextgit-post-merge-behavioral-verification-silent-drop-guard",
       ],
     },
@@ -68,14 +68,14 @@ export const plan = {
       parallel: 1,
       limit: 1,
       lenses: ["quality", "spec-fit", "ux"],
-      ids: ["nextgit-game-industry-story-page"],
+      ids: ["nextgit-e16-impl-story-page"],
     },
     {
       name: "judge-step5",
       parallel: 1,
       limit: 1,
       lenses: ["quality", "spec-fit", "ux"],
-      ids: ["nextgit-judge-agent-set-comparison-recommendation-demo-story-step-5"],
+      ids: ["nextgit-e16-impl-judge-comparison"],
     },
     {
       name: "sessions-ui",
@@ -99,14 +99,14 @@ export const plan = {
       parallel: 1,
       limit: 1,
       lenses: ["quality", "spec-fit"],
-      ids: ["nextgit-differentiate-explicitly-vs-whiteboard-set-semantics-multipl"],
+      ids: ["nextgit-e16-impl-semantics-docs"],
     },
     {
       name: "cpu-budget",
       parallel: 1,
       limit: 1,
       lenses: ["quality", "spec-fit", "resilience"],
-      ids: ["nextgit-cpu-budget-hardening-large-change-sets-within-the-30s-worker"],
+      ids: ["nextgit-e16-impl-cpu-budget"],
     },
   ],
 };
