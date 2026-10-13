@@ -342,7 +342,7 @@ The set view + conflict map.
 
 ```json
 { "ok": true, "base": {"repo","ref","head"}, "ref": "main",
-  "proposals": [ {"repo","head","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","secret?","keys?"}]} ],
+  "proposals": [ {"repo","head","forkSha?","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","secret?","keys?"}]} ],
   "conflicts": [ {"file","repos":["agent-1","agent-2"],"kind":"text-conflict",
                   "pairs":[{"a":"agent-1","b":"agent-2","kind":"text-conflict","conflict":true,"region":{"baseLines","aLines","bLines"}}]} ],
   "summary": {"proposals":4,"changedFiles":4,"sharedFiles":1,"conflictingPairs":1,"cleanPairs":0}

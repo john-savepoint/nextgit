@@ -759,7 +759,9 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
   head?: string; // the change-set head; absent on error rows
   forkSha?: string; // the change-set fork point (computeChangeSet's
   // base.sha — the out-param pattern: published for the /checks
-  // projection's `base` check, never egresses from /proposals)
+  // projection's `base` check AND served on the row as commit
+  // metadata (the same non-secret class as `head`, allowlist-gated;
+  // CONTRACT documents it on the /proposals row shape).
   intent?: string;
   stats?: unknown;
   landing?: { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number };
