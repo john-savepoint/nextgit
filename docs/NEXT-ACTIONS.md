@@ -875,7 +875,6 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Agent access policies managed like developers — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-identity-policy": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
 - [pending] P2 — Parity gap vs GitHub: Inline per-line review comments on a change — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "inline-review-comments": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10
 - [pending] P2 — Parity gap vs GitHub: Third-party agents hosted inside the platform — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-federation": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13
-- [pending] P2 — Parity gap vs GitHub: File/repo browser — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "repo-browsing": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
 
@@ -1148,5 +1147,14 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P1 — Design system foundations — tokens, dual typography, spacing/motion scale (platform/ui/styles.css)
 - [done] P2 — Tour fixes — copy/index bugs + Continue CTA (platform/ui/tour.*)
 - [done] P0 — Repo/file browser page — platform/ui/files.html + js/files-page.js (file visibility)
+- [done] P2 — Parity gap vs GitHub: File/repo browser — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "repo-browsing": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:10
+- [done] P1 — Worker read API for commit history — GET /commits (deterministic log)
+- [done] P1 — History page — commit log browser (history.html + js/history-page.js)
+- [done] P1 — Forks and signals panel — surface the six-cluster fork signals (triage section + js/forks-panel.js)
+- [done] P1 — Reveal beat reachability — audited reveal affordance for secret-class files
+- [done] P2 — Land confirm sheet — render the judge verdict and codes (render, never decide)
+- [done] P2 — Per-proposal checks strip — foldability/conflicts/secret from existing payloads
+- [done] P1 — Inline review comments — data plane (GET/POST /comments, repo-scoped in Artifacts)
+- [done] P1 — Inline review comments — surface (merge modal per-file comment thread)
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.

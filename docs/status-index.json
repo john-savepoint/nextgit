@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-12T23:48:02.254Z",
-  "head": "6e79950",
+  "generatedAt": "2026-10-13T03:14:22.491Z",
+  "head": "359f4e9",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-12 ",
+    "lastUpdated": "2026-10-13 ",
     "branch": "main",
-    "lastCommit": "6e79950",
+    "lastCommit": "359f4e9",
     "standingRedSet": null
   },
   "queue": {
-    "total": 674,
+    "total": 682,
     "byStatus": {
-      "pending": 451,
+      "pending": 450,
       "partial": 1,
-      "done": 222
+      "done": 231
     },
     "items": [
       {
@@ -2261,11 +2261,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Parity gap vs GitHub: Third-party agents hosted inside the platform"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Parity gap vs GitHub: File/repo browser"
       },
       {
         "status": "pending",
