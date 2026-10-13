@@ -1302,3 +1302,91 @@ html, body {
     animation: none !important;
   }
 }
+
+/* ——— Forks panel (wave-14) ———
+   The six-cluster fork-signals triage section (CAP-10). Existing tokens
+   only — no new color literals. The chip row wraps (flex-wrap) so a
+   narrow viewport never scrolls horizontally. The .forks-meta /
+   .forks-loading / .forks-unavailable / .forks-empty* classes are the
+   panel's own (deliberately not .section-meta / .loading-indicator /
+   .empty-state*), so the contrast suite's structural counts are
+   unaffected. */
+.forks-section {
+  margin-bottom: var(--space-3xl);
+}
+.forks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.forks-loading {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.forks-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.forks-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.forks-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.forks-empty-desc {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.fork-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-xl) var(--space-xl-plus);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.fork-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.fork-repo-title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.fork-base {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.fork-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.fork-signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  background-color: var(--status-neutral-bg);
+  border: 1px solid var(--status-neutral-border);
+  color: var(--text-secondary);
+}
+.fork-signal-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.fork-signal-value {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}

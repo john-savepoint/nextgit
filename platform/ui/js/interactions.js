@@ -8,6 +8,7 @@ import { loadEvents, openEventStream, startPollers, stopPollers } from "./ticker
 import { openModal, closeModal, modalFocusables, handleViewDiff, handlePreviewMerge } from "./modal.js";
 import { handleLandProposal, hideActionBanner } from "./land.js";
 import { revealSecret } from "./reveal.js";
+import { loadForks } from "./forks-panel.js";
 
 /**
  * Event delegation for proposals grid (view diff, preview merge, and landing)
@@ -160,4 +161,5 @@ export function init() {
  loadRevealCapability();
  loadProposals();
  loadEvents();
+ loadForks();
 }

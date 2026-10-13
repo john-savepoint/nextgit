@@ -33,6 +33,7 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  "/judge": { limit: 30, windowMs: 60_000 },
  "/upstream": { limit: 20, windowMs: 60_000 },
  "/intents": { limit: 30, windowMs: 60_000 },
+ "/forks": { limit: 60, windowMs: 60_000 },
  "/file": { limit: 60, windowMs: 60_000 },
  "/raw": { limit: 60, windowMs: 60_000 },
 };
