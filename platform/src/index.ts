@@ -174,6 +174,21 @@ async function handleHarnesses(_request: Request, _env: Env): Promise<Response> 
 const MAX_DIFF_FILE_CHARS = 200_000; // skip line-diff above this (per side)
 const MAX_PATCH_CHARS = 30_000; // truncate inline patches
 export const MAX_FILES_WITH_PATCH = 50; // patch budget per change-set
+// Compute-time guard (Worker CPU budget, nextgit-e16): the number of
+// per-file diffs a single change-set computes before the O(size)
+// stats + patch work is skipped. diffLines + createTwoFilesPatch are
+// linear in the file's char count, so a change-set of many large
+// files can threaten the 30s wall even when every file passes the
+// MAX_DIFF_FILE_CHARS size gate. MAX_COMPUTE_PATCH_DIFFS is a
+// deterministic work-unit proxy for that compute cost: it must stay
+// <= MAX_FILES_WITH_PATCH so the compute budget fires BEFORE the
+// patch budget exhausts. A file the compute budget skips renders an
+// honest `compute-downgraded` note — degradation is visible, never a
+// silent drop — and keeps its metadata row; computeMerge tolerates a
+// missing `cs.texts` entry (`cs.texts[f.path]?.base ?? ""`), so a
+// downgraded file folds as an empty-ancestor merge (no crash, no
+// fabricated text).
+export const MAX_COMPUTE_PATCH_DIFFS = 40;
 const NOTES_REF = "refs/notes/commits"; // git-notes for commit intent
 const EVENTS_KEY = "recent"; // KV key: recent event feed
 const MAX_EVENTS = 50; // event feed cap
@@ -745,6 +760,13 @@ export async function computeChangeSet(
   deletions: 0,
  };
 
+ // Compute budget (Worker CPU budget, nextgit-e16): counts the
+ // per-file diffs this change-set computes. The guard below
+ // fires at MAX_COMPUTE_PATCH_DIFFS to keep a large change-set
+ // inside the 30s wall; `computeDiffs` increments once per
+ // iteration (no double-increment — that would fire the guard
+ // at half the budget).
+ let computeDiffs = 0;
  const texts: Record<string, FileTexts> = {};
  let patchBudget = MAX_FILES_WITH_PATCH;
  for (const f of files) {
@@ -791,6 +813,20 @@ export async function computeChangeSet(
    f.note = "too large for inline diff";
    continue;
   }
+  // Compute budget guard (Worker CPU budget, nextgit-e16):
+  // skip the O(size) stats + patch computation once the
+  // change-set's computed-diff budget is spent, keeping a
+  // large change-set inside the 30s wall. The row stays
+  // (honest degradation, never a silent drop) with a note
+  // naming the budget; computeMerge tolerates a missing
+  // texts entry, so the file folds as an empty-ancestor
+  // merge. The guard must fire before the patch
+  // construction — the wall-threatening work.
+  if (computeDiffs >= MAX_COMPUTE_PATCH_DIFFS) {
+   f.note = "compute-downgraded: patch omitted at the change-set compute budget (40 diffs)";
+   continue;
+  }
+  computeDiffs++;
 
   if (opts.includeTexts && !f.secret) texts[f.path] = { base: o, head: n };
 

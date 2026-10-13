@@ -81,5 +81,43 @@ check("token revoke in finally", /finally[\s\S]*?baseRepo\.revokeToken/s.test(in
 //    computeMerge call, and both return 409 with error: "stale".
 check("reviewed-heads gate before fold", /reviewed\?\.heads[\s\S]*?reviewed\?\.baseHead[\s\S]*?computeMerge/s.test(indexSrc) && indexSrc.includes("stale"));
 
+// 8. MAX_COMPUTE_PATCH_DIFFS — exported, a positive integer, and
+//    <= MAX_FILES_WITH_PATCH. The compute guard must fire BEFORE
+//    the patch budget exhausts, so the O(size) diffLines +
+//    createTwoFilesPatch work is skipped while the per-file row
+//    still renders (honest degradation, never a silent drop).
+const filesWithPatchMatch = indexSrc.match(/export const MAX_FILES_WITH_PATCH\s*=\s*(\d+);/);
+const MAX_FILES_WITH_PATCH_VALUE = filesWithPatchMatch ? Number(filesWithPatchMatch[1]) : NaN;
+const computeBudgetMatch = indexSrc.match(/export const MAX_COMPUTE_PATCH_DIFFS\s*=\s*(\d+);/);
+const computeBudget = computeBudgetMatch ? Number(computeBudgetMatch[1]) : NaN;
+check(
+ "MAX_COMPUTE_PATCH_DIFFS exported, positive integer, <= MAX_FILES_WITH_PATCH",
+ Boolean(computeBudgetMatch) && Number.isInteger(computeBudget) && computeBudget > 0 && computeBudget <= MAX_FILES_WITH_PATCH_VALUE,
+ `value=${computeBudgetMatch ? computeBudgetMatch[1] : "absent"}`,
+);
+
+// 9. The compute guard lives inside computeChangeSet's body and is
+//    positionally BEFORE createTwoFilesPatch — the guard must skip
+//    the wall-threatening O(size) computation, not fire after it.
+const ccsMatch = indexSrc.match(/export async function computeChangeSet[\s\S]*?\n}/);
+const ccsBody = ccsMatch ? ccsMatch[0] : "";
+const guardIdx = ccsBody.indexOf("computeDiffs >= MAX_COMPUTE_PATCH_DIFFS");
+const patchIdx = ccsBody.indexOf("createTwoFilesPatch");
+check(
+ "compute guard inside computeChangeSet, before createTwoFilesPatch",
+ guardIdx !== -1 && patchIdx !== -1 && guardIdx < patchIdx,
+ `guardIdx=${guardIdx}, patchIdx=${patchIdx}`,
+);
+
+// 10. compute-downgraded marker — honest degradation: a file the
+//     compute budget skips renders a note naming the budget, it is
+//     never silently dropped from the change-set.
+check("compute-downgraded marker present", indexSrc.includes("compute-downgraded"));
+
+// 11. Exactly one computeDiffs++ per iteration — a double-increment
+//     would fire the guard at half the budget (a silent off-by-two).
+const computeDiffsInc = indexSrc.match(/computeDiffs\+\+/g) || [];
+check("exactly one computeDiffs++ (no double-increment)", computeDiffsInc.length === 1, `count=${computeDiffsInc.length}`);
+
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);
