@@ -2639,6 +2639,56 @@ async function handleFloors(request: Request, env: Env): Promise<Response> {
  return Response.json({ ok: true, floors });
 }
 // ---------------------------------------------------------------------------
+// GET /forks — the fork ecosystem for a base repo (CAP-10): every discovered
+// `agent-*` fork's six-cluster signals plus its recorded upstream lineage. One
+// bounded `list()` discovery run (the /intents and /floors precedent), the
+// SAME computeSixClusterSignals seam /intents consumes (one writer, no
+// divergence), and the same rankSignals ordering /intents serves. `upstream`
+// is the `fork:<name>` lineage record served verbatim (`null` when unrecorded —
+// the live demo forks carry no lineage). Read-only, credential-free (NFR-6).
+// Precondition order: 400 (charset) → 403 (AD-9 defense-in-depth) → 429 → 200.
+// ---------------------------------------------------------------------------
+async function handleForks(request: Request, env: Env): Promise<Response> {
+ const { base } = resolveRouteBase({ base: new URL(request.url).searchParams.get("base") ?? undefined });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ // Demo allowlist (AD-9) defense-in-depth: the dispatcher's extractScope
+ // already adjudicates the query-carried base, but the handler re-checks
+ // before any repo read (the /proposals/{repo} precedent).
+ if (!DEMO_REPO_RE.test(base)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const rateDenied = rateGate("/forks", request);
+ if (rateDenied) return rateDenied;
+
+ // Candidate discovery: the same bounded list() seam /proposals
+ // auto-discovery and /intents use (agent-* forks, status ready).
+ const list = await env.ARTIFACTS.list({ limit: 200 });
+ const forks: Array<{ repo: string; signals: SixClusterSignals; upstream: ForkLineage | null }> = [];
+ for (const entry of list.repos) {
+  if (!entry.name.startsWith("agent-") || entry.status !== "ready") continue;
+  // A candidate the base cannot read (unresolvable ref, missing repo)
+  // contributes no signals — skip it, never fail the whole request
+  // (per-candidate fail-closed, the /intents precedent).
+  let signals: SixClusterSignals;
+  try {
+   signals = await computeSixClusterSignals(env, base, DEFAULT_REF, entry.name);
+  } catch {
+   continue;
+  }
+  forks.push({ repo: entry.name, signals, upstream: await readForkLineage(env, entry.name) });
+ }
+
+ // Wire order (CONTRACT.md §GET /forks): strongest-first by the same
+ // rankSignals confidence the matcher verdict derivation consumes.
+ forks.sort((a, b) => rankSignals(b.signals) - rankSignals(a.signals));
+ return Response.json({ ok: true, base, forks });
+}
+// ---------------------------------------------------------------------------
 // GET /proposals/{repo} — the Pull / Proposal + detail entity (AD-14 client
 // protocol): the proposal card + its detail, served by driving the SAME
 // compute seam /changes and /merge use (computeChangeSet for the card's
@@ -3073,6 +3123,10 @@ export const ROUTES: RouteEntry[] = [
  { path: "/changes", method: "GET", action: "read", handler: handleChanges },
  { path: "/proposals", method: "GET", action: "read", handler: handleProposals },
  { path: "/floors", method: "GET", action: "read", handler: handleFloors },
+ // Fork ecosystem (CAP-10): read-only six-cluster signals + lineage per
+ // discovered agent-* fork. The authorize() chokepoint covers it (demo
+ // mode gate; extractScope adjudicates the query-carried base pre-read).
+ { path: "/forks", method: "GET", action: "read", handler: handleForks },
  { path: "/merge", method: "GET", action: "read", handler: handleMerge },
  { path: "/land", method: "POST", action: "write", handler: handleLand },
  // Merge-back-to-upstream (CAP-10): a fork's work routed to its
@@ -3154,8 +3208,9 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
- // Wave-14: the commit history page (commit log browser).
+ // Wave-14: the commit-history page + the forks panel modules.
  "/history.html": true, "/js/history-page.js": true,
+ "/js/forks-panel.js": true,
 };
 
 export default {

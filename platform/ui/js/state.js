@@ -31,6 +31,8 @@ export const state = {
  streamTimer: null,      // reconnect backoff timer for the SSE stream
  streamBackoffMs: 1000,  // SSE reconnect backoff, doubles to a 30s cap
  streamSeenKeys: new Set(), // SSE `id:` dedup keys seen this page
+ forksData: null,        // /forks six-cluster + lineage payload (null until observed)
+ forksError: false,      // a /forks fetch has failed (fail-soft: never trips the connection banner)
  revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
  landVerdictByRepo: {}, // repo -> last auto-land advisory (AD-11 verdict, rendered never decided). Last VERDICT, not last error: only a server-carried verdict replaces the entry — an unrelated /land error leaves the last verdict standing, and a later act/confirm overwrites it.
 };
@@ -68,4 +70,7 @@ export const el = {
  actionBannerMsg: document.getElementById("action-banner-msg"),
  actionBannerBadge: document.getElementById("action-banner-badge"),
  actionBannerClose: document.getElementById("action-banner-close"),
+ forksSection: document.getElementById("forks-section"),
+ forksList: document.getElementById("forks-list"),
+ forksMeta: document.getElementById("forks-meta"),
 };
