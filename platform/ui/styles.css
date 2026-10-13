@@ -1718,3 +1718,72 @@ html, body {
   color: var(--status-red);
   overflow-wrap: anywhere;
 }
+
+/* ——— Judge-set comparison (nextgit-e16, wave-16 lane-4) ———
+   The comparison surface over the platform's own recorded
+   /judge artifacts. Render-only — no new affordances. The
+   recommendation badge reuses the land-confirm-sheet's
+   inset language; rows reuse the fork-card posture. Tokens
+   only — no new color literals. */
+.judge-comparison-section {
+  margin-bottom: var(--space-3xl);
+}
+.judge-comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.judge-comparison-loading,
+.judge-comparison-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.judge-comparison-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.judge-comparison-row {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-xl);
+}
+.judge-comparison-repo {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.judge-comparison-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.judge-comparison-score {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.judge-comparison-badge {
+  background-color: var(--bg-inset);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: var(--space-sm) var(--space-md);
+}
+.judge-comparison-badge .judge-comparison-repo {
+  font-weight: 600;
+}
+.judge-comparison-disclaimer {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+.judge-comparison-skip {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.judge-comparison-empty {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}

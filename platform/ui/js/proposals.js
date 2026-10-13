@@ -7,6 +7,7 @@ import { fetchJson, escapeHtml, formatTime, demoIdentityHeaders } from "./api.js
 import { getConflictSeverity, renderConflicts } from "./conflicts.js";
 import { renderLandVerdict } from "../land-verdict.js";
 import { checksStripHtml } from "./checks.js";
+import { refreshJudgeComparison } from "./judge-comparison.js";
 
 /**
  * Fetch and render proposals + conflicts
@@ -90,7 +91,10 @@ async function maybeJudge() {
  const repos = (data.proposals || []).map((p) => p.repo).slice(0, 16);
  if (!repos.length) {
   state.judgeData = {};
+  state.judgeSkipped = [];
   state.judgeSignature = signature;
+  state.judgeComparisonError = false;
+  refreshJudgeComparison();
   renderProposals();
   return;
  }
@@ -107,11 +111,18 @@ async function maybeJudge() {
    }),
   });
   state.judgeData = Object.fromEntries((result.judgments || []).map((j) => [j.repo, j]));
+  state.judgeSkipped = Array.isArray(result.skipped) ? result.skipped : [];
   state.judgeSignature = signature;
+  state.judgeComparisonError = false;
+  refreshJudgeComparison();
   renderProposals();
  } catch {
   // Silent by design: chips are advisory; the signature stays untouched so a
-  // later refresh retries.
+  // later refresh retries. The comparison surface may show the quiet
+  // unavailable line (fail-soft) while the connection banner stays
+  // untouched — a judge outage never colors connection state.
+  state.judgeComparisonError = true;
+  refreshJudgeComparison();
  } finally {
   state.judgeInFlight = false;
  }
