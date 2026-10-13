@@ -8,7 +8,7 @@ Reproducible operator path for the end-to-end NextGit demo on **real** Cloudflar
 
 ## Prerequisite environment
 
-Six environment variables drive the script chain. All have sensible defaults pointing at the **competition demo environment** (account `bb7d292ca65ba01cbdfbdabcace0c3d0`, worker `nextgit-platform.john-b7d`). Override both to redirect the entire chain to your own account.
+Seven environment variables drive the script chain. All have sensible defaults pointing at the **competition demo environment** (account `bb7d292ca65ba01cbdfbdabcace0c3d0`, worker `nextgit-platform.john-b7d`). Override both to redirect the entire chain to your own account.
 
 | Variable | Default | Purpose | Scripts |
 |---|---|---|---|
@@ -17,6 +17,7 @@ Six environment variables drive the script chain. All have sensible defaults poi
 | `CLOUDFLARE_API_TOKEN` | _(unset — falls back to wrangler OAuth)_ | Explicit API token; if unset, scripts read the wrangler OAuth config at `~/.config/.wrangler/config/default.toml` or `~/.wrangler/config/default.toml` | all |
 | `ARTIFACTS_NAMESPACE` | `nextgit` | The Artifacts namespace name | all |
 | `NEXTGIT_BASELINE` | `demo` | The baseline repo each proposal forks from | land.mjs L17 |
+| `REVEAL_ALLOW` | _(unset — default-deny, no one)_ | JSON-string Worker var: the reveal-grant list `[{id,repos?}]` consumed by `GET /whoami` + `POST /reveal` (platform worker, not a script env) |
 | `AGENTS_OUT` | `/tmp/nextgit-agents.json` | Shared fleet manifest (fork tokens + remotes) | all |
 
 Operational knobs (real-agents.mjs only):
@@ -101,6 +102,46 @@ Expected response:
 ```
 
 If any of `ok`, `service`, or `namespace` is missing or non-200, the worker is not correctly bound. Re-check `wrangler.jsonc`, run `wrangler tail`, and resolve the deploy error before continuing.
+
+### Demo reveal grant (REVEAL_ALLOW)
+
+The files page's Reveal affordance is gated by `GET /whoami`, which
+adjudicates the presented identity against the `REVEAL_ALLOW` Worker
+var. It is **unset by default = default-deny (no one)** — the
+affordance correctly renders nothing until an operator provisions a
+grant. To grant the demo viewer reveal on a repo (e.g. agent-5):
+
+```bash
+cd platform
+# Piped secret put — persists across deploys, keeps the grant out of git.
+printf '%s' '[{"id":"nextgit-demo-viewer","repos":["agent-5"]}]' | npx wrangler secret put REVEAL_ALLOW
+# (alternative: add a REVEAL_ALLOW entry to the `vars` block of wrangler.jsonc and deploy —
+#  committed grants are visible in git; prefer the secret pipe for anything non-public.)
+npx wrangler deploy
+```
+
+Rules:
+
+- `id` — the opaque Bearer the client presents. The UI's demo
+  identity is `nextgit-demo-viewer` (`DEMO_IDENTITY` in
+  `platform/ui/js/api.js`); the grant's `id` must match it.
+- `repos` — optional repo scope. Absent ⇒ the identity may reveal
+  any demo-namespace repo; present ⇒ only the listed repos. A
+  repo-scoped grant is honored per-repo: the files page re-probes
+  `GET /whoami?repo=<repo>` on every picker change, so browsing
+  into a non-granted repo renders the honest denial.
+- The `id` is an identity carrier, not a credential — the server
+  re-runs `REVEAL_ALLOW` on every `POST /reveal`, so a revoked or
+  narrowed var denies immediately. Never provision a real
+  credential as the demo `id`.
+
+Verify the grant took effect:
+
+```bash
+curl -sS -H "Authorization: Bearer nextgit-demo-viewer" \
+  "$NEXTGIT_PLATFORM/whoami?repo=agent-5" | jq .
+# -> { "ok": true, "authorized": true, "reveal": true }
+```
 
 ### R2 asset bucket lifecycle
 

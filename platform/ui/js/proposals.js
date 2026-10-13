@@ -3,7 +3,7 @@
 // view render passes, the header/chips render, the connection
 // state render, and the advisory judge layer.
 import { state, el } from "./state.js";
-import { fetchJson, escapeHtml, formatTime } from "./api.js";
+import { fetchJson, escapeHtml, formatTime, demoIdentityHeaders } from "./api.js";
 import { getConflictSeverity, renderConflicts } from "./conflicts.js";
 import { renderLandVerdict } from "../land-verdict.js";
 import { checksStripHtml } from "./checks.js";
@@ -61,7 +61,9 @@ export async function loadProposals() {
  */
 export async function loadRevealCapability() {
  try {
-  const data = await fetchJson("/whoami");
+  const data = await fetchJson("/whoami?repo=demo", {
+   headers: demoIdentityHeaders(),
+  });
   state.revealCapability = { authorized: Boolean(data?.authorized), reveal: Boolean(data?.reveal) };
  } catch { state.revealCapability = { authorized: false, reveal: false }; }
 }

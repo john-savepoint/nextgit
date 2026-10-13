@@ -9,6 +9,8 @@
 //   GET /file?repo=&ref=&path=
 //     -> { ok, classification:'text'|'binary'|'secret', text?|keys? }
 //   GET /raw/{repo}/{ref}/{path}  (raw bytes, linked not fetched here)
+//   GET /whoami?repo=
+//     -> { ok, authorized, reveal }
 //
 // Secret-class law (CONTRACT masking law): /file is the server-side
 // authority — it answers classification:'secret' + a key-names-only keys[] and
@@ -19,6 +21,7 @@
 
 import { revealSecret, revealControlHtml } from "./reveal.js";
 import { decideSecretSurface } from "../reveal-decision.js";
+import { fetchJson, demoIdentityHeaders } from "./api.js";
 
 /**
  * State container
@@ -73,48 +76,6 @@ function isSecretPath(path) {
  return path.includes("secrets/");
 }
 
-/**
- * fetchJson — same idiom as app.js: 20s timeout, AbortController,
- * `ok === false` -> throw with err.status / err.response.
- */
-async function fetchJson(endpoint, options = {}) {
- const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 20000;
- const timeoutOpt = { ...options };
- delete timeoutOpt.timeoutMs;
- const attempt = async () => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-   const res = await fetch(endpoint, {
-    ...timeoutOpt,
-    signal: controller.signal,
-    headers: {
-     Accept: "application/json",
-     ...(timeoutOpt.headers || {}),
-    },
-   });
-   clearTimeout(timeoutId);
-
-   const json = await res.json().catch(() => null);
-   if (!res.ok || (json && json.ok === false)) {
-    const err = new Error(json?.error || `HTTP ${res.status}: ${res.statusText}`);
-    err.status = res.status;
-    err.response = json;
-    throw err;
-   }
-   return json;
-  } catch (err) {
-   clearTimeout(timeoutId);
-   throw err;
-  }
- };
- try {
-  return await attempt();
- } catch (err) {
-  if (err && err.name === "AbortError") return await attempt(); // single retry: timeout only
-  throw err;
- }
-}
 
 /**
  * URL builders — encodeURIComponent on repo/ref/path in EVERY URL.
@@ -153,13 +114,17 @@ function clearReveal() {
 }
 
 /**
- * Elevated-reveal capability probe — run once at boot. Reads the
- * viewer's OWN reveal capability from GET /whoami; fail-open to the
- * DEFAULT posture (reveal:false) on any error.
+ * Elevated-reveal capability probe — per browsed repo. Reads the
+ * viewer's OWN reveal capability from GET /whoami?repo=<repo> with
+ * the demo identity Bearer; fail-open to the DEFAULT posture
+ * (reveal:false) on any error. Re-runs on every picker change so a
+ * repo-scoped REVEAL_ALLOW is honored per-repo.
  */
-async function loadRevealCapability() {
+async function loadRevealCapability(repo = "demo") {
  try {
-  const data = await fetchJson("/whoami");
+  const data = await fetchJson(`/whoami?repo=${encodeURIComponent(repo)}`, {
+   headers: demoIdentityHeaders(),
+  });
   revealCapability = { authorized: Boolean(data?.authorized), reveal: Boolean(data?.reveal) };
  } catch { revealCapability = { authorized: false, reveal: false }; }
 }
@@ -397,6 +362,7 @@ el.picker.addEventListener("change", () => {
  state.repo = el.picker.value;
  state.ref = state.proposals?.find((p) => p.repo === state.repo)?.head || "main";
  state.path = "";
+ loadRevealCapability(state.repo);
  loadTree();
 });
 
@@ -414,6 +380,6 @@ el.viewer.addEventListener("click", (e) => {
  if (repo && path) revealSecret(repo, path, keys, state.ref || "main");
 });
 
-// Boot: picker first — it selects the repo whose tree loads next.
-loadRepos();
-loadRevealCapability();
+// Boot: picker first — it selects the repo whose tree loads next,
+// then the capability probe runs for that repo.
+loadRepos().then(() => loadRevealCapability(state.repo || "demo"));

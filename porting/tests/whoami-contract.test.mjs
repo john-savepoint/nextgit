@@ -317,7 +317,32 @@ const post = async (env, path, body, headers = {}) =>
  const graphFiles = ["app.js", ...readdirSync(jsDir).filter((f) => f.endsWith(".js")).map((f) => "js/" + f)];
  const graph = graphFiles.map((f) => readFileSync(uiDir + f, "utf8")).join("\n");
  check("registration: UI module graph consumes /whoami (fetchJson)",
-  /fetch(?:Json)?\(\s*["'`]\/whoami["'`]/.test(graph));
+  /fetch(?:Json)?\(\s*["'`]\/whoami(?:[?`"'])/.test(graph));
+}
+
+// ---------------------------------------------------------------------------
+// 9 — Identity honored end-to-end: the demo viewer's Bearer
+// (DEMO_IDENTITY, platform/ui/js/api.js) is adjudicated against
+// a repo-scoped REVEAL_ALLOW. ?repo=agent-5 (in scope) →
+// 200 {ok:true,authorized:true,reveal:true}; the SAME identity
+// with ?repo=agent-1 (outside the scope) → reveal:false. Pins
+// repo-scope adjudication end-to-end (the files page re-probes
+// per picker change).
+// ---------------------------------------------------------------------------
+{
+ const env = makeEnv({
+  authMode: "demo",
+  revealAllow: JSON.stringify([{ id: "nextgit-demo-viewer", repos: ["agent-5"] }]),
+ });
+ const granted = await get(env, "/whoami?repo=agent-5", { Authorization: "Bearer nextgit-demo-viewer" });
+ check("whoami leg 9: demo identity + in-scope repo → 200 {ok:true,authorized:true,reveal:true}",
+  granted.status === 200 && granted.body?.ok === true && granted.body?.authorized === true && granted.body?.reveal === true,
+  `${granted.status} ${J(granted.body)}`);
+
+ const denied = await get(env, "/whoami?repo=agent-1", { Authorization: "Bearer nextgit-demo-viewer" });
+ check("whoami leg 9: same identity + out-of-scope repo → reveal:false",
+  denied.status === 200 && denied.body?.ok === true && denied.body?.reveal === false,
+  `${denied.status} ${J(denied.body)}`);
 }
 
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);

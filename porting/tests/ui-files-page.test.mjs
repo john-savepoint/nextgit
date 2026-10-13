@@ -275,6 +275,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.legs.revealValueInnerHtml = rv ? rv.innerHTML : null;
       R.legs.revealValueDecision = rv ? rv.getAttribute("data-reveal-decision") : null;
       R.legs.domHtmlAfterClick = document.documentElement.outerHTML;
+      // Leg 17: read the server-side /reveal call log (the
+      // reveal POST's Authorization header).
+      const revealRes = await fetch("/__reveal-calls");
+      const revealJson = await revealRes.json();
+      R.legs.revealCalls = revealJson.calls || [];
     }
 
     // Leg 6: back to root, click logo.png -> binary metadata, no content.
@@ -292,6 +297,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     await sleep(100);
     R.legs.binaryMeta = document.getElementById("file-meta").textContent;
     R.legs.binaryContent = document.getElementById("file-content").textContent;
+
+    // Legs 14-16: the identity channel. Change the repo picker to
+    // agent-2 (a second repo) so the per-repo capability probe
+    // re-runs, then read the server-side /whoami call log.
+    const picker = document.getElementById("repo-picker");
+    R.legs.pickerValueBefore = picker ? picker.value : null;
+    if (picker) {
+      const agent2 = [...picker.options].find((o) => o.value === "agent-2");
+      if (agent2) {
+        picker.value = "agent-2";
+        picker.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    // Wait until the picker actually shows agent-2 AND a /whoami
+    // probe for agent-2 has been recorded (the change handler's
+    // loadRevealCapability(state.repo) is the observable).
+    for (let i = 0; i < 100; i++) {
+      const calls = await (await fetch("/__whoami-calls")).json();
+      if (calls.calls.some((c) => /[?&]repo=agent-2($|&)/.test(c.url || ""))) break;
+      await sleep(50);
+    }
+    await sleep(200);
+    R.legs.pickerValueAfter = document.getElementById("repo-picker") ? document.getElementById("repo-picker").value : null;
+    const callsRes = await fetch("/__whoami-calls");
+    const callsJson = await callsRes.json();
+    R.legs.whoamiCalls = callsJson.calls || [];
+
   } catch (e) { R.errors.push(String((e && e.stack) || e)); }
   const d = document.createElement("div"); d.id = "test-out"; d.textContent = encodeURIComponent(JSON.stringify(R)); document.body.appendChild(d);
 });`;
@@ -319,6 +351,15 @@ let whoamiMode = "default";   // "default" => reveal:false; "authorized" => reve
 let revealMode = "grant";     // "grant" => 200 {value}; "deny" => 403 reveal-not-authorized
 let clickReveal = false;
 
+// /whoami call recorder (legs 14-16): every probe the page
+// makes is recorded with its full URL (query included) and the
+// Authorization header it carried. Reset per scenario.
+let whoamiCalls = [];
+// /reveal call recorder (leg 17): every POST /reveal the page
+// makes is recorded with the Authorization header it carried.
+// Reset per scenario.
+let revealCalls = [];
+
 const j = (res, body) => {
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
@@ -339,16 +380,34 @@ const server = createServer((req, res) => {
 
   // --- API fixtures -------------------------------------------------------
   if (pathname === "/whoami") {
+    whoamiCalls.push({ url: req.url, authorization: (req.headers["authorization"] || req.headers["Authorization"] || "") });
     j(res, whoamiMode === "authorized"
       ? { ok: true, authorized: true, reveal: true }
       : { ok: true, authorized: false, reveal: false });
     return;
   }
 
+  // Observer readout: the recorded /whoami calls (legs 14-16).
+  if (pathname === "/__whoami-calls") {
+    j(res, { ok: true, calls: whoamiCalls });
+    return;
+  }
+
+  // Observer readout: the recorded /reveal calls (leg 17).
+  if (pathname === "/__reveal-calls") {
+    j(res, { ok: true, calls: revealCalls });
+    return;
+  }
+
   if (pathname === "/reveal") {
+    revealCalls.push({ authorization: (req.headers["authorization"] || req.headers["Authorization"] || "") });
     // The value a buggy surface would render — only the grant leg returns
-    // it, and only ever from this 200 body.
-    if (revealMode === "grant") {
+    // it, and only ever from this 200 body. The fixture enforces the
+    // identity the REAL worker enforces (auth.ts:304-305): a POST with
+    // no demo Bearer is 403 reveal-not-authorized, so the reveal leg is
+    // RED on the pre-fix code (no Bearer) and GREEN post-fix.
+    const authorization = req.headers["authorization"] || req.headers["Authorization"] || "";
+    if (revealMode === "grant" && authorization === "Bearer nextgit-demo-viewer") {
       j(res, { ok: true, repo: "agent-1", ref: "b".repeat(40), path: "config/.env", key: "STRIPE_SECRET_KEY", value: SECRET_VALUE });
       return;
     }
@@ -578,6 +637,47 @@ function legMaskingLaw(passes) {
   }
 }
 
+// --- Identity-channel legs (14-16) -----------------------------------
+
+function legIdentityBearer(R) {
+  const calls = R.legs?.whoamiCalls ?? [];
+  check("14 /whoami probe carries Authorization: Bearer nextgit-demo-viewer",
+    calls.some((c) => (c.authorization || "") === "Bearer nextgit-demo-viewer"),
+    `calls=${JSON.stringify(calls)}`);
+}
+
+function legRepoScopedProbe(R) {
+  const calls = R.legs?.whoamiCalls ?? [];
+  check("15 picker change to agent-2 records a /whoami call with repo=agent-2",
+    calls.some((c) => /[?&]repo=agent-2($|&)/.test(c.url || "")),
+    `calls=${JSON.stringify(calls)}`);
+}
+
+function legPerRepoReprobe(R) {
+  const calls = R.legs?.whoamiCalls ?? [];
+  const booted = calls.filter((c) => /[?&]repo=agent-1($|&)/.test(c.url || ""));
+  const agent2 = calls.filter((c) => /[?&]repo=agent-2($|&)/.test(c.url || ""));
+  check("16 one page lifetime records TWO /whoami calls (agent-1 boot + agent-2 picker)",
+    booted.length >= 1 && agent2.length >= 1,
+    `agent1=${booted.length} agent2=${agent2.length} calls=${JSON.stringify(calls)}`);
+  const second = agent2[agent2.length - 1];
+  check("16 second /whoami call carries repo=agent-2 + the demo identity",
+    !!second && /[?&]repo=agent-2($|&)/.test(second.url || "") &&
+    (second.authorization || "") === "Bearer nextgit-demo-viewer",
+    `second=${JSON.stringify(second)}`);
+}
+
+// Leg 17: the reveal POST carries the demo Bearer identity
+// (the identity carrier for POST /reveal — CONTRACT.md:559).
+// RED on the pre-fix code (reveal.js:17 sends no Authorization);
+// GREEN once revealSecret spreads demoIdentityHeaders().
+function legRevealBearer(R) {
+  const calls = R.legs?.revealCalls ?? [];
+  check("17 POST /reveal carries Authorization: Bearer nextgit-demo-viewer",
+    calls.some((c) => (c.authorization || "") === "Bearer nextgit-demo-viewer"),
+    `calls=${JSON.stringify(calls)}`);
+}
+
 try {
   const port = await new Promise((resolve, reject) => {
     server.on("error", reject);
@@ -622,6 +722,8 @@ try {
     whoamiMode = whoami;
     revealMode = reveal;
     clickReveal = click;
+    whoamiCalls = [];
+    revealCalls = [];
     await send("Page.navigate", { url: "about:blank" });
     await waitFor(`location.href === "about:blank" && !document.getElementById("test-out")`);
     await send("Page.navigate", { url: `${baseUrl}/` });
@@ -651,6 +753,9 @@ try {
     legBackLink(defaultR);
     legNoErrors(defaultR);
     legNotCapable(defaultR);
+    legIdentityBearer(defaultR);
+    legRepoScopedProbe(defaultR);
+    legPerRepoReprobe(defaultR);
   }
 
   // reveal:true, no click → the control renders, no value yet.
@@ -661,6 +766,7 @@ try {
   // reveal:true + grant → the real click renders the value from the 200 body.
   const grantedR = await runScenario({ whoami: "authorized", reveal: "grant", click: true });
   if (grantedR?.legs) legGranted(grantedR);
+  if (grantedR?.legs) legRevealBearer(grantedR);
   else check("11 granted: scenario output present", false, "no #test-out");
 
   // reveal:true + deny → the denial notice renders, no value anywhere.

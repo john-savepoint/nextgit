@@ -614,6 +614,8 @@ The viewer's elevated-reveal capability probe — read-only, carries no secret c
 - Runs through the `authorize()` mode gate (deny ⇒ `401 {ok:false,error:"unauthorized"}`) and the demo allowlist (`403 {ok:false,error:"repo-not-allowed"}`), same as every route. GET ⇒ no CSRF gate.
 - Relationship: the UI renders the reveal affordance only when `reveal:true`; `POST /reveal` remains the only route that returns a value. The affordance is never a capability — the server re-runs the rule on every `POST /reveal` click.
 
+**Provisioning** — `REVEAL_ALLOW` is a JSON-string Worker var. Provision it with `printf '%s' '[{"id":"nextgit-demo-viewer","repos":["agent-5"]}]' | npx wrangler secret put REVEAL_ALLOW` (piped — persists across deploys, keeps the grant out of git) or via a `REVEAL_ALLOW` entry in the `vars` block of `wrangler.jsonc`. `repos` absent ⇒ the identity may reveal any demo-namespace repo; present ⇒ only those. The `id` must match the client's Bearer (the UI's `DEMO_IDENTITY`, `platform/ui/js/api.js`). Unset = default-deny = no one.
+
 ## POST /reveal
 
 Read a secret-class VALUE through the authorized, audited seam rule (FR-31) — the only route that returns a secret-class value, and only to an explicitly authorized identity, only for a secret-class path, only server-side from Artifacts.
@@ -637,6 +639,8 @@ Body:
 2. The explicit reveal rule `env.REVEAL_ALLOW` — a JSON array of `{ "id": "<opaque bearer token>", "repos": ["agent-5"]? }`. `repos` absent ⇒ the identity may reveal any demo-namespace repo; present ⇒ only those. **Default = no one**: `REVEAL_ALLOW` absent, malformed, or an identity not listed (or listed but outside its `repos` scope) → `403 {ok:false,error:"reveal-not-authorized"}` — **no value** in the body.
 
 **Identity carrier**: `Authorization: Bearer <token>` — the same opaque token every route carries (no SSO yet; the reveal rule IS the explicit authorization rule FR-31 required).
+
+**Provisioning** — `REVEAL_ALLOW` is a JSON-string Worker var. Provision it with `printf '%s' '[{"id":"nextgit-demo-viewer","repos":["agent-5"]}]' | npx wrangler secret put REVEAL_ALLOW` (piped — persists across deploys, keeps the grant out of git) or via a `REVEAL_ALLOW` entry in the `vars` block of `wrangler.jsonc`. `repos` absent ⇒ the identity may reveal any demo-namespace repo; present ⇒ only those. The `id` must match the client's Bearer (the UI's `DEMO_IDENTITY`, `platform/ui/js/api.js`). Unset = default-deny = no one.
 
 **Response (granted)** — `200`:
 
