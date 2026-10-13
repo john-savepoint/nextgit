@@ -78,13 +78,16 @@ const MAX_ARTIFACT_REF = 512;
 const MERGED_SHA_CHECK = "merged-sha-equals-tested-sha"; // reserved ledger check name
 const LANDING_KEY_PREFIX = "landing:"; // KV LIVE: landing record keyed by commit
 
-// Repo-browsing read API bounds (CONTRACT.md §GET /tree, §GET /raw).
-// MAX_TREE_DEPTH caps the resolved subdirectory depth of a /tree
-// path (a deeper path is a 400, never a walk). MAX_RAW_BYTES caps
-// /raw byte egress — a blob above the cap is a 413 before the body
-// is assembled.
+// Repo-browsing read API bounds (CONTRACT.md §GET /tree, §GET /raw,
+// §GET /commits). MAX_TREE_DEPTH caps the resolved subdirectory depth
+// of a /tree path (a deeper path is a 400, never a walk). MAX_RAW_BYTES
+// caps /raw byte egress — a blob above the cap is a 413 before the body
+// is assembled. §GET /commits reuses the same read seam: MAX_COMMIT_LIMIT
+// caps the commit-log page (a present `limit` above it clamps, never walks).
 const MAX_TREE_DEPTH = 32;
 const MAX_RAW_BYTES = 8 * 1024 * 1024;
+const DEFAULT_COMMIT_LIMIT = 20;   // §GET /commits page size when `limit` is absent
+const MAX_COMMIT_LIMIT = 100;      // §GET /commits hard cap — the walk's resource bound
 
 type FileMap = Map<string, string>; // path -> blob hash
 
@@ -2728,6 +2731,12 @@ interface ReadQuery {
  path: string;
 }
 
+interface CommitsQuery {
+ repo: string;
+ ref: string;
+ limit: number;
+}
+
 /**
  * Validates the /tree + /file query params. Mirrors
  * parseProposalsQuery's REPO_NAME_RE / REF_RE guards (the same
@@ -2755,6 +2764,34 @@ function parseReadQuery(url: URL): ReadQuery | Response {
   return badRequest("path too deep");
  }
  return { repo, ref, path };
+}
+
+/**
+ * Validates the /commits query params (CONTRACT.md §GET /commits).
+ * Reuses the SAME resolveRouteBase default seam + REPO_NAME_RE/REF_RE
+ * guards as parseReadQuery, plus the optional `limit`: absent -> the
+ * pinned page size; a present value must match /^[1-9][0-9]*$/ (the
+ * AD-8 normalization rule — a present bad value, including "", is a
+ * 400, never silently defaulted) and is clamped to MAX_COMMIT_LIMIT
+ * (the resource bound; no request drives an unbounded history walk).
+ * Returns a CommitsQuery when valid, or the 400 Response.
+ */
+function parseCommitsQuery(url: URL): CommitsQuery | Response {
+ const { ref } = resolveRouteBase({ ref: url.searchParams.get("ref") ?? undefined });
+ const repo = url.searchParams.get("repo");
+ if (typeof repo !== "string" || !REPO_NAME_RE.test(repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+ }
+ if (typeof ref !== "string" || !REF_RE.test(ref) || ref.includes("..") || ref.startsWith("/") || ref.endsWith("/")) {
+  return badRequest(`invalid ref: ${JSON.stringify(ref)}`);
+ }
+ const rawLimit = url.searchParams.get("limit");
+ let limit = DEFAULT_COMMIT_LIMIT;
+ if (rawLimit !== null) {
+  if (!/^[1-9][0-9]*$/.test(rawLimit)) return badRequest(`invalid limit: ${JSON.stringify(rawLimit)}`);
+  limit = Math.min(Number(rawLimit), MAX_COMMIT_LIMIT);
+ }
+ return { repo, ref, limit };
 }
 
 /**
@@ -2816,6 +2853,47 @@ async function handleTree(request: Request, env: Env): Promise<Response> {
   // Unknown repo (the namespace does not carry it) -> 404, the
   // /proposals/{repo} mapping (a failed repo read is the
   // contract 404, never a 500).
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+}
+
+/**
+ * GET /commits — the commit log of a repo at a ref (CONTRACT.md
+ * §GET /commits; the history half of the repo-browsing read API).
+ * Drives the EXISTING repo.log({ref, limit}) seam — the newest-first
+ * first-parent walk forkPoint already reads; no new binding method,
+ * no tree/blob read. `commits` is the log's own order (deterministic
+ * for a given (repo, ref, limit)), bounded by the clamped `limit`.
+ * The projection is EXPLICIT — treeHash/committer/committedAt are
+ * dropped, never spread. Unknown repo / unresolvable ref / an empty
+ * history / any binding failure -> the uniform 404 (the /tree
+ * mapping). The repo is query-carried, so the dispatcher's
+ * authorize() chokepoint (extractScope) already adjudicated it
+ * against the demo allowlist pre-read (the /tree posture) — the
+ * handler trusts the chokepoint and reads.
+ */
+async function handleCommits(request: Request, env: Env): Promise<Response> {
+ const parsed = parseCommitsQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { repo, ref, limit } = parsed;
+ try {
+  using artifactsRepo = await env.ARTIFACTS.get(repo);
+  const log = await artifactsRepo.log({ ref, limit });
+  if (!log.length) return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  return Response.json({
+   ok: true,
+   repo,
+   ref,
+   commits: log.map((c) => ({
+    sha: c.hash,
+    shortSha: c.hash.slice(0, 7),
+    message: c.message,
+    author: `${c.author.name} <${c.author.email}>`,
+    at: new Date(c.authoredAt * 1000).toISOString(),
+    parents: c.parents ?? [],
+   })),
+  });
+ } catch {
   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
  }
 }
@@ -3022,15 +3100,16 @@ export const ROUTES: RouteEntry[] = [
  // Whoami — the viewer's elevated-reveal capability probe (read-only,
  // no secret content; the reveal affordance renders only when reveal:true).
  { path: "/whoami", method: "GET", action: "read", handler: handleWhoami },
- // Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file).
- // GET, read-only: the authorize() chokepoint covers them (demo
- // mode gate; extractScope adjudicates the query-carried repo
- // against the demo allowlist pre-read, the /changes posture).
- // /tree is deliberately unbound (the /changes posture —
- // ROUTE_RATE_LIMITS carries no /tree row); /file is capped
+ // Repo-browsing read API (CONTRACT.md §GET /tree, §GET /file,
+ // §GET /commits). GET, read-only: the authorize() chokepoint covers
+ // them (demo mode gate; extractScope adjudicates the query-carried
+ // repo against the demo allowlist pre-read, the /changes posture).
+ // /tree and /commits are deliberately unbound (the /changes posture —
+ // ROUTE_RATE_LIMITS carries no /tree or /commits row); /file is capped
  // 60/60s (rateGate inside the handler).
  { path: "/tree", method: "GET", action: "read", handler: handleTree },
  { path: "/file", method: "GET", action: "read", handler: handleFile },
+ { path: "/commits", method: "GET", action: "read", handler: handleCommits },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [

@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 15 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file)", ROUTES.length === 15, `got ${ROUTES?.length}`);
+check("C: ROUTES has 16 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits)", ROUTES.length === 16, `got ${ROUTES?.length}`);
 
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
@@ -200,6 +200,7 @@ check("C: /events → GET read", routeMap["/events"]?.method === "GET" && routeM
 // /events/stream MUST be tabled: while it lived in an inline branch it bypassed authorize()
 // (deny mode still streamed). Pinned 2026-10-10.
 check("C: /events/stream → GET read (authorize-covered)", routeMap["/events/stream"]?.method === "GET" && routeMap["/events/stream"]?.action === "read", `got ${J(routeMap["/events/stream"] ? { method: routeMap["/events/stream"].method, action: routeMap["/events/stream"].action } : null)}`);
+check("C: /commits → GET read (authorize-covered; the read API's history half)", routeMap["/commits"]?.method === "GET" && routeMap["/commits"]?.action === "read", `got ${J(routeMap["/commits"] ? { method: routeMap["/commits"].method, action: routeMap["/commits"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
 check("C: DYNAMIC_ROUTES has 4 entries (landings, proposals, asset, raw)", DYNAMIC_ROUTES.length === 4, `got ${DYNAMIC_ROUTES?.length}`);
