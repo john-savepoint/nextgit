@@ -1524,6 +1524,34 @@ html, body {
   font-family: var(--font-mono);
   color: var(--text-primary);
 }
+/* Policy chips (wave-15 GET /agents) — the same chip language as the signal
+   row above, so the two rows read as one card system. Tokens only. */
+.fork-policy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.fork-policy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  background-color: var(--status-neutral-bg);
+  border: 1px solid var(--status-neutral-border);
+  color: var(--text-secondary);
+}
+.fork-policy-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.fork-policy-value {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
 
 /* ——— land confirm sheet (decision-point surface) ———
    Scope: platform/ui/styles.css
