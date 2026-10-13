@@ -8,7 +8,7 @@ Reproducible operator path for the end-to-end NextGit demo on **real** Cloudflar
 
 ## Prerequisite environment
 
-Six environment variables drive the script chain. All have sensible defaults pointing at the **competition demo environment** (account `bb7d292ca65ba01cbdfbdabcace0c3d0`, worker `nextgit-platform.john-b7d`). Override both to redirect the entire chain to your own account.
+Seven environment variables drive the script chain. All have sensible defaults pointing at the **competition demo environment** (account `bb7d292ca65ba01cbdfbdabcace0c3d0`, worker `nextgit-platform.john-b7d`). Override both to redirect the entire chain to your own account.
 
 | Variable | Default | Purpose | Scripts |
 |---|---|---|---|
@@ -113,7 +113,10 @@ grant. To grant the demo viewer reveal on a repo (e.g. agent-5):
 
 ```bash
 cd platform
-npx wrangler vars put REVEAL_ALLOW --json '[{"id":"nextgit-demo-viewer","repos":["agent-5"]}]'
+# Piped secret put — persists across deploys, keeps the grant out of git.
+printf '%s' '[{"id":"nextgit-demo-viewer","repos":["agent-5"]}]' | npx wrangler secret put REVEAL_ALLOW
+# (alternative: add a REVEAL_ALLOW entry to the `vars` block of wrangler.jsonc and deploy —
+#  committed grants are visible in git; prefer the secret pipe for anything non-public.)
 npx wrangler deploy
 ```
 
