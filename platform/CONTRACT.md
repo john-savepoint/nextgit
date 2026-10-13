@@ -631,7 +631,7 @@ The dispatcher matches a request against the route tables (`ROUTES` + `DYNAMIC_R
 
 - **Known path, wrong method** → `405 { "ok": false, "error": "method-not-allowed" }`. A registered path addressed with a method no route accepts is a client error, more specific than an unknown path (405-before-404 precedence).
 - **Unknown path** → `404 { "ok": false, "error": "not-found" }`.
-- **UI document** (`/`, `/index.html`, `/styles.css`, `/app.js`, `/tour.html`, `/tour.css`, `/tour.js`, `/files.html`, `/js/files-page.js`) → served by the wrangler-assets binding (`env.ASSETS`), which serves exactly `platform/ui/`'s documents. This whitelist is closed and additive-only: a new UI file is added to the whitelist AND the route-discipline parity check in the same commit.
+- **UI document** (`/`, `/index.html`, `/styles.css`, `/app.js`, `/tour.html`, `/tour.css`, `/tour.js`, `/files.html`, `/js/files-page.js`, `/history.html`, `/js/history-page.js`) → served by the wrangler-assets binding (`env.ASSETS`), which serves exactly `platform/ui/`'s documents. This whitelist is closed and additive-only: a new UI file is added to the whitelist AND the route-discipline parity check in the same commit.
 
 The 405/404 envelopes are static literals (no user input reflected) and fire before the auth chokepoint, matching the handler-level 400/404/409 precedent — a malformed or mis-addressed request is rejected at the boundary without reaching `authorize()`. This replaces the previous behaviour where a known path with the wrong method and any unknown path both fell through to the asset layer (an information-shaping defect: an undocumented surface answered requests the contract says must be JSON errors).
 
