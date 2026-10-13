@@ -32,7 +32,7 @@ export const state = {
  streamBackoffMs: 1000,  // SSE reconnect backoff, doubles to a 30s cap
  streamSeenKeys: new Set(), // SSE `id:` dedup keys seen this page
  revealCapability: { authorized: false, reveal: false }, // /whoami probe — drives the reveal affordance
- landVerdictByRepo: {}, // repo -> last auto-land advisory (AD-11 verdict, rendered never decided). Last VERDICT, not last error: only a server-carried verdict replaces the entry — an unrelated /land error leaves the last verdict standing, and a later act/confirm overwrites it.
+ landVerdictByRepo: {}, // repo -> last auto-land gate outcome (AD-11 verdict, rendered never decided). Last server-carried GATE OUTCOME, not last error: a verdict (act/confirm/escalate) OR the gate's own fail-closed answer (judge-unavailable -> blocked) replaces the entry — an unrelated /land error leaves it standing, and a later act/confirm overwrites it.
 };
 
 // UI Selectors

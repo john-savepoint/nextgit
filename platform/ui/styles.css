@@ -1302,3 +1302,26 @@ html, body {
     animation: none !important;
   }
 }
+
+/* ——— land confirm sheet (decision-point surface) ———
+   Scope: platform/ui/styles.css
+   The land confirm sheet carries the what-the-land-will-do line and the
+   judge's verdict at the two-step confirm point. Mirrors the .landed-banner
+   precedent (inset bg, dashed border, secondary text); the container is a
+   column so the sheet cannot perturb the action row's flex layout, and the
+   in-card .action-hint re-scopes the copy that .action-banner-msg scopes
+   nowhere else. */
+.land-confirm-sheet {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--bg-inset);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.land-confirm-sheet .action-hint {
+  color: var(--text-secondary);
+}
