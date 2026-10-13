@@ -142,7 +142,7 @@ export function validateFederationRegistry(
   }
   const caps = new Set<string>();
   for (const cap of capabilities) {
-   if (typeof cap !== "string" || !(cap in FEDERATION_CAPABILITIES)) {
+   if (typeof cap !== "string" || !Object.hasOwn(FEDERATION_CAPABILITIES, cap)) {
     throw new Error(`federation entry ${index} capability ${JSON.stringify(cap)} is not in the vocabulary`);
    }
    if (caps.has(cap)) {

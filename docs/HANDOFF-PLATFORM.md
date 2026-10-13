@@ -45,6 +45,7 @@
 | `/land` | POST | Fold + commit + push server-side. `409 stale` (reviewed heads mismatch), `409 base-moved` (pre-push re-read **and** push-rejection conversion), `409 conflict/withheld-secret/no-changes`, `403` allowlist, `429` rate limit; `200` carries **evidence** `{repos, commit, ancestor, heads, foldHash}` |
 | `/judge` | **POST only** (GET → 404 by design) | `{setId:"v1", target:{base,repos,refs}}` → pinned `@cf/cloudflare/clef`, typed judgments `risk{label,score}` / `intent{verdict,overclaim}` / `collision` ; `skipped[]` (secret-class, empty-change-set) ; **fail-closed 503** (binding missing / model mismatch / schema invalid) ; 429 |
 | `/events` | GET | Last 50 pushes from KV (queue consumer writes it) |
+| `/`, `/tour.html`, `/files.html`, `/history.html`, `/parity.html`, assets | GET | UI + tutorial + file browser + commit history + parity dashboard (`ASSETS` binding) |
 | `/harnesses` | GET | Federation manifest: the BYO harness table `{name,kind:"byo-cli",capabilities,docs}` — dispatch internals (bin/args/env/notes) never egress (egress law); namespace-wide, no params, `authorize()`-gated, deliberately unbound; `hosted` reserved (zero populated — no marketplace) |
 
 ## 4. Invariants the production build MUST preserve (each has an enforcement point + an evidence run)
