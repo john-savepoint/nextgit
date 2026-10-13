@@ -475,48 +475,84 @@ try {
     check("M2 diff-trap walk threw", false, String(e?.message ?? e));
   }
 
-  // --- M3: merge dialog cycles close -> tab0 -> tab1 -> close -> tab0 ------------
+  // --- M3: merge dialog cycles the FULL derived focusable set, then wraps --------
+  // Count-agnostic on purpose: the merge dialog carries the comment composer
+  // (line input + textarea + submit) plus the close control and the two file
+  // tabs, and L4's conditional reveal control may add another. The walk derives
+  // the live focusable set exactly as modalFocusables() does and asserts the
+  // real invariant — every stop inside the dialog, every element visited once,
+  // wrap back to the first — never a hardcoded sequence.
   try {
     await openPage();
     await tabTo("#card-agent-1 .btn-preview-merge");
     await pressEnter();
     await waitFor(`document.querySelectorAll(".merge-file-tab").length === 2`);
+    const n = await evl(`(() => {
+      const modal = document.getElementById("inspector-modal");
+      const set = [...modal.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((node) => node.getClientRects().length > 0);
+      set.forEach((el, i) => { el.dataset.probe = "f" + i; });
+      return set.length;
+    })()`);
     const seq = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < n + 1; i++) {
       await pressTab();
       seq.push(await active());
     }
-    const got = seq.map((s) => (s.id === "btn-close-modal" ? "close" : s.mergeTab ?? `page:${s.tag}${s.id ? `#${s.id}` : ""}`));
+    const probes = seq.map((s) => s.probe);
+    const distinct = [...new Set(probes.slice(0, n))];
     check(
-      "M3 merge dialog cycle: Tab walks close → tab0 → tab1 → close → tab0 and never leaves the dialog",
-      JSON.stringify(got) === JSON.stringify(["0", "1", "close", "0"]) && seq.every((s) => s.insideModal === true),
-      JSON.stringify(got),
+      "M3 merge dialog cycle: Tab walks the full derived focusable set and wraps to the first stop, never leaving the dialog",
+      n >= 3 &&
+      probes.length === n + 1 &&
+      distinct.length === n &&
+      probes[n] === probes[0] &&
+      seq.every((s) => s.insideModal === true) &&
+      seq.some((s) => s.mergeTab === "0") &&
+      seq.some((s) => s.mergeTab === "1"),
+      JSON.stringify({ n, probes }),
     );
   } catch (e) {
     check("M3 merge-cycle walk threw", false, String(e?.message ?? e));
   }
 
-  // --- M4: Shift+Tab wrap --------------------------------------------------------
+  // --- M4: Shift+Tab wrap (derived last focusable) -------------------------------
   try {
     await openPage();
     await tabTo("#card-agent-1 .btn-preview-merge");
     await pressEnter();
     await waitFor(`document.querySelectorAll(".merge-file-tab").length === 2`);
-    const firstIsClose = await evl(`!!document.activeElement && document.activeElement.id === "btn-close-modal"`);
-    const lastTabIdx = await evl(`(() => {
-      const t = [...document.querySelectorAll("#inspector-modal .merge-file-tab")];
-      return t.length ? t[t.length - 1].getAttribute("data-merge-tab") : null;
+    const n = await evl(`(() => {
+      const modal = document.getElementById("inspector-modal");
+      const set = [...modal.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((node) => node.getClientRects().length > 0);
+      set.forEach((el, i) => { el.dataset.probe = "f" + i; });
+      return set.length;
     })()`);
+    const firstIsClose = await evl(`!!document.activeElement && document.activeElement.id === "btn-close-modal"`);
     await pressTab(true);
     const wrapped = await active();
     check(
-      "M4 Shift+Tab wrap: from the first focusable (close) focus wraps to the last merge tab",
-      firstIsClose === true && wrapped.mergeTab === lastTabIdx && wrapped.insideModal === true,
-      JSON.stringify({ wrapped, lastTabIdx }),
+      "M4 Shift+Tab wrap: from the first focusable (close) focus wraps to the last focusable of the derived set",
+      firstIsClose === true && n >= 2 && wrapped.probe === `f${n - 1}` && wrapped.insideModal === true,
+      JSON.stringify({ wrapped, n }),
     );
-    await pressTab(true);
-    const mid = await active();
-    check("M4 Shift+Tab mid-cycle: focus stays inside the dialog", mid.insideModal === true, JSON.stringify(mid));
+    // Backward walk stays inside the dialog and both merge tabs remain reachable.
+    const seenTabs = new Set();
+    let allInside = wrapped.insideModal === true;
+    for (let i = 1; i < n; i++) {
+      await pressTab(true);
+      const stop = await active();
+      allInside = allInside && stop.insideModal === true;
+      if (stop.mergeTab !== null) seenTabs.add(stop.mergeTab);
+    }
+    check(
+      "M4 Shift+Tab mid-cycle: the backward walk stays inside the dialog and both merge tabs remain reachable",
+      allInside && seenTabs.has("0") && seenTabs.has("1"),
+      JSON.stringify({ seen: [...seenTabs], allInside }),
+    );
   } catch (e) {
     check("M4 shift-tab walk threw", false, String(e?.message ?? e));
   }
