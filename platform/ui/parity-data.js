@@ -3,7 +3,7 @@
 // The PARITY_TABLE contract consumed by platform/ui/parity.js.
 // Strings are escaped at RENDER time (parity.js), not at generation.
 export const PARITY_TABLE = {
-  "generated": "2026-10-13T03:20:18Z",
+  "generated": "2026-10-13T10:51:54Z",
   "dimensions": [
     {
       "id": "session-steering",
@@ -17,11 +17,12 @@ export const PARITY_TABLE = {
         ]
       },
       "nextgit": {
-        "status": "none",
-        "evidence": "No live session-steering surface exists; the platform reviews the set, not the agents' sessions themselves.",
+        "status": "partial",
+        "evidence": "Honest v1: GET /sessions (feed-evidence-derived state working/idle, real activity + intent, repos absent without evidence — never fabricated) + POST /sessions/{repo}/steer (the instruction lands in the event stream the agent CLIs read; closed schema, <=500 chars, secret-class refused 403, rate-bounded 30/60s, per-steer dedup uniqueness). Mid-session LIVE process injection remains absent — documented v1 limitation.",
         "sources": [
-          "docs/HANDOFF-PLATFORM.md:37",
-          "docs/STATE.md:19"
+          "platform/CONTRACT.md:583",
+          "platform/CONTRACT.md:608",
+          "docs/CHECKPOINT.md:14"
         ]
       },
       "verdict": "below"
@@ -208,10 +209,10 @@ export const PARITY_TABLE = {
       },
       "nextgit": {
         "status": "partial",
-        "evidence": "Bearer-token allowlist on mutating routes (the /land 403 path) — but no developer-like agent identity or policy-management surface exists.",
+        "evidence": "Bearer-token allowlist on mutating routes + GET /agents: the discovered agent roster with policy-as-data (land: manual while the interlock is off; secretClass: refused) surfaced on the forks panel. Read-only projection — developer-like policy MANAGEMENT remains absent.",
         "sources": [
-          "platform/CONTRACT.md:581",
-          "docs/HANDOFF-PLATFORM.md:59"
+          "platform/CONTRACT.md:312",
+          "platform/CONTRACT.md:581"
         ]
       },
       "verdict": "below"
@@ -311,11 +312,11 @@ export const PARITY_TABLE = {
         ]
       },
       "nextgit": {
-        "status": "none",
-        "evidence": "No issue tracker; task tracking is the loop's own bd store, not a product surface.",
+        "status": "partial",
+        "evidence": "GET /issues (derived triage: conflicts, withheld-secret key-names-only, stale-base, blocked-intent — all from existing state, deterministic order) + the triage issues panel. Read-only derived v1: no issue CRUD/assignment yet.",
         "sources": [
-          "docs/HANDOFF-PLATFORM.md:80",
-          "docs/STATE.md:19"
+          "platform/CONTRACT.md:262",
+          "docs/CHECKPOINT.md:14"
         ]
       },
       "verdict": "below"
@@ -331,11 +332,11 @@ export const PARITY_TABLE = {
         ]
       },
       "nextgit": {
-        "status": "none",
-        "evidence": "No CI/CD pipeline integration; validation is the platform's own fold simulation + advisory judge.",
+        "status": "partial",
+        "evidence": "GET /checks (server-authoritative per-proposal checks: fold/collision/conflicts/secrets/base, tri-state with honest unknowns) + the checks strip consuming it verbatim (fail-soft client fallback never reads green). A checks surface — no pipeline runner / Actions equivalent.",
         "sources": [
-          "docs/HANDOFF-PLATFORM.md:80",
-          "docs/STATE.md:19"
+          "platform/CONTRACT.md:262",
+          "docs/CHECKPOINT.md:14"
         ]
       },
       "verdict": "below"

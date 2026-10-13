@@ -1156,5 +1156,12 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P2 — Per-proposal checks strip — foldability/conflicts/secret from existing payloads
 - [done] P1 — Inline review comments — data plane (GET/POST /comments, repo-scoped in Artifacts)
 - [done] P1 — Inline review comments — surface (merge modal per-file comment thread)
+- [done] P2 — Issues v1 — GET /issues (derived) + triage issues panel
+- [done] P2 — CI signals v1 — GET /checks (authoritative per-proposal checks) + strip consumes it
+- [done] P2 — Sessions v1 — GET /sessions + POST /sessions/{repo}/steer (honest v1)
+- [done] P2 — Agent identity & policy v1 — GET /agents roster + policy surface
+- [done] P2 — Federation v1 — GET /harnesses + BYO onboarding surface
+- [done] P1 — Reveal live identity — the audited reveal works end-to-end on the deployed demo
+- [done] P2 — UX polish — wave-14 gate mediums (modal anchoring, aria-live, empty states)
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.

@@ -1,12 +1,12 @@
 # Capability parity — NextGit vs GitHub baseline
 
-Generated: 2026-10-13T03:20:18Z — derived by `bun porting/parity/compare.mjs` (verdicts are computed, never hand-authored).
+Generated: 2026-10-13T10:51:54Z — derived by `bun porting/parity/compare.mjs` (verdicts are computed, never hand-authored).
 
 Verdicts: **exceeds** = NextGit shipped where GitHub has none · **parity** = both sides (or both absent) · **below** = GitHub shipped/partial where NextGit has none (or only a partial capability).
 
 | Verdict | Dimension | GitHub | NextGit |
 |---|---|---|---|
-| below | Steer/track individual agent sessions live | shipped | none |
+| below | Steer/track individual agent sessions live | shipped | partial |
 | parity | N isolated workspaces from one baseline | shipped | shipped |
 | parity | Per-change diffs vs baseline, server-side | shipped | shipped |
 | exceeds | Conflict map across concurrent changes | none | shipped |
@@ -20,8 +20,8 @@ Verdicts: **exceeds** = NextGit shipped where GitHub has none · **parity** = bo
 | parity | Inline per-line review comments on a change | shipped | shipped |
 | below | Third-party agents hosted inside the platform | shipped | partial |
 | parity | File/repo browser | shipped | shipped |
-| below | Issue tracker | shipped | none |
-| below | CI/CD pipeline integration | shipped | none |
+| below | Issue tracker | shipped | partial |
+| below | CI/CD pipeline integration | shipped | partial |
 | parity | Ordered merge queue | shipped | shipped |
 | parity | Native stacked diffs | none | none |
 
