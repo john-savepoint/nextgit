@@ -33,6 +33,10 @@
     {
       "binding": "CACHE",
       "id": "55d973240e2d4770a07ddc0faedf757c"
+    },
+    {
+      "binding": "REVEAL_AUDIT",
+      "id": "8aa1ccbca22a46d19b0230066d3256cc"
     }
   ],
   "r2_buckets": [

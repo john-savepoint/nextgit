@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-13T11:48:26.474Z",
-  "head": "e409f29",
+  "generatedAt": "2026-10-13T12:08:46.052Z",
+  "head": "30e23cc",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-13 ",
@@ -12,9 +12,9 @@
   "queue": {
     "total": 689,
     "byStatus": {
-      "pending": 449,
+      "pending": 448,
       "partial": 1,
-      "done": 239
+      "done": 240
     },
     "items": [
       {
@@ -136,11 +136,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Demo video: 5-10 min single take covering all three axes"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Live-only E2E verification gate before submission"
       },
       {
         "status": "pending",

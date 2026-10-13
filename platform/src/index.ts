@@ -2564,7 +2564,7 @@ function revealKeyValue(text: string, key: string): string | null {
 async function writeRevealAudit(env: Env, rec: RevealAuditRecord): Promise<void> {
  if (!env.REVEAL_AUDIT) return;
  const k = `reveal-audit:${rec.at}:${rec.identity}:${rec.repo}:${rec.path}:${rec.key}`;
- await env.REVEAL_AUDIT.put(k, JSON.stringify(rec)).catch(() => { });
+ try { await env.REVEAL_AUDIT.put(k, JSON.stringify(rec)); } catch (e) { console.error("reveal-audit: write failed — " + String(e)); }
 }
 
 /** Closed request schema for POST /reveal (mirrors parseJudgeBody's unknown-field 400). */
