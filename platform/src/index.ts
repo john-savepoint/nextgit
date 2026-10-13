@@ -3207,6 +3207,8 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/js/state.js": true, "/js/api.js": true, "/js/conflicts.js": true,
  "/js/ticker.js": true, "/js/proposals.js": true, "/js/modal.js": true,
  "/js/land.js": true, "/js/reveal.js": true, "/js/interactions.js": true,
+ // Wave-14: per-proposal checks strip module.
+ "/js/checks.js": true,
  "/parity.html": true, "/parity.js": true, "/parity-data.js": true,
  // Wave-14: the commit-history page + the forks panel modules.
  "/history.html": true, "/js/history-page.js": true,
