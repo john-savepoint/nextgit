@@ -170,8 +170,64 @@ The 90-day expiry is far greater than the orphan sweep's grace window
 deletes a blob the sweep would have kept inside its grace window: the two
 reclamation layers are ordered (sweep at days, lifecycle at months), not
 competing. No `storageClassTransitions` (no Infrequent Access tier this
-phase); no `abortMultipartUploadsTransition` (the upload path is single-PUT,
-`upload-asset.mjs`).
+phase). The rule carries no `abortMultipartUploadsTransition` — correct when
+this rule was written (`upload-asset.mjs` PUTs a single object), but **no
+longer sufficient (dated correction 2026-10-14)**: the presigned upload grant
+below can open a client-direct **multipart** upload, and an abandoned one is
+*not* an object, so this rule does not reclaim it (see the recipe below).
+
+### Presigned direct-to-R2 transfers (ASSET_* credentials)
+
+The presign surface (`GET /asset/{blobId}/presign`, `POST /asset/uploads`,
+`POST /asset/uploads/{uploadId}/complete`) lets a client move asset bytes
+**directly to the bucket** — the Worker only mints URLs and issues the
+Create/Complete control frames, so a multi-GB asset never traverses a Worker
+request body (which caps at 100 MiB Free/Pro). It needs **no new binding**:
+the Workers R2 binding has no presign method, so the URLs are signed
+off-binding with AWS SigV4 against the bucket's S3 endpoint. Three provisions:
+
+| Name | Kind | Value |
+|---|---|---|
+| `ASSET_ACCOUNT_ID` | var | the Cloudflare account id (e.g. `bb7d292ca65ba01cbdfbdabcace0c3d0`) |
+| `ASSET_S3_ACCESS_KEY_ID` | secret | an R2 **S3 API token** id |
+| `ASSET_S3_SECRET_ACCESS_KEY` | secret | that token's secret |
+
+```bash
+# 1. Create an R2 S3 API token scoped to Object Read & Write on
+#    `nextgit-asset-blobs` only (dashboard → R2 → Manage R2 API Tokens).
+# 2. Provision into the worker (piped — persists across deploys, keeps the
+#    key pair out of git):
+cd platform
+printf '%s' '<account-id>' | npx wrangler secret put ASSET_ACCOUNT_ID
+printf '%s' '<access-key-id>' | npx wrangler secret put ASSET_S3_ACCESS_KEY_ID
+printf '%s' '<secret-access-key>' | npx wrangler secret put ASSET_S3_SECRET_ACCESS_KEY
+npx wrangler deploy
+```
+
+- **Fail-closed:** if any of the three is missing, every presign route answers
+  `503 {ok:false,error:"presign-unavailable"}` — never a silent empty-string
+  credential. A deploy without these provisions is safe (the asset *read*
+  route `GET /asset/{blobId}` is unaffected).
+- **Values never enter git, logs, or the manifest.** Only the account id is
+  non-secret enough to be a var; prefer the secret pipe for all three.
+- **Dry-run mint** (proves the credentials + the signer end to end without
+  uploading anything):
+  `node platform/scripts/provision-asset-presign.mjs` — see `--help`.
+- **Never commit a URL:** presigned URLs are bearer tokens, minted per
+  request, returned only in their mint response and never logged.
+
+**Abandoned multipart uploads have no automated reclamation yet.** The
+committed lifecycle rule (above) expires objects, not incomplete multipart
+uploads, so a client that starts a multipart upload and stops leaves an
+incomplete upload in the bucket until it is aborted. Either add an abort
+transition to the rule (operator decision — it must be re-applied with
+`wrangler r2 bucket lifecycle set`) or abort out-of-band:
+
+```bash
+# The module exposes abortMultipartSession for out-of-band use; a
+# client-visible abort route is a recorded follow-up (CONTRACT.md
+# §POST /asset/uploads/{uploadId}/complete, residual risk MEDIUM).
+```
 
 ---
 

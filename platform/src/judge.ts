@@ -14,6 +14,7 @@
 // widening the class list or the scrub is a CONTRACT change.
 
 import { ROUTE_RATE_LIMITS, rateAllow } from "./rate";
+import type { FileClassification } from "./classify";
 
 export const JUDGE_SET_ID = "v1";
 export const PINNED_MODEL_ID = "@cf/cloudflare/clef";
@@ -152,6 +153,14 @@ export interface JudgeFileInput {
  keys?: string[];
  note?: string;
  patch?: string;
+ /**
+  * Per-file classification (judge idea 12) — forwarded onto
+  * the masked state for NON-SECRET rows only. Secret rows
+  * stay `{path,status,secret,keys}`: AD-4 excludes the
+  * classification object from model state so `language+path`
+  * cannot form a content oracle on secret-class rows.
+  */
+ classification?: FileClassification;
 }
 
 export interface JudgeRepoInput {
@@ -187,6 +196,8 @@ interface JudgeMaskedFile {
  binary?: true;
  note?: string;
  patch?: string;
+ /** Judge idea 12 — non-secret rows only (AD-4). */
+ classification?: FileClassification;
 }
 
 interface JudgeProposal {
@@ -242,8 +253,11 @@ const COLLISION_CRITERIA: Record<string, string> = {
 };
 
 /**
- * AD-4 masking filter for one outbound file row: secret-class paths and
- * secret-flagged rows contribute key names only — no patch, no values.
+ * AD-4 masking filter for one outbound file row: secret-class
+ * paths and secret-flagged rows contribute key names only —
+ * no patch, no values. Non-secret rows forward the judge
+ * idea-12 `classification` object; secret rows never carry
+ * it (AD-4: language+path must not form a content oracle).
  */
 function maskJudgeFile(f: JudgeFileInput, isSecretPath: (path: string) => boolean): JudgeMaskedFile {
  const path = cleanUntrustedText(f.path);
@@ -256,6 +270,7 @@ function maskJudgeFile(f: JudgeFileInput, isSecretPath: (path: string) => boolea
  if (f.binary) masked.binary = true;
  if (f.note) masked.note = cleanUntrustedText(f.note);
  if (f.patch) masked.patch = delimitUntrusted(cleanUntrustedText(f.patch));
+ if (f.classification) masked.classification = f.classification;
  return masked;
 }
 

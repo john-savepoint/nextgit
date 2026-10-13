@@ -41,6 +41,22 @@ import { rateAllow, rateGate, rateLimitedResponse } from "./rate";
 import federationHarnesses from "../harnesses.json";
 
 import { isAssetPointer, parseAssetPointer, readVerifiedBlob, BlobIntegrityError, type AssetPointer } from "./assets";
+import {
+ DEFAULT_PRESIGN_EXPIRY_SECONDS,
+ MAX_MULTIPART_PARTS,
+ MAX_MULTIPART_PART_BYTES,
+ MIN_MULTIPART_PART_BYTES,
+ R2_MAX_OBJECT_BYTES,
+ S3ControlError,
+ completeMultipartSession,
+ createMultipartSession,
+ parsePresignExpiry,
+ planUpload,
+ presignGetUrl,
+ presignPutUrl,
+ resolvePresignCredentials,
+ type PresignedPart,
+} from "./r2-presign";
 import { computeSixClusterSignals, type SixClusterSignals } from "./fork-signals";
 import { authorize, DEMO_REPO_RE, REPO_NAME_RE, csrfGate, assertSeamEnabled, authorizeReveal, revealCapability, revealDenial, revealAuditRecord, unauthorizedResponse, type ActionType, type AuthorizeScope, type RevealAuditRecord } from "./auth";
 
@@ -58,6 +74,15 @@ export interface Env {
   * paths never fetch blob bytes (blob materialization is e12's
   * readVerifiedBlob chokepoint). */
  ASSET_BLOB?: R2Bucket;
+ /** Off-binding SigV4 credentials for presigned direct-to-R2 transfers
+  * (nextgit-serve-blobs-via-presigned-direct-to-r2-transfers). The
+  * account id is a var; the key pair are wrangler secrets
+  * (platform/wrangler.jsonc documents the three provisions). ANY
+  * missing value fails the presign surface closed (503
+  * presign-unavailable — never a silent empty-string credential). */
+ ASSET_ACCOUNT_ID?: string;
+ ASSET_S3_ACCESS_KEY_ID?: string;
+ ASSET_S3_SECRET_ACCESS_KEY?: string;
  AUTH_MODE?: string;
  /** Explicit reveal allowlist (FR-31) — absent ⇒ default-deny. */
  REVEAL_ALLOW?: unknown;
@@ -213,6 +238,8 @@ interface ChangeFile {
  patch?: string;
  /** R2 asset pointer (AD-10) — pointer rows render metadata only. */
  asset?: AssetPointer;
+ /** Per-file classification (judge idea 12) — language/role/sensitivity. */
+ classification?: FileClassification;
 }
 interface CommitMeta {
  hash: string;
@@ -451,16 +478,18 @@ async function readAgentHarness(repo: ArtifactsRepo): Promise<string> {
 // Secret classes (CONTRACT masking law) — values must never leave the worker.
 // ---------------------------------------------------------------------------
 
-const SECRET_BASENAMES = new Set(["credentials.json", "secrets.json", ".dev.vars"]);
-const SECRET_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*=/;
+// Secret-path rule (judge idea 12) — the classification
+// authority moved to ./classify (single source); this
+// re-export keeps every existing caller (route handlers,
+// the judge injection seam, computeChangeSet) working.
+export { isSecretPath } from "./classify";
+import { classifyFile, isSecretPath } from "./classify";
+import type { FileClassification } from "./classify";
 
-function isSecretPath(path: string): boolean {
- const base = path.slice(path.lastIndexOf("/") + 1);
- if (base.startsWith(".env")) return true;
- if (base.endsWith(".pem") || base.endsWith(".key") || base.endsWith(".p12")) return true;
- if (SECRET_BASENAMES.has(base)) return true;
- return path.includes("secrets/");
-}
+// KEY=VALUE line shape for secret-value extraction —
+// stays here with secretKeys()/revealKeyValue() (they
+// read text; classification does not).
+const SECRET_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
 function secretKeys(text: string): string[] {
  const keys: string[] = [];
@@ -748,7 +777,10 @@ export async function computeChangeSet(
  const texts: Record<string, FileTexts> = {};
  let patchBudget = MAX_FILES_WITH_PATCH;
  for (const f of files) {
-  // R2 asset pointer (AD-10) — classification runs BEFORE the
+  // Judge idea 12 — stamp the per-file classification
+  // (language/role/sensitivity; pure path law, zero
+  // extra reads) on every row of the projection.
+  f.classification = classifyFile(f.path, { binary: !!f.binary });
   // text reads (the F12 fix): a pointer row never enters the
   // binary check, so a hostile pointer with NUL bytes still
   // renders its metadata row instead of being silently skipped.
@@ -961,6 +993,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
      binary: f.binary,
      secret: f.secret,
      keys: f.keys,
+     classification: f.classification,
      note: f.note,
      asset: f.asset,
     })),
@@ -2695,8 +2728,17 @@ async function handleWhoami(request: Request, env: Env): Promise<Response> {
 async function handleAssetDownload(request: Request, env: Env): Promise<Response> {
  // The prefix-stripped remainder of the path, the /landings/ idiom
  // (the registration below slices "/asset/".length).
- const blobId = new URL(request.url).pathname.slice("/asset/".length);
- if (!/^[0-9a-f]{64}$/.test(blobId)) {
+ const remainder = new URL(request.url).pathname.slice("/asset/".length);
+ // Suffix dispatch (CONTRACT.md §GET /asset/{blobId}/presign): the
+ // presign surface rides THIS one /asset/ GET registration — no
+ // dispatcher change, no second route, and the download route's
+ // 400 law below is untouched (an "<x>/presign" remainder whose x is
+ // not a 64-hex key is still a 400 bad-request).
+ if (remainder.endsWith(ASSET_PRESIGN_SUFFIX)) {
+  return await handleAssetPresign(request, env, remainder.slice(0, -ASSET_PRESIGN_SUFFIX.length));
+ }
+ const blobId = remainder;
+ if (!BLOB_KEY_RE.test(blobId)) {
   return Response.json({ ok: false, error: "bad-request" }, { status: 400 });
  }
  try {
@@ -2718,6 +2760,418 @@ async function handleAssetDownload(request: Request, env: Env): Promise<Response
    return Response.json({ ok: false, error: "integrity" }, { status: 422 });
   }
   throw err;
+ }
+}
+
+// ---------------------------------------------------------------------------
+// Presigned direct-to-R2 transfers (AD-10; FR-47) — the asset tier's
+// control/data-plane split (CONTRACT.md §GET /asset/{blobId}/presign,
+// §POST /asset/uploads, §POST /asset/uploads/{uploadId}/complete).
+//
+// Measured constraint: a Worker request body caps at 100 MiB (Free/Pro)
+// / 5 GiB (Enterprise), so the Worker cannot proxy a multi-GB asset. R2
+// holds objects to 5 TiB with 5 GiB parts, and presigned URLs live 1 s to
+// 7 d. The grant therefore mints URLs: the client's bytes travel DIRECTLY
+// to the bucket (T2 — no Worker in the data path); the Worker issues only
+// the Create/Complete control frames over the S3 API (T3) and never sees
+// an asset byte (128 MB Worker memory is never approached).
+//
+// Precondition order: 400 (shape) -> 403 (AD-9 allowlist, BEFORE any
+// mint — a repo outside the demo namespace must never receive a URL) ->
+// 429 (rate, ROUTE_RATE_LIMITS["/asset-uploads:write"]) -> 503
+// (credentials absent — fail-closed) -> 200. The dispatcher's authorize()
+// + csrfGate() precede every handler for free (the /sessions/ dynamic-POST
+// posture).
+//
+// Secret hygiene: a presigned URL is a bearer token (credential-
+// adjacent). It is minted per request, returned ONLY in that mint
+// response, never stored (the assets.ts no-URL-egress law: not in
+// pointers, not in events), and never logged — the log lines below are
+// content-free (key, mode, counts).
+// ---------------------------------------------------------------------------
+
+/** The R2 asset bucket the presign surface signs against — the bucket the
+ *  ASSET_BLOB binding (`nextgit-asset-blobs`, platform/wrangler.jsonc)
+ *  points at, and upload-asset.mjs's default R2_BUCKET. */
+const ASSET_BUCKET_NAME = "nextgit-asset-blobs";
+
+/** The path suffix that rides the existing /asset/ GET prefix. */
+const ASSET_PRESIGN_SUFFIX = "/presign";
+
+/** The content-addressed blob key shape: hex-64 sha256 (the blobId key
+ *  IS the content hash — the tier's single key classifier). */
+const BLOB_KEY_RE = /^[0-9a-f]{64}$/;
+
+/** Asset-path cap (a declaration field, never a payload — the pointer
+ *  file is ≤ 1 MiB by its own law, the path is far shorter). */
+const MAX_ASSET_PATH_CHARS = 1024;
+
+/** content-type cap (a header value, never free text). */
+const MAX_ASSET_CONTENT_TYPE_CHARS = 255;
+
+/** One S3 byte-range header value: a single range (S3 accepts no more). */
+const RANGE_HEADER_RE = /^bytes=(?:\d+-\d*|-\d+)$/;
+
+/** A part ETag: hex with optional quotes and the multipart `-N` suffix —
+ *  the XML-injection guard for the value interpolated into the Complete
+ *  body (S3 part ETags are md5 hex; nothing else is accepted). */
+const PART_ETAG_RE = /^"?[0-9a-fA-F]+(?:-[0-9]+)?"?$/;
+
+/** The closed POST /asset/uploads body (CONTRACT.md). */
+interface AssetUploadGrantBody {
+ repo?: unknown;
+ path?: unknown;
+ sha256?: unknown;
+ size?: unknown;
+ contentType?: unknown;
+ partSize?: unknown;
+}
+
+/** The closed POST /asset/uploads/{uploadId}/complete body. */
+interface AssetUploadCompleteBody {
+ repo?: unknown;
+ sha256?: unknown;
+ parts?: unknown;
+}
+
+/** The uniform fail-closed answer when the presign credentials are absent
+ *  (never a silent empty-string credential, never a fallback). */
+function presignUnavailableResponse(): Response {
+ return Response.json({ ok: false, error: "presign-unavailable" }, { status: 503 });
+}
+
+/**
+ * Map an S3 control-plane failure to the contract's 502 — the S3 status
+ * is the ONLY detail carried (never an S3 error body, endpoint, or
+ * credential), and a transport failure is reported as unreachable. A
+ * failed control frame is never a 500 (the S3-409-never-500 law): the
+ * request was well-formed and the upstream said no.
+ */
+function s3ControlFailure(error: string, err: unknown): Response {
+ const detail = err instanceof S3ControlError ? `s3 status ${err.status}` : "s3 unreachable";
+ console.log(error, JSON.stringify({ detail }));
+ return Response.json({ ok: false, error, detail }, { status: 502 });
+}
+
+/**
+ * Parse the closed POST /asset/uploads body: exactly {repo, path, sha256,
+ * size, contentType?, partSize?}. Every field is validated BEFORE any
+ * mint, and unknown keys are refused (the /sessions closed-schema law).
+ * `path` must be an asset-pointer path (`assets/<name>.asset.json`, the
+ * tier's own single-source classifier): a grant exists to serve the
+ * pointer that will reference the blob, so the mint can never be scoped
+ * to an arbitrary path.
+ */
+function parseAssetUploadGrantBody(raw: unknown): {
+ repo: string;
+ path: string;
+ sha256: string;
+ size: number;
+ contentType?: string;
+ partSize?: number;
+} | Response {
+ if (!raw || typeof raw !== "object" || Array.isArray(raw)) return badRequest("bad-request");
+ const body = raw as AssetUploadGrantBody;
+ if (!Object.keys(body).every((k) => k === "repo" || k === "path" || k === "sha256" || k === "size" || k === "contentType" || k === "partSize")) {
+  return badRequest("bad-request");
+ }
+ if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+  return badRequest(`invalid repo: ${JSON.stringify(body.repo)}`);
+ }
+ if (
+  typeof body.path !== "string" ||
+  body.path === "" ||
+  body.path.length > MAX_ASSET_PATH_CHARS ||
+  body.path.startsWith("/") ||
+  body.path.endsWith("/") ||
+  body.path.split("/").includes("..") ||
+  !isAssetPointer(body.path)
+ ) {
+  return badRequest(`invalid path: ${JSON.stringify(body.path)}`);
+ }
+ if (typeof body.sha256 !== "string" || !BLOB_KEY_RE.test(body.sha256)) {
+  return badRequest(`invalid sha256: ${JSON.stringify(body.sha256)}`);
+ }
+ if (typeof body.size !== "number" || !Number.isInteger(body.size) || body.size < 0 || body.size > R2_MAX_OBJECT_BYTES) {
+  return badRequest(`invalid size: 0..${R2_MAX_OBJECT_BYTES}`);
+ }
+ let contentType: string | undefined;
+ if (body.contentType !== undefined) {
+  if (
+   typeof body.contentType !== "string" ||
+   body.contentType === "" ||
+   body.contentType.length > MAX_ASSET_CONTENT_TYPE_CHARS ||
+   /[\r\n]/.test(body.contentType)
+  ) {
+   return badRequest(`invalid contentType: 1..${MAX_ASSET_CONTENT_TYPE_CHARS} characters`);
+  }
+  contentType = body.contentType;
+ }
+ let partSize: number | undefined;
+ if (body.partSize !== undefined) {
+  if (
+   typeof body.partSize !== "number" ||
+   !Number.isInteger(body.partSize) ||
+   body.partSize < MIN_MULTIPART_PART_BYTES ||
+   body.partSize > MAX_MULTIPART_PART_BYTES
+  ) {
+   return badRequest(`invalid partSize: ${MIN_MULTIPART_PART_BYTES}..${MAX_MULTIPART_PART_BYTES}`);
+  }
+  partSize = body.partSize;
+ }
+ return { repo: body.repo, path: body.path, sha256: body.sha256, size: body.size, contentType, partSize };
+}
+
+/**
+ * Parse the closed POST /asset/uploads/{uploadId}/complete body: exactly
+ * {repo, sha256, parts}. `parts` is 1..MAX_MULTIPART_PARTS strictly
+ * ascending, duplicate-free {partNumber, etag} entries — the ascending
+ * law is also the duplicate law, and the etag shape guard closes XML
+ * injection into the Complete body.
+ */
+function parseAssetUploadCompleteBody(raw: unknown): {
+ repo: string;
+ sha256: string;
+ parts: Array<{ partNumber: number; etag: string }>;
+} | Response {
+ if (!raw || typeof raw !== "object" || Array.isArray(raw)) return badRequest("bad-request");
+ const body = raw as AssetUploadCompleteBody;
+ if (!Object.keys(body).every((k) => k === "repo" || k === "sha256" || k === "parts")) {
+  return badRequest("bad-request");
+ }
+ if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+  return badRequest(`invalid repo: ${JSON.stringify(body.repo)}`);
+ }
+ if (typeof body.sha256 !== "string" || !BLOB_KEY_RE.test(body.sha256)) {
+  return badRequest(`invalid sha256: ${JSON.stringify(body.sha256)}`);
+ }
+ if (!Array.isArray(body.parts) || body.parts.length === 0 || body.parts.length > MAX_MULTIPART_PARTS) {
+  return badRequest(`invalid parts: 1..${MAX_MULTIPART_PARTS}`);
+ }
+ const parts: Array<{ partNumber: number; etag: string }> = [];
+ let previous = 0;
+ for (const entry of body.parts) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+   return badRequest("invalid parts: each entry must be {partNumber, etag}");
+  }
+  const part = entry as { partNumber?: unknown; etag?: unknown };
+  if (!Object.keys(part).every((k) => k === "partNumber" || k === "etag")) return badRequest("bad-request");
+  if (
+   typeof part.partNumber !== "number" ||
+   !Number.isInteger(part.partNumber) ||
+   part.partNumber < 1 ||
+   part.partNumber > MAX_MULTIPART_PARTS ||
+   part.partNumber <= previous
+  ) {
+   return badRequest(`invalid partNumber: 1..${MAX_MULTIPART_PARTS} ascending and unique`);
+  }
+  if (typeof part.etag !== "string" || part.etag.length === 0 || part.etag.length > 128 || !PART_ETAG_RE.test(part.etag)) {
+   return badRequest(`invalid etag: ${JSON.stringify(part.etag)}`);
+  }
+  previous = part.partNumber;
+  parts.push({ partNumber: part.partNumber, etag: part.etag });
+ }
+ return { repo: body.repo, sha256: body.sha256, parts };
+}
+
+/**
+ * GET /asset/{blobId}/presign — mint a short-lived presigned GET for one
+ * content-addressed blob (CONTRACT.md §GET /asset/{blobId}/presign). The
+ * key IS the content hash, so no repo is in scope and none is
+ * adjudicated; the route deliberately does NOT head the object (a
+ * key-existence oracle is exactly what §GET /asset/{blobId} refuses —
+ * a presigned URL for an absent key is useless, not informative).
+ *
+ * Precondition order: 400 (blobId/key shape, then `expires`, then
+ * `range`) -> 429 (rate) -> 503 (credentials absent) -> 200. authorize()
+ * already ran at the dispatcher (deny mode 401s before any mint).
+ *
+ * `expires` is clamped into [1, 604800] (R2's documented range); absent
+ * -> 300. A non-integer / non-positive value is a 400, never silently
+ * rounded. `range` folds into the SigV4 signed headers, so the byte
+ * range cannot be swapped after minting — the client MUST send the same
+ * `Range` header.
+ */
+async function handleAssetPresign(request: Request, env: Env, blobId: string): Promise<Response> {
+ if (!BLOB_KEY_RE.test(blobId)) return badRequest(`invalid blobId: ${JSON.stringify(blobId)}`);
+ const url = new URL(request.url);
+ const expiresIn = parsePresignExpiry(url.searchParams.get("expires"));
+ if (expiresIn === null) return badRequest("invalid expires: positive integer seconds");
+ const range = url.searchParams.get("range");
+ if (range !== null && !RANGE_HEADER_RE.test(range)) return badRequest(`invalid range: ${JSON.stringify(range)}`);
+ const rateDenied = rateGate("/asset/presign", request);
+ if (rateDenied) return rateDenied;
+ const creds = resolvePresignCredentials(env);
+ if (!creds) return presignUnavailableResponse();
+ const now = Date.now();
+ const signedUrl = await presignGetUrl(creds, {
+  bucket: ASSET_BUCKET_NAME,
+  key: blobId,
+  expiresInSeconds: expiresIn,
+  now,
+  range: range ?? undefined,
+ });
+ console.log("asset-presign", JSON.stringify({ key: blobId, expiresIn, ranged: range !== null }));
+ return Response.json({
+  ok: true,
+  blobId,
+  url: signedUrl,
+  expiresAt: new Date(now + expiresIn * 1000).toISOString(),
+  expiresIn,
+  range,
+ });
+}
+
+/**
+ * POST /asset/uploads — mint the direct-to-R2 upload grant: one presigned
+ * PUT for a single-part upload, or a CreateMultipartUpload session plus
+ * one presigned PUT per part (CONTRACT.md §POST /asset/uploads). The key
+ * is content-addressed (sha256 hex — the upload-asset.mjs convention), so
+ * two callers declaring the same bytes converge on one object.
+ *
+ * The handler-side path discipline: the dynamic prefix is "/asset/uploads"
+ * and NOTHING may follow it on this route (the complete route owns
+ * "<uploadId>/complete" and is registered before this one) — any other
+ * remainder is a 404, never a guess.
+ */
+async function handleAssetUploadGrant(request: Request, env: Env, remainder: string): Promise<Response> {
+ if (remainder !== "") {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const parsed = parseAssetUploadGrantBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ // AD-9 allowlist BEFORE any mint: a repo outside the demo namespace
+ // must never receive a bearer URL (the /raw carve-out posture — the
+ // body-carried repo is adjudicated here, before any S3 call).
+ if (!DEMO_REPO_RE.test(parsed.repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${parsed.repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const rateDenied = rateGate("/asset-uploads:write", request);
+ if (rateDenied) return rateDenied;
+ const creds = resolvePresignCredentials(env);
+ if (!creds) return presignUnavailableResponse();
+
+ const now = Date.now();
+ const expiresIn = DEFAULT_PRESIGN_EXPIRY_SECONDS;
+ const expiresAt = new Date(now + expiresIn * 1000).toISOString();
+ const plan = planUpload(parsed.size, parsed.partSize);
+ if (plan.mode === "single") {
+  const url = await presignPutUrl(creds, {
+   bucket: ASSET_BUCKET_NAME,
+   key: parsed.sha256,
+   expiresInSeconds: expiresIn,
+   now,
+   contentType: parsed.contentType,
+  });
+  console.log("asset-upload-grant", JSON.stringify({ repo: parsed.repo, key: parsed.sha256, mode: "single", bytes: parsed.size }));
+  return Response.json({
+   ok: true,
+   repo: parsed.repo,
+   path: parsed.path,
+   key: parsed.sha256,
+   upload: { mode: "single", url, expiresAt, expiresIn },
+  });
+ }
+ try {
+  const uploadId = await createMultipartSession(creds, {
+   bucket: ASSET_BUCKET_NAME,
+   key: parsed.sha256,
+   contentType: parsed.contentType,
+   now,
+  });
+  const parts: PresignedPart[] = [];
+  for (let partNumber = 1; partNumber <= plan.partCount; partNumber++) {
+   parts.push({
+    partNumber,
+    url: await presignPutUrl(creds, {
+     bucket: ASSET_BUCKET_NAME,
+     key: parsed.sha256,
+     expiresInSeconds: expiresIn,
+     now,
+     partNumber,
+     uploadId,
+    }),
+   });
+  }
+  console.log("asset-upload-grant", JSON.stringify({ repo: parsed.repo, key: parsed.sha256, mode: "multipart", parts: parts.length }));
+  return Response.json({
+   ok: true,
+   repo: parsed.repo,
+   path: parsed.path,
+   key: parsed.sha256,
+   upload: {
+    mode: "multipart",
+    uploadId,
+    partSize: plan.partSize,
+    partCount: plan.partCount,
+    parts,
+    expiresAt,
+    expiresIn,
+   },
+  });
+ } catch (err) {
+  return s3ControlFailure("upload-init-failed", err);
+ }
+}
+
+/**
+ * POST /asset/uploads/{uploadId}/complete — close a client-direct
+ * multipart upload: the Worker forwards the client's
+ * `[{partNumber, etag}]` list to S3 CompleteMultipartUpload and reports
+ * the composite ETag (CONTRACT.md §POST /asset/uploads/{uploadId}/complete).
+ *
+ * `size` in the response is MEASURED from the bucket's object metadata
+ * (an R2 head — a metadata read, never a byte read, so the e12
+ * readVerifiedBlob chokepoint property holds). It is never the client's
+ * declared number, and the typed-null law applies when the tier is
+ * unreadable (null, never a guess).
+ *
+ * Handler-side path discipline: the remainder must be exactly
+ * "<uploadId>/complete" (the /sessions/ steer idiom) — anything else is
+ * a 404.
+ */
+async function handleAssetUploadComplete(request: Request, env: Env, remainder: string): Promise<Response> {
+ if (!remainder.endsWith("/complete")) {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const uploadId = remainder.slice(0, -"/complete".length);
+ if (uploadId === "" || uploadId.includes("/")) {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const parsed = parseAssetUploadCompleteBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ if (!DEMO_REPO_RE.test(parsed.repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${parsed.repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const rateDenied = rateGate("/asset-uploads:write", request);
+ if (rateDenied) return rateDenied;
+ const creds = resolvePresignCredentials(env);
+ if (!creds) return presignUnavailableResponse();
+
+ try {
+  const etag = await completeMultipartSession(creds, {
+   bucket: ASSET_BUCKET_NAME,
+   key: parsed.sha256,
+   uploadId,
+   parts: parsed.parts,
+  });
+  let size: number | null = null;
+  try {
+   const object = env.ASSET_BLOB ? await env.ASSET_BLOB.head(parsed.sha256) : null;
+   size = object?.size ?? null;
+  } catch {
+   // Typed-null law: an unreadable tier reports no size, never a guess.
+  }
+  console.log("asset-upload-complete", JSON.stringify({ repo: parsed.repo, key: parsed.sha256, parts: parsed.parts.length, measured: size !== null }));
+  return Response.json({ ok: true, repo: parsed.repo, key: parsed.sha256, etag, size });
+ } catch (err) {
+  return s3ControlFailure("upload-complete-failed", err);
  }
 }
 
@@ -3653,6 +4107,7 @@ async function handleFile(request: Request, env: Env): Promise<Response> {
     ref,
     path,
     classification: "secret",
+    file: classifyFile(path),
     size: content.size,
     keys,
    });
@@ -3664,6 +4119,7 @@ async function handleFile(request: Request, env: Env): Promise<Response> {
     ref,
     path,
     classification: "binary",
+    file: classifyFile(path),
     size: content.size,
    });
   }
@@ -3673,6 +4129,7 @@ async function handleFile(request: Request, env: Env): Promise<Response> {
    ref,
    path,
    classification: "text",
+   file: classifyFile(path),
    size: content.size,
    text: content.text,
   });
@@ -4423,6 +4880,27 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; act
  // anything else -> 404 not-found, the handler-side path
  // discipline).
  { prefix: "/sessions/", method: "POST", action: "write", handler: (request, env) => handleSessionsSteer(request, env, new URL(request.url).pathname.slice("/sessions/".length)) },
+ // POST /asset/uploads/{uploadId}/complete — the client-direct multipart
+ // control plane (nextgit-serve-blobs-via-presigned-direct-to-r2-
+ // transfers; CONTRACT.md §POST /asset/uploads/{uploadId}/complete).
+ // POST, mutating: the dispatcher's dynamic branch applies authorize()
+ // + csrfGate() (no dispatcher change). Registered BEFORE the grant
+ // prefix below — the dynamic loop is first-match-wins and
+ // "/asset/uploads/<id>/complete" also starts with "/asset/uploads".
+ // The handler validates the remainder (the /sessions/ steer idiom:
+ // anything but "<uploadId>/complete" is a 404, never a guess).
+ { prefix: "/asset/uploads/", method: "POST", action: "write", handler: (request, env) => handleAssetUploadComplete(request, env, new URL(request.url).pathname.slice("/asset/uploads/".length)) },
+ // POST /asset/uploads — the direct-to-R2 upload grant (CONTRACT.md
+ // §POST /asset/uploads). DYNAMIC rather than a static ROUTES entry:
+ // the static form is unreachable-by-law. A static "POST
+ // /asset/uploads" registers the path, so "GET /asset/uploads" would
+ // be claimed by the "/asset/" GET prefix (handleAssetDownload's 400
+ // bad-request) INSTEAD of the API boundary's 405 method-not-allowed —
+ // breaking the route-discipline 405 law. As a POST prefix the GET
+ // behaviour is unchanged (still the /asset/ GET route) and every
+ // wrong method on "/asset/uploads" still 405s at the boundary.
+ // The handler refuses any remainder (path discipline).
+ { prefix: "/asset/uploads", method: "POST", action: "write", handler: (request, env) => handleAssetUploadGrant(request, env, new URL(request.url).pathname.slice("/asset/uploads".length)) },
 ];
 
 // UI document set (AD-8 boundary discipline): the wrangler-assets

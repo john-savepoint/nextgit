@@ -56,6 +56,14 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // <=200 discovered repos — the /changes posture), so only the
  // ":write" key exists; see CONTRACT.md §GET /sessions.
  "/sessions:write": { limit: 30, windowMs: 60_000 },
+ // Presigned direct-to-R2 transfers (nextgit-serve-blobs-via-presigned-
+ // direct-to-r2-transfers): the grant + the multipart complete share ONE
+ // write-class budget (both mint or extend a client-direct upload
+ // session), and the presign read carries its own. The grant mints
+ // bearer URLs, so it takes the tighter write class (the
+ // /comments:write precedent).
+ "/asset-uploads:write": { limit: 20, windowMs: 60_000 },
+ "/asset/presign": { limit: 60, windowMs: 60_000 },
 };
 
 /** One fixed window per (route, caller). */

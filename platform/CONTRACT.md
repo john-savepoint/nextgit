@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.5 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
+Version: v3.7 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -47,6 +47,214 @@ variant the caller passes the pointer's recorded `sha256` as the expectation)
 **and** `actualSha256 === blobId` (content-addressed key != stored digest —
 the substitution case). Either mismatch fails closed: zero bytes materialize,
 no fallback to another key, no cache.
+
+## GET /asset/{blobId}/presign
+
+Mint a short-lived **presigned URL** for one content-addressed blob, so a
+large download travels **client-direct to R2** and never through the Worker
+(AD-10; FR-47; `nextgit-serve-blobs-via-presigned-direct-to-r2-transfers`).
+The path param is the same 64-hex content-addressed key as the download
+route, and the presign surface **rides that route's registration** (a suffix
+dispatch in the `/asset/` GET handler — one registration, no second route,
+no dispatcher change).
+
+Why this exists: a Workers request body caps at 100 MiB (Free/Pro) / 5 GiB
+(Enterprise), so the Worker cannot proxy a multi-GB asset. R2 holds objects
+to 5 TiB with 5 GiB parts and honours presigned URLs for 1 s–7 d. The Worker
+therefore mints URLs and never carries an asset byte.
+
+- **200** — `{ ok:true, blobId, url, expiresAt, expiresIn, range }`.
+  `url` is a SigV4-signed URL for the bucket's S3 endpoint
+  (`https://<accountId>.r2.cloudflarestorage.com/<bucket>/<key>`, path-style);
+  it is a **bearer token** — returned in this response only, never stored,
+  never logged.
+- **400** — `bad-request`: the blobId is not `/^[0-9a-f]{64}$/`; `expires` is
+  present but not a positive integer; or `range` is present and not one S3
+  range (`bytes=<start>-<end>` / `bytes=<start>-` / `bytes=-<suffix>`).
+- **429** — `{ok:false,error:"rate-limited"}`, cap 60/min per caller
+  (`ROUTE_RATE_LIMITS["/asset/presign"]`).
+
+Query parameters:
+
+- `expires` — optional lifetime in seconds. Absent → **300** (the default).
+  Clamped into **[1, 604800]** (R2's documented minimum and maximum): a
+  smaller value floors, a larger caps. A non-integer or non-positive value is
+  a **400**, never silently rounded. The emitted `X-Amz-Expires` is the
+  clamped value, so `expiresAt` = mint time + `expiresIn`.
+- `range` — optional S3 byte range. When present it folds into the **SigV4
+  signed-headers set** (`X-Amz-SignedHeaders` includes `range`), so the byte
+  range is tamper-evident: the client **must** send that exact `Range`
+  header. A different range is a different signature. The response echoes the
+  signed value in `range` (`null` when absent).
+
+Precondition order: `400` (blobId, then `expires`, then `range`) → `429`
+(rate) → `503` (credentials absent) → `200`. The `authorize()` chokepoint
+runs first in the dispatcher, so deny mode 401s before any mint.
+
+**No key-existence oracle:** the route deliberately does **not** head the
+object. A blobId's presence is not disclosed by a mint — a presigned URL for
+an absent key is useless, not informative (the same property §GET
+/asset/{blobId} protects by mapping a missing object to the integrity 422
+rather than a 404).
+
+**Fail-closed credentials:** SigV4 signing needs the account id plus the S3
+API key pair (`ASSET_ACCOUNT_ID`; `ASSET_S3_ACCESS_KEY_ID` /
+`ASSET_S3_SECRET_ACCESS_KEY` as wrangler secrets). ANY of the three missing →
+`503 {ok:false,error:"presign-unavailable"}` — never a silent empty-string
+credential and never a fallback path.
+
+## POST /asset/uploads
+
+Mint the **direct-to-R2 upload grant**: the URLs a client uploads an asset
+with, so the asset bytes never traverse the Worker.
+
+Body (closed schema — any unknown field → `400 {ok:false,error:"bad-request"}`):
+
+```json
+{ "repo": "agent-1", "path": "assets/hero.asset.json",
+  "sha256": "<hex-64 content hash>", "size": 3221225472,
+  "contentType": "image/png", "partSize": 67108864 }
+```
+
+- `repo` — required, the `REPO_NAME_RE` charset plus the AD-9 demo allowlist.
+- `path` — required, the **asset-pointer path** that will reference the blob
+  (`assets/<name>.asset.json`, the tier's own single-source classifier
+  `isAssetPointer`) — carrying the change-set path law (non-empty, no `..`
+  segment, no leading/trailing `/`, ≤1024 chars). A grant exists to serve a
+  pointer; the mint is therefore never scoped to an arbitrary path.
+- `sha256` — required, hex-64. **The R2 object key IS this value**
+  (content-addressed — the `upload-asset.mjs` convention), so two callers
+  declaring the same bytes converge on one object, and the key doubles as the
+  integrity anchor the pointer records.
+- `size` — required, integer, `0..5 TiB` (`R2_MAX_OBJECT_BYTES`).
+- `contentType` — optional, 1..255 chars, no CR/LF.
+- `partSize` — optional, integer, 5 MiB..5 GiB. A value below the S3
+  multipart minimum is a **400**, never silently clamped (the platform
+  refuses to mint a part plan the bucket would reject).
+
+Response `200` — single-part (`size` fits one part):
+
+```json
+{ "ok": true, "repo": "agent-1", "path": "assets/hero.asset.json",
+  "key": "<hex-64>",
+  "upload": { "mode": "single", "url": "<presigned PUT>",
+              "expiresAt": "<iso-8601-utc>", "expiresIn": 300 } }
+```
+
+Multipart (`size` exceeds one part):
+
+```json
+{ "ok": true, "repo": "agent-1", "path": "assets/hero.asset.json",
+  "key": "<hex-64>",
+  "upload": { "mode": "multipart", "uploadId": "<R2 upload id>",
+              "partSize": 67108864, "partCount": 48,
+              "parts": [{ "partNumber": 1, "url": "<presigned PUT>" }],
+              "expiresAt": "<iso-8601-utc>", "expiresIn": 300 } }
+```
+
+- The client PUTs the bytes **directly to the bucket**: one PUT to `url`
+  (single) or one PUT per `parts[]` entry (multipart). The Worker issues only
+  the **control frames** — `CreateMultipartUpload` here, and
+  `CompleteMultipartUpload` on the complete route — so no asset byte ever
+  reaches the Worker (the 128 MB Worker memory is never approached).
+- Part plan (derived, never hand-added): single when `size <= partSize`,
+  else `ceil(size / partSize)` parts; the part count is clamped to
+  **10,000** by *growing* the part size (`ceil(size / 10000)`), which keeps a
+  5 TiB object addressable without ever exceeding the S3 part limits.
+- A declared `contentType` folds into the presigned PUT's signed headers: the
+  client **must** send that exact `content-type` on the PUT, so the stored
+  object's media type cannot be swapped after minting. Per-part PUTs sign the
+  `partNumber`/`uploadId` query instead (the object's content type comes from
+  `CreateMultipartUpload`).
+- `expiresIn` is 300 s (`DEFAULT_PRESIGN_EXPIRY_SECONDS`); every URL in one
+  grant shares one expiry instant.
+- Demo-mode allowlist (AD-9): `repo` must match
+  `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false,
+  error:"repo-not-allowed", detail}` **before any mint** — a repo outside the
+  demo namespace never receives a bearer URL. The check runs in the handler
+  (the body-carried repo cannot be adjudicated by the query-only
+  `extractScope`, the `/raw` carve-out posture).
+- Rate limit (AD-9): cap 20/min per caller →
+  `429 {ok:false,error:"rate-limited"}` (`ROUTE_RATE_LIMITS["/asset-uploads:write"]`,
+  shared with the complete route — see Rate limits).
+- Precondition order: `400` (shape) → `403` (allowlist) → `429` (rate) →
+  `503` (credentials absent) → `200`.
+- `404` — the path remainder after `/asset/uploads` is not empty (the
+  handler-side path discipline: this prefix owns exactly that path).
+- `502 {ok:false,error:"upload-init-failed", detail:"s3 status <n>"}` — the
+  S3 control frame failed. **A control-frame refusal is never a 500**: the
+  request was well-formed and the upstream said no. `detail` carries the S3
+  status only — never an S3 error body, endpoint, or credential.
+- `503 {ok:false,error:"presign-unavailable"}` — credentials absent.
+
+Residual risk (accepted, documented): a presigned URL is a bearer token, so
+anyone holding it can perform the one signed operation until it expires.
+Mitigations: 300 s default lifetime, 7 d hard cap, the allowlist check and
+rate cap before any mint, and CSRF on the minting POST.
+
+## POST /asset/uploads/{uploadId}/complete
+
+Close a client-direct multipart upload. The client returns the part ETags it
+collected from R2, and the Worker forwards them to S3
+`CompleteMultipartUpload` (still no asset byte in the Worker).
+
+Body (closed schema):
+
+```json
+{ "repo": "agent-1", "sha256": "<hex-64>",
+  "parts": [{ "partNumber": 1, "etag": "\"<md5 hex>\"" }] }
+```
+
+- `repo` — required; AD-9 demo allowlist, enforced before any S3 call.
+- `sha256` — required, hex-64: the content-addressed key, which is also how
+  the object key is re-derived here (the route stores no session state, so a
+  complete is stateless apart from `uploadId`).
+- `parts` — required, 1..10,000 entries, **strictly ascending** and therefore
+  duplicate-free `{partNumber, etag}` (partNumber `1..10000`). `etag` must be
+  the hex part ETag R2 returned (quotes optional, hex/hyphen only, ≤128
+  chars) — the shape guard that keeps the value XML-safe in the Complete body.
+
+- `uploadId` (path) — required; the value `CreateMultipartUpload` returned in
+  the grant.
+
+Response `200`:
+
+```json
+{ "ok": true, "repo": "agent-1", "key": "<hex-64>",
+  "etag": "\"<composite etag>\"", "size": 3221225472 }
+```
+
+- `etag` — the composite object ETag S3 returned (empty string when the
+  response carried none).
+- `size` — **measured**, not declared: the object's stored size read from the
+  bucket's metadata (`ASSET_BLOB.head` — a metadata read, never a byte read,
+  so the §R2 integrity chokepoint's "single byte-returning `get`" property is
+  untouched). The typed-null law applies: `null` when the asset tier is
+  unreadable, and never the client's declared number.
+
+- `400` — bad shape (unknown key, bad `repo`/`sha256`, empty/oversized/
+  non-ascending `parts`, malformed `etag`).
+- `403` — allowlist (before any S3 call).
+- `429` — `ROUTE_RATE_LIMITS["/asset-uploads:write"]` (shared with the grant).
+- `404` — the path remainder is not exactly `<uploadId>/complete`.
+- `502 {ok:false,error:"upload-complete-failed", detail:"s3 status <n>"}` —
+  S3 refused the complete (e.g. `409` for a bad part list or an unknown
+  uploadId). Never a 500, never an S3 error body.
+- `503 {ok:false,error:"presign-unavailable"}` — credentials absent.
+- Precondition order: `400` (shape) → `403` (allowlist) → `429` (rate) →
+  `503` (credentials absent) → `200` / `502`.
+
+Abandoned sessions are not aborted by a route (the client simply stops). The
+module carries `abortMultipartSession` for operator/out-of-band use. **Residual
+risk (MEDIUM, documented, unmanaged today):** the committed bucket lifecycle
+rule (§R2 asset tier) expires *objects* by age; it carries **no**
+`abortMultipartUploadsTransition`, so an incomplete multipart upload is not
+reclaimed by it, and nothing else aborts one — a client that starts a
+multipart upload and walks away leaves an incomplete upload in the bucket
+(billed storage, no visible object) until an operator aborts it. Closing this
+needs either a client-visible abort route or an
+`abortMultipartUploadsTransition` on the committed rule (the provisioning
+recipe is in `platform/scripts/README.md`); neither ships in this slice.
 
 ## GET /tree?repo=...&ref=main&path=...
 
@@ -100,6 +308,10 @@ no new binding method. `repo`/`ref`/`path` validation is the
     law: key names, never values — the existing `isSecretPath` +
     `secretKeys` seam decides the class and extracts the keys
     server-side; the raw value never leaves the worker).
+  - `file` — the per-file classification (judge idea 12), present
+    on every 200 shape: `{language, role, sensitivity}`. Pure
+    path/extension law (`platform/src/classify.ts`); `sensitivity`
+    is the AD-4 policy vocabulary (`public | internal | secret`).
 - **400 / 401 / 403** — the `/tree` validation + authorize law.
 - **404** — `{ok:false,error:"not-found"}` (unknown repo/ref/path).
 - **Rate:** 60 per 60 s per caller (`ROUTE_RATE_LIMITS["/file"]`
@@ -323,6 +535,7 @@ Per-proposal change-set (server-side; no clones).
   "files": [{
     "path": "src/auth.ts", "status": "added|modified|removed",
     "additions": 4, "deletions": 0,
+    "classification": {"language":"typescript","role":"source","sensitivity":"internal"},
     "intent": "git-notes text of the head commit, when present",
     "secret": true, "keys": ["DATABASE_URL"],
     "patch": "--- a/src/auth.ts ..."
@@ -332,6 +545,9 @@ Per-proposal change-set (server-side; no clones).
 
 - `intent` — git-notes text of the head commit, when present.
 - `secret`, `keys` — secret-class files only; `patch` omitted for them.
+- `classification` — per-file classification (judge idea 12), stamped
+  server-side on every row: `{language, role, sensitivity}` (pure
+  path/extension law; `platform/src/classify.ts`).
 - `patch` — absent for secret/binary/oversized files.
 - `commits` — newest-first list of the proposal's first-parent commits from HEAD down to (and including) the fork point (`base.sha`). Each entry: `hash` (40-hex SHA-1), `message` (commit subject string), `author` (string, rendered as `Name <email>`), and `timestamp` (Unix seconds of the author date). Bounded by the fork-point walk (`limit: 200`); empty when the walk yields no commits. Never includes commits past the fork point.
 - Demo-mode allowlist (AD-9): `repo` and `base` must match the allowlist (`^(demo|agent)(-[A-Za-z0-9._-]+)?$`); anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read.
@@ -342,7 +558,7 @@ The set view + conflict map.
 
 ```json
 { "ok": true, "base": {"repo","ref","head"}, "ref": "main",
-  "proposals": [ {"repo","head","forkSha?","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","secret?","keys?"}]} ],
+  "proposals": [ {"repo","head","forkSha?","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","classification","secret?","keys?"}]} ],
   "conflicts": [ {"file","repos":["agent-1","agent-2"],"kind":"text-conflict",
                   "pairs":[{"a":"agent-1","b":"agent-2","kind":"text-conflict","conflict":true,"region":{"baseLines","aLines","bLines"}}]} ],
   "summary": {"proposals":4,"changedFiles":4,"sharedFiles":1,"conflictingPairs":1,"cleanPairs":0}
@@ -1035,7 +1251,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the seventeen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `GET /checks`, `POST /sessions/{repo}/steer`, `GET /agents`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the twenty bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `GET /checks`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -1055,6 +1271,8 @@ Edge rate limits cover the seventeen bound routes in the table below (`/land`, `
 | `GET /issues` | 60 | 60 s |
 | `GET /checks` | 60 | 60 s |
 | `POST /sessions/{repo}/steer` | 30 | 60 s |
+| `POST /asset/uploads` | 20 | 60 s (shared with `POST /asset/uploads/{uploadId}/complete` — one write class: both mint or extend a client-direct upload session) |
+| `GET /asset/{blobId}/presign` | 60 | 60 s |
 
 - **Caller key:** `CF-Connecting-IP` (set by Cloudflare's edge in production; client-supplied in local dev), fallback `"unknown"` when absent. Each route's window is independent per caller — a flood on one route cannot evict another route's windows.
 - **Uniform 429 body:** `{ok:false,error:"rate-limited"}` — no caller echo, no remaining-count leak (NFR-3 posture preserved).
@@ -1113,9 +1331,32 @@ chokepoint; fail-closed `BlobIntegrityError` / `{ok:false,error:"integrity"}`).
 The chokepoint serves the asset download route (`GET /asset/{blobId}` above)
 and is the only byte-returning `ASSET_BLOB.get` in `platform/src/**`.
 
-**No URL egress:** `blobId` is an opaque R2 key. Presigned URLs are minted
-at read time by the binding, never stored in pointers, never rendered
-(credential-adjacent values follow the masking law).
+**Presigned direct transfers (T2/T3 — no asset byte in the Worker):** the
+tier's large-asset paths are `GET /asset/{blobId}/presign` (download),
+`POST /asset/uploads` (upload grant) and
+`POST /asset/uploads/{uploadId}/complete` (multipart close). The Worker
+**mints URLs** and issues only the Create/Complete S3 control frames; the
+bytes travel client-direct to the bucket's S3 endpoint. Two facts are
+load-bearing and replaced an earlier, now-incorrect note (dated correction
+2026-10-14): the Workers R2 binding has **no** presign method
+(`head/get/put/delete/list/createMultipartUpload/resumeMultipartUpload`
+only), and AWS SDK v3 does not run in Workers — so the URLs are signed
+**off-binding** by the in-house SigV4 signer in
+`platform/src/r2-presign.ts` with an S3 API token, using WebCrypto only.
+Presigning is "credentials + SigV4" with no R2 round trip.
+
+**No URL egress (corrected 2026-10-14):** `blobId` is an opaque R2 key; a
+presigned URL is a bearer token and is **never stored** — not in pointers,
+not in events, not in KV — and **never logged**. It is rendered in **exactly
+one place**: the mint response that created it (the `/reveal` shape: the
+value appears only in the response that minted it). `blobId`/`key` values
+are logged; URL values are not.
+
+**Credentials:** SigV4 signing needs `ASSET_ACCOUNT_ID` (var) plus
+`ASSET_S3_ACCESS_KEY_ID` / `ASSET_S3_SECRET_ACCESS_KEY` (wrangler secrets).
+Any of the three missing → every presign route answers
+`503 {ok:false,error:"presign-unavailable"}` (fail closed — never a silent
+empty-string credential, never a fallback path).
 
 **Fail-closed parse:** a pointer whose `v`, `sha256`, `size`, or `blobId`
 violates the shape (or whose text is not JSON, or exceeds 1 MiB) parses to

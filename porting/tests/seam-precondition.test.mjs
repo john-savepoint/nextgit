@@ -224,10 +224,17 @@ const post = async (env, path, body = null, headers = {}) => {
   // nextgit-e16: /sessions/ is the FIRST dynamic POST route
   // (the session-steering write). The static-POST set above
   // is UNCHANGED — the steer POST is dynamic, not static.
-  // DYNAMIC_ROUTES now carries exactly one POST at /sessions/.
+  // nextgit-serve-blobs-via-presigned-direct-to-r2-transfers adds
+  // TWO more dynamic POSTs: "/asset/uploads/" (the multipart-complete
+  // control plane) and "/asset/uploads" (the upload grant), in that
+  // order — the dispatcher's dynamic loop is first-match-wins and
+  // "/asset/uploads/<id>/complete" also starts with the grant prefix.
+  // All three run behind the dispatcher's dynamic-POST branch
+  // (authorize() + csrfGate()); the end-to-end CSRF proof for the two
+  // asset-upload POSTs lives in presigned-transfers.test.mjs group 9.
   const dynPosts = DYNAMIC_ROUTES.filter((r) => r.method === "POST");
-  check("H: DYNAMIC_ROUTES carries exactly one POST at /sessions/ (the steer)",
-    dynPosts.length === 1 && dynPosts[0]?.prefix === "/sessions/",
+  check("H: DYNAMIC_ROUTES carries exactly three POSTs, ordered /sessions/, /asset/uploads/, /asset/uploads",
+    dynPosts.length === 3 && J(dynPosts.map((r) => r.prefix)) === J(["/sessions/", "/asset/uploads/", "/asset/uploads"]),
     J(DYNAMIC_ROUTES.filter((r) => r.method === "POST")));
 }
 

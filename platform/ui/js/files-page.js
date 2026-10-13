@@ -316,15 +316,18 @@ async function loadFile(path) {
   }
 
   if (classification === "text" && typeof data.text === "string") {
-   el.meta.textContent = `text — ${path}`;
+   const file = data?.file;
+   el.meta.textContent = `text — ${path}` +
+    (file ? ` · ${file.language} · ${file.role} · ${file.sensitivity}` : "");
    el.content.textContent = data.text;
    return;
   }
   if (classification === "binary") {
    // Metadata panel only — binary bodies are never inlined
    // (and #file-content stays empty: no content renders here).
+   const file = data?.file;
    el.meta.textContent =
-    `binary — ${path} (metadata only)${typeof data.note === "string" ? ` · ${data.note}` : ""}`;
+    `binary — ${path} (metadata only)${file ? ` · ${file.language} · ${file.role} · ${file.sensitivity}` : ""}${typeof data.note === "string" ? ` · ${data.note}` : ""}`;
    return;
   }
   if (classification === "secret") {
