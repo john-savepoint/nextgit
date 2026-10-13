@@ -88,3 +88,4 @@ bd.db
 # the real metadata.json is a plain JSON file, never a link.
 metadata.json
 embeddeddolt
+dolt-backup.json
