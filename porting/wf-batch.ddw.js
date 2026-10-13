@@ -84,7 +84,7 @@ export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids, phaseDeadlineMs, gateDeadlineMs } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids, phaseDeadlineMs, gateDeadlineMs = 2_700_000 } = {}) {
   // evidenceRoot: where run evidence + batch reports land (defaults to root). Fleet lanes
   // pass the MAIN tree so all audit evidence lands in one place while the lane works in
   // its own clone.

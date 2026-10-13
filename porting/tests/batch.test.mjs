@@ -139,6 +139,12 @@ try {
       // Serial path: orders run directly in the batch root; stub "real work" writes files
       // there so the sequential driver-commit can be asserted (phantom-merge guard).
       for (const id of [a, b]) if (label === `impl:${CID(id)}`) writeFileSync(join(fx1.root, `order-work-${id}.md`), `work for ${id}\n`);
+      // Batch gates resolve on a REAL macrotask delay: a defaulted 0ms/undefined
+      // deadline would win the race here (production's insta-BLOCK regression,
+      // 2026-10-13) — microtask-fast stubs could not discriminate it.
+      if (label.startsWith("gate:parity:") || label.startsWith("gate:merged:")) {
+        return Bun.sleep(30).then(() => dflt(label));
+      }
       return dflt(label);
     },
   });
