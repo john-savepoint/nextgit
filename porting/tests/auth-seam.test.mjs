@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 20 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /checks)", ROUTES.length === 20, `got ${ROUTES?.length}`);
+check("C: ROUTES has 22 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, GET /checks, GET /sessions)", ROUTES.length === 22, `got ${ROUTES?.length}`);
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
 let routeMap = {};
@@ -206,9 +206,14 @@ check("C: /commits → GET read (authorize-covered; the read API's history half)
 check("C: /comments → GET read (authorize-covered)", ROUTES.some((r) => r.path === "/comments" && r.method === "GET" && r.action === "read"));
 check("C: /comments → POST write (authorize + csrf-covered)", ROUTES.some((r) => r.path === "/comments" && r.method === "POST" && r.action === "write"));
 check("C: /checks → GET read (authorize-covered; the authoritative server-computed checks route)", ROUTES.some((r) => r.path === "/checks" && r.method === "GET" && r.action === "read"));
+// GET /sessions (nextgit-e16) — the session list read;
+// the authorize() chokepoint covers it (extractScope
+// adjudicates the query-carried base pre-read, the
+// /forks posture).
+check("C: /sessions → GET read (authorize-covered)", routeMap["/sessions"]?.method === "GET" && routeMap["/sessions"]?.action === "read", `got ${J(routeMap["/sessions"] ? { method: routeMap["/sessions"].method, action: routeMap["/sessions"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 4 entries (landings, proposals, asset, raw)", DYNAMIC_ROUTES.length === 4, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 5 entries (landings, proposals, asset, raw, sessions)", DYNAMIC_ROUTES.length === 5, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
@@ -221,6 +226,26 @@ check("C: DYNAMIC_ROUTES /asset/ → GET read (the e12 asset download route)",
 check("C: DYNAMIC_ROUTES /raw/ → GET read (the repo-browsing raw-byte read; authorize-covered, the handler re-checks the path-carried repo)",
  DYNAMIC_ROUTES[3]?.prefix === "/raw/" && DYNAMIC_ROUTES[3]?.method === "GET" && DYNAMIC_ROUTES[3]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[3])}`);
+// /sessions/ (nextgit-e16) — the FIRST dynamic POST
+// route: the session-steering write. The dispatcher's
+// dynamic branch applies authorize() + csrfGate() to
+// POSTs (no dispatcher change needed); the handler
+// re-checks the path-carried repo against the demo
+// allowlist (the /raw carve-out posture).
+check("C: DYNAMIC_ROUTES /sessions/ → POST write (the first dynamic POST; authorize + csrf-covered, the handler re-checks the path-carried repo)",
+ DYNAMIC_ROUTES[4]?.prefix === "/sessions/" && DYNAMIC_ROUTES[4]?.method === "POST" && DYNAMIC_ROUTES[4]?.action === "write",
+ `got ${J(DYNAMIC_ROUTES[4])}`);
+// The static-POST set is UNCHANGED by the steer POST:
+// /sessions/steer is dynamic (prefix "/sessions/"), not
+// a static ROUTES entry — the exact-POST-paths set
+// stays {/land, /upstream, /judge, /intents, /reveal, /comments}.
+check("C: static POST paths unchanged (the steer POST is dynamic, not static)",
+ JSON.stringify(ROUTES.filter((r) => r.method === "POST").map((r) => r.path).sort()) ===
+ JSON.stringify(["/comments", "/intents", "/judge", "/land", "/reveal", "/upstream"].sort()));
+// DYNAMIC_ROUTES now carries exactly one POST (the steer).
+check("C: DYNAMIC_ROUTES carries exactly one POST at /sessions/",
+ DYNAMIC_ROUTES.filter((r) => r.method === "POST").length === 1 &&
+ DYNAMIC_ROUTES.filter((r) => r.method === "POST")[0]?.prefix === "/sessions/");
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is

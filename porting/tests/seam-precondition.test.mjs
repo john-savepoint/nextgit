@@ -221,7 +221,31 @@ const post = async (env, path, body = null, headers = {}) => {
   check("H: POST routes are exactly /land, /upstream, /judge, /intents, /reveal and /comments", J(posts) === J(["/land", "/upstream", "/judge", "/intents", "/reveal", "/comments"]), J(posts));
   const gets = ROUTES.filter((r) => r.method === "GET").map((r) => r.path);
   check("H: GET routes exist and are not gated", gets.length > 0, J(gets));
-  check("H: DYNAMIC_ROUTES has no POST routes", DYNAMIC_ROUTES.every((r) => r.method === "GET"));
+  // nextgit-e16: /sessions/ is the FIRST dynamic POST route
+  // (the session-steering write). The static-POST set above
+  // is UNCHANGED — the steer POST is dynamic, not static.
+  // DYNAMIC_ROUTES now carries exactly one POST at /sessions/.
+  const dynPosts = DYNAMIC_ROUTES.filter((r) => r.method === "POST");
+  check("H: DYNAMIC_ROUTES carries exactly one POST at /sessions/ (the steer)",
+    dynPosts.length === 1 && dynPosts[0]?.prefix === "/sessions/",
+    J(DYNAMIC_ROUTES.filter((r) => r.method === "POST")));
+}
+
+// ---------------------------------------------------------------------------
+// Group H2 (nextgit-e16) — every DYNAMIC_ROUTES POST runs behind
+// csrfGate: the new /sessions/{repo}/steer write is covered by the
+// dispatcher's dynamic branch (authorize() + csrfGate() fire before
+// the handler). Prove it end-to-end: a cookie-carrying steer is
+// denied 403 csrf-required with ZERO KV writes (the seam-precondition
+// posture — the ARTIFACTS/LIVE fakes here throw/return nothing, so a
+// request that slipped the gate would surface as a 500, not a 403).
+// ---------------------------------------------------------------------------
+{
+  const { env } = makeEnv("demo");
+  const res = await post(env, "/sessions/agent-1/steer", { instruction: "ship the login fix first" }, { Cookie: "identity=op" });
+  check("H2: cookie-carrying steer → 403 csrf-required (the dynamic POST is CSRF-gated)",
+    res.status === 403 && res.body?.ok === false && res.body?.error === "csrf-required",
+    `${res.status} ${J(res.body)}`);
 }
 
 console.log(fail === 0 ? `ALL PASS (${pass} checks)` : `${fail} FAILURES (${pass} passed)`);

@@ -49,6 +49,12 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // strip): same compute-cost class as /proposals (it drives
  // the same fold), so the same 60/60s cap.
  "/checks": { limit: 60, windowMs: 60_000 },
+ // Session steering (nextgit-e16): the steer write shares the
+ // string-keyed write-verb idiom (/comments:write precedent).
+ // GET /sessions is deliberately unbound (a bounded read over
+ // <=200 discovered repos — the /changes posture), so only the
+ // ":write" key exists; see CONTRACT.md §GET /sessions.
+ "/sessions:write": { limit: 30, windowMs: 60_000 },
 };
 
 /** One fixed window per (route, caller). */

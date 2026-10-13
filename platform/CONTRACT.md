@@ -626,7 +626,58 @@ Body:
 
 ## GET /events
 
-`{ "ok": true, "events": [{"type","repo","ref","after","at"}] }` — newest first, ≤50, from KV. Token events (`token.created`, `token.revoked` — the live open-beta Artifacts envelope, normalized from `cf.artifacts.token.*`; also accepted in the documented `repo.token.*` form) carry `{type,repo,at}` — `ref`/`after` are absent (token lifecycle has no ref; `validateEvent` allows absent ref/after). The `tokenId` never reaches KV — the consumer maps only `source.repoName`→`repo`, so the id is dropped at the consumer seam by construction.
+`{ "ok": true, "events": [{"type","repo","ref","after","at"}] }` — newest first, ≤50, from KV. Token events (`token.created`, `token.revoked` — the live open-beta Artifacts envelope, normalized from `cf.artifacts.token.*`; also accepted in the documented `repo.token.*` form) carry `{type,repo,at}`; session-steering events (`session.steered` — §POST /sessions/{repo}/steer) carry `{type,repo,instruction,at,id?}` where `instruction` is the scrubbed (never raw) form — `ref`/`after` are absent (token lifecycle has no ref; `validateEvent` allows absent ref/after). `session.steered` additionally carries a per-event `id` (fresh 12-hex, the /comments `newCommentId` precedent) so every steer is a distinct feed entry — the feed-dedup key (`type|repo|ref|after|id`) never collides between two steers to one repo. The `tokenId` never reaches KV — the consumer maps only `source.repoName`→`repo`, so the id is dropped at the consumer seam by construction.
+
+## GET /sessions?base=demo
+
+The honest v1 session list — derived from the platform's REAL observability (the Artifacts queue event feed `GET /events` serves), never fabricated rows.
+
+Response `200`:
+
+```json
+{ "ok": true, "base": "demo", "sessions": [
+  { "repo": "agent-1", "state": "working", "intent": "<intent text>", "lastActivityAt": "<iso-8601-utc>", "lastEvent": "repo.pushed" }
+] }
+```
+
+- `base` — allowlist-validated query param, default `demo` via `resolveRouteBase` (AD-8 seam, omitted == explicit).
+- `sessions[]` — one row per `agent-*` repo the platform's event feed evidences (the fleet discovered via the same bounded `list({limit:200})` seam `/forks` uses, `status === "ready"`). **A repo with no feed evidence is ABSENT** — never a fabricated `state:"idle"` row (the honest-unavailable posture).
+- `state` ∈ `working | idle | blocked` — derived from the feed: **working** = the repo's newest event (`repo.pushed`/`repo.created`/`repo.forked` — any feed event) is within `SESSION_WORKING_WINDOW_MS` (15 min, code constant) of now; **blocked** = the newest activity is older than the window AND a recorded landing/landing-failure touched it (honest v1: blocked derives from landing evidence in the feed; absent evidence -> idle); **idle** = otherwise (evidence older than the window, or none).
+- `intent` — the repo's intent text read through the EXISTING `readIntent` seam (the same notes-mirror + `NEXTGIT_INTENT` fallback `/changes` drives; absent -> the field is omitted).
+- `lastActivityAt` / `lastEvent` — the newest feed event's `at` / normalized type for that repo (absent -> omitted).
+- Demo-mode allowlist (AD-9): `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}` (enforced at the `authorize()` chokepoint, re-checked in the handler — the `/forks` defense-in-depth precedent).
+- Rate: deliberately UNBOUND (the `/changes` posture — a bounded read over <=200 discovered repos; documented so the omission reads as policy). No `ROUTE_RATE_LIMITS["/sessions"]` GET row.
+- Precondition order: `400` (param) → `403` (allowlist) → `200`.
+
+**Client protocol note:** Session/SessionActivity rows remain Client-local — the platform serves the honest v1 read + the steer write; live per-agent process state is client-local (the same split the Floors row documents for busy/waiting).
+
+**Honest v1 limitation:** session state is feed-evidence-derived, never process-observed. A long-running agent that pushes nothing for >15 min reads as `idle` even while working. See §POST /sessions/{repo}/steer residual risks.
+
+## POST /sessions/{repo}/steer
+
+Record a steer instruction as a `session.steered` event in the SAME event store `GET /events` serves (the platform's real observability) — the honest v1 of "steer mid-session": the instruction lands in the event stream the agent CLIs read. **The platform does not inject it into a live agent process** — that is the documented v1 limitation.
+
+Body:
+
+```json
+{ "instruction": "<text, ≤500 chars>" }
+```
+
+- Closed schema: any unknown body field → `400 {ok:false, error:"bad-request"}`.
+- `instruction` — required, non-empty string, ≤500 chars (`MAX_STEER_INSTRUCTION_CHARS`); else `400`.
+- Appends a `session.steered` event to the durable feed (the queue-consumer `recordEvent` validation path — an invalid frame can never enter the feed). The instruction text is scrubbed at the seam (`stripInstructionLike(scrubFreeText(...))`, the `/intents` AD-4 wire) before it enters the event record; the stored frame carries only the scrubbed form (KEY=value lines render `KEY=[redacted]`, instruction-like lines `[stripped]`).
+- Demo-mode allowlist (AD-9): `{repo}` must match the allowlist — enforced **in the handler** (the path-carried repo cannot be adjudicated by the query-only `extractScope`, the `/raw` carve-out posture) BEFORE any store access.
+- Rate limit (AD-9): per-caller cap 30/min → `429 {ok:false,error:"rate-limited"}` (`ROUTE_RATE_LIMITS["/sessions:write"]`, see Rate limits).
+- Precondition order: `400` (shape) → `429` (rate) → `403` (allowlist) → `200`.
+
+**Response (200)** — the recorded event frame; the instruction text is NEVER echoed in any response field (AD-4):
+
+```json
+{ "ok": true, "repo": "agent-1", "event": { "type": "session.steered", "repo": "agent-1", "at": "<iso-8601-utc>" } }
+```
+
+- `400` bad input; `404` unknown steer target (the path remainder is not `<repo>/steer`); `503 {ok:false,error:"event-not-recorded"}` if recordEvent rejected/dedup-dropped the frame (the fail-closed backstop — the response never asserts an event the feed does not evidence; unreachable in practice with the per-event `id` above); `500` unexpected.
+- Residual risks (MEDIUM, documented): cross-isolate steer races are last-writer-wins on the recent KV key (the append gate is per-isolate, the comments as-built posture; a repo-keyed Durable Object is the deferred multi-isolate fix); SSE steer fan-out is best-effort (a hub failure logs `events-hub-publisher` and the KV write stands — `GET /events` remains correct).
 
 ## POST /intents
 
@@ -771,7 +822,7 @@ data: { "type": "repo.pushed", "repo": "agent-1", "ref": "main", "after": "<40-h
 
 ```
 
-- `event:` — the normalized event type (`repo.pushed`, `repo.forked`, `repo.created`, `token.created`, `token.revoked`; normalized via the same `normalizeEventType` as the queue consumer — `cf.artifacts.` prefix stripped). Token events carry `{type,repo,at}` only — no `ref`/`after` (token lifecycle has no ref). The live open-beta environment emits `cf.artifacts.token.*` (normalized `token.*`); the documented `cf.artifacts.repo.token.*` (normalized `repo.token.*`) form is also accepted.
+- `event:` — the normalized event type (`repo.pushed`, `repo.forked`, `repo.created`, `token.created`, `token.revoked`, `session.steered`; normalized via the same `normalizeEventType` as the queue consumer — `cf.artifacts.` prefix stripped). Token events carry `{type,repo,at}` only — no `ref`/`after` (token lifecycle has no ref). The live open-beta environment emits `cf.artifacts.token.*` (normalized `token.*`); the documented `cf.artifacts.repo.token.*` (normalized `repo.token.*`) form is also accepted.
 - `retry:` — `30000` (30 s); instructs the client to reconnect after this interval on disconnect.
 - `id:` — the event's dedup key (`type|repo|ref|after`, same as `eventDedupKey` in index.ts:749-752) so a reconnecting client can resume via `Last-Event-ID`.
 - `data:` — JSON object `{ type, repo, ref, after, at }` — the exact `LiveEvent` shape (CONTRACT.md:194, `type?|repo?|ref?|after?` nullable; `at` always present).
@@ -822,6 +873,7 @@ Transport: `GET /events` durable read + `GET /events/stream` SSE hub — the `{t
 - `toast` — transient notifications.
 - `queue` state — queue depth/status transitions.
 - Issue/pull lifecycle events — platform-native equivalents of `gh.*`, served today as the repo-event families already on the wire: `repo.pushed`, `repo.forked`, `repo.created` (+ token lifecycle `token.created` / `token.revoked`), the normalized `GET /events` vocabulary.
+- `session.steered` — a recorded steer instruction (§POST /sessions/{repo}/steer); the frame carries the scrubbed instruction, never the raw text (AD-4).
 
 ## API boundary
 
@@ -914,7 +966,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the fifteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `GET /checks`). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the sixteen bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `GET /checks`, `POST /sessions/{repo}/steer`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -932,6 +984,7 @@ Edge rate limits cover the fifteen bound routes in the table below (`/land`, `/m
 | `GET /comments` | 60 | 60 s |
 | `GET /issues` | 60 | 60 s |
 | `GET /checks` | 60 | 60 s |
+| `POST /sessions/{repo}/steer` | 30 | 60 s |
 
 - **Caller key:** `CF-Connecting-IP` (set by Cloudflare's edge in production; client-supplied in local dev), fallback `"unknown"` when absent. Each route's window is independent per caller — a flood on one route cannot evict another route's windows.
 - **Uniform 429 body:** `{ok:false,error:"rate-limited"}` — no caller echo, no remaining-count leak (NFR-3 posture preserved).

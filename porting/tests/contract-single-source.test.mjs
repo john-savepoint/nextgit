@@ -71,7 +71,16 @@ check(
 // the route identity is the root).
 const docRoutes = Array.from(contract.matchAll(/^## (GET|POST) (\/[^\s?]+)/gm)).map((m) => ({
   method: m[1],
-  route: m[2].replace(/\/[^/]*\{[^}]*\}/, "/{param}"),
+  // Canonicalize a mid-path param segment AND a trailing
+  // param-segment + literal suffix: the source-side dynamic
+  // canonicalizer turns "/sessions/" into "/sessions/{param}",
+  // so a doc route "/sessions/{repo}/steer" (a param followed
+  // by a trailing literal like "/steer") must canonicalize to
+  // the SAME root "/sessions/{param}" - the param NAME and the
+  // trailing literal are doc-side prose; the route identity is
+  // the root (the mid-path param + trailing-literal extension
+  // for the session-steering dynamic POST route).
+  route: m[2].replace(/\/[^/]*\{[^}]*\}/, "/{param}").replace(/\/[^/]*\{[^}]*\}.*$/, "/{param}"),
 }));
 const docList = docRoutes.map((r) => `${r.method} ${r.route}`).sort();
 
