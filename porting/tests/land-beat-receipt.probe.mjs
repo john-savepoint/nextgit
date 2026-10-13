@@ -375,7 +375,7 @@ try {
   console.log("(4) GET /landings/" + landedCommit);
   const rec = await getJson(`/landings/${landedCommit}`);
   check("(4) 200 from /landings/<commit>", rec.status === 200, `HTTP ${rec.status}`);
-  check("(4) exact keys {ok,landed,evidence}", exactKeys(rec.json, ["ok", "landed", "evidence"]), JSON.stringify(Object.keys(rec.json ?? {})));
+  check("(4) exact keys {ok,landed,evidence,attestation}", exactKeys(rec.json, ["ok", "landed", "evidence", "attestation"]), JSON.stringify(Object.keys(rec.json ?? {})));
   check("(4) landed.commit === receipt commit", rec.json?.landed?.commit === landedCommit, String(rec.json?.landed?.commit));
   check("(4) landed.files deep-equals the CLI file rows", JSON.stringify(rec.json?.landed?.files) === JSON.stringify(fileRows), `${JSON.stringify(rec.json?.landed?.files)} vs ${JSON.stringify(fileRows)}`);
   const ev = rec.json?.evidence ?? {};

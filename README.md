@@ -43,6 +43,30 @@ node platform/scripts/secret-fixture.mjs    # agent-5 — the secret-class fixtu
 node platform/scripts/demo-verify.mjs
 ```
 
+## Signed validation evidence (attestations)
+
+Every successful landing carries a **signed attestation** —
+what ran, on which inputs, in which environment, with what
+result — stored in two places (the landing record and the
+`nextgit-evidence` R2 bucket) and **verifiable later** by
+anyone with the pinned public key. Details:
+`platform/CONTRACT.md` §Attestations. Provision it once:
+
+```bash
+cd platform
+npx wrangler r2 bucket create nextgit-evidence    # NO lifecycle rule — retention is the feature
+node scripts/attestation-keygen.mjs --keep           # → public key + staging file
+printf '%s' "$(cat .attest-key.b64)" | npx wrangler secret put EVIDENCE_SIGNING_KEY   # piped; never argv
+# add EVIDENCE_PUBLIC_KEY to wrangler.jsonc vars + the CONTRACT.md pin; rm the staging file
+npx wrangler deploy
+```
+
+Verify any landing later:
+
+```bash
+node platform/scripts/attest-verify.mjs --commit <sha> --base https://nextgit-platform.john-b7d.workers.dev --r2-copy
+```
+
 Open the worker URL: `/` for the triage app, `/tour.html` for the guided tour. To ship one: click **Land into demo** on a clean card (the platform commits and pushes it for you).
 
 The full step-by-step sequence — env prerequisites, per-step expected observables, and the retry playbook — lives in the operator runbook: [`platform/scripts/README.md`](platform/scripts/README.md).

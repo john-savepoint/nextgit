@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.5 (2026-10-13). Additive changes only; if you change a shape, bump this file first.
+Version: v3.6 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -463,6 +463,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 - Clean → the worker creates **one commit** on top of `baseRef` (`land(<repos>): fold proposal(s)`) and pushes it (repo-scoped write token minted via the binding; push performed in-worker over the v1 wire protocol).
 - Fold produces **zero changes** → `409 {ok:false, error:"no-changes", detail}` (nothing to land).
 - Success → `200 { "ok": true, "landed": { "repos": [...], "commit": "<sha>", "files": [...], "at": "<iso>" } }`.
+  The `200` additionally carries `"attestation": {…}` — the signed validation-evidence envelope (see **Attestations (signed validation evidence)** below).
 - `reviewed` — **optional** reviewed-state precondition (AD-3); absent ⇒ legacy behaviour (no precondition checks). When present:
 
   ```json
@@ -539,7 +540,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - `checks`/`results` are the landing's validation ledger, position-paired (equal lengths): the recorded validation entries, then the server's content-identity check — reserved name `merged-sha-equals-tested-sha`, last in both arrays, with result `pass` (`testedSha === mergedSha`), `mismatch` (a validation was recorded but its testedSha does not equal the fold hash — a fold that changed after validation cannot claim validation), or `not-recorded` (no `validation` supplied). A mismatch never refuses the fold and never silently passes; it is visible in `results`.
   - `testedSha` — the fold hash the recorded validation ran against, or `null` when none was recorded. `artifactRef` — the caller's evidence-artifact reference, or `null`.
   - `at` — the landing time; identical to `landed.at`.
-  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). Served by `GET /landings/{commit}` (pinned with its own bump).
+  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). The persisted record carries a third key, `attestation`, byte-identical to the `200`'s envelope. Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 - Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` / `409 autoland-blocked` (the auto-land gate, engaged posture only) → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
@@ -548,10 +549,10 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
 ## GET /landings/{commit}
 
 Path parameter `commit` is a 40-character lowercase hex SHA-1 (required). Non-matching → `400 { ok: false, error: "bad-request" }`.
-
 Read back the landing record persisted by `POST /land`, served verbatim from KV keyed by `landing:<commit>` — the same JSON string the landing wrote (the `landed` and `evidence` sub-objects are byte-identical to what `POST /land` returned in its `200` body).
 
-- Known commit → `200` with the persisted record: `{ "ok": true, "landed": { "repos": [...], "commit": "<sha>", "files": [...], "at": "<iso>" }, "evidence": { "repos": [...], "commit": "<sha>", "ancestor": {...}, "heads": {...}, "foldHash": "<hex>", "checks": [...], "results": [...], "mergedSha": "<hex>", "testedSha": "<hex | null>", "artifactRef": "<string | null>", "at": "<iso>", "lease": {... | null} } }`. The response body is the KV value served with `content-type: application/json` — no transformation, so `landed` and `evidence` deep-equal the landing's `200` payload.
+- Known commit → `200` with the persisted record: `{ "ok": true, "landed": { "repos": [...], "commit": "<sha>", "files": [...], "at": "<iso>" }, "evidence": { "repos": [...], "commit": "<sha>", "ancestor": {...}, "heads": {...}, "foldHash": "<hex>", "checks": [...], "results": [...], "mergedSha": "<hex>", "testedSha": "<hex | null>", "artifactRef": "<string | null>", "at": "<iso>", "lease": {... | null} } }`. The response body is the KV value served with `content-type: application/json` — no transformation, so `landed` and `evidence` deep-equal the landing's `200` payload. A post-feature record also carries `attestation`, byte-identical to the landing's `200` envelope; a record written before the attestation layer (no `attestation` key) serves `"attestation": null` — the typed-absent path, never a fabricated signature.
+
 - Unknown commit → `404 { ok: false, error: "not-found" }`.
 - Credential-free (NFR-6): the route takes no caller identity and returns no token. No secret-class content is persisted in the record (secret files are withheld at fold), so the response carries no credentials (NFR-5).
 - `400` bad input (`commit` not 40-hex); `500` unexpected.
@@ -825,11 +826,11 @@ Body:
 - Secret-class files: if any affected file is secret-class → `409 {ok:false, error:"withheld-secret", files:[...]}` (same withholding law as `/land`).
 - Conflict → `409 {ok:false, error:"conflict", conflicted:[...], detail}`.
 - Fold produces zero changes → `409 {ok:false, error:"no-changes", detail}`.
-- Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (nothing is pushed).
-- Success → `200` carrying the **same `evidence` object shape as `POST /land`** — mechanically key-set-identical: `repos, commit, ancestor, heads:{base,repos}, foldHash, checks, results, mergedSha, testedSha, artifactRef, at, lease` (`lease` is the advisory DO lease note or `null`, identical to `/land`'s 12-key evidence; plus the `landed` envelope, identical to `/land`).
+- Success → `200` carrying the **same `evidence` object shape as `POST /land`** — mechanically key-set-identical: `repos, commit, ancestor, heads:{base,repos}, foldHash, checks, results, mergedSha, testedSha, artifactRef, at, lease` (`lease` is the advisory DO lease note or `null`, identical to `/land`'s 12-key evidence; plus the `landed` envelope, identical to `/land`). The `200` additionally carries `"attestation": {…}` — the same signed validation-evidence envelope as `POST /land` (same single writer; see **Attestations (signed validation evidence)**).
+
   - `ancestor` maps the routed fork to the fork-point commit used as its 3-way ancestor; `heads` are the base and fork heads the fold was computed against.
-  - `foldHash`/`mergedSha` and the `checks`/`results` ledger (reserved `merged-sha-equals-tested-sha` entry, `pass`/`mismatch`/`not-recorded`) follow the `/land` rules verbatim.
-  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (same single writer and read-back surface as `/land`: `GET /landings/{commit}`).
+  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (same single writer and read-back surface as `/land`: `GET /landings/{commit}`). The persisted record carries the `attestation` key, byte-identical to the `200`'s envelope.
+
 - Demo-mode allowlist (AD-9): `repo` and `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min → `429 {ok:false,error:"rate-limited"}` (see Rate limits).
 - Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 conflict` → `409 no-changes` → `409 base-moved` → `200` (mirrors `/land`).
@@ -1165,6 +1166,127 @@ is strictly later than the sweep's grace window, so the two layers are
 ordered, not competing. Additive to the shapes above — no existing field
 changes.
 
+## Attestations (signed validation evidence)
+
+Every successful landing (`POST /land` and `POST /upstream`, the `200`
+paths only) attaches a **signed attestation** to the response and
+persists it with the landing record. This is the FR-18 authenticity
+layer: the ledger above answers SLSA's *content* questions (what ran,
+on which inputs, with what result); the attestation answers
+*authenticity* — who recorded it, in which environment, and that it
+has not been altered since.
+
+**Envelope** (`attestation`, the third key of the landing record and
+of the `200` body; the tag is stable either way):
+
+```json
+{ "status": "signed",
+  "v": 1,
+  "algo": "Ed25519",
+  "keyId": "<16 hex chars — sha256(raw public key)[0..16]>",
+  "at": "<iso>",
+  "subject": { "commit": "<40hex>", "repos": ["agent-3"], "base": "demo", "ref": "main", "baseRef": "main" },
+  "environment": { "worker": "nextgit-platform", "deploy": "<version id | null>", "tag": "<version tag | null>", "runtime": "workerd" },
+  "evidence": { /* the EXACT 12-key FR-18 evidence object, verbatim — never re-shaped */ },
+  "sig": "<base64url(signature)>" }
+```
+
+Honest-unavailable shape (same key set discipline — a tagged union,
+stable either way): `{ "status": "unavailable", "reason":
+"signing-key-absent" | "public-key-absent" }`. An absent or
+malformed signing key **never fails a land that already pushed** —
+the land still returns `200` and the record carries the
+unavailable envelope (the landing-note / asset-gc best-effort
+posture). A record written before this feature (no `attestation`
+key) reads back `"attestation": null` (the typed-absent path — the
+`unmeasured` precedent), never a fabricated signature.
+
+**Canonicalization law** (published so clients recompute it):
+recursive key sort, **code-unit (`<`) comparison — never
+localeCompare**, no whitespace, arrays in order — exactly the
+`foldHashOf` discipline (`platform/src/land.ts:71-81`).
+`canonicalize` is the ONE serializer for signed objects
+(`platform/src/attest.ts`); nothing else stringifies a signed
+envelope.
+
+**Signing law:** `sig = sign( canonicalize( attestation minus the
+"sig" key ) )` — Ed25519 over the canonicalized envelope with every
+field but `sig`. Every other field is covered, so adding a field to
+the envelope is automatically covered: tampering invalidates the
+signature *totally*, not by enumeration.
+
+**Internal-consistency law** (verified, not merely signed):
+`subject.commit === evidence.commit` and `subject.repos` equals
+`evidence.repos` — a spliced subject is detectable even when the
+signature is valid.
+
+**Key material:** `EVIDENCE_SIGNING_KEY` — a Worker **secret**
+(base64url PKCS#8 Ed25519), provisioned by the *piped*
+`wrangler secret put` (never argv — the repo's secrets law).
+`EVIDENCE_PUBLIC_KEY` — a Worker **var** (public, non-secret,
+base64url **raw** public key), pinned here so a third party
+verifies with nothing from the platform:
+
+```
+EVIDENCE_PUBLIC_KEY = <base64url raw public key — generated by platform/scripts/attestation-keygen.mjs>
+```
+
+`keyId` (sha256 of the raw public key, first 16 hex chars) rides
+the signed envelope, so a rotation is a data change, not a format
+change. v1 = one key.
+
+**Storage — two independent copies:** the KV `LIVE` record
+`landing:<commit>` (existing, serving state) and the R2 bucket
+`nextgit-evidence` (`EVIDENCE_BLOB` binding), key
+`attestations/<commit>.json`. The R2 copy is durable, exportable,
+and **indefinitely retained** — deliberately NO lifecycle expiry,
+the opposite of the asset bucket (retention IS the feature). Both
+writes are best-effort inside the land's existing critical section;
+a failure logs `attestation-store-failed` and never alters the
+response. Two copies + one signature give cross-copy tamper
+detection.
+
+**Verification recipe** (operator / CI — "verifiable later"):
+
+```bash
+node platform/scripts/attest-verify.mjs --commit <sha> [--base <url>] [--public-key <b64url>] [--r2-copy]
+```
+
+re-derives the canonical bytes locally and verifies against the
+pinned public key (`--public-key` overrides the `EVIDENCE_PUBLIC_KEY`
+from `platform/wrangler.jsonc`); `--r2-copy` additionally fetches
+the R2 copy (`attestations/<commit>.json`) and asserts
+deep-equality with the served copy — the cross-copy leg.
+`--self-test` runs the verifier over a deliberately tampered copy
+and asserts a non-zero exit (a no-op verifier cannot green-pass).
+The pure primitive `verifyAttestation` (`platform/src/attest.ts`)
+is the in-process surface — it recomputes from the SUPPLIED object,
+never trusting a stored copy of the payload, and returns `false`
+on ANY defect (never a throw).
+
+**SLSA mapping:** what ran → `evidence.checks`/`results`; which
+inputs → `evidence.heads`/`ancestor`/`foldHash`; which environment
+→ `environment`; what result → `evidence.mergedSha`/`testedSha`
+and the `merged-sha-equals-tested-sha` verdict. The signature
+attests what the platform **recorded** — the `evidence` sub-fields
+a caller supplied (`validation`) remain self-attested content, the
+honest label the ledger already carries. **No new egress class:**
+the envelope adds only commit/heads/repo names (the `/changes`
+egress family, AD-4) — the 12-key evidence is already
+secret-free by construction (secret files are withheld at fold).
+
+**Provisioning** (operator, once):
+
+```bash
+cd platform
+npx wrangler r2 bucket create nextgit-evidence    # NO lifecycle rule — retention is the feature
+node scripts/attestation-keygen.mjs --keep             # → public key + staging file
+printf '%s' "$(cat .attest-key.b64)" | npx wrangler secret put EVIDENCE_SIGNING_KEY   # piped; never argv
+# add EVIDENCE_PUBLIC_KEY to wrangler.jsonc vars + the pin above; rm the staging file
+npx wrangler deploy
+```
+
+
 ## Land lease (DO coordination)
 
 `POST /land` uses a Durable Object lease (`LAND_LEASE` binding, `LandLeaseDO` class) to serialize concurrent lands per base repo across Workers isolates. The lease is advisory-first and internal: `acquire` returns `{ acquired: boolean, leaseId: string | null }`; on `!acquired`, the caller is refused with the existing `409 {ok:false, error:"base-moved", detail:"..."}` shape (no new response fields). The lease key is `lease:<base>` — single key per base — with a 30-second TTL and lazy expiry (plus native DO hibernation). When `env.LAND_LEASE` is undefined (e.g. local dev), `acquireLandLease` returns `null` and the route falls back to AD-3's push-rejection conversion. The winner acquires the lease, lands, and releases on completion; losers are refused deterministically.
@@ -1177,4 +1299,9 @@ Every platform deploy runs two live probes as a non-negotiable VERIFY gate. Both
 - `node porting/tests/land-hardening.probe.mjs` — AD-3 fold-merge + landing correctness across success and induced-failure paths.
 - `node porting/tests/egress-guard.probe.mjs` — AD-9 E8 credential egress guard: scans every route's raw response body across success and induced-failure paths (200/500/400/403/404) for `Bearer` tokens, `Authorization:` headers, Artifacts token shapes, and shell snippets. Includes a self-test that injects a synthetic token into a body and asserts the scanner detects it (proving the scanner is not a no-op). The probe also structurally verifies that the 500 push-failed path's `files` projection strips `merged` content — only `{path, action, result}` survive, so file-content payloads can never echo in a failure response.
 
-A deploy is not "done" until both probes exit 0.
+A deploy is not "done" until both probes exit 0. The
+`land-hardening` probe carries a verify leg for the signed
+attestation layer (Attestations section): the served
+envelope's signature verifies against the pinned public key
+and the R2 copy deep-equals the served copy. Probe count
+unchanged (two).

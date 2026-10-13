@@ -15,3 +15,4 @@ porting/tasks.db*
 .gate-scratch*/
 .beads/proxieddb/
 *.gate.lock*
+platform/.attest-key.b64
