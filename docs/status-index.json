@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T01:15:40.622Z",
-  "head": "0e517a2",
+  "generatedAt": "2026-10-14T01:18:12.751Z",
+  "head": "13dd275",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-13 ",
+    "lastUpdated": "2026-10-14 ",
     "branch": "main",
-    "lastCommit": "cb28059e",
+    "lastCommit": "13dd275",
     "standingRedSet": null
   },
   "queue": {
     "total": 695,
     "byStatus": {
-      "pending": 422,
+      "pending": 412,
       "partial": 1,
-      "done": 272
+      "done": 282
     },
     "items": [
       {
@@ -130,11 +130,6 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Attach signed validation evidence to every change"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Build CDC chunk store for game assets in R2"
       },
       {
@@ -205,11 +200,6 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Serve blobs via presigned direct-to-R2 transfers"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Ship pre/post-commit review with tracked approvals"
       },
       {
@@ -270,11 +260,6 @@
       {
         "status": "pending",
         "priority": "P0",
-        "title": "Keep pushes small and incremental under the ~64 MiB cap"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
         "title": "Multiplayer review rooms as the platform-multiplayer differentiator"
       },
       {
@@ -315,17 +300,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Automate competition pre-submission eligibility checks"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Change-set identity: stable per-proposal identity + fingerprint"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Classify every file by language, role, and sensitivity"
       },
       {
         "status": "pending",
@@ -2105,32 +2080,7 @@
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Sessions panel + steer composer"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Change-set identity"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Game-industry story page"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Judge step-5 UI"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Explicit-vs-whiteboard set semantics"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Worker CPU budget hardening"
       }
     ]
   },

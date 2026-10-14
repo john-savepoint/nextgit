@@ -29,8 +29,6 @@ Ref: interface-contract.md What Agent Office lacks (H6); demo-scope.md story ste
 Ref: SPEC.md Constraints (competition); demo-scope.md Demo story
 - [pending] P0 — Submission: repo location + single entry registered by Oct 14 — Decide where the submission repo lives and register the single entry before the 2026-10-14 deadline.
 Ref: SPEC.md Open Questions (submission repo); SPEC.md Constraints (single entry, deadline)
-- [pending] P0 — Attach signed validation evidence to every change — SLSA-style attestations recording what ran, on which inputs, in which environment, with what result - signed and stored (Workflow state + R2) so evidence travels with the commit/proposal and is verifiable later. No native attestation primitive exists; must be built.
-Ref: research/2026-10-02-platform-recon-briefs/cicd-recon-brief.md §5 req row 5 attestations (L177) + §3 (L112)
 - [pending] P0 — Build CDC chunk store for game assets in R2 — Content-defined chunking (GearHash/Rabin/FastCDC; target 64 KiB-8 MiB) stores content-addressed chunks in R2 so edits invalidate only nearby chunks. This is the core game-asset/R2 tier replacing LFS full-copy-per-revision storage.
 Ref: research/2026-10-02-platform-recon-briefs/bigassets-recon-brief.md §2.1 (L48-66) + §6 Pattern A/F (L175-198) + Open Q1/Q4 (L204-207)
 - [pending] P0 — Build three-tier architecture: substrate, judge, triage UI — Structure the product as execution substrate (entity merge + symbol locks), judgment tier (coordinator -> specialists -> arbitration), and set-level triage UI; budget the novel effort on the UI and change-set semantics.
@@ -59,8 +57,6 @@ Ref: research/2026-10-02-platform-recon-briefs/clouddev-recon-brief.md §2 patte
 Ref: research/2026-10-02-platform-recon-briefs/clouddev-recon-brief.md §6 lifecycle (L167-174) + §2 patterns 1/5 (L48-52)
 - [pending] P0 — Run coding agents in sandboxes with event wakeups — Execute Claude Code/Codex/custom agents in per-session sandboxes with exec/readFile/writeFile/startProcess/exposePort, R2 mounts, heartbeat and sleep timeouts; agents can subscribe to platform events and resume. This is the agent-native execution harness.
 Ref: research/2026-10-02-platform-recon-briefs/clouddev-recon-brief.md §4 Sandbox SDK row (L114) + §2 patterns 3-4 (L50-51)
-- [pending] P0 — Serve blobs via presigned direct-to-R2 transfers — Client upload/download goes direct to R2 via presigned URLs (1s-7d) or multipart sessions, because Workers request bodies cap at 100 MB (5 GB Enterprise) and cannot proxy multi-GB assets. Chunks are immutable, so the path is CDN-friendly.
-Ref: research/2026-10-02-platform-recon-briefs/bigassets-recon-brief.md §4.1-4.2 (L132-142) + §6 Pattern D (L187-189)
 - [pending] P0 — Ship pre/post-commit review with tracked approvals — Pre-commit review from shelves and post-commit review with tracked approvals that gate merges; AI-assisted review passes on top (Swarm model, 2026 AI review). Review is the competition's coordination surface.
 Ref: research/2026-10-02-platform-recon-briefs/perforce-recon-brief.md §3 Swarm (L92-94)
 - [pending] P0 — Split storage: source in Artifacts, big binaries in R2 — Artifacts caps (1 GB/repo, 32 MB/blob) force large files into R2 while Artifacts holds source, pointers, and manifests; enforce the size cutover automatically so repos stay within limits. Each primitive plays to its strength.
@@ -85,8 +81,6 @@ Ref: agentic-git-platform-ecosystem-feature-matrix/report.md:119,386; technical-
 Ref: agentic-git-platform-ecosystem-feature-matrix/report.md:163,383
 - [pending] P0 — Issue per-review authoring lease and command receipts — Copy Whiteboard's concurrency interface: at most one writer per review at a time and every mutation recorded as a receipt so two agents (or human+agent) cannot silently clobber each other.
 Ref: competitive-multi-agent-git-platform-landscape-2026-10-02/research.md:101; agentic-git-platform-ecosystem-feature-matrix/report.md:169,383
-- [pending] P0 — Keep pushes small and incremental under the ~64 MiB cap — Artifacts' open ~64 MiB push cap (push-side only, no ETA or workaround; 63 MiB passes, 64 MiB returns HTTP 500) forces small incremental pushes; binary-heavy repos stay out of scope until fixed.
-Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:65,83,102
 - [pending] P0 — Multiplayer review rooms as the platform-multiplayer differentiator — Differentiation vs local single-user tools: hosted, real-time, multi-user review of the same set, explicitly ahead of Whiteboard's local one-branch review; review rooms must survive at near-zero idle cost.
 Ref: competitive-multi-agent-git-platform-landscape-2026-10-02/research.md:139; technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:29,76
 - [pending] P0 — Non-MVP production-scope mandate: demo is a marked subset — Principal directive repeated three times: this is the entirety of the product, not an MVP. The registry must not be pruned to demo scope; the competition demo is a marked subset of the production registry, and demo-scope items are tagged, not used to filter the list.
@@ -103,12 +97,8 @@ Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:74; ag
 Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:38,74; agentic-git-platform-ecosystem-feature-matrix/report.md:121,383
 - [pending] P0 — Workflows durable job per agent task with human-approval wait — Durable per-task jobs (50k concurrent instances; waiting instances do not consume slots) with waitForEvent for human approval gates.
 Ref: agentic-git-platform-ecosystem-feature-matrix/report.md:115,167,386
-- [pending] P1 — Automate competition pre-submission eligibility checks — Nouls per competition requirement (license file, README, run instructions, Workers+Artifacts usage) to automate pre-submission checks ahead of the Oct 14 entry.
-Ref: docs/judge-layer-ideas.md:78 (#29)
 - [pending] P1 — Change-set identity: stable per-proposal identity + fingerprint (demo SHOULD) — Give each change-set a durable identity (repo + ref + fork point + content fingerprint) so cards, notes and landing evidence reference the same set across refreshes and baseline movement.
 Ref: demo-scope.md SHOULD map (change-set identity to CAP-2); SPEC.md CAP-2
-- [pending] P1 — Classify every file by language, role, and sensitivity — A cheap classify-every-file pass: language/role choice plus public/internal/secret sensitivity choice per file. Feeds masking, policy, and the index without new infrastructure.
-Ref: docs/judge-layer-ideas.md:55 (#12)
 - [pending] P1 — CPU-budget hardening: large change-sets within the 30s Worker envelope — Benchmark and harden /changes and /proposals for large trees and files: chunked tree walks, bounded diff sizes, explicit degradation for oversized inputs instead of silent omissions.
 Ref: SPEC.md CAP-2 success and Constraints (Workers CPU 30s/5min); platform/src/index.ts:26-28
 - [pending] P1 — Entity API: Proposal detail (mergeable, commits, comments, reviews, checks) — Proposal detail surface: body, mergeable, mergeStateStatus, commits, comments, reviews and checks. /merge previews mergeability today; the rest is absent.
@@ -812,12 +802,7 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Third-party agents hosted inside the platform — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-federation": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
-- [pending] P1 — Sessions panel + steer composer — the v1 sessions API's visible surface
 - [pending] P1 — Change-set identity — stable per-proposal fingerprint served on the change-set
-- [pending] P1 — Game-industry story page — three storage classes + the R2 asset tier
-- [pending] P1 — Judge step-5 UI — agent-set comparison + recommendation surface
-- [pending] P2 — Explicit-vs-whiteboard set semantics — CONTRACT differentiation section
-- [pending] P1 — Worker CPU budget hardening — large change-sets stay within the 30s wall
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.
@@ -879,10 +864,14 @@ Ref: built: platform/src/index.ts event consumer + /events; source: _bmad-output
 Ref: built: platform/ui/app.js + platform/src/index.ts /proposals; source: _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/.memlog.md:92; _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/brainstorm-intent.md section 2
 - [done] P0 — Submission compliance: OSI license + LICENSE file + run instructions — Competition requires an OSI license (MIT/Apache/BSD) with a LICENSE file and run instructions in the submission.
 Ref: SPEC.md Constraints (OSI license + run instructions)
+- [done] P0 — Attach signed validation evidence to every change — SLSA-style attestations recording what ran, on which inputs, in which environment, with what result - signed and stored (Workflow state + R2) so evidence travels with the commit/proposal and is verifiable later. No native attestation primitive exists; must be built.
+Ref: research/2026-10-02-platform-recon-briefs/cicd-recon-brief.md §5 req row 5 attestations (L177) + §3 (L112)
 - [done] P0 — Give every concurrent agent an isolated workspace — (demo MUST) Each agent works in its own isolated workspace rather than a shared branch; the demo uses separate Artifacts repos (agent-1..agent-4) driven by real CLI agents, with no cross-talk between change-sets.
 Ref: built: per-agent Artifacts repos (demo, agent-1..4); source: _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/.memlog.md:92; _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/brainstorm-pitch.md section 'What it does'
 - [done] P0 — Run the scripted 3-5 agent collision demo — (demo) One repository, three to five real CLI agents working concurrently and colliding deliberately; the canvas maps the conflict, proposals render as one set, a judge scores, one lands, and the decision is recorded - the submission story end to end.
 Ref: built: docs/BUILD-LOG.md wave1 + tour; source: _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/brainstorm-pitch.md section 'What we built for the demo (Oct 14)'; _bmad-output/brainstorming/brainstorm-next-git-platform-2026-10-02/.memlog.md:92
+- [done] P0 — Serve blobs via presigned direct-to-R2 transfers — Client upload/download goes direct to R2 via presigned URLs (1s-7d) or multipart sessions, because Workers request bodies cap at 100 MB (5 GB Enterprise) and cannot proxy multi-GB assets. Chunks are immutable, so the path is CDN-friendly.
+Ref: research/2026-10-02-platform-recon-briefs/bigassets-recon-brief.md §4.1-4.2 (L132-142) + §6 Pattern D (L187-189)
 - [done] P0 — Ship set-level triage of N concurrent agent change-sets as hero flow — Make the convergence layer the submission's hero flow: multiple agents' concurrent change-sets compared, judged, and integrated as one set. It is the doubly-verified unclaimed intersection and maps to the rubric's originality (50%) and concurrency (25%) criteria.
 Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:21,98; competitive-multi-agent-git-platform-landscape-2026-10-02/research.md:21,137; agentic-git-platform-ecosystem-feature-matrix/report.md:382
 - [done] P0 — Simulate concurrent proposals with server-side diff3 conflict maps — Server-side change-set computation (no clones) plus pairwise 3-way merge simulation across concurrent proposals with real conflict kinds (text-conflict, modify/delete, add/add, mergeable) and an ordered fold merge. Closes the Artifacts gaps: no server-side merge API, no diff endpoint, no conflict detection.
@@ -897,6 +886,8 @@ Ref: competitive-multi-agent-git-platform-landscape-2026-10-02/research.md:141; 
 Ref: platform/src/index.ts:113,297,379,407,746-751; session history 2026-10-04T12:37 ('fork point … fixing it now'); docs/BUILD-LOG.md:6 (wave3)
 - [done] P0 — Import registry harvest into the task store (dedupe + IDs) — Merge every porting/harvest/*.json (session, spec, memlog, research, judge, source-docs, ...) into porting/tasks.db through the CLI (layer/source columns), deduplicating cross-source rows, assigning canonical IDs, and preserving priority/layer/ref. This is the master itemized list John ordered: workflows then iterate over the DB ad nauseum.
 Ref: session history 2026-10-06T02:30 user msg + assistant reply (master registry mandate); porting/harvest/*.json; porting/tasks.mjs cmdImport
+- [done] P0 — Keep pushes small and incremental under the ~64 MiB cap — Artifacts' open ~64 MiB push cap (push-side only, no ETA or workaround; 63 MiB passes, 64 MiB returns HTTP 500) forces small incremental pushes; binary-heavy repos stay out of scope until fixed.
+Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:65,83,102
 - [done] P0 — Land hardening: single-use tokens, no credential handout, no replays — Architecture-gate live fixes: the /land push-failure path no longer returns a working write token or ready-to-run shell snippets; tokens are single-use (300 s, revoked in finally); land.mjs replay path removed (delegates to /land); unused memfs dropped. Deployed and smoke-tested (version 87958c11).
 Ref: docs/CHECKPOINT.md:5-9 (entry 2026-10-06; commit d0d8b17, worker 87958c11); session history 2026-10-06T02:16-02:19
 - [done] P0 — One canvas for the whole concurrent proposal set (demo MUST) — A single canvas presents all concurrent proposals as a comparable set: summary chips, live event ticker, conflict section, inspector and per-card actions, with no tab-hopping.
@@ -915,6 +906,10 @@ Ref: session history 2026-10-02 competition-terms read (US/Canada §3); docs/STA
 Ref: porting/tasks.db; porting/tasks.mjs; porting/tests/tasks.test.mjs; docs/CHECKPOINT.md:8; session history 2026-10-06T01:27 user msg
 - [done] P0 — Visualize the cross-change conflict map on the canvas — Cross-change conflict semantics must be visible, not just computed: render overlap/conflict visualization per file/symbol across proposals with drill-down.
 Ref: competitive-multi-agent-git-platform-landscape-2026-10-02/research.md:139; agentic-git-platform-ecosystem-feature-matrix/report.md:382,387
+- [done] P1 — Automate competition pre-submission eligibility checks — Nouls per competition requirement (license file, README, run instructions, Workers+Artifacts usage) to automate pre-submission checks ahead of the Oct 14 entry.
+Ref: docs/judge-layer-ideas.md:78 (#29)
+- [done] P1 — Classify every file by language, role, and sensitivity — A cheap classify-every-file pass: language/role choice plus public/internal/secret sensitivity choice per file. Feeds masking, policy, and the index without new infrastructure.
+Ref: docs/judge-layer-ideas.md:55 (#12)
 - [done] P1 — Events: normalized platform event bus across all families — One normalized push bus for worker, floor, issue/pull, queue, peer, chat and platform events, replacing polling as the client integration contract.
 Ref: interface-contract.md Events; platform/src/index.ts:647-676 (repo events only today)
 - [done] P1 — Git-notes provenance: intent durable across rebases (demo SHOULD) — Records persist as git notes (refs/notes/*) so intent survives rebases and baseline movement; the platform reads notes via the nextgit-notes branch mirror because the Artifacts binding cannot resolve refs/notes/* directly.
@@ -1169,5 +1164,10 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P2 — Federation v1 — GET /harnesses + BYO onboarding surface
 - [done] P1 — Reveal live identity — the audited reveal works end-to-end on the deployed demo
 - [done] P2 — UX polish — wave-14 gate mediums (modal anchoring, aria-live, empty states)
+- [done] P1 — Sessions panel + steer composer — the v1 sessions API's visible surface
+- [done] P1 — Game-industry story page — three storage classes + the R2 asset tier
+- [done] P1 — Judge step-5 UI — agent-set comparison + recommendation surface
+- [done] P2 — Explicit-vs-whiteboard set semantics — CONTRACT differentiation section
+- [done] P1 — Worker CPU budget hardening — large change-sets stay within the 30s wall
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.
