@@ -35,6 +35,7 @@ export async function runFleet({
   agent: agentOpt,
   lanesOnly,
   plans,
+  implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs,
   spawnCap = 240,
   integrate = true, // O1 standing rule: wave lanes must not merge into the live tree directly —
   // pass integrate:false, then pin each lane tip and run wf-integrate (open/merge/battery/finalize).
@@ -138,6 +139,7 @@ export async function runFleet({
         agent: agentOpt,
         ids: plan?.ids,
         lenses: plan?.lenses,
+        implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs,
       });
     }),
   );

@@ -29,6 +29,15 @@
 //  skips plan/implement/verify artifacts + counts heal artifacts as implement record, heal
 //  budget counted per invocation, loud implement guard, truncation markers, lensesRun recorded.
 // v1 note: sequential, single workspace; per-order worktree isolation remains a recorded carry.
+// v4 (2026-10-14, nextgit-e19-mach-watchdog-calibration) — per-phase-class
+//  watchdog deadlines: the flat 75m phase deadline killed legitimate
+//  implement + heal runs mid-flight (wave-17/18 evidence: the work was
+//  complete when the watchdog fired). Classes: plan / heal-research
+//  (read-only, model-heavy) 60m · implement / heal-apply (write phases,
+//  run the order's testCmd) 120m · verify / gate 45m (unchanged).
+//  PHASE_DEADLINES below is the single source; every knob is per-invocation
+//  overridable (opts.<phase>DeadlineMs); the flat opts.phaseDeadlineMs
+//  stays as the legacy override for plan + verify.
 
 import { mkdirSync, writeFileSync, appendFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -38,6 +47,22 @@ import { createHash } from "node:crypto";
 // resilience ×2 · + project extras parity/ux). Default = scaled-down 4 (never zero).
 export const FULL_LENSES = ["security", "quality", "spec-fit", "compliance", "resilience", "resilience-2"];
 export const DEFAULT_LENSES = ["quality", "spec-fit", "security", "resilience"];
+
+// Per-phase-class watchdog deadlines (nextgit-e19-mach-watchdog-calibration).
+// Wave-17/18 evidence: a flat 75m phase deadline killed legitimate impl + heal
+// runs mid-flight (their work was complete; the heal died). Classes:
+//   plan / heal-research (read-only, model-heavy) 60m · implement / heal-apply
+//   (write phases, run the order's testCmd) 120m · verify / gates 45m.
+// Every knob is per-invocation overridable (opts.<phase>DeadlineMs); the
+// flat opts.phaseDeadlineMs stays as the legacy override for plan + verify.
+export const PHASE_DEADLINES = {
+  plan: 3_600_000,
+  implement: 7_200_000,
+  verify: 2_700_000,
+  healResearch: 3_600_000,
+  healApply: 7_200_000,
+  gate: 2_700_000,
+};
 
 export const DEFAULT_AGENTS = {
   plan: "plan-agent",
@@ -229,8 +254,18 @@ export async function runWorkOrder(order, opts = {}) {
   // settles must not hostage-hold the whole cell (the failure class that held a wave 5.6h).
   // On timeout: cancel the handle, throw a WATCHDOG error, NO retry (a wedged agent won't
   // unwedge); the caller records the phase red and the batch releases the row.
-  const phaseDeadlineMs = opts.phaseDeadlineMs ?? 4_500_000; // 75m — worst observed phase ~48m
-  const gateDeadlineMs = opts.gateDeadlineMs ?? 2_700_000; // 45m — per gate round (lens + batch-level gates)
+  const phaseDeadlineMs = opts.phaseDeadlineMs ?? 4_500_000; // legacy flat override (applies to plan + verify when the per-class knob is unset)
+  const gateDeadlineMs = opts.gateDeadlineMs ?? 2_700_000; // 45m — per gate round (lens + batch-level gates; unchanged class)
+  // Per-phase-class watchdog deadlines (v4): a per-class knob wins; plan + verify
+  // fall back to the legacy flat override (phaseDeadlineMs); every other class
+  // falls back to its PHASE_DEADLINES entry. The knob key is the class name
+  // EXCEPT implement, whose batch/fleet knob is the `impl` alias (the
+  // runBatch/runFleet opts are `implDeadlineMs`, not `implementDeadlineMs`).
+  const KNOB_ALIAS = { implement: "impl" };
+  const deadlineFor = (cls) => {
+    const knob = opts[`${cls}DeadlineMs`] ?? (KNOB_ALIAS[cls] ? opts[`${KNOB_ALIAS[cls]}DeadlineMs`] : undefined);
+    return knob ?? (cls === "plan" || cls === "verify" ? phaseDeadlineMs : PHASE_DEADLINES[cls]);
+  };
   const ask = async (prompt, askOpts, tries = 3) => {
     for (let a = 1; ; a++) {
       let h = null;
@@ -291,7 +326,7 @@ export async function runWorkOrder(order, opts = {}) {
       `Produce a file-level plan (files touched, exact changes, the check that proves it) and return it as {plan: "<full plan markdown>", summary: "<<=5 lines>"}. ` +
       `Skills: apply ${SKILL_HINTS.plan} (paths in .omp/agents.md if the router misses them).\n` +
       `Do NOT implement anything yet. Do NOT commit.`,
-      { agent: ag.plan, label: `plan:${order.id}`, schema: PLAN_SCHEMA },
+      { agent: ag.plan, label: `plan:${order.id}`, schema: PLAN_SCHEMA, deadlineMs: deadlineFor("plan") },
     );
     const planText = typeof p === "string" ? p : (p?.plan ?? JSON.stringify(p, null, 2));
     writeFileSync(`${runDir}/plan.md`, planText);
@@ -315,7 +350,7 @@ export async function runWorkOrder(order, opts = {}) {
     `IMPLEMENT phase of ${order.id} per ${runDir}/plan.md.\n` +
     `Smallest correct diffs; respect existing patterns. Skills: ${SKILL_HINTS.implement}. Run the order's focused check: ${order.testCmd} (cwd ${root}).\n` +
     `Write the report — changes + the check's VERBATIM output — to ${runDir}/implement.md. Do NOT commit. Return a <=5 line summary.`,
-    { agent: ag.implement, label: `impl:${order.id}` },
+    { agent: ag.implement, label: `impl:${order.id}`, deadlineMs: deadlineFor("implement") },
   );
   // Loud phase guard: a mute IMPLEMENT (observed once — the agent wrote nothing) must not fail silent.
   if (!existsSync(`${runDir}/implement.md`)) {
@@ -356,7 +391,7 @@ export async function runWorkOrder(order, opts = {}) {
       `Run ${order.testCmd} (cwd ${root}) and return {verdict: "PASS"|"FAIL", evidence: "<the VERBATIM output>", notes: [...]}. ` +
       `Per ${SKILL_HINTS.verify}: evidence is the executed command + raw output, nothing paraphrased. ` +
       `Also state whether the acceptance is observably met: ${order.acceptance}`,
-      { agent: ag.verify, label: `verify:${order.id}:${label}`, schema: VERIFY_SCHEMA },
+      { agent: ag.verify, label: `verify:${order.id}:${label}`, schema: VERIFY_SCHEMA, deadlineMs: deadlineFor("verify") },
     );
     checkRO(`verify:${label}`, fp);
     // Prefer the caller-schema verdict over the def's pinned `clean` flag — the pinned flag is
@@ -450,7 +485,7 @@ export async function runWorkOrder(order, opts = {}) {
       `Inline (extracted, may be empty): ${blockers.length ? blockers.join(" | ") : "(none extracted — use the gate reports)"}\n` +
       `For each blocking finding return a minimal fix: finding → file:line → the repo-sibling pattern to follow. Do NOT edit files.\n` +
       `Return {proposals: "<full markdown>"}.`,
-      { agent: ag.healResearch, label: `heal-research:${order.id}:${heals}`, schema: HEAL_RESEARCH_SCHEMA },
+      { agent: ag.healResearch, label: `heal-research:${order.id}:${heals}`, schema: HEAL_RESEARCH_SCHEMA, deadlineMs: deadlineFor("healResearch") },
     );
     checkRO(`heal-research:${heals}`, hrFp);
     writeFileSync(`${runDir}/heal-${heals}-research.md`, String(typeof hr === "object" ? (hr?.proposals ?? JSON.stringify(hr, null, 2)) : hr));
@@ -461,7 +496,7 @@ export async function runWorkOrder(order, opts = {}) {
       `HEAL apply round ${heals} for ${order.id}. Read ${runDir}/heal-${heals}-research.md and the gate reports; apply the minimal fixes. Skills: ${SKILL_HINTS.healApply}.\n` +
       `Group by file; ONE writer per file per wave; <=10 files; fix only what the findings name. Run ${order.testCmd} after the wave.\n` +
       `Write ${runDir}/heal-${heals}.md (fixes + verbatim output). Do NOT commit. <=5 line summary.`,
-      { agent: ag.healApply, label: `heal:${order.id}:${heals}` },
+      { agent: ag.healApply, label: `heal:${order.id}:${heals}`, deadlineMs: deadlineFor("healApply") },
     );
 
     writeState("re-verify", { healRound: heals });

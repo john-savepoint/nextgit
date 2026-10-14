@@ -128,6 +128,57 @@ export async function battery({ root, id, timeoutPer = 900000, only = null } = {
     if (chrome) suiteEnv.CHROME_BIN = chrome;
     else console.error("battery: no Chrome binary found — Chrome-gated suites will self-SKIP");
   }
+  // Chrome serialization across concurrently-running batteries
+  // (nextgit-e19-mach-watchdog-calibration; wave-16/17 evidence:
+  // "battery Chrome contention (2 reds / 3 runs, standalone-green)"
+  // when 8 parallel lanes each launch their integration battery's
+  // headless-Chrome suites). The loop above is serial WITHIN one
+  // battery; the gap is cross-lane batteries with no serialization
+  // when the fleet's chrome-slot guard is not wired (direct
+  // battery() calls, or a lane without the guard). Default ON
+  // (NEXTGIT_BATTERY_CHROME_SERIAL=0 opts out for single-battery
+  // boxes / already-serialized harnesses). Injection is a PATH shim
+  // — suites resolve Chrome PATH-FIRST (`which google-chrome` before
+  // the CHROME_BIN fallback; the fleet-guard comment in
+  // wf-fleet.ddw.js records why a bare CHROME_BIN point is not
+  // reliable), so this uses the fleet guard's proven pattern
+  // verbatim: <runDir>/chrome-bin/google-chrome -> chrome-slot.sh
+  // (flock, N slots). The slot script is the SAME
+  // porting/tests/chrome-slot.sh the fleet guard uses — single
+  // source; the script itself is not modified. A pre-set
+  // NEXTGIT_CHROME_GUARD=1 (the fleet already armed the guard for
+  // this process) short-circuits: the shim is already in force and
+  // CHROME_BIN already points at the slot script. Fail-open: a
+  // missing slot script or a Chrome-less box logs and continues
+  // unserialized — suites' own SKIP-and-exit-0 contract applies.
+  const slotScript = `${mainRoot}/porting/tests/chrome-slot.sh`;
+  if (process.env.NEXTGIT_BATTERY_CHROME_SERIAL !== "0" && !process.env.NEXTGIT_CHROME_GUARD && existsSync(slotScript)) {
+    try {
+      const real = (() => {
+        for (const c of ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
+          if (existsSync(c)) return c;
+        }
+        try {
+          return execFileSync("bash", ["-lc", "command -v google-chrome || command -v chromium || true"], { encoding: "utf8" }).trim().split("\n")[0] || null;
+        } catch { return null; }
+      })();
+      if (real) {
+        const shimDir = `${runDir}/chrome-bin`;
+        mkdirSync(shimDir, { recursive: true });
+        const shim = `${shimDir}/google-chrome`;
+        writeFileSync(shim, `#!/usr/bin/env bash\nexec "${slotScript}" "$@"\n`);
+        execFileSync("chmod", ["+x", shim]);
+        suiteEnv.CHROME_BIN_REAL = real; // pinned: slot script must never resolve the shim
+        suiteEnv.CHROME_BIN = slotScript; // probes prefer the env var
+        suiteEnv.PATH = `${shimDir}:${suiteEnv.PATH}`;
+        console.error(`battery: chrome serialized via slot script (${shimDir}; real=${real}; slots=${process.env.CHROME_SLOTS ?? 4}; opt out with NEXTGIT_BATTERY_CHROME_SERIAL=0)`);
+      } else {
+        console.error("battery: chrome serialization skipped — no real Chrome binary found");
+      }
+    } catch (e) {
+      console.error(`battery: chrome serialization failed (${String(e?.message ?? e).slice(0, 120)}) — continuing unserialized`);
+    }
+  }
   for (const f of files) {
     if (only && !only.includes(f)) continue;
     const r = spawnSync("bun", [`porting/tests/${f}`], { cwd: wt, encoding: "utf8", timeout: timeoutPer, env: suiteEnv });
