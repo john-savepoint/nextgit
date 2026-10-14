@@ -1,8 +1,8 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-13T14:51:42.712Z",
-  "head": "dfc1d76",
-  "branch": "main",
+  "generatedAt": "2026-10-14T00:16:10.265Z",
+  "head": "c635996",
+  "branch": "integrate-wave16",
   "state": {
     "lastUpdated": "2026-10-13 ",
     "branch": "main",
@@ -10,9 +10,9 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 689,
+    "total": 695,
     "byStatus": {
-      "pending": 416,
+      "pending": 422,
       "partial": 1,
       "done": 272
     },
@@ -2101,6 +2101,36 @@
         "status": "pending",
         "priority": "P2",
         "title": "Parity gap vs GitHub: CI/CD pipeline integration"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Sessions panel + steer composer"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Change-set identity"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Game-industry story page"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Judge step-5 UI"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Explicit-vs-whiteboard set semantics"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Worker CPU budget hardening"
       }
     ]
   },

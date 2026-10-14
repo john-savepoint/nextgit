@@ -215,7 +215,7 @@ check("C: /sessions → GET read (authorize-covered)", routeMap["/sessions"]?.me
 check("C: /harnesses → GET read (authorize-covered; the federation manifest)", routeMap["/harnesses"]?.method === "GET" && routeMap["/harnesses"]?.action === "read", `got ${J(routeMap["/harnesses"] ? { method: routeMap["/harnesses"].method, action: routeMap["/harnesses"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 5 entries (landings, proposals, asset, raw, sessions)", DYNAMIC_ROUTES.length === 5, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 7 entries (landings, proposals, asset, raw, sessions, asset/uploads/, asset/uploads)", DYNAMIC_ROUTES.length === 7, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
@@ -237,17 +237,41 @@ check("C: DYNAMIC_ROUTES /raw/ → GET read (the repo-browsing raw-byte read; au
 check("C: DYNAMIC_ROUTES /sessions/ → POST write (the first dynamic POST; authorize + csrf-covered, the handler re-checks the path-carried repo)",
  DYNAMIC_ROUTES[4]?.prefix === "/sessions/" && DYNAMIC_ROUTES[4]?.method === "POST" && DYNAMIC_ROUTES[4]?.action === "write",
  `got ${J(DYNAMIC_ROUTES[4])}`);
-// The static-POST set is UNCHANGED by the steer POST:
-// /sessions/steer is dynamic (prefix "/sessions/"), not
-// a static ROUTES entry — the exact-POST-paths set
-// stays {/land, /upstream, /judge, /intents, /reveal, /comments}.
-check("C: static POST paths unchanged (the steer POST is dynamic, not static)",
+// The asset presign surface (nextgit-serve-blobs-via-presigned-
+// direct-to-r2-transfers) adds TWO dynamic POST entries:
+// "/asset/uploads/" (the multipart-complete control plane) and
+// "/asset/uploads" (the upload grant). The COMPLETE prefix is
+// registered FIRST — the dispatcher's dynamic loop is
+// first-match-wins and "/asset/uploads/<id>/complete" also starts
+// with the grant prefix. Both are authorize() + csrfGate()
+// covered by the dispatcher's dynamic POST branch, and neither is
+// a static ROUTES entry (see the static-POST pin below).
+check("C: DYNAMIC_ROUTES /asset/uploads/ → POST write (the multipart-complete control plane; registered before the grant prefix)",
+ DYNAMIC_ROUTES[5]?.prefix === "/asset/uploads/" && DYNAMIC_ROUTES[5]?.method === "POST" && DYNAMIC_ROUTES[5]?.action === "write",
+ `got ${J(DYNAMIC_ROUTES[5])}`);
+check("C: DYNAMIC_ROUTES /asset/uploads → POST write (the direct-to-R2 upload grant)",
+ DYNAMIC_ROUTES[6]?.prefix === "/asset/uploads" && DYNAMIC_ROUTES[6]?.method === "POST" && DYNAMIC_ROUTES[6]?.action === "write",
+ `got ${J(DYNAMIC_ROUTES[6])}`);
+// The static-POST set is UNCHANGED by the steer POST or the two
+// asset-upload POSTs: all three are dynamic prefixes (prefix
+// "/sessions/", "/asset/uploads/", "/asset/uploads"), not static
+// ROUTES entries — the exact-POST-paths set stays {/land,
+// /upstream, /judge, /intents, /reveal, /comments}. The grant is
+// dynamic rather than static because a static "POST /asset/uploads"
+// would register the path, so "GET /asset/uploads" would be claimed
+// by the "/asset/" GET prefix (a 400 via handleAssetDownload) instead
+// of the API boundary's 405 method-not-allowed — the route-discipline
+// 405 law.
+check("C: static POST paths unchanged (the steer POST and the two asset-upload POSTs are dynamic, not static)",
  JSON.stringify(ROUTES.filter((r) => r.method === "POST").map((r) => r.path).sort()) ===
  JSON.stringify(["/comments", "/intents", "/judge", "/land", "/reveal", "/upstream"].sort()));
-// DYNAMIC_ROUTES now carries exactly one POST (the steer).
-check("C: DYNAMIC_ROUTES carries exactly one POST at /sessions/",
- DYNAMIC_ROUTES.filter((r) => r.method === "POST").length === 1 &&
- DYNAMIC_ROUTES.filter((r) => r.method === "POST")[0]?.prefix === "/sessions/");
+// DYNAMIC_ROUTES now carries exactly three POSTs, in order:
+// the session steer, then the multipart-complete prefix, then the
+// upload grant (complete-before-grant is load-bearing).
+check("C: DYNAMIC_ROUTES carries exactly three POSTs (/sessions/, /asset/uploads/, /asset/uploads)",
+ DYNAMIC_ROUTES.filter((r) => r.method === "POST").length === 3 &&
+ JSON.stringify(DYNAMIC_ROUTES.filter((r) => r.method === "POST").map((r) => r.prefix)) ===
+ JSON.stringify(["/sessions/", "/asset/uploads/", "/asset/uploads"]));
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is

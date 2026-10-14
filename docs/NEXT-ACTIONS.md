@@ -812,6 +812,12 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Third-party agents hosted inside the platform — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-federation": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
+- [pending] P1 — Sessions panel + steer composer — the v1 sessions API's visible surface
+- [pending] P1 — Change-set identity — stable per-proposal fingerprint served on the change-set
+- [pending] P1 — Game-industry story page — three storage classes + the R2 asset tier
+- [pending] P1 — Judge step-5 UI — agent-set comparison + recommendation surface
+- [pending] P2 — Explicit-vs-whiteboard set semantics — CONTRACT differentiation section
+- [pending] P1 — Worker CPU budget hardening — large change-sets stay within the 30s wall
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.
