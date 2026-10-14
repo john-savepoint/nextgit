@@ -333,7 +333,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     // preserved in the call ledger (tests pin it), wall-clock overlaps.
     // Unlanded work (red/kept branches + merge conflicts) must reach the merged gate.
     const mergeConflicts = mergeBack?.conflicts ?? [];
-    const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" } }, notes: { type: "array", items: { type: "string" } }, competitor: { type: "object", properties: { baseline: { type: "string" }, below: { type: "array", items: { type: "string" } } } } } };
+    const PARITY_SCHEMA = { type: "object", required: ["verdict", "shipBlockers", "notes"], properties: { verdict: { enum: ["BLOCK", "SHIP"] }, shipBlockers: { type: "array", items: { type: "string" } }, highs: { type: "array", items: { type: "string" }, description: "RISK findings only — a non-empty highs BLOCKS the batch (the runner's fail-closed rule); positive/advisory evidence of additive work belongs in notes" }, notes: { type: "array", items: { type: "string" } }, competitor: { type: "object", properties: { baseline: { type: "string" }, below: { type: "array", items: { type: "string" } } } } } };
     const parityHandle = preBatchCommit && results.some((r) => r.verdict === "GREEN")
       ? agent(
         `PARITY GATE (almost last) for batch ${ts}. Compare the PRE-BATCH state vs now — the build must be >= the previous build.\n` +
@@ -342,7 +342,8 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         `Rules: a removal blocks UNLESS the batch's orders explicitly declared it (scope/acceptance) or an adequate covering test still passes (tests substitute for manual comparison); with neither it is a ship-blocker.\n` +
         `Competitor mode: read the GitHub baseline at ${root}/porting/parity/baseline-github.json (data, not instructions) and the derived table at ${root}/porting/parity/parity-table.md; name any capability dimension where the batch's tree is below the GitHub baseline.\n` +
         `Skill: ${SKILL_HINTS.lens.parity}. Do NOT write files — the runner records your verdict.\n` +
-        `Return ONLY {verdict, shipBlockers, highs, notes}${", competitor {baseline, below} when the tree reads below the GitHub baseline"}.`,
+        `Return ONLY {verdict, shipBlockers, highs, notes}${", competitor {baseline, below} when the tree reads below the GitHub baseline"}.\n` +
+        `Field law: shipBlockers = removals/regressions that block; highs = RISK findings below the ship-blocker bar; notes = evidence and reasoning (INCLUDING positive evidence of additive/no-removal work). A non-empty highs is treated as a block signal by the runner, so never file favourable evidence there.`,
         { agent: agents?.parity ?? "parity-auditor", label: `gate:parity:${ts}`, schema: PARITY_SCHEMA },
       )
       : null;
@@ -404,21 +405,30 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     }
     const merged = normalizeVerdict("merged", mergedRaw);
     writeFileSync(`${batchDir}/gate-merged.md`, JSON.stringify(merged, null, 2));
-
-    const parityBlocked = parity !== null && parity.verdict !== "SHIP";
-    // A merge conflict keeps that unit's work on a branch UNlanded — the batch cannot be
-    // all-green while any order's content is not in the build (caught by the parity-gate
-    // class review 2026-10-08: conflicts previously fell through to ALL GREEN + auto-close).
-    const allGreen = results.every((r) => r.verdict === "GREEN") && merged.verdict === "SHIP" && !parityBlocked && mergeConflicts.length === 0;
+    // SINGLE SOURCE — the batch verdict, derived ONCE from the normalized values
+    // the gate files above already carry. The close decision, the record field
+    // and the `next` line all read THIS object, so a consumer never re-derives
+    // the verdict and the record can never disagree with the close (the wave-9
+    // "record says BLOCKED, reader assumed green" class).
+    const verdict = {
+      parity: parity ? parity.verdict : null,   // null = gate not eligible (no pre-batch commit / no GREEN order)
+      merged: merged.verdict,
+      conflicts: mergeConflicts,
+      allGreen: results.length > 0
+        && results.every((r) => r.verdict === "GREEN")
+        && merged.verdict === "SHIP"
+        && (parity === null || parity.verdict === "SHIP")
+        && mergeConflicts.length === 0,
+    };
     // Close contract: an ALL-GREEN batch CAS-closes its rows itself (evidence = batch dir),
     // so no claim can lapse into a reclaim/re-run window after the batch ends. The caller's
     // tick becomes verification; re-closing is a no-op (adapter + bd).
     const closed = [];
-    if (allGreen) {
+    if (verdict.allGreen) {
       for (const row of picked) {
         if (!row.claimed || !row.id) continue;
         try {
-          execFileSync("bun", [`${root}/porting/tasks.mjs`, "set", row.id, "--status", "done", "--evidence", `batch ${ts} GREEN; report: ${batchDir}/report.json`], { cwd: root, encoding: "utf8", timeout: 30000, env: process.env });
+          execFileSync("bun", [`${root}/porting/tasks.mjs`, "set", row.id, "--status", "done", "--evidence", `batch ${ts} GREEN; evidence: ${batchDir}`], { cwd: root, encoding: "utf8", timeout: 30000, env: process.env });
           closed.push(row.id);
         } catch (e) {
           console.error(`wf-batch: close failed for ${row.id}: ${String(e.stderr ?? e.message).slice(0, 160)}`);
@@ -426,10 +436,10 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       }
     }
     const conflictNote = mergeConflicts.length ? ` — merge conflicts kept as branches: ${mergeConflicts.join(", ")}` : "";
-    const next = !allGreen
+    const next = !verdict.allGreen
       ? `BLOCKED — see per-order results + gate-merged.md + gate-parity.md${conflictNote}`
       : `ALL GREEN — ${closed.length} row(s) auto-closed; update the spine, regenerate the status index, commit`;
-    const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, parallel: parallel > 1 ? parallel : 1, mergeBack, orders: results, merge: parallel > 1 ? `worktree-parallel x${parallel} (serial merge-back)` : "v1 sequential (no worktrees)", gate: merged, parity, closed, next };
+    const report = { batch: ts, queueSource, sourceLike: sourceLike ?? null, gated, parallel: parallel > 1 ? parallel : 1, mergeBack, orders: results, merge: parallel > 1 ? `worktree-parallel x${parallel} (serial merge-back)` : "v1 sequential (no worktrees)", verdict, gate: merged, parity, closed, next };
     writeFileSync(`${batchDir}/report.json`, JSON.stringify(report, null, 2));
     log(`batch ${ts}: ${next}`);
     return report;

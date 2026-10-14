@@ -154,6 +154,11 @@ try {
     check("1 next ALL GREEN", r.next.startsWith("ALL GREEN"), r.next.slice(0, 80));
     check("1 both orders GREEN in pick order", r.orders.length === 2 && r.orders.every((x) => x.verdict === "GREEN") && r.orders.map((x) => x.order).join(",") === `${CID(a)},${CID(b)}`, JSON.stringify(r.orders.map((x) => [x.order, x.verdict])));
     check("1 parity gate SHIPs and persists gate-parity.md", r.parity?.verdict === "SHIP" && gateFile(o, "gate-parity.md").verdict === "SHIP");
+    check("1 report records the batch verdict — the single source of the close decision",
+      r.verdict?.allGreen === true && r.verdict?.parity === "SHIP" && r.verdict?.merged === "SHIP", JSON.stringify(r.verdict));
+    check("1 recorded verdict equals the persisted gate files (no reader divergence)",
+      r.verdict.parity === gateFile(o, "gate-parity.md").verdict && r.verdict.merged === gateFile(o, "gate-merged.md").verdict,
+      JSON.stringify([r.verdict.parity, gateFile(o, "gate-parity.md").verdict]));
     check("1 merged gate SHIPs and report.json is written", r.gate.verdict === "SHIP" && existsSync(join(o.batchDir, "report.json")));
     const pIdx = o.calls.findIndex((c) => c.label.startsWith("gate:parity:"));
     const mIdx = o.calls.findIndex((c) => c.label.startsWith("gate:merged:"));
@@ -163,9 +168,15 @@ try {
     check("1 order artifacts persisted by the runner", [a, b].every((id) => ["plan.md", "verify.md", "result.json", "run-state.json"].every((f) => existsSync(join(o.fx.root, "porting/runs", CID(id), f)))));
     const aRow = o.fx.rowOf(CID(a)), bRow = o.fx.rowOf(CID(b));
     check("1 green rows auto-closed by the batch (CAS + batch evidence)", aRow?.status === "done" && bRow?.status === "done" && /COMPLETED: batch/.test(aRow?.evidence ?? ""), JSON.stringify([aRow?.status, bRow?.status, (aRow?.evidence ?? "").slice(0, 70)]));
+    check("1 close evidence cites the batch dir, which exists at close time (no dangling citation)",
+      (() => { const m = /evidence: (\S+)/.exec(aRow?.evidence ?? ""); return !!m && existsSync(m[1]); })(),
+      (aRow?.evidence ?? "").slice(0, 90));
     check("1 report records the closed rows", Array.isArray(r.closed) && r.closed.length === 2 && r.closed.includes(CID(a)) && r.closed.includes(CID(b)), JSON.stringify(r.closed));
     check("1 no claims left after the close (reclaim/re-run window closed)", o.fx.claimsOf().length === 0, JSON.stringify(o.fx.claimsOf().map((x) => x.id)));
     check("1 fixture store isolation via BEADS_DIR (no SQLite store created)", existsSync(join(o.fx.beadsDir, "metadata.json")) && !existsSync(join(o.fx.root, "porting/tasks.db")));
+    check("1 PARITY_SCHEMA defines the highs channel (risk-only)",
+      /RISK findings only/.test(String(o.calls.find((x) => x.label.startsWith("gate:parity:"))?.schema?.properties?.highs?.description ?? "")),
+      String(o.calls.find((x) => x.label.startsWith("gate:parity:"))?.schema?.properties?.highs?.description ?? "(none)"));
     check("1 serial orders' content present in the batch root", readFileSync(join(o.fx.root, `order-work-${a}.md`), "utf8") === `work for ${a}\n` && readFileSync(join(o.fx.root, `order-work-${b}.md`), "utf8") === `work for ${b}\n`);
     const seqLog = execFileSync("git", ["log", "--oneline"], { cwd: o.fx.root, encoding: "utf8" });
     check("1 sequential driver-commit landed the orders' work (lane integration can carry it)", seqLog.split("\n").filter(Boolean).length >= 2 && seqLog.includes("batch ") && seqLog.includes(a), seqLog.slice(0, 200));
@@ -422,9 +433,69 @@ try {
   }
 } catch (e) { check("13 batch-gate watchdog case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
+// --- 14. all-GREEN close: recorded once, idempotent on a resume re-run (no double-close) ---
+try {
+  const a14 = `${ID_PREFIX}s14-a`;
+  const fx = fixture([a14]);
+  const prevBeads = process.env.BEADS_DIR;
+  process.env.BEADS_DIR = fx.beadsDir;
+  let r1, r2;
+  try {
+    calls = []; reply = (label) => defaultReply(label);
+    r1 = await runBatch({ limit: 1, root: fx.root, resume: true });
+    r2 = await runBatch({ limit: 1, root: fx.root, resume: true });   // the resume re-run
+  } finally { if (prevBeads === undefined) delete process.env.BEADS_DIR; else process.env.BEADS_DIR = prevBeads; }
+  const row = fx.rowOf(CID(a14));
+  const completed = (row?.evidence ?? "").match(/COMPLETED:/g) ?? [];
+  check("14 all-GREEN run closes its row (CAS + batch evidence)",
+    r1.closed?.length === 1 && r1.closed.includes(CID(a14)) && row?.status === "done" && completed.length === 1,
+    JSON.stringify([r1.closed, row?.status, completed.length]));
+  check("14 resume re-run closes NOTHING (no double-close)",
+    !(r2.closed?.length) && r2.next.startsWith("NO PENDING"),
+    JSON.stringify([r2.closed, r2.next.slice(0, 60)]));
+  check("14 evidence not duplicated by the re-run (exactly one COMPLETED marker, still done)",
+    completed.length === 1 && row?.status === "done", JSON.stringify([completed.length, row?.status]));
+  const parityRecords = readdirSync(join(fx.root, "porting/runs"))
+    .filter((d) => d.startsWith("batch-"))
+    .flatMap((d) => readdirSync(join(fx.root, "porting/runs", d)))
+    .filter((f) => f === "gate-parity.md");
+  check("14 parity recorded EXACTLY ONCE across both invocations",
+    parityRecords.length === 1, String(parityRecords.length));
+  check("14 no claims left after the close (reclaim/re-run window closed)",
+    fx.claimsOf().length === 0, JSON.stringify(fx.claimsOf().map((x) => x.id)));
+} catch (e) { check("14 resume-idempotence case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 15. single source under normalization: SHIP + highs → BLOCK everywhere, nothing closes ---
+try {
+  const c15 = `${ID_PREFIX}s15-a`;
+  const o = await scenario([c15], {
+    limit: 1, mode: (label, dflt) =>
+    (label.startsWith("gate:parity:")
+      ? { verdict: "SHIP", shipBlockers: [], highs: ["stub: favourable evidence mislabeled as a high"], notes: [] }
+      : dflt(label))
+  });
+  if (o.error) check("15 normalization case completes", false, String(o.error.message).slice(0, 200));
+  else {
+    const r = o.report;
+    check("15 report and gate file AGREE on the normalized BLOCK (the wave-9 class)",
+      r.parity?.verdict === "BLOCK" && r.verdict?.parity === "BLOCK" && gateFile(o, "gate-parity.md").verdict === "BLOCK",
+      JSON.stringify([r.parity?.verdict, r.verdict?.parity, gateFile(o, "gate-parity.md").verdict]));
+    check("15 the record names the responsible gate (single source), merged still SHIP",
+      r.verdict?.allGreen === false && r.verdict?.merged === "SHIP" && r.verdict?.parity === "BLOCK",
+      JSON.stringify(r.verdict));
+    check("15 normalization note records the enforcement",
+      (r.parity?.notes ?? []).some((n) => /runner enforced the block rule/.test(n)),
+      JSON.stringify(r.parity?.notes ?? []));
+    check("15 normalized BLOCK closes nothing; green row stays claimed for the caller",
+      o.fx.rowOf(CID(c15))?.status === "pending" && o.fx.claimsOf().length === 1,
+      JSON.stringify([o.fx.rowOf(CID(c15))?.status, o.fx.claimsOf().length]));
+  }
+} catch (e) { check("15 normalization-single-source case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {
-  if (existsSync(LIVE_BEADS)) {
+  const hasLiveStore = existsSync(join(LIVE_BEADS, "metadata.json"));
+  if (hasLiveStore) {
     // cleanEnv() strips BEADS_DIR → bd resolves the repo's OWN store from cwd=ROOT.
     const live = JSON.parse(execFileSync(BD_BIN, ["list", "--json", "--all", "--limit", "3000"], { cwd: ROOT, env: cleanEnv(), encoding: "utf8", timeout: 120000, maxBuffer: 64 * 1024 * 1024 }));
     const leaked = live.filter((r) => String(r.id).includes(ID_PREFIX));
