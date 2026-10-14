@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.9 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
+Version: v3.10 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -983,6 +983,30 @@ Response `200`:
 **Client protocol note:** Session/SessionActivity rows remain Client-local — the platform serves the honest v1 read + the steer write; live per-agent process state is client-local (the same split the Floors row documents for busy/waiting).
 
 **Honest v1 limitation:** session state is feed-evidence-derived, never process-observed. A long-running agent that pushes nothing for >15 min reads as `idle` even while working. See §POST /sessions/{repo}/steer residual risks.
+
+## GET /sessions/{repo}/instructions?since=<cursor>
+
+The recorded steer feed's projection for one repo — the read half of §POST /sessions/{repo}/steer. The instructions the platform already recorded for `{repo}`, newest-first, with an advance-only cursor so a poller reconciles without duplicates.
+
+Response `200`:
+
+```json
+{ "ok": true, "repo": "agent-1", "instructions": [
+  { "id": "<12-hex>", "text": "<scrubbed instruction text>", "at": "<iso-8601-utc>" }
+], "cursor": "<12-hex>" }
+```
+
+- `since` — optional opaque cursor (the newest id a previous poll was served). Absent → the full list from the beginning; present → only rows newer than the cursor. A forged cursor buys at most a re-serve (the read is idempotent; no mutation surface).
+- `instructions[]` — rows newer than `since`, **newest-first**. `id` is the per-instruction unique id (`session.steered` carries a fresh 12-hex per event — the §GET /events feed-id family, and the same id the feed's dedup key uses); `text` is the scrubbed instruction form (the §POST /sessions/{repo}/steer seam — KEY=value lines render `KEY=[redacted]`, instruction-like lines `[stripped]`); `at` is the recorded instant, ISO-8601.
+- `cursor` — the newest served row's id; `null` when no rows were served → the next poll sends no `since`. **Advance-only:** a client stores the served cursor and never rewinds it (a failed poll leaves the last cursor standing — the fail-soft posture).
+- Demo-mode allowlist (AD-9): `{repo}` must match the allowlist — enforced **in the handler** (the path-carried repo cannot be adjudicated by the query-only `extractScope`, the `/raw` carve-out posture), the §POST /sessions/{repo}/steer precedent.
+- Rate: deliberately UNBOUND (the §GET /sessions posture — a bounded read over the recorded feed, one GET per discovered session per poll tick; documented so the omission reads as policy). No `ROUTE_RATE_LIMITS["/sessions:instructions"]` row.
+- Precondition order: `400` (param) → `403` (allowlist) → `404` (unknown repo) → `200`.
+- `405` on any other method (the API-boundary method law).
+- Egress (AD-4): rows carry only the scrubbed text and the recorded instant — the scrubbed steer-payload family. Never a secret-class path/key/value (the scrub seam strips secret-class content before the frame enters the event store).
+- Derivation honesty: the read projects the SAME durable event store `GET /events` serves — a steer whose `recordEvent` write failed never appears here (honest absence, never a fabricated row). An empty namespace answers `200 {ok:true, repo, instructions:[], cursor:null}` — **not 404** (a repo with no recorded instruction is legitimately empty; `404` is reserved for an unknown `{repo}`).
+
+**Honest v1 limitation:** the read mirrors the recorded feed — it shows what was steered, not what a live agent process is doing (the §POST /sessions/{repo}/steer limitation, mirrored). A client that never advances its cursor re-reads the same page; the UI poller re-renders the served page wholesale (duplicate-free by construction).
 
 ## GET /pipelines?base=demo&limit=20
 

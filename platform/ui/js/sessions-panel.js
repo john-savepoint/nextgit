@@ -1,12 +1,15 @@
-// nextgit — sessions domain (nextgit-e16, wave-16).
-// Owns the GET /sessions list + the per-repo steer
-// composer (POST /sessions/{repo}/steer). Imports
-// the shared state/el singletons and the API client
-// only.
+// nextgit — sessions domain (nextgit-e16, wave-16;
+// the instructions subsection is nextgit-e19).
+// Owns the GET /sessions list, the per-repo steer
+// composer (POST /sessions/{repo}/steer), and the
+// per-repo instructions subsection
+// (GET /sessions/{repo}/instructions, cursor-advanced).
+// Imports the shared state/el singletons and the API
+// client only.
 // FAIL-SOFT: this secondary panel never touches
-// connection state — a failed /sessions fetch must
-// not raise the connection banner (the forks/issues
-// precedent).
+// connection state — a failed /sessions or
+// /instructions fetch must not raise the connection
+// banner (the forks/issues precedent).
 import { state, el } from "./state.js";
 import { fetchJson, escapeHtml, formatTime } from "./api.js";
 import { showActionBanner } from "./land.js";
@@ -59,6 +62,7 @@ export function sessionRowHtml(session) {
         </div>
         ${intentHtml}
         ${lastEventHtml}
+        ${sessionInstructionsHtml(instructionRowsFrom(repo))}
         <div class="steer-composer">
           <textarea class="steer-input" data-steer-repo="${escapeHtml(repo)}" rows="2" maxlength="500" aria-label="Steer ${escapeHtml(repo)}" placeholder="Steer ${escapeHtml(repo)} (1–500 chars)"></textarea>
           <button class="steer-send" type="button">send</button>
@@ -83,6 +87,53 @@ export function sessionEmptyHtml(base) {
 }
 
 /**
+ * Pure helper: one recorded instruction row. The text is
+ * agent-authored and untrusted (AD-4): the text AND the
+ * rendered instant pass through escapeHtml before markup —
+ * the escape discipline is unconditional, never conditional
+ * on a field looking safe.
+ */
+export function instructionRowHtml(instruction) {
+ const text = typeof instruction?.text === "string" ? instruction.text : "";
+ const at = instruction?.at;
+ return `
+        <div class="session-instruction">
+          <div class="session-instruction-text">${escapeHtml(text)}</div>
+          <div class="session-instruction-time">${escapeHtml(formatTime(at))}</div>
+        </div>
+      `;
+}
+
+/**
+ * Pure helper: the instructions subsection for one repo.
+ * The honest no-instructions state says exactly that — a
+ * repo whose recorded feed carries no instruction reads
+ * "No instructions recorded", never a fabricated row (the
+ * sessionEmptyHtml absent-is-not-idle posture).
+ */
+export function sessionInstructionsHtml(rows) {
+ const body = rows.length
+  ? rows.map((instruction) => instructionRowHtml(instruction)).join("")
+  : '<div class="session-instructions-empty">No instructions recorded</div>';
+ return `
+      <div class="session-instructions">
+        ${body}
+      </div>
+    `;
+}
+
+/**
+ * Pure selector: the recorded instructions for a repo,
+ * newest-first. A repo the poll has not observed yet
+ * selects [] — the subsection then renders the honest
+ * empty state (never a fabricated row).
+ */
+export function instructionRowsFrom(repo) {
+ const rows = state.sessionsInstructionsByRepo[String(repo)];
+ return Array.isArray(rows) ? rows : [];
+}
+
+/**
  * Fetch the session list from /sessions. Fail-soft:
  * a failed fetch flips the panel's own error flag and
  * renders the quiet unavailable state — it never
@@ -93,11 +144,64 @@ export async function loadSessions() {
  try {
   state.sessionsData = await fetchJson("/sessions");
   state.sessionsError = false;
+  // Fan out the per-repo instructions poll: every session the
+  // feed evidences gets its own GET /sessions/{repo}/instructions.
+  // This list refreshes at the events cadence (the 2s
+  // sessionsTimer in ticker.js) and on every manual refresh, so
+  // the subsections refresh with it. Fire-and-forget: each poll
+  // re-renders itself on success and stays quiet on failure, so
+  // this render never waits on the instructions read.
+  const sessions = Array.isArray(state.sessionsData?.sessions) ? state.sessionsData.sessions : [];
+  for (const session of sessions) {
+   if (session && session.repo) loadSessionInstructions(session.repo);
+  }
  } catch {
   state.sessionsData = null;
   state.sessionsError = true;
  }
- renderSessions();
+ scheduleSessionsRender();
+}
+
+/**
+ * Fetch one repo's recorded instructions from
+ * GET /sessions/{repo}/instructions, newest-first, and
+ * advance that repo's cursor. Success REPLACES the stored
+ * rows wholesale — duplicate-free by construction, since a
+ * cursor-advanced poll only ever carries rows newer than the
+ * ones it replaces. The cursor advances whenever the server
+ * serves the field (absent → the stored cursor stands; null
+ * → no rows were served, so the next poll re-reads from the
+ * beginning). Fail-soft, quietly: ANY failure leaves both
+ * maps exactly as they were — no banner, no connection
+ * state, no action banner (the ambient-failure precedent
+ * this panel already keeps for /sessions).
+ */
+export async function loadSessionInstructions(repo) {
+ const key = String(repo);
+ try {
+  const cursor = state.sessionsInstructionsCursor[key];
+  const since = cursor ? `?since=${encodeURIComponent(cursor)}` : "";
+  const data = await fetchJson("/sessions/" + encodeURIComponent(key) + "/instructions" + since);
+  state.sessionsInstructionsByRepo[key] = Array.isArray(data?.instructions) ? data.instructions : [];
+  if (data && Object.prototype.hasOwnProperty.call(data, "cursor")) {
+   state.sessionsInstructionsCursor[key] = data.cursor == null ? null : String(data.cursor);
+  }
+  scheduleSessionsRender();
+ } catch {
+  // Quiet: the stored rows and cursor stand (never a fabricated row).
+ }
+}
+
+// Render coalescing (the per-poll churn guard): loadSessions and
+// every fire-and-forget loadSessionInstructions success each call
+// renderSessions(); a single 2s tick with N sessions would otherwise
+// perform up to N+1 full innerHTML swaps. Coalesce to one render
+// per microtask — the swap happens once per tick, not once per poll.
+let renderQueued = false;
+function scheduleSessionsRender() {
+ if (renderQueued) return;
+ renderQueued = true;
+ queueMicrotask(() => { renderQueued = false; renderSessions(); });
 }
 
 /**
@@ -129,7 +233,40 @@ export function renderSessions() {
   return;
  }
 
+ // The 2s cadence re-renders this list wholesale while the
+ // operator may be mid-type in a steer composer. Stash every
+ // draft and the focused composer's caret BEFORE the swap,
+ // re-apply after — an ambient tick must never silently
+ // discard typed-but-unsubmitted steer text or drop focus
+ // (the modal.js merge-composer drafts idiom, modal.js:243-250;
+ // the issues-panel returnFocus idiom, issues-panel.js:246-259).
+ const focused = document.activeElement;
+ const focusedRepo =
+  focused && focused.classList && focused.classList.contains("steer-input")
+   ? focused.getAttribute("data-steer-repo")
+   : null;
+ const caret = focusedRepo ? { start: focused.selectionStart, end: focused.selectionEnd } : null;
+ const drafts = new Map();
+ for (const input of el.sessionsList.querySelectorAll(".steer-input[data-steer-repo]")) {
+  if (input.value) drafts.set(input.getAttribute("data-steer-repo"), input.value);
+ }
+
  el.sessionsList.innerHTML = sessions.map((session) => sessionRowHtml(session)).join("");
+
+ for (const input of el.sessionsList.querySelectorAll(".steer-input[data-steer-repo]")) {
+  const draft = drafts.get(input.getAttribute("data-steer-repo"));
+  if (draft) input.value = draft;
+ }
+ if (focusedRepo) {
+  const restored = [...el.sessionsList.querySelectorAll(".steer-input[data-steer-repo]")]
+   .find((input) => input.getAttribute("data-steer-repo") === focusedRepo);
+  if (restored) {
+   restored.focus();
+   if (caret && typeof restored.setSelectionRange === "function") {
+    restored.setSelectionRange(caret.start, caret.end);
+   }
+  }
+ }
 }
 
 /**
