@@ -1,6 +1,6 @@
 # Capability parity — NextGit vs GitHub baseline
 
-Generated: 2026-10-14T03:17:32Z — derived by `bun porting/parity/compare.mjs` (verdicts are computed, never hand-authored).
+Generated: 2026-10-14T11:36:45Z — derived by `bun porting/parity/compare.mjs` (verdicts are computed, never hand-authored).
 
 Verdicts: **exceeds** = NextGit shipped where GitHub has none · **parity** = both sides (or both absent) · **below** = GitHub shipped/partial where NextGit has none (or only a partial capability).
 
@@ -20,9 +20,9 @@ Verdicts: **exceeds** = NextGit shipped where GitHub has none · **parity** = bo
 | parity | Inline per-line review comments on a change | shipped | shipped |
 | below | Third-party agents hosted inside the platform | shipped | partial |
 | parity | File/repo browser | shipped | shipped |
-| below | Issue tracker | shipped | partial |
+| parity | Issue tracker | shipped | shipped |
 | below | CI/CD pipeline integration | shipped | partial |
 | parity | Ordered merge queue | shipped | shipped |
 | parity | Native stacked diffs | none | none |
 
-Summary: 5 exceeds · 8 parity · 5 below (of 18 dimensions).
+Summary: 5 exceeds · 9 parity · 4 below (of 18 dimensions).

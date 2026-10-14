@@ -27,15 +27,6 @@
     "source": "harvest:parity-github"
   },
   {
-    "id": "nextgit-parity-below-issues",
-    "title": "Parity gap vs GitHub: Issue tracker",
-    "priority": "P2",
-    "scope": "Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension \"issues\": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8",
-    "acceptance": "Bring \"Issue tracker\" to at least GitHub-baseline parity (GitHub: shipped; NextGit: partial). Evidence: GitHub Issues is the incumbent's native task tracker that agent sessions are assigned from.",
-    "check": "bun porting/parity/compare.mjs --check-data",
-    "source": "harvest:parity-github"
-  },
-  {
     "id": "nextgit-parity-below-ci",
     "title": "Parity gap vs GitHub: CI/CD pipeline integration",
     "priority": "P2",
