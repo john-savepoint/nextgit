@@ -42,6 +42,8 @@ export const state = {
  issuesError: false,     // a /issues fetch has failed (fail-soft: never trips the connection banner)
  sessionsData: null,     // /sessions payload (null until observed)
  sessionsError: false,   // a /sessions fetch has failed (fail-soft: never trips the connection banner)
+ pipelinesData: null,    // /pipelines payload (null until observed)
+ pipelinesError: false,  // a /pipelines fetch has failed (fail-soft: never trips the connection banner)
  landVerdictByRepo: {}, // repo -> last auto-land gate outcome (AD-11 verdict, rendered never decided). Last server-carried GATE OUTCOME, not last error: a verdict (act/confirm/escalate) OR the gate's own fail-closed answer (judge-unavailable -> blocked) replaces the entry — an unrelated /land error leaves it standing, and a later act/confirm overwrites it.
 };
 
@@ -90,4 +92,7 @@ export const el = {
  judgeComparisonBadge: document.getElementById("judge-comparison-badge"), sessionsSection: document.getElementById("sessions-section"),
  sessionsList: document.getElementById("sessions-list"),
  sessionsMeta: document.getElementById("sessions-meta"),
+ pipelinesSection: document.getElementById("pipelines-section"),
+ pipelinesList: document.getElementById("pipelines-list"),
+ pipelinesMeta: document.getElementById("pipelines-meta"),
 };

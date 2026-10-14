@@ -64,6 +64,10 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // /comments:write precedent).
  "/asset-uploads:write": { limit: 20, windowMs: 60_000 },
  "/asset/presign": { limit: 60, windowMs: 60_000 },
+ // Pipelines (nextgit-e17): the landing-record projection —
+ // the /checks compute-cost class; reads the same KV the
+ // land path writes (CONTRACT.md §GET /pipelines).
+ "/pipelines": { limit: 60, windowMs: 60_000 },
 };
 
 /** One fixed window per (route, caller). */

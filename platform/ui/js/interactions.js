@@ -11,6 +11,7 @@ import { revealSecret } from "./reveal.js";
 import { loadForks } from "./forks-panel.js";
 import { loadIssues } from "./issues-panel.js";
 import { loadSessions, submitSteer } from "./sessions-panel.js";
+import { loadPipelines } from "./pipelines.js";
 import { submitComment } from "./comments.js";
 
 /**
@@ -125,6 +126,7 @@ export function setupInteractions() {
    loadProposals();
    loadEvents();
    loadSessions();
+   loadPipelines();
   });
  }
 
@@ -187,4 +189,5 @@ export function init() {
  loadForks();
  loadIssues();
  loadSessions();
+ loadPipelines();
 }

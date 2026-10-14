@@ -2013,3 +2013,120 @@ html, body {
   background-color: var(--status-green-bg);
   color: var(--status-green);
 }
+
+/* ——— Pipelines panel (nextgit-e17, wave-17) ———
+   Landed runs as pipeline records (GET /pipelines).
+   Var-only styling — no new color literals. Status
+   chips reuse the --status-* token families (the
+   session-state-chip precedent); the panel's chrome
+   classes (.pipelines-* / .pipeline-*) are the
+   panel's own (deliberately not .section-meta /
+   .loading-indicator), so the contrast suite's
+   structural counts are unaffected. The status word
+   is always rendered as text, never color-only. */
+.pipelines-section {
+  margin-bottom: var(--space-3xl);
+}
+.pipelines-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.pipelines-loading {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.pipelines-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.pipelines-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.pipelines-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.pipeline-row {
+  border-left: 2px solid var(--border-subtle);
+  padding: var(--space-sm-plus) var(--space-lg);
+  background-color: var(--bg-inset);
+  min-width: 0;
+}
+.pipeline-row-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+.pipeline-sha {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+.pipeline-repos {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2xs);
+}
+.pipeline-row-footer {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+.pipeline-at {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.pipeline-link {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.pipeline-status {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-secondary);
+}
+.pipeline-status-passed {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.pipeline-status-failed {
+  border-color: var(--status-red-border);
+  background-color: var(--status-red-bg);
+  color: var(--status-red);
+}
+.pipeline-status-not-recorded {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.pipeline-status-unknown {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.pipeline-attestation {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-secondary);
+}
+.pipeline-attestation-signed {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.pipeline-attestation-unavailable {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.pipeline-attestation-unrecorded {
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
