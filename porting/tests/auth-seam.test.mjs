@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 25 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, POST /issues, GET /checks, GET /sessions, GET /agents, GET /harnesses)", ROUTES.length === 25, `got ${ROUTES?.length}`);
+check("C: ROUTES has 26 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, POST /issues, GET /checks, GET /sessions, GET /agents, GET /harnesses, GET /pipelines)", ROUTES.length === 26, `got ${ROUTES?.length}`);
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
 let routeMap = {};

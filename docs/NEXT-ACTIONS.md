@@ -803,6 +803,13 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
 - [pending] P1 — Change-set identity — stable per-proposal fingerprint served on the change-set
+- [pending] P1 — Issues v2 — repo-scoped issues store (create/assign/close) + UI affordance
+- [pending] P1 — Pipelines v2 — GET /pipelines (land runs as pipeline records) + UI list
+- [pending] P2 — Convergence rail — per-project timeline (branches → collision → judge → land → events)
+- [pending] P1 — Machinery — wf-batch auto-close/parity record race (close own rows deterministically)
+- [pending] P1 — Machinery — batched claims + whitelist-equality guard + deterministic Chrome discovery
+- [pending] P1 — Submission gate v2 — extend the live gate to the wave-16/17 surfaces
+- [pending] P2 — Docs refresh — HANDOFF/STATE route inventory + parity evidence for wave-16 surfaces
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.

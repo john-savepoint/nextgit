@@ -254,6 +254,44 @@ const MAX_ARTIFACT_REF = 512;
 const MERGED_SHA_CHECK = "merged-sha-equals-tested-sha"; // reserved ledger check name
 const LANDING_KEY_PREFIX = "landing:"; // KV LIVE: landing record keyed by commit
 
+// Pipelines (nextgit-e17, CONTRACT.md §GET /pipelines): the
+// landing-record projection. The registry is ONE KV key the
+// two landing-record writers append to (single-writer posture
+// preserved — no new critical section; the append rides the
+// same best-effort try that persists landing:<commit>).
+const LANDING_REGISTRY_KEY = "landing-registry";
+export const MAX_LANDING_REGISTRY = 200; // registry cap — the MAX_EVENTS posture
+export const MAX_PIPELINE_LIMIT = 100;   // §GET /pipelines hard cap — the walk's resource bound
+export const DEFAULT_PIPELINE_LIMIT = 20; // §GET /pipelines page size when `limit` is absent
+
+/** One registry entry — the index a landing writer appends. */
+interface LandingRegistryEntry {
+ commit: string;
+ at: string;
+}
+
+/** The /pipelines wire row — the /changes egress family (AD-4). */
+interface PipelineRow {
+ id: string;
+ repos: string[];
+ at: string;
+ checks: string[];
+ results: string[];
+ status: "passed" | "not-recorded" | "failed";
+ attestation: "signed" | "unavailable" | null;
+}
+
+/** The persisted landing record's projection surface
+ *  (the /pipelines hydration boundary — the record is
+ *  caller-history-shaped JSON from KV, so the fields
+ *  the projection reads are typed as unknowns here and
+ *  narrowed at the read site). */
+interface LandingRecordProjection {
+ landed?: { at?: unknown };
+ evidence?: { repos?: unknown; checks?: unknown; results?: unknown };
+ attestation?: unknown;
+}
+
 // Repo-browsing read API bounds (CONTRACT.md §GET /tree, §GET /raw,
 // §GET /commits). MAX_TREE_DEPTH caps the resolved subdirectory depth
 // of a /tree path (a deeper path is a 400, never a walk). MAX_RAW_BYTES
@@ -1882,6 +1920,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    // failure is logged and degraded, never reported as a failed land.
    try {
     await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence, attestation }));
+    await appendLandingRegistry(env, commit, at);
    } catch (e) {
     console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
    }
@@ -2273,6 +2312,7 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
    // degraded, never reported as a failed land.
    try {
     await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence, attestation }));
+    await appendLandingRegistry(env, commit, at);
    } catch (e) {
     console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
    }
@@ -5182,6 +5222,156 @@ async function readSessionState(env: Env): Promise<Array<{
  return sessions;
 }
 
+// ---------------------------------------------------------------------------
+// Pipelines (nextgit-e17, CONTRACT.md §GET /pipelines):
+// the landing-record projection. appendLandingRegistry is
+// the ONLY registry writer — called from the two landing-
+// record write sites (POST /land / POST /upstream), riding
+// the SAME best-effort try block that persists
+// landing:<commit>: a registry append failure logs and
+// degrades exactly like a record-write failure, never
+// fails a land that already pushed (the
+// landing-record-write-failed posture). No new critical
+// section; the registry is one KV key, so cross-isolate
+// writes remain last-writer-wins (the documented as-built
+// posture — the comments/sessions precedents).
+// ---------------------------------------------------------------------------
+async function appendLandingRegistry(env: Env, commit: string, at: string): Promise<void> {
+ try {
+  const raw = await env.CACHE.get(LANDING_REGISTRY_KEY, "json");
+  const entries: LandingRegistryEntry[] = Array.isArray(raw)
+   ? raw.filter((e): e is LandingRegistryEntry => !!e && typeof e === "object" && typeof (e as LandingRegistryEntry).commit === "string" && typeof (e as LandingRegistryEntry).at === "string")
+   : [];
+  // Newest-first, deduped by commit: a re-land of the same
+  // commit REPLACES its prior entry rather than duplicating.
+  const next: LandingRegistryEntry[] = [{ commit, at }, ...entries.filter((e) => e.commit !== commit)];
+  await env.CACHE.put(LANDING_REGISTRY_KEY, JSON.stringify(next.slice(0, MAX_LANDING_REGISTRY)));
+ } catch (e) {
+  console.log("landing-registry-write-failed", JSON.stringify({ commit, error: String(e) }));
+ }
+}
+
+/**
+ * Read the landing registry (absent -> []; malformed ->
+ * [] — fail-closed, never a 500: the list is legitimately
+ * empty when the index is unreadable).
+ */
+async function readLandingRegistry(env: Env): Promise<LandingRegistryEntry[]> {
+ try {
+  const raw = await env.CACHE.get(LANDING_REGISTRY_KEY, "json");
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((e): e is LandingRegistryEntry => !!e && typeof e === "object" && typeof (e as LandingRegistryEntry).commit === "string" && typeof (e as LandingRegistryEntry).at === "string");
+ } catch {
+  return [];
+ }
+}
+
+/**
+ * Derive a row's status from the evidence ledger (the
+ * honesty law, CONTRACT.md §GET /pipelines): a failure
+ * token ("mismatch"/"fail") ALWAYS dominates a pass
+ * token, position-independent — never a last-element read.
+ */
+function pipelineStatus(results: unknown): "passed" | "not-recorded" | "failed" {
+ const tokens = Array.isArray(results) ? results : [];
+ for (const t of tokens) {
+  if (t === "mismatch" || t === "fail") return "failed";
+ }
+ for (const t of tokens) {
+  if (t === "pass") return "passed";
+ }
+ return "not-recorded";
+}
+
+/**
+ * Project the attestation envelope (the §Attestations
+ * tagged union): signed -> "signed"; unavailable ->
+ * "unavailable"; a record predating the layer (no
+ * attestation key — the typed-absent path
+ * GET /landings/{commit} already serves) -> null.
+ */
+function pipelineAttestation(attestation: unknown): "signed" | "unavailable" | null {
+ if (attestation && typeof attestation === "object" && (attestation as { status?: unknown }).status === "signed") return "signed";
+ if (attestation && typeof attestation === "object" && (attestation as { status?: unknown }).status === "unavailable") return "unavailable";
+ return null;
+}
+
+/** Validate the /pipelines query (the /commits clamp law:
+ *  a present `limit` above the cap clamps, never rejects). */
+function parsePipelinesQuery(url: URL): { base: string; limit: number } | Response {
+ const { base } = resolveRouteBase({ base: url.searchParams.get("base") ?? undefined });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ const limitParam = url.searchParams.get("limit");
+ let limit = DEFAULT_PIPELINE_LIMIT;
+ if (limitParam !== null) {
+  const n = Number(limitParam);
+  if (!Number.isInteger(n) || n < 1) return badRequest("limit must be an integer >= 1");
+  limit = Math.min(n, MAX_PIPELINE_LIMIT);
+ }
+ return { base, limit };
+}
+
+/**
+ * GET /pipelines — landed runs as pipeline records (the
+ * landing-record projection). Read-only, credential-free
+ * (NFR-6): zero Artifacts reads, zero writes — the KV the
+ * land path writes is the only store touched. `base`
+ * resolves through resolveRouteBase (AD-8 — omitted ==
+ * demo) and is REPO_NAME_RE-checked; the handler re-checks
+ * the demo allowlist (DEMO_REPO_RE) BEFORE any read (the
+ * /forks defense-in-depth precedent — the authorize()
+ * chokepoint already adjudicated the query-carried base
+ * pre-read, the /changes posture, ZERO KV reads on the 403
+ * path). Capped 60/60s (rateGate inside the handler, the
+ * /checks compute-cost class). Order: 400 (param) -> 403
+ * (allowlist) -> 429 (rate) -> 200.
+ */
+async function handlePipelines(request: Request, env: Env): Promise<Response> {
+ const parsed = parsePipelinesQuery(new URL(request.url));
+ if (parsed instanceof Response) return parsed;
+ const { base, limit } = parsed;
+ // Demo allowlist (AD-9) defense-in-depth — the query-carried
+ // base was adjudicated at the chokepoint; re-check BEFORE
+ // any store read (the /forks precedent).
+ if (!DEMO_REPO_RE.test(base)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ const rate = rateGate("/pipelines", request);
+ if (rate) return rate;
+ const registry = await readLandingRegistry(env);
+ const pipelines: PipelineRow[] = [];
+ for (const entry of registry.slice(0, limit)) {
+  // Hydrate the landing record. A vanished key (KV eviction)
+  // or a malformed record SKIPS the row — never fabricated,
+  // never a 500 (the fail-closed derivation law).
+  let record: LandingRecordProjection | null = null;
+  try {
+   const raw = await env.CACHE.get(`${LANDING_KEY_PREFIX}${entry.commit}`);
+   if (raw !== null && raw !== undefined) record = JSON.parse(raw) as LandingRecordProjection;
+  } catch {
+   record = null;
+  }
+  if (!record || !record.landed || !record.evidence) continue;
+  const at = typeof record.landed.at === "string" ? record.landed.at : entry.at;
+  const repos = Array.isArray(record.evidence.repos) ? record.evidence.repos.filter((r): r is string => typeof r === "string") : [];
+  pipelines.push({
+   id: entry.commit,
+   repos,
+   at,
+   checks: Array.isArray(record.evidence.checks) ? record.evidence.checks.filter((c): c is string => typeof c === "string") : [],
+   results: Array.isArray(record.evidence.results) ? record.evidence.results.filter((r): r is string => typeof r === "string") : [],
+   status: pipelineStatus(record.evidence.results),
+   attestation: pipelineAttestation(record.attestation),
+  });
+ }
+ return Response.json({ ok: true, base, pipelines });
+}
+
 /**
  * GET /sessions — the honest v1 session list (CONTRACT.md
  * §GET /sessions). `base` resolves through resolveRouteBase
@@ -5444,6 +5634,16 @@ export const ROUTES: RouteEntry[] = [
  // (the /changes posture — ROUTE_RATE_LIMITS carries no
  // "/sessions" GET row; see §GET /sessions).
  { path: "/sessions", method: "GET", action: "read", handler: handleSessions },
+ // Pipelines (nextgit-e17, CONTRACT.md §GET /pipelines):
+ // landed runs as pipeline records — the projection of
+ // the landing records POST /land / POST /upstream already
+ // persist, indexed by the landing-registry key those
+ // writers append. The authorize() chokepoint covers it
+ // (demo mode gate; extractScope adjudicates the
+ // query-carried base pre-read, the /changes posture).
+ // Capped 60/60s (rateGate inside the handler, the
+ // /checks compute-cost class — ROUTE_RATE_LIMITS row).
+ { path: "/pipelines", method: "GET", action: "read", handler: handlePipelines },
 ];
 
 export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST" | "PATCH"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
@@ -5554,6 +5754,8 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/story.html": true, "/js/story-page.js": true,
  "/js/judge-comparison.js": true,
  "/js/sessions-panel.js": true,
+ // nextgit-e17: the pipelines panel module.
+ "/js/pipelines.js": true,
 };
 
 export default {

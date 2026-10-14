@@ -984,6 +984,41 @@ Response `200`:
 
 **Honest v1 limitation:** session state is feed-evidence-derived, never process-observed. A long-running agent that pushes nothing for >15 min reads as `idle` even while working. See §POST /sessions/{repo}/steer residual risks.
 
+## GET /pipelines?base=demo&limit=20
+
+Landed runs as pipeline records — a projection of the landing
+records `POST /land` / `POST /upstream` already persist
+(`landing:<commit>` in KV `CACHE`), indexed by the single
+`landing-registry` key those writers append. **No new store, no
+new binding, no new KV namespace** — the pipeline list is a
+projection of records the platform already keeps.
+
+Response `200`:
+
+```json
+{ "ok": true, "base": "demo", "pipelines": [
+  { "id": "<40-hex commit>", "repos": ["agent-1"], "at": "<iso-8601-utc>",
+    "checks": ["merged-sha-equals-tested-sha"], "results": ["pass"],
+    "status": "passed", "attestation": "signed" }
+] }
+```
+
+- `id` — the landed commit sha (40-hex). The pipeline run's identity; `landing:<id>` is the record key, and the same id `GET /landings/{commit}` addresses.
+- `repos` — the proposal repos folded into the run (`evidence.repos` verbatim).
+- `at` — the landing instant, ISO-8601 (`landed.at` verbatim).
+- `checks` / `results` — the recorded validation-evidence ledger verbatim (`evidence.checks[]` / `evidence.results[]`, position-paired), including the platform-appended `merged-sha-equals-tested-sha` row.
+- `status` ∈ `passed | not-recorded | failed` — derived from `evidence.results`: **failed** when the ledger contains `mismatch` or `fail` (a red recorded check is a red run — a failure token dominates a pass token, position-independent); else **passed** when it contains `pass`; else **not-recorded** (a land with no recorded validation is honestly `not-recorded`, never `passed`).
+- `attestation` ∈ `signed | unavailable | null` — the §Attestations tagged union projected: `attestation.status === "signed"` → `signed`; `"unavailable"` → `unavailable`; a record that predates the attestation layer (no `attestation` key — the typed-absent path `GET /landings/{commit}` already serves) → `null`.
+- Order: newest-first (registry order). `limit` — optional, default `20`, hard cap `100`: a present `limit` above it **clamps** (never walks — the `/commits` law). An absent/empty namespace answers `200 {ok:true, base, pipelines:[]}` — **not 404** (the list is legitimately empty).
+- Demo-mode allowlist (AD-9): `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}` (enforced at the `authorize()` chokepoint — the `/changes` posture, **zero KV reads** — and re-checked in the handler, the `/forks` defense-in-depth precedent).
+- Rate: 60/min → `429 {ok:false,error:"rate-limited"}` (`ROUTE_RATE_LIMITS["/pipelines"]` — the `/checks` compute-cost class: a projection over caller-shaped records, deliberately BOUND unlike `/tree`//`/commits`).
+- Precondition order: `400` (non-string base; `limit` present but not an integer ≥1) → `403` (allowlist, pre-read) → `429` (rate) → `200`. An omitted/empty `base` resolves through `resolveRouteBase` to the pinned default `demo` (AD-8) → `200`, the `/sessions`/`/changes`-family posture (dated correction, v3.8: an earlier draft mis-stated this as a `400`).
+- `405` on any other method (the API-boundary method law).
+- Egress (AD-4): rows carry only repo names, commit sha, ISO instant, and check/result **names** — the `/changes` egress family. No file content, no patch, no secret-class path/key/value, no fork-point sha.
+- Derivation honesty: a registry entry whose `landing:<commit>` key vanished (KV eviction) is **skipped** — the row is never fabricated, never a 500. A malformed registry reads as `[]` (fail-closed).
+
+**Honest v1 limitation:** the registry is a single KV key — cross-isolate writes are last-writer-wins (the documented as-built posture of every KV read-modify-write in this worker; a repo-keyed Durable Object is the deferred multi-isolate fix). A land whose registry append fails (a KV blip) leaves a landing record the list does not show — honest absence, self-heals on the next land, log-observable via `landing-registry-write-failed`. The registry caps the list at 200 runs; older records remain readable at `GET /landings/{commit}` but leave the list.
+
 ## POST /sessions/{repo}/steer
 
 Record a steer instruction as a `session.steered` event in the SAME event store `GET /events` serves (the platform's real observability) — the honest v1 of "steer mid-session": the instruction lands in the event stream the agent CLIs read. **The platform does not inject it into a live agent process** — that is the documented v1 limitation.

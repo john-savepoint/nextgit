@@ -1,8 +1,8 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T01:18:12.751Z",
-  "head": "13dd275",
-  "branch": "main",
+  "generatedAt": "2026-10-14T04:52:23.372Z",
+  "head": "7680363",
+  "branch": "integrate-wave17",
   "state": {
     "lastUpdated": "2026-10-14 ",
     "branch": "main",
@@ -10,9 +10,9 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 695,
+    "total": 702,
     "byStatus": {
-      "pending": 412,
+      "pending": 419,
       "partial": 1,
       "done": 282
     },
@@ -2081,6 +2081,41 @@
         "status": "pending",
         "priority": "P1",
         "title": "Change-set identity"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Issues v2"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Pipelines v2"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Convergence rail"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Machinery"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Machinery"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Submission gate v2"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Docs refresh"
       }
     ]
   },
