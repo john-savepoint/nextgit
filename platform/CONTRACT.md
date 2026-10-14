@@ -549,6 +549,7 @@ Per-proposal change-set (server-side; no clones).
   server-side on every row: `{language, role, sensitivity}` (pure
   path/extension law; `platform/src/classify.ts`).
 - `patch` — absent for secret/binary/oversized files.
+- `note` (compute-downgraded) — a change-set computes at most `MAX_COMPUTE_PATCH_DIFFS` (40) per-file diffs; once that budget is spent, every further file in the set keeps its metadata row and `additions`/`deletions` stay unset, the inline `patch` is omitted, and the row carries `note: "compute-downgraded: patch omitted at the change-set compute budget (40 diffs)"`. This is the honest-degradation law: a file the compute budget skips is never silently dropped — it renders a row naming the budget. The cap is a deterministic work-unit proxy for the O(size) per-file compute (`diffLines` stats + patch construction), which a set of many large files would otherwise drive toward the 30s wall even when each file individually passes the `MAX_DIFF_FILE_CHARS` size gate. `MAX_COMPUTE_PATCH_DIFFS` (40) ≤ `MAX_FILES_WITH_PATCH` (50), so the compute budget fires before the patch budget exhausts. Residual: the counter is a deterministic proxy, not a wall-clock sample (per-isolate CPU time is non-deterministic).
 - `commits` — newest-first list of the proposal's first-parent commits from HEAD down to (and including) the fork point (`base.sha`). Each entry: `hash` (40-hex SHA-1), `message` (commit subject string), `author` (string, rendered as `Name <email>`), and `timestamp` (Unix seconds of the author date). Bounded by the fork-point walk (`limit: 200`); empty when the walk yields no commits. Never includes commits past the fork point.
 - Demo-mode allowlist (AD-9): `repo` and `base` must match the allowlist (`^(demo|agent)(-[A-Za-z0-9._-]+)?$`); anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read.
 
@@ -570,6 +571,7 @@ The set view + conflict map.
 - These are the values `POST /land` compares its optional `reviewed` fields against (§POST /land): a head that moves after this read makes a land carrying it answer `409 stale` — nothing is folded or pushed (FR-16). Distinct from `/changes`' `base.sha`, which is the fork point.
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match the allowlist (`^(demo|agent)(-[A-Za-z0-9._-]+)?$`); anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read.
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
+- Per-file diff compute is bounded by `MAX_COMPUTE_PATCH_DIFFS` (40) per proposal's change-set; a proposal row beyond the budget renders files with `note: "compute-downgraded: …"` (see §GET /changes). The fold's `texts` input tolerates a missing entry, so a downgraded file folds as an empty-ancestor merge rather than crashing or fabricating text.
 
 `kind` ∈ `text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed`
 
@@ -705,6 +707,7 @@ Fold proposals in order onto the baseline — per-file 3-way merge (diff3).
 - `conflictText` — text with `<<<<<<< / ======= / >>>>>>>` markers when `result=conflict`.
 - Secret-class files: `result=withheld-secret`, no text.
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
+- Per-file diff compute is bounded by `MAX_COMPUTE_PATCH_DIFFS` (40) per proposal's change-set; a file beyond the budget folds from an empty ancestor (its `texts` entry is absent) rather than fabricating text (see §GET /changes).
 
 ## POST /land
 
