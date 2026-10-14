@@ -1,8 +1,8 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T10:08:14.066Z",
-  "head": "bdce3d0",
-  "branch": "main",
+  "generatedAt": "2026-10-14T13:22:05.896Z",
+  "head": "92ac3e8",
+  "branch": "integrate-wave19",
   "state": {
     "lastUpdated": "2026-10-14 ",
     "branch": "main",
@@ -10,11 +10,11 @@
     "standingRedSet": null
   },
   "queue": {
-    "total": 706,
+    "total": 713,
     "byStatus": {
-      "pending": 410,
+      "pending": 413,
       "partial": 1,
-      "done": 295
+      "done": 299
     },
     "items": [
       {
@@ -2071,6 +2071,21 @@
         "status": "pending",
         "priority": "P2",
         "title": "Parity gap vs GitHub: CI/CD pipeline integration"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Session instructions"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Machinery"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "Parity + docs refresh"
       }
     ]
   },

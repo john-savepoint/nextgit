@@ -233,11 +233,13 @@ function scheduleSessionsRender() {
 export function renderSessions() {
  if (!el.sessionsList || !el.sessionsMeta) return;
 
- // A successful render is the recovery: clear any
- // standing failure announcement so it never
- // outlives the refetch that reconciles it (the
- // renderIssues issues-status posture).
- if (el.sessionsStatus) el.sessionsStatus.textContent = "";
+ // NOTE (2026-10-14): the live-region clear deliberately
+ // does NOT live here — the 2s ambient tick re-renders
+ // routinely, and a routine re-render must never wipe a
+ // failure announcement (WCAG 4.1.3). The clear lives in
+ // submitSteer's success path (the recovery event); see
+ // its comment. (An earlier revision cleared here and the
+ // merged tick made the announcement unobservable.)
 
  const data = state.sessionsData;
  if (!data) {
@@ -328,6 +330,12 @@ export async function submitSteer(control) {
    // Success: the sent marker stays; the session row's
    // state reconciles when loadSessions() next runs (the
    // refreshed feed carries the session.steered evidence).
+   // The live region is cleared HERE — on the recovery
+   // event — never inside renderSessions, because the 2s
+   // ambient tick re-renders routinely and a routine
+   // re-render must not wipe an announcement (WCAG 4.1.3;
+   // the clear-on-success intent preserved, tick-immune).
+   if (el.sessionsStatus) el.sessionsStatus.textContent = "";
   } catch (err) {
    // Honest failure: surface the server's error token via
    // the action banner (never silent) and remove the sent

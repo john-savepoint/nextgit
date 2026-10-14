@@ -800,6 +800,9 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Third-party agents hosted inside the platform — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-federation": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
+- [pending] P1 — Session instructions — GET /sessions/{repo}/instructions (the poll half of steering)
+- [pending] P1 — Machinery — per-phase-class watchdogs + battery Chrome isolation
+- [pending] P2 — Parity + docs refresh — wave-17/18 surfaces (pipelines, issues v2, fingerprint, instructions)
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.
@@ -1180,5 +1183,9 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P1 — Issues v2 — composer + close affordances (stored rows only)
 - [done] P2 — Code hygiene mediums — floors filter, proposal-detail errors, verdict ternary, fanout token revoke
 - [done] P1 — Submission runbook — one documented command chain, expected outputs, failure actions
+- [done] P1 — Checks export — GitHub-compatible check-run envelopes (GET /checks?format=github)
+- [done] P1 — UX attributed fixes — aria-live failure legs, ≤720px floors, focus restore, test legs
+- [done] P2 — Sessions panel — instructions subsection (poll GET instructions, cursor advance)
+- [done] P1 — Demo story — the recording shot-list (docs/DEMO-STORY.md)
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.
