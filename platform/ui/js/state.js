@@ -13,6 +13,7 @@ export const state = {
  autoRefresh: true,
  proposalsTimer: null,
  eventsTimer: null,
+ sessionsTimer: null,     // the sessions poll timer (2s; the per-repo instructions poll rides it)
  connectionError: false,
  lastError: null,
  lastSyncTime: null,
@@ -42,6 +43,8 @@ export const state = {
  issuesError: false,     // a /issues fetch has failed (fail-soft: never trips the connection banner)
  sessionsData: null,     // /sessions payload (null until observed)
  sessionsError: false,   // a /sessions fetch has failed (fail-soft: never trips the connection banner)
+ sessionsInstructionsByRepo: {}, // repo -> newest-first rows from GET /sessions/{repo}/instructions (the subsection's render source; a repo is absent until its poll lands)
+ sessionsInstructionsCursor: {}, // repo -> the last-served cursor; a failed poll never rewinds or advances it
  pipelinesData: null,    // /pipelines payload (null until observed)
  pipelinesError: false,  // a /pipelines fetch has failed (fail-soft: never trips the connection banner)
  landVerdictByRepo: {}, // repo -> last auto-land gate outcome (AD-11 verdict, rendered never decided). Last server-carried GATE OUTCOME, not last error: a verdict (act/confirm/escalate) OR the gate's own fail-closed answer (judge-unavailable -> blocked) replaces the entry — an unrelated /land error leaves it standing, and a later act/confirm overwrites it.

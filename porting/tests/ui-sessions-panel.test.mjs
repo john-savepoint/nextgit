@@ -29,6 +29,21 @@
 //      with the connection banner STILL hidden (fail-soft)
 //      and untrusted repo/intent renders escaped (AD-4)
 //   6. zero uncaught page errors across every dump
+//   7. the per-repo instructions subsection renders the
+//      recorded feed newest-first, and a repo with no
+//      recorded instruction renders the honest empty state
+//   8. the cursor advances: the first poll sends no since,
+//      the next sends the served cursor, the newer page
+//      renders and the replaced page does not
+//   9. a re-poll reconciles duplicate-free (each recorded
+//      instruction renders exactly once)
+//  10. a failing instructions read stays quiet — rows still
+//      render, no banner, no fabricated row (fail-soft)
+//  11. untrusted instruction text renders escaped (AD-4)
+//  12. the typed steer draft survives the 2s
+//      ambient sessionsTimer tick (value,
+//      focus and caret preserved across the
+//      innerHTML swap)
 // A box without a Chrome binary skips the suite (precedent:
 // ui-issues-panel, ui-comments).
 import { spawn, spawnSync } from "node:child_process";
@@ -94,6 +109,39 @@ const XSS_FIXTURE = {
   ok: true,
   base: "demo",
   sessions: [{ repo: XSS_REPO, state: "working", intent: XSS_INTENT }],
+};
+
+// The recorded-instruction fixtures (the CONTRACT
+// §GET /sessions/{repo}/instructions shape): the first page
+// carries two rows newest-first with the newest id as its
+// cursor, the advance page carries only the row newer than
+// that cursor, the empty page carries cursor:null, and the
+// untrusted page carries markup in the instruction text.
+const INSTRUCTIONS_FIXTURE = {
+  ok: true,
+  repo: "agent-1",
+  instructions: [
+    { id: "c4", text: "newer instruction", at: "2026-10-14T10:00:04.000Z" },
+    { id: "c3", text: "older instruction", at: "2026-10-14T10:00:03.000Z" },
+  ],
+  cursor: "c4",
+};
+
+const INSTRUCTIONS_PAGE2_FIXTURE = {
+  ok: true,
+  repo: "agent-1",
+  instructions: [{ id: "c5", text: "newest instruction", at: "2026-10-14T10:00:05.000Z" }],
+  cursor: "c5",
+};
+
+const INSTRUCTIONS_EMPTY_FIXTURE = { ok: true, repo: "agent-1", instructions: [], cursor: null };
+
+const INSTRUCTIONS_XSS_TEXT = "<img src=x onerror=alert(3)>";
+const INSTRUCTIONS_XSS_FIXTURE = {
+  ok: true,
+  repo: "agent-1",
+  instructions: [{ id: "x1", text: INSTRUCTIONS_XSS_TEXT, at: "2026-10-14T10:00:09.000Z" }],
+  cursor: "x1",
 };
 
 const PROPOSALS = { ok: true, base: { repo: "fixture", ref: "main" }, ref: "main", summary: { proposals: 0, sharedFiles: 0, conflictingPairs: 0, changedFiles: 0, cleanPairs: 0 }, proposals: [], conflicts: [] };
@@ -166,11 +214,22 @@ const pageErrors = (dom) => {
 };
 const bannerVisible = (dom) => !/<div id="connection-banner"[^>]*\shidden(=|\s|>)/.test(dom);
 
+// The agent-1 (or named) session row's own block: rowsOf()
+// splits on the row delimiter, so each chunk stops before the
+// next row — a row's instruction rows are read in isolation.
+const rowChunkOf = (dom, repo) =>
+  rowsOf(dom).find((chunk) => chunk.includes(`id="session-${repo}"`)) || "";
+const instructionTextsIn = (chunk) => [...chunk.matchAll(/class="session-instruction-text">([^<]*)</g)].map((m) => m[1]);
+const instructionTimesIn = (chunk) => [...chunk.matchAll(/class="session-instruction-time">([^<]*)</g)].map((m) => m[1]);
+const hasEmptyStateIn = (chunk) => /class="session-instructions-empty"/.test(chunk);
+
 // --- Loopback worker state — reset per scenario by the runner. ---
 let sessionsMode = "ok";  // "ok" | "empty" | "xss" | "fail"
 let steerMode = "ok";     // "ok" | "403"
 let steered = false;      // a successful steer flips the feed (the refreshed evidence)
+let instructionsMode = "ok"; // "ok" | "mixed" | "advance" | "fail" | "xss"
 const steerRequests = []; // the real HTTP log for the steer POST
+const instructionRequests = []; // the real HTTP log for the instructions poll (repo + since)
 
 // Observer/driver: injected BEFORE app.js. For the steer
 // legs it drives the REAL composer (types into the row's
@@ -196,6 +255,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.s.loaderGone = !qs("#sessions-list .sessions-loading").length;
     R.s.unavailable = qs("#sessions-list .sessions-unavailable").map((e) => e.textContent.trim());
     R.s.emptyTitle = qs("#sessions-list .sessions-empty-title").map((e) => e.textContent.trim());
+    // The instructions subsection (the poll evidence surface):
+    // agent-1's recorded rows and the repos' honest empty state.
+    R.s.instrTexts = qs("#session-agent-1 .session-instruction .session-instruction-text").map((e) => e.textContent.trim());
+    R.s.instrTimes = qs("#session-agent-1 .session-instruction .session-instruction-time").map((e) => e.textContent.trim());
+    R.s.instrEmpty1 = qs("#session-agent-1 .session-instructions-empty").map((e) => e.textContent.trim());
+    R.s.instrEmpty2 = qs("#session-agent-2 .session-instructions-empty").map((e) => e.textContent.trim());
 
     if (CFG.mode === "steer" || CFG.mode === "steer403") {
       const row = q("#sessions-list .session-row#session-agent-1");
@@ -239,6 +304,44 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.s.statusTextAfterRefresh = q("#sessions-status") ? q("#sessions-status").textContent.trim() : null;
     }
 
+    // Leg 12 driver: type into the REAL steer composer,
+    // focus it, set the caret, then wait past one full
+    // 2s sessionsTimer tick. The ambient tick re-runs
+    // loadSessions -> renderSessions (the innerHTML swap);
+    // the draft, the focus and the caret must survive it.
+    if (CFG.mode === "composer-survive") {
+      const row = q("#sessions-list .session-row#session-agent-1");
+      const input = row ? row.querySelector(".steer-input[data-steer-repo]") : null;
+      if (input) {
+        input.value = CFG.instruction;
+        input.focus();
+        input.setSelectionRange(CFG.instruction.length, CFG.instruction.length);
+      }
+      await sleep(2600); // one full 2s sessionsTimer tick lands here
+      const late = q("#sessions-list .session-row#session-agent-1 .steer-input[data-steer-repo]");
+      R.s.draftValueLate = late ? late.value : null;
+      R.s.draftFocusedLate = document.activeElement === late;
+      R.s.draftRepoFocused = document.activeElement ? document.activeElement.getAttribute("data-steer-repo") : null;
+      R.s.draftCaretLate = late ? { start: late.selectionStart, end: late.selectionEnd } : null;
+    }
+
+    // The instructions poll rides the 2s sessions cadence, so a
+    // second read past that tick is the reconcile surface: a
+    // re-poll re-renders the served page wholesale (never a
+    // duplicate) and a cursor-advanced poll shows only the newer
+    // page. Read late, never mid-flight.
+    if (String(CFG.mode).startsWith("instructions")) {
+      await sleep(2600);
+      R.s.instrTextsLate = qs("#session-agent-1 .session-instruction .session-instruction-text").map((e) => e.textContent.trim());
+      R.s.instrEmpty1Late = qs("#session-agent-1 .session-instructions-empty").map((e) => e.textContent.trim());
+      R.s.rowsLate = qs("#sessions-list .session-row").length;
+      const bannerLate = q("#action-banner");
+      R.s.bannerClassLate = bannerLate ? bannerLate.className : null;
+      R.s.bannerHiddenLate = bannerLate ? bannerLate.hidden : null;
+      const connLate = q("#connection-banner");
+      R.s.connHiddenLate = connLate ? connLate.hidden : null;
+    }
+
     R.s.errCount = errCount;
     R.s.rejCount = rejCount;
   } catch (e) { R.err = String((e && e.stack) || e); }
@@ -263,6 +366,23 @@ const server = createServer((req, res) => {
     if (sessionsMode === "xss") return json(res, XSS_FIXTURE);
     if (sessionsMode === "empty") return json(res, EMPTY);
     return json(res, steered ? STEERED_FIXTURE : FIXTURE);
+  }
+  // GET /sessions/{repo}/instructions — the instructions read's
+  // poll seam. instructionsMode selects the fixture; every request
+  // is recorded with its repo and since param (the server-side log
+  // is the cursor-advance evidence surface).
+  const instr = pathname.match(/^\/sessions\/(.+)\/instructions$/);
+  if (instr && req.method === "GET") {
+    const repo = decodeURIComponent(instr[1]);
+    const since = new URL(req.url, "http://127.0.0.1").searchParams.get("since");
+    instructionRequests.push({ method: "GET", repo, since });
+    if (instructionsMode === "fail") return json(res, { ok: false, error: "fixture-down" }, 500);
+    if (instructionsMode === "xss") return json(res, { ...INSTRUCTIONS_XSS_FIXTURE, repo });
+    if (instructionsMode === "mixed" && repo !== "agent-1") return json(res, { ...INSTRUCTIONS_EMPTY_FIXTURE, repo });
+    if (instructionsMode === "advance") {
+      return json(res, since ? { ...INSTRUCTIONS_PAGE2_FIXTURE, repo } : { ...INSTRUCTIONS_FIXTURE, repo });
+    }
+    return json(res, { ...INSTRUCTIONS_FIXTURE, repo });
   }
   // POST /sessions/{repo}/steer — the steer composer's
   // mutating seam. The worker records the real request
@@ -413,17 +533,146 @@ function legXss(dom) {
   check("5 no raw element injected from session content", !region.includes("<img") && !region.includes("<script>"), region.slice(0, 240));
 }
 
+// Leg 7 — the instructions subsection renders the recorded feed
+// newest-first inside its session row, and a repo with no
+// recorded instruction renders the honest empty state.
+function legInstructions(dom) {
+  const R = parse(dom);
+  if (!R) return check("7: scenario output present", false, "no #test-out");
+  if (R.err) return check("7: scenario threw", false, R.err);
+  const c = R.s;
+  const chunk = rowChunkOf(dom, "agent-1");
+  check("7 agent-1's row renders the instructions subsection", chunk.includes('class="session-instructions"'), "subsection missing");
+  check("7 the newest recorded instruction renders first (newest-first)",
+    (c.instrTexts || []).join("|") === "newer instruction|older instruction", JSON.stringify(c.instrTexts));
+  check("7 every instruction row carries its recorded instant",
+    (c.instrTimes || []).length === 2 && (c.instrTimes || []).every((t) => /^\d{2}:\d{2}:\d{2}$/.test(t)), JSON.stringify(c.instrTimes));
+  check("7 the dumped row agrees with the driver read",
+    instructionTextsIn(chunk).join("|") === "newer instruction|older instruction", JSON.stringify(instructionTextsIn(chunk)));
+  check("7 a repo with no recorded instruction renders the honest empty state",
+    (c.instrEmpty2 || []).some((t) => t === "No instructions recorded"), JSON.stringify(c.instrEmpty2));
+  check("7 a repo WITH recorded instructions renders no empty state",
+    (c.instrEmpty1 || []).length === 0 && !hasEmptyStateIn(chunk), JSON.stringify(c.instrEmpty1));
+}
+
+// Leg 8 — the cursor advance law: the first poll sends no since,
+// the next sends the served cursor, the newer page renders and
+// the replaced page does not re-render (the served page replaces
+// the stored rows wholesale).
+function legCursorAdvance(dom) {
+  const R = parse(dom);
+  if (!R) return check("8: scenario output present", false, "no #test-out");
+  if (R.err) return check("8: scenario threw", false, R.err);
+  const c = R.s;
+  const polls = instructionRequests.filter((r) => r.repo === "agent-1");
+  const sinces = polls.map((p) => p.since);
+  check("8 the first instructions poll carries no since", polls.length >= 1 && polls[0].since === null, JSON.stringify(sinces));
+  check("8 the next poll advances to the served cursor (since=c4)",
+    polls.length >= 2 && polls[1].since === "c4", JSON.stringify(sinces));
+  check("8 the cursor never rewinds (every later poll carries a since)",
+    polls.length >= 2 && polls.slice(1).every((p) => typeof p.since === "string" && p.since.length > 0), JSON.stringify(sinces));
+  check("8 the client driver saw the first page before the advance",
+    (c.instrTexts || []).join("|") === "newer instruction|older instruction", JSON.stringify(c.instrTexts));
+  const chunk = rowChunkOf(dom, "agent-1");
+  check("8 the cursor-advanced page renders its newer instruction",
+    instructionTextsIn(chunk).join("|") === "newest instruction", JSON.stringify(instructionTextsIn(chunk)));
+  check("8 the replaced page's instructions do not re-render",
+    !chunk.includes("newer instruction") && !chunk.includes("older instruction"), JSON.stringify(instructionTextsIn(chunk)));
+  check("8 exactly one instruction row renders after the advance",
+    instructionTextsIn(chunk).length === 1, `count=${instructionTextsIn(chunk).length}`);
+  check("8 the client's late read shows only the advanced page",
+    (c.instrTextsLate || []).join("|") === "newest instruction", JSON.stringify(c.instrTextsLate));
+}
+
+// Leg 9 — duplicate-free reconcile: the 2s re-poll re-serves the
+// page and the panel replaces it wholesale (an append-style
+// reconcile would render every row twice).
+function legDuplicateFree(dom) {
+  const R = parse(dom);
+  if (!R) return check("9: scenario output present", false, "no #test-out");
+  if (R.err) return check("9: scenario threw", false, R.err);
+  const c = R.s;
+  const polls = instructionRequests.filter((r) => r.repo === "agent-1").length;
+  check("9 the poll actually re-ran (the reconcile surface)", polls >= 2, `polls=${polls}`);
+  const chunk = rowChunkOf(dom, "agent-1");
+  const texts = instructionTextsIn(chunk);
+  check("9 the re-polled page renders exactly two rows (no duplicate append)", texts.length === 2, JSON.stringify(texts));
+  check("9 each recorded instruction renders exactly once",
+    texts.filter((t) => t === "newer instruction").length === 1 && texts.filter((t) => t === "older instruction").length === 1,
+    JSON.stringify(texts));
+  check("9 the client's late read agrees (each instruction once)",
+    JSON.stringify(c.instrTextsLate) === JSON.stringify(["newer instruction", "older instruction"]), JSON.stringify(c.instrTextsLate));
+  check("9 the re-polled repo still renders no empty state",
+    (c.instrEmpty1Late || []).length === 0 && !hasEmptyStateIn(chunk), JSON.stringify(c.instrEmpty1Late));
+}
+
+// Leg 10 — fail-soft: a failing instructions read stays quiet.
+// The rows keep rendering, no banner appears, and the subsection
+// never fabricates a row (the maps stand untouched).
+function legInstructionsFail(dom) {
+  const R = parse(dom);
+  if (!R) return check("10: scenario output present", false, "no #test-out");
+  if (R.err) return check("10: scenario threw", false, R.err);
+  const c = R.s;
+  check("10 the instructions poll ran and failed server-side",
+    instructionRequests.filter((r) => r.repo === "agent-1").length >= 1, `polls=${instructionRequests.length}`);
+  check("10 the session rows still render when the instructions read fails",
+    c.rowCount === 3 && rowsOf(dom).length === 3, `client=${c.rowCount} dom=${rowsOf(dom).length}`);
+  check("10 a failed instructions read does NOT trip the connection banner",
+    !bannerVisible(dom) && c.connHiddenLate === true, `domBanner=${bannerVisible(dom)} lateHidden=${c.connHiddenLate}`);
+  check("10 no action banner surfaces for the quiet failure",
+    c.bannerHiddenLate === true && !String(c.bannerClassLate || "").includes("banner-error"), `class=${c.bannerClassLate} hidden=${c.bannerHiddenLate}`);
+  check("10 the subsection keeps its honest empty state (nothing fabricated)",
+    hasEmptyStateIn(rowChunkOf(dom, "agent-1")) && instructionTextsIn(rowChunkOf(dom, "agent-1")).length === 0,
+    JSON.stringify(c.instrEmpty1));
+}
+
+// Leg 11 — the untrusted instruction text renders escaped (AD-4).
+function legInstructionsXss(dom) {
+  const R = parse(dom);
+  if (!R) return check("11: scenario output present", false, "no #test-out");
+  if (R.err) return check("11: scenario threw", false, R.err);
+  const chunk = rowChunkOf(dom, "agent-1");
+  const region = sessionsRegion(dom) || "";
+  check("11 the untrusted instruction text renders escaped",
+    chunk.includes("&lt;img src=x onerror=alert(3)&gt;"), chunk.slice(0, 240));
+  check("11 no raw element injected from instruction text", !chunk.includes("<img"), chunk.slice(0, 240));
+  check("11 the instruction renders once inside its session row",
+    chunk.includes('class="session-instruction"') && instructionTextsIn(chunk).length === 1, JSON.stringify(instructionTextsIn(chunk)));
+  check("11 no raw instruction element leaks anywhere in the panel region", !region.includes("<img"), region.slice(0, 200));
+}
+
+// Leg 12 — the typed steer draft survives the 2s ambient tick.
+function legComposerSurvive(dom) {
+  const R = parse(dom);
+  if (!R) return check("12: scenario output present", false, "no #test-out");
+  if (R.err) return check("12: scenario threw", false, R.err);
+  const c = R.s;
+  const polls = instructionRequests.filter((r) => r.repo === "agent-1").length;
+  check("12 the ambient tick re-ran the poll while typing", polls >= 1, `polls=${polls}`);
+  check("12 the typed steer draft survives the 2s tick", c.draftValueLate === "draft survives the tick", `value=${JSON.stringify(c.draftValueLate)}`);
+  check("12 the composer keeps focus across the tick", c.draftFocusedLate === true, `focused=${c.draftFocusedLate}`);
+  check("12 focus stays on the typed repo composer", c.draftRepoFocused === "agent-1", `repo=${c.draftRepoFocused}`);
+  check("12 the caret is preserved across the tick", c.draftCaretLate && c.draftCaretLate.start === "draft survives the tick".length && c.draftCaretLate.end === "draft survives the tick".length, JSON.stringify(c.draftCaretLate));
+}
+
 function legZeroErrors(dom) {
   check("6 zero uncaught page errors (data-page-errors=0)", pageErrors(dom) === 0, `data-page-errors=${pageErrors(dom)}`);
 }
 
 const scenarios = [
-  { name: "1", sessions: "ok", steer: "ok", cfg: { mode: "render" }, leg: legRows },
-  { name: "2", sessions: "empty", steer: "ok", cfg: { mode: "empty" }, leg: legEmpty },
-  { name: "3", sessions: "ok", steer: "ok", cfg: { mode: "steer", instruction: "steer it left" }, leg: legSteer },
-  { name: "4", sessions: "ok", steer: "403", cfg: { mode: "steer403", instruction: "steer it left" }, leg: legSteer403 },
-  { name: "5", sessions: "fail", steer: "ok", cfg: { mode: "fail" }, leg: legFail },
-  { name: "5x", sessions: "xss", steer: "ok", cfg: { mode: "xss" }, leg: legXss },
+  { name: "1", sessions: "ok", steer: "ok", instructions: "ok", cfg: { mode: "render" }, leg: legRows },
+  { name: "2", sessions: "empty", steer: "ok", instructions: "ok", cfg: { mode: "empty" }, leg: legEmpty },
+  { name: "3", sessions: "ok", steer: "ok", instructions: "ok", cfg: { mode: "steer", instruction: "steer it left" }, leg: legSteer },
+  { name: "4", sessions: "ok", steer: "403", instructions: "ok", cfg: { mode: "steer403", instruction: "steer it left" }, leg: legSteer403 },
+  { name: "5", sessions: "fail", steer: "ok", instructions: "ok", cfg: { mode: "fail" }, leg: legFail },
+  { name: "5x", sessions: "xss", steer: "ok", instructions: "ok", cfg: { mode: "xss" }, leg: legXss },
+  { name: "7", sessions: "ok", steer: "ok", instructions: "mixed", cfg: { mode: "instructions" }, leg: legInstructions },
+  { name: "8", sessions: "ok", steer: "ok", instructions: "advance", cfg: { mode: "instructions-cursor" }, leg: legCursorAdvance },
+  { name: "9", sessions: "ok", steer: "ok", instructions: "ok", cfg: { mode: "instructions-static" }, leg: legDuplicateFree },
+  { name: "10", sessions: "ok", steer: "ok", instructions: "fail", cfg: { mode: "instructions-fail" }, leg: legInstructionsFail },
+  { name: "11", sessions: "ok", steer: "ok", instructions: "xss", cfg: { mode: "instructions-xss" }, leg: legInstructionsXss },
+  { name: "12", sessions: "ok", steer: "ok", instructions: "ok", cfg: { mode: "composer-survive", instruction: "draft survives the tick" }, leg: legComposerSurvive },
 ];
 
 try {
@@ -436,8 +685,10 @@ try {
   for (const s of scenarios) {
     sessionsMode = s.sessions;
     steerMode = s.steer;
+    instructionsMode = s.instructions;
     steered = false;
     steerRequests.length = 0;
+    instructionRequests.length = 0;
     clientCfg = s.cfg;
     // A fresh browser profile per scenario (see dumpDom).
     const scenarioDir = mkdtempSync(join(tmpdir(), "nextgit-sessions-scenario-"));

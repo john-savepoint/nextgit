@@ -4,6 +4,11 @@
 import { state, el } from "./state.js";
 import { fetchJson, escapeHtml, formatTime } from "./api.js";
 import { loadProposals } from "./proposals.js";
+// The sessions cadence is injected, not imported: a static
+// import here would close a module cycle
+// (ticker -> sessions-panel -> land -> ticker). interactions.js
+// (which already imports both modules) wires the tick via
+// setSessionsTick, so this module carries no sessions-panel edge.
 
 /**
  * Record the newest event and debounce one /proposals refresh (~500ms)
@@ -108,6 +113,12 @@ export function handleStreamFrame(ev) {
 // exponentially (1s -> 30s cap) and re-arm the pollers while down.
 const STREAM_RECONNECT_MAX_MS = 30000;
 
+// Injected sessions-tick handler (see the import note above):
+// null until interactions.js wires it, so an unwired ticker
+// never calls into sessions-panel.
+let onSessionsTick = null;
+export function setSessionsTick(fn) { onSessionsTick = fn; }
+
 export function startPollers() {
  // Idempotent: an already-armed poller is left running so a
  // reconnect (markStreamDown -> startPollers) never resets its
@@ -117,6 +128,12 @@ export function startPollers() {
  // re-creates them.
  if (!state.eventsTimer) {
   state.eventsTimer = setInterval(loadEvents, 2000);
+ }
+ // The sessions cadence: the same 2s as /events. loadSessions
+ // also fans out the per-repo /instructions polls, so the
+ // session instructions subsections ride this interval.
+ if (!state.sessionsTimer) {
+  state.sessionsTimer = setInterval(() => { if (onSessionsTick) onSessionsTick(); }, 2000);
  }
  if (state.autoRefresh && !state.proposalsTimer) {
   state.proposalsTimer = setInterval(loadProposals, 8000);
@@ -131,6 +148,10 @@ export function stopPollers() {
  if (state.eventsTimer) {
   clearInterval(state.eventsTimer);
   state.eventsTimer = null;
+ }
+ if (state.sessionsTimer) {
+  clearInterval(state.sessionsTimer);
+  state.sessionsTimer = null;
  }
 }
 

@@ -2016,6 +2016,44 @@ html, body {
   color: var(--status-green);
 }
 
+/* ——— Session instructions subsection (nextgit-e19) ———
+   The GET /sessions/{repo}/instructions projection rendered
+   inside each .session-row, newest-first. The
+   .session-instructions register is ambient meta and
+   var-only — no new color literals (the contrast-suite
+   structural discipline): the instruction rows reuse the
+   --text-secondary / --text-muted ramp and --font-mono, the
+   session-instructions row chrome reuses --space-sm. A repo
+   with no recorded instruction renders the honest
+   .session-instructions-empty state — the
+   .session-instructions subsection never fabricates a row. */
+.session-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.session-instruction {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-sm);
+}
+.session-instruction-text {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.session-instruction-time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.session-instructions-empty {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
 /* ——— Issues composer + close affordance (nextgit-e18, wave-18) ———
    The POST /issues composer and the stored-row close
    button (PATCH /issues/{id}). Var-only styling — no

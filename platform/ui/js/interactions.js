@@ -4,7 +4,7 @@
 // connection-banner handlers, and init().
 import { state, el } from "./state.js";
 import { loadProposals, renderProposals, loadRevealCapability } from "./proposals.js";
-import { loadEvents, openEventStream, startPollers, stopPollers } from "./ticker.js";
+import { loadEvents, openEventStream, startPollers, stopPollers, setSessionsTick } from "./ticker.js";
 import { openModal, closeModal, modalFocusables, handleViewDiff, handlePreviewMerge } from "./modal.js";
 import { handleLandProposal, hideActionBanner } from "./land.js";
 import { revealSecret } from "./reveal.js";
@@ -200,6 +200,11 @@ export function init() {
  // arm the pollers starves /proposals. markStreamHealthy() stops
  // them the moment the stream opens, so a healthy stream polls
  // zero times.
+ // Wire the sessions cadence into the ticker before the pollers
+ // arm: the ticker carries no static sessions-panel import (the
+ // deferred-injection seam that keeps ticker -> sessions-panel ->
+ // land -> ticker from closing a module cycle).
+ setSessionsTick(loadSessions);
  startPollers();
  loadRevealCapability();
  // The rail derives from /proposals, /events and /agents, so it
