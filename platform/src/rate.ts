@@ -42,6 +42,13 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // compute-cost class as /merge, so it shares the 60/60s cap
  // (CONTRACT.md §GET /issues §Rate limits).
  "/issues": { limit: 60, windowMs: 60_000 },
+ // Issues v2 (nextgit-e17): the repo-scoped issue-store
+ // write class — POST /issues (append) and PATCH
+ // /issues/{id} (close) share ONE budget (both are
+ // read-modify-writes of the `issues:<repo>` JSONL), the
+ // string-keyed write-verb idiom (/comments:write
+ // precedent). GET /issues keeps its own read budget.
+ "/issues:write": { limit: 20, windowMs: 60_000 },
  // Inline review comments: the limiter is string-keyed, so the read
  // and write verbs carry distinct budgets at distinct keys.
  "/comments": { limit: 60, windowMs: 60_000 },

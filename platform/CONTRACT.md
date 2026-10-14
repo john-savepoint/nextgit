@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.7 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
+Version: v3.8 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -1060,9 +1060,32 @@ The derived triage issue list for a base repo — issues surfaced from EXISTING 
 - `kind: "blocked-intent"` (severity `info`) — the structural intent matcher (`POST /intents` verdict derivation over the candidate's six-cluster signals) scores the candidate `ignore`. ADVISORY ONLY — the verdict is named, never an auto-decision; nothing is merged, landed, or skipped on its basis.
 - Per-candidate fail-closed: a candidate the base cannot read (unresolvable ref, missing repo) contributes no issues — it is skipped, never fails the whole request (the `GET /forks` precedent).
 - The derivation reads only `env.ARTIFACTS` (`get`/`list`/`log`/`readFile`/`readTree`/`readBlob`) — zero writes; read-only, credential-free (NFR-6).
+- **Merge semantics (v3.8)**: the served `issues` array is the DERIVED set (deterministic order above) followed by the STORED set (append order — §POST /issues). Every row carries `kind: "derived" | "stored"`; the legacy derivation tag moves to `issue` (dated correction, v3.8): derived rows carry `issue: "conflict" | "withheld-secret" | "stale-base" | "blocked-intent"` where v1 carried `kind` — the value set and severity map are unchanged; the field rename is the only wire delta, and `kind` is now the provenance discriminator. Stored rows carry `state: "open" | "closed"` + `closedAt?` + the stored fields (title/body/assignee/at); derived rows have no `state` (implicitly open, read-only — they gain NO write affordances).
 - Demo-mode allowlist (AD-9): `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 60/min → `429 {ok:false,error:"rate-limited"}` (see Rate limits) — the per-candidate merge simulation is the `/merge` compute-cost class, unlike the deliberately unbound single-repo bounded reads (`/tree`, `/commits`).
 - `400` bad input; `500` unexpected.
+
+## POST /issues
+
+Append a stored issue to the repo-scoped issues store (v3.8) — CACHE KV JSONL at `issues:<repo>` (the `/comments` store pattern; per-repo append gate serializes the read-modify-write in-isolate; cross-isolate last-writer-wins is the documented as-built posture).
+
+**Request**: `{ "repo": "agent-1", "title": "…", "body": "…", "severity": "high|medium|low|info", "assignee"?: "…" }` — closed schema (any unknown field → `400`); `title` required ≤128 chars; `body` ≤2000; `assignee` display text ≤128 (never an identity claim, NFR-3).
+
+**Response (201)**: `{ "ok": true, "issue": { "id": "<12-hex>", "kind": "stored", "repo", "title", "body", "severity", "assignee"?, "state": "open", "at": "<iso>" } }` — the server-minted id + timestamp.
+
+- Secret-class repos refused `403` BEFORE any store access (the `/comments` secret-class posture).
+- Rate limit: `POST /issues` 20/60s (`/issues:write` — the write class).
+- Precondition order: `400` → `429` → `403` → `201`.
+
+## PATCH /issues/{id}
+
+Close a stored issue once (v3.8). Body: `{ "state": "closed", "assignee"?: "…" }` — closed schema; close-only semantics (setting `state: "open"` against a closed issue → `409`).
+
+- `200` `{ "ok": true, "issue": <the rewritten stored row with state:"closed" + closedAt> }`.
+- `404 {ok:false,error:"not-found"}` — unknown id (or a derived id — derived rows are never writable).
+- `409 {ok:false,error:"already-closed"}` — repeat close (idempotence is NOT silent: the second close is an explicit conflict).
+- CSRF: `PATCH` is gated by `csrfGate` exactly like `POST` (the dispatcher's mutating-verb set is POST+PATCH; CONTRACT §Authorization).
+- Precondition order: `400` → `429` → `403` → `404` → `409` → `200`.
 
 ## POST /upstream
 
@@ -1306,7 +1329,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the twenty bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `GET /checks`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the twenty-one bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `GET /checks`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -1324,6 +1347,7 @@ Edge rate limits cover the twenty bound routes in the table below (`/land`, `/me
 | `POST /comments` | 20 | 60 s |
 | `GET /comments` | 60 | 60 s |
 | `GET /issues` | 60 | 60 s |
+| `POST /issues` | 20 | 60 s (the `/issues:write` class — also covers `PATCH /issues/{id}`, the store's only two writes) |
 | `GET /checks` | 60 | 60 s |
 | `POST /sessions/{repo}/steer` | 30 | 60 s |
 | `POST /asset/uploads` | 20 | 60 s (shared with `POST /asset/uploads/{uploadId}/complete` — one write class: both mint or extend a client-direct upload session) |

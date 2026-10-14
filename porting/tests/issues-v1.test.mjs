@@ -368,17 +368,17 @@ async function getIssues({ base, ip = nextIp(), env = makeEnv() } = {}) {
  return readJson(res);
 }
 
-const ISSUE_FIELDS = ["id", "kind", "repo", "severity", "title", "detail", "links"];
-const byKind = (body, kind) => (body?.issues ?? []).filter((i) => i.kind === kind);
-const byKindRepo = (body, kind, repo) => (body?.issues ?? []).find((i) => i.kind === kind && i.repo === repo) ?? null;
+const ISSUE_FIELDS = ["id", "issue", "repo", "severity", "title", "detail", "links"];
+const byKind = (body, kind) => (body?.issues ?? []).filter((i) => i.issue === kind);
+const byKindRepo = (body, kind, repo) => (body?.issues ?? []).find((i) => i.issue === kind && i.repo === repo) ?? null;
 
 // ---------------------------------------------------------------------------
 // 1. Round-trip: 200 {ok:true,base:"demo"}; exactly the derived
-//    issue set with honest kinds; each row carries all seven
-//    fields; links is an array; the conflicting path appears in
-//    detail; the withheld-secret detail carries the key count;
-//    the stale-base detail names the base.
-// ---------------------------------------------------------------------------
+//    issue set with honest legs (each row carries kind:"derived"
+//    + its issue leg); each row carries all seven fields; links is
+//    an array; the conflicting path appears in detail; the
+//    withheld-secret detail carries the key count; the stale-base
+//    detail names the base.
 try {
  const r = await getIssues({ base: "demo" });
  check("1 GET /issues?base=demo -> 200", r.status === 200, `got ${r.status} ${J(r.body)}`);
@@ -412,6 +412,7 @@ try {
  check("1 no issue for the non-candidate fixtures", (issues ?? []).every((i) => i.repo !== "demo-2" && i.repo !== "agent-pending"), J(issues?.map((i) => i.repo)));
 
  check("1 every issue row carries all seven fields", (issues ?? []).every((i) => ISSUE_FIELDS.every((f) => Object.prototype.hasOwnProperty.call(i, f))), J(issues?.map((i) => Object.keys(i))));
+ check("1 every issue row is kind:derived", (issues ?? []).every((i) => i.kind === "derived"), J(issues?.map((i) => i.kind)));
  check("1 every issue links field is an array", (issues ?? []).every((i) => Array.isArray(i.links)), J(issues?.map((i) => typeof i.links)));
 
  // The masking law: no fixture secret value reaches the body.
@@ -430,9 +431,9 @@ try {
 try {
  const r1 = await getIssues({ base: "demo" });
  const r2 = await getIssues({ base: "demo" });
- const kinds = (r1.body?.issues ?? []).map((i) => `${i.severity}:${i.kind}:${i.repo}:${i.detail}`);
+ const kinds = (r1.body?.issues ?? []).map((i) => `${i.severity}:${i.issue}:${i.repo}:${i.detail}`);
  // The pure comparator: severityRank (high=0…info=3),
- // then kind, then repo, then detail — lexicographic.
+ // then issue-leg, then repo, then detail — lexicographic.
  const rank = { high: 0, medium: 1, low: 2, info: 3 };
  const expected = [...kinds].sort((a, b) => {
   const pa = a.split(":");
@@ -444,7 +445,7 @@ try {
    (pa[3] < pb[3] ? -1 : pa[3] > pb[3] ? 1 : 0)
   );
  });
- check("2 issues are in deterministic (severity, kind, repo, detail) order", J(kinds) === J(expected), `got ${J(kinds)}`);
+ check("2 issues are in deterministic (severity, issue, repo, detail) order", J(kinds) === J(expected), `got ${J(kinds)}`);
  // Discovery had the LOW-severity stale-base FIRST and
  // the HIGH-severity conflict second; the sort must have
  // reversed them (high=0 ahead of low=2, info=3 last).
