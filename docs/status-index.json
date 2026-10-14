@@ -1,7 +1,7 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T05:30:49.109Z",
-  "head": "7827580",
+  "generatedAt": "2026-10-14T05:31:48.348Z",
+  "head": "af09e42",
   "branch": "integrate-wave17",
   "state": {
     "lastUpdated": "2026-10-14 ",

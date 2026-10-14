@@ -218,7 +218,7 @@ const post = async (env, path, body = null, headers = {}) => {
 // ---------------------------------------------------------------------------
 {
   const posts = ROUTES.filter((r) => r.method === "POST").map((r) => r.path);
-  check("H: POST routes are exactly /land, /upstream, /judge, /intents, /reveal, /comments and /issues", J(posts) === J(["/land", "/upstream", "/judge", "/intents", "/reveal", "/comments", "/issues"]), J(posts));
+  check("H: POST routes are exactly (registry order) /issues, /land, /upstream, /judge, /intents, /reveal, /comments", J(posts) === J(["/issues", "/land", "/upstream", "/judge", "/intents", "/reveal", "/comments"]), J(posts));
   const gets = ROUTES.filter((r) => r.method === "GET").map((r) => r.path);
   check("H: GET routes exist and are not gated", gets.length > 0, J(gets));
   // nextgit-e16: /sessions/ is the FIRST dynamic POST route
