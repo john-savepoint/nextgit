@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NextGit — The Story</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header: back-link to the triage surface -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-group">
+          <a href="/" class="btn-card-action files-back-link">&larr; Back to triage</a>
+          <h1 class="brand-title">NextGit<span class="sep">/</span><span class="brand-subtitle">The story</span></h1>
+        </div>
+      </div>
+    </header>
+
+    <!-- Error banner (fetched route failed / contract error) -->
+    <div id="story-banner" class="action-banner banner-error" hidden role="alert">
+      <div class="action-banner-content">
+        <span id="story-banner-msg" class="action-banner-msg">Could not load the story's live data.</span>
+      </div>
+    </div>
+
+    <main>
+      <!-- The three storage classes (SPEC stack.md: every feature lands in one of three tiers) -->
+      <section class="story-section">
+        <h2 class="story-heading">Three storage classes</h2>
+        <p class="story-lede">Every feature in this design lands in one of three tiers. Fast, cheap tiers see every file; expensive reasoning reads only what needs judgment.</p>
+        <ul class="story-tiers">
+          <li class="story-tier">
+            <h3 class="story-tier-name">semantic <span class="story-tier-kind">tier 1</span></h3>
+            <p class="story-tier-holds">Holds the per-file semantic index: classification, type, security level and tags, plus the codebase vector index.</p>
+            <p class="story-tier-serves">Serves System-1 models that classify every file cheaply, and semantic traversal — not grep.</p>
+          </li>
+          <li class="story-tier">
+            <h3 class="story-tier-name">work <span class="story-tier-kind">tier 2</span></h3>
+            <p class="story-tier-holds">Holds workspaces, the task queue, presence, authoring leases, secret-typed files and stashes.</p>
+            <p class="story-tier-serves">Serves durable, expiring, frequently-written state; locks are surgical.</p>
+          </li>
+          <li class="story-tier">
+            <h3 class="story-tier-name">provenance <span class="story-tier-kind">tier 3</span></h3>
+            <p class="story-tier-holds">Holds git-notes, per-worker traces, receipts, previews, screenshots and videos, and push provenance.</p>
+            <p class="story-tier-serves">Serves the repo answering for itself — no clone required.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- The R2 asset tier, LIVE: pointer metadata only (CONTRACT.md §R2) -->
+      <section class="story-section">
+        <h2 class="story-heading">The R2 asset tier — live</h2>
+        <p class="story-lede">Large and binary assets live as content-addressed blobs in the R2 bucket <code class="story-code">nextgit-asset-blobs</code>. Git carries a pointer, <code class="story-code">assets/&lt;name&gt;.asset.json</code>, next to the asset it names — the pointer format law (AD-10, FR-47; CONTRACT.md §R2 asset tier).</p>
+        <p class="story-lede">The pointer renders <strong>metadata only</strong>: the platform never renders blob bytes, patch text or presigned URLs — the rendering law (CONTRACT.md §R2). <code class="story-code">blobId</code> is an opaque R2 key; the download route is <code class="story-code">GET /asset/{blobId}</code> (CONTRACT.md §GET /asset/{blobId}).</p>
+
+        <!-- Live pointer chip: populated by story-page.js from GET /proposals?base=demo
+             (the change-set rows carry the parsed pointer on the file row:
+             asset: {v, blobId, sha256, size, contentType?}) -->
+        <div id="asset-chip" class="story-asset-chip">
+          <div id="asset-meta" class="story-asset-meta" role="status" aria-live="polite">
+            <span class="story-loading">loading…</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Minimal footer -->
+    <footer class="app-footer">
+      <span>nextgit — the story</span>
+      <span>storage classes from SPEC stack.md; R2 tier per CONTRACT.md</span>
+    </footer>
+  </div>
+
+  <script type="module" src="js/story-page.js"></script>
+</body>
+</html>
