@@ -116,9 +116,14 @@ check(
 console.log(`impl: ${JSON.stringify(implList)}`);
 console.log(`doc:  ${JSON.stringify(docList)}`);
 
-// --- 4. Version law: `Version: vN(.N) (` ---
-const versioned = /^Version: v[0-9]+(\.[0-9]+)? \(/m.test(contract);
-check("3 CONTRACT.md carries a Version: vN line", versioned);
+// --- 4. Version law: the EXACT current version line (moves with every shape change) ---
+const EXPECTED_VERSION_LINE =
+  "Version: v3.9 (2026-10-14). Additive changes only; if you change a shape, bump this file first.";
+check(
+  "3 CONTRACT.md carries the exact current Version line",
+  contract.split("\n", 4)[2] === EXPECTED_VERSION_LINE,
+  `got: ${JSON.stringify(contract.split("\n", 4)[2])}`
+);
 
 // --- 5. Additive law, verbatim ---
 const additive = /Additive changes only; if you change a shape, bump this file first/.test(contract);

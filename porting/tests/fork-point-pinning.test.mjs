@@ -195,10 +195,10 @@ const get = async (env, query) => {
 
  check("A: 200 with ok:true", r.status === 200 && r.body?.ok === true, J({ status: r.status, ok: r.body?.ok }));
  check("A: envelope keys exactly {ok, changeSet}", exactKeys(r.body, ["ok", "changeSet"]), J(r.body && Object.keys(r.body)));
- check("A: changeSet keys exactly {base, head, stats, files, texts, commits}", exactKeys(cs, ["base", "head", "stats", "files", "texts", "commits"]), J(cs && Object.keys(cs)));
+ check("A: changeSet keys exactly {base, head, stats, files, texts, commits, identity}", exactKeys(cs, ["base", "head", "stats", "files", "texts", "commits", "identity"]), J(cs && Object.keys(cs)));
  check("A: base keys exactly {repo, ref, treeHash, sha}", exactKeys(cs?.base, ["repo", "ref", "treeHash", "sha"]), J(cs?.base && Object.keys(cs.base)));
  check("A: base.repo === demo, base.ref === main", cs?.base?.repo === "demo" && cs?.base?.ref === "main", J({ repo: cs?.base?.repo, ref: cs?.base?.ref }));
- check("A: head keys exactly {repo, ref, treeHash}", exactKeys(cs?.head, ["repo", "ref", "treeHash"]), J(cs?.head && Object.keys(cs.head)));
+ check("A: head keys exactly {repo, ref, treeHash, sha}", exactKeys(cs?.head, ["repo", "ref", "treeHash", "sha"]), J(cs?.head && Object.keys(cs.head)));
  check("A: head.repo === agent-1, head.ref === main", cs?.head?.repo === "agent-1" && cs?.head?.ref === "main", J({ repo: cs?.head?.repo, ref: cs?.head?.ref }));
  check("A: base.sha === C_FORK (newest shared, NOT base head C_LAND)", cs?.base?.sha === C_FORK, J({ sha: cs?.base?.sha, want: C_FORK, head: C_LAND }));
  check("A: base.sha is 40-hex", /^[0-9a-f]{40}$/.test(String(cs?.base?.sha)), String(cs?.base?.sha));
@@ -276,9 +276,9 @@ const get = async (env, query) => {
 function liveContract(label, body) {
  const cs = body?.changeSet;
  check(`${label}: envelope ok:true with keys exactly {ok, changeSet}`, body?.ok === true && exactKeys(body, ["ok", "changeSet"]), J(body && Object.keys(body)));
- check(`${label}: changeSet keys exactly {base, head, stats, files, texts, commits}`, exactKeys(cs, ["base", "head", "stats", "files", "texts", "commits"]), J(cs && Object.keys(cs)));
+ check(`${label}: changeSet keys exactly {base, head, stats, files, texts, commits, identity}`, exactKeys(cs, ["base", "head", "stats", "files", "texts", "commits", "identity"]), J(cs && Object.keys(cs)));
  check(`${label}: base keys exactly {repo, ref, treeHash, sha}`, exactKeys(cs?.base, ["repo", "ref", "treeHash", "sha"]), J(cs?.base && Object.keys(cs.base)));
- check(`${label}: head keys exactly {repo, ref, treeHash}`, exactKeys(cs?.head, ["repo", "ref", "treeHash"]), J(cs?.head && Object.keys(cs.head)));
+ check(`${label}: head keys exactly {repo, ref, treeHash, sha}`, exactKeys(cs?.head, ["repo", "ref", "treeHash", "sha"]), J(cs?.head && Object.keys(cs.head)));
  check(`${label}: base.repo === demo, base.ref === main`, cs?.base?.repo === "demo" && cs?.base?.ref === "main", J({ repo: cs?.base?.repo, ref: cs?.base?.ref }));
  check(`${label}: head.repo === agent-1, head.ref === main`, cs?.head?.repo === "agent-1" && cs?.head?.ref === "main", J({ repo: cs?.head?.repo, ref: cs?.head?.ref }));
  check(`${label}: base.sha is 40-hex`, /^[0-9a-f]{40}$/.test(String(cs?.base?.sha)), String(cs?.base?.sha));
