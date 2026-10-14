@@ -11,6 +11,24 @@ import { state, el } from "./state.js";
 import { fetchJson, escapeHtml, formatTime } from "./api.js";
 import { showActionBanner } from "./land.js";
 
+/**
+ * Announce a steer failure into the section's own
+ * live region (WCAG 4.1.3): the failure token is
+ * visible via the action banner, but a screen reader
+ * only hears it if it lands in an aria-live slot
+ * (the reveal.js dedicated-slot precedent, the
+ * issues-panel announceIssuesStatus posture).
+ * renderSessions() clears the slot on every
+ * successful render, so a stale announcement never
+ * outlives its recovery (the action-banner
+ * hidden-clear precedent, land.js).
+ */
+function announceSessionsStatus(text) {
+ if (!el.sessionsStatus) return;
+ el.sessionsStatus.textContent = text;
+}
+
+
 /** The closed session-state vocabulary the server derives. */
 export const SESSION_STATES = { working: "working", idle: "idle", blocked: "blocked" };
 
@@ -111,6 +129,12 @@ export async function loadSessions() {
 export function renderSessions() {
  if (!el.sessionsList || !el.sessionsMeta) return;
 
+ // A successful render is the recovery: clear any
+ // standing failure announcement so it never
+ // outlives the refetch that reconciles it (the
+ // renderIssues issues-status posture).
+ if (el.sessionsStatus) el.sessionsStatus.textContent = "";
+
  const data = state.sessionsData;
  if (!data) {
   el.sessionsMeta.textContent = "—";
@@ -177,6 +201,12 @@ export async function submitSteer(control) {
     "steer-failed",
     `Steer failed for <strong>${escapeHtml(repo)}</strong>: <strong>${escapeHtml(String(token))}</strong>`
    );
+   // The banner is the visible token; the live
+   // region is the announcement (WCAG 4.1.3 —
+   // the issues-panel announceIssuesStatus
+   // posture). textContent keeps the copy
+   // injection-safe.
+   announceSessionsStatus(`Steer failed for ${repo}: ${String(token)}`);
    control.disabled = false;
    control.removeAttribute("data-steer-sent");
    control.textContent = "send";
