@@ -99,7 +99,11 @@ const HEAL_RESEARCH_SCHEMA = { type: "object", required: ["proposals"], properti
 const asArr = (x) => (Array.isArray(x) ? x : x == null ? [] : [x]);
 // Blanks are not findings: asArr([""]).map(String) yields [""], and "" counted under the
 // block rule while rendering as nothing (observed in bootstrap-health-sweep result.json).
-const strs = (x) => asArr(x).flat(Infinity).map((s) => (s == null ? "" : String(s)).trim()).filter(Boolean);
+// Non-primitives serialize losslessly (mirrors the tagOf precedent below): String(obj)
+// collapses to "[object Object]", a truthy string that masqueraded as a ship-blocker
+// (heal-1: the ux lens returned objects in string-typed fields).
+const strs = (x) => asArr(x).flat(Infinity).map((s) =>
+  s == null ? "" : (typeof s === "string" ? s.trim() : JSON.stringify(s))).filter(Boolean);
 
 // Coerce whatever a lens agent returned into the verdict shape. Never drop a result:
 // a non-conforming shape is BLOCK with its content preserved (schema slips were observed).

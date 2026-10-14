@@ -94,5 +94,7 @@ export const el = {
  sessionsMeta: document.getElementById("sessions-meta"),
  pipelinesSection: document.getElementById("pipelines-section"),
  pipelinesList: document.getElementById("pipelines-list"),
- pipelinesMeta: document.getElementById("pipelines-meta"),
+ pipelinesMeta: document.getElementById("pipelines-meta"), railSection: document.getElementById("rail-section"),
+ railList: document.getElementById("rail-list"),
+ railMeta: document.getElementById("rail-meta"),
 };
