@@ -130,9 +130,26 @@ function fixture(rows = [], preclaimed = []) {
 }
 
 const { runBatch } = await import(new URL("../wf-batch.ddw.js", import.meta.url).href);
+const { PHASE_DEADLINES } = await import(new URL("../wf-template.ddw.js", import.meta.url).href);
 const gateFile = (o, name) => JSON.parse(readFileSync(join(o.batchDir, name), "utf8"));
 
-async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before, parallel, phaseDeadlineMs, gateDeadlineMs } = {}) {
+// --- scaled-deadline stub helper (scenario 17) ------------------------
+// nextgit-e19-mach-watchdog-calibration acceptance: "a stub settling just
+// past the old 75m but under 120m must PASS; one past 120m must watchdog."
+// Proven with a RATIO-PRESERVING scale (SELFTEST_DEADLINE_SCALE, default
+// 30000 — 76m→152ms, 120m→240ms, 60m→120ms; total leg cost <1s) rather
+// than literal wall-clock minutes: the watchdog measures the RATIO of
+// stub-settle-time to deadline, so dividing both the class deadlines and
+// the stub delays by the same factor leaves the pass/trip boundary
+// identical. The scaled delay wraps the returned promise (a Bun.sleep then
+// the default reply) so the runner's REAL watchdog path is exercised
+// end-to-end (ask() races h.wait() against the deadline timer).
+const SELFTEST_DEADLINE_SCALE = Number(process.env.SELFTEST_DEADLINE_SCALE ?? 30000);
+const settleAfter = (label, minutes, dflt) =>
+  Bun.sleep((minutes * 60_000) / SELFTEST_DEADLINE_SCALE).then(() => dflt(label));
+const scaledDeadline = (minutes) => (minutes * 60_000) / SELFTEST_DEADLINE_SCALE;
+
+async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, before, parallel, phaseDeadlineMs, gateDeadlineMs, implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs } = {}) {
   const fx = fixture(rows, preclaimed);
   calls = [];
   reply = (label) => (mode ? mode(label, defaultReply) : defaultReply(label));
@@ -140,7 +157,7 @@ async function scenario(rows, { preclaimed = [], limit = 2, mode, sourceLike, be
   process.env.BEADS_DIR = fx.beadsDir; // runBatch spawns inherit this — the store under test
   const out = { fx };
   if (before) before(fx);
-  try { out.report = await runBatch({ limit, root: fx.root, sourceLike, parallel, phaseDeadlineMs, gateDeadlineMs }); } catch (e) { out.error = e; }
+  try { out.report = await runBatch({ limit, root: fx.root, sourceLike, parallel, phaseDeadlineMs, gateDeadlineMs, implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs }); } catch (e) { out.error = e; }
   finally { if (prevBeads === undefined) delete process.env.BEADS_DIR; else process.env.BEADS_DIR = prevBeads; }
   out.calls = calls;
   const bDirName = readdirSync(join(fx.root, "porting/runs")).find((f) => f.startsWith("batch-"));
@@ -606,6 +623,124 @@ try {
     check("14c report records all closed", Array.isArray(oC.report.closed) && oC.report.closed.length === 3, JSON.stringify(oC.report.closed));
   }
 } catch (e) { check("14 batched-claims case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
+// --- 17. per-phase-class watchdog deadlines (nextgit-e19-mach-watchdog-calibration) ---
+// The calibration: plan/heal-research 60m · implement/heal-apply 120m ·
+// verify/gate 45m. Legs run at the scaled deadline (see settleAfter above).
+// 17a: an impl settling at 76m — PAST the old flat 75m but under the 120m
+// class default — completes GREEN (the wrongful-kill class is closed).
+// 17b: an impl settling at 130m (a decisive scaled margin past 120m) trips
+// the watchdog with exactly one impl call (no retry) and releases the claim.
+// 17c: a plan settling at 70m trips the 60m plan class (via the legacy
+// phaseDeadlineMs fallback — the plan class has no per-class knob by design).
+// 17d pins the resolution table from the source. 17e: an explicit tiny
+// implDeadlineMs knob reaches the watchdog through the forwarded path
+// (runBatch -> runWorkOrder -> ask). 17f: all knobs unset + an insta-settling
+// stub stays GREEN (guards the undefined->0ms degenerate-default class that
+// wave-15's gateDeadlineMs default caught). The scaled class defaults are
+// injected as the forwarded knobs (the acceptance's "forwarded through
+// runBatch knobs (implDeadlineMs etc.) with batch.test legs proving the
+// default resolution per phase") — the suite divides both the class deadlines
+// and the stub delays by the same factor, so the pass/trip boundary is the
+// class default under test.
+try {
+  // 17d first: the class table, asserted against the exported constant
+  // (derived from the source — never hand-added numbers).
+  check("17d PHASE_DEADLINES class table (plan/healResearch 60m, implement/healApply 120m, verify/gate 45m)",
+    PHASE_DEADLINES.plan === 3_600_000 && PHASE_DEADLINES.healResearch === 3_600_000 &&
+    PHASE_DEADLINES.implement === 7_200_000 && PHASE_DEADLINES.healApply === 7_200_000 &&
+    PHASE_DEADLINES.verify === 2_700_000 && PHASE_DEADLINES.gate === 2_700_000,
+    JSON.stringify(PHASE_DEADLINES));
+
+  // 17a: 76m impl (past old 75m, under 120m class default) → GREEN.
+  // The scaled 120m class default is injected as the impl knob (the
+  // suite divides both the class deadlines and the stub delays by the
+  // same factor — see settleAfter), so the boundary under test is the
+  // CLASS DEFAULT, resolved through the forwarded knob path.
+  const a17 = `${ID_PREFIX}s17-a`;
+  const oA = await scenario([a17], {
+    limit: 1,
+    implDeadlineMs: scaledDeadline(120),
+    mode: (label, dflt) => (label === `impl:${CID(a17)}` ? settleAfter(label, 76, dflt) : dflt(label)),
+  });
+  if (oA.error) check("17a impl-past-old-75m scenario completes", false, String(oA.error.message).slice(0, 200));
+  else {
+    check("17a impl settling at 76m (past old 75m, under 120m class) completes GREEN — wrongful-kill class closed",
+      oA.report.orders.length === 1 && oA.report.orders[0].verdict === "GREEN",
+      JSON.stringify(oA.report.orders.map((r) => [r.order, r.verdict])));
+    check("17a scaled impl leg actually slept past the old flat deadline boundary (scale sanity)",
+      scaledDeadline(76) > scaledDeadline(75) && scaledDeadline(76) < scaledDeadline(120),
+      `76m=${scaledDeadline(76)}ms 75m=${scaledDeadline(75)}ms 120m=${scaledDeadline(120)}ms`);
+  }
+
+  // 17b: 130m impl (past the 120m class default — a decisive 20ms
+  // scaled margin, inside the class boundary but clear of timer jitter;
+  // the 1-unit over-run 121m was inside scheduling granularity and raced
+  // the watchdog nondeterministically) → WATCHDOG red, exactly one impl
+  // call (a wedged agent is never retried), claim released.
+  const b17 = `${ID_PREFIX}s17-b`;
+  const oB = await scenario([b17], {
+    limit: 1,
+    implDeadlineMs: scaledDeadline(120),
+    mode: (label, dflt) => (label === `impl:${CID(b17)}` ? settleAfter(label, 130, dflt) : dflt(label)),
+  });
+  if (oB.error) check("17b impl-past-120m scenario completes (no hang)", false, String(oB.error.message).slice(0, 200));
+  else {
+    const implCalls = oB.calls.filter((c) => c.label === `impl:${CID(b17)}`);
+    check("17b impl settling at 130m trips the 120m class watchdog",
+      oB.report.orders.length === 1 && /WATCHDOG/.test(oB.report.orders[0].verdict ?? ""),
+      (oB.report.orders[0]?.verdict ?? "").slice(0, 120));
+    check("17b watchdog kill is not retried (exactly one impl call)", implCalls.length === 1, `calls=${implCalls.length}`);
+    check("17b watchdog red row's claim released (reclaimable)", oB.fx.claimsOf().length === 0, JSON.stringify(oB.fx.claimsOf().map((x) => x.id)));
+  }
+
+  // 17c: 70m plan (past the 60m plan class — a decisive 20ms scaled
+  // margin, same jitter rationale as 17b) → WATCHDOG red.
+  const c17 = `${ID_PREFIX}s17-c`;
+  const oC = await scenario([c17], {
+    limit: 1,
+    // The plan class has no per-class knob (by design): it
+    // resolves through the legacy flat phaseDeadlineMs — this
+    // leg ALSO proves the deadlineFor("plan") fallback path.
+    phaseDeadlineMs: scaledDeadline(60),
+    mode: (label, dflt) => (label === `plan:${CID(c17)}` ? settleAfter(label, 70, dflt) : dflt(label)),
+  });
+  if (oC.error) check("17c plan-past-60m scenario completes (no hang)", false, String(oC.error.message).slice(0, 200));
+  else {
+    const planCalls = oC.calls.filter((c) => c.label === `plan:${CID(c17)}`);
+    check("17c plan settling at 70m trips the 60m plan class watchdog",
+      oC.report.orders.length === 1 && /WATCHDOG/.test(oC.report.orders[0].verdict ?? ""),
+      (oC.report.orders[0]?.verdict ?? "").slice(0, 120));
+    check("17c plan watchdog kill is not retried (exactly one plan call)", planCalls.length === 1, `calls=${planCalls.length}`);
+  }
+
+  // 17e: explicit tiny implDeadlineMs knob (scaled) with a 120m stub → the
+  // knob reached the watchdog through the forwarded path (runBatch opts ->
+  // runWorkOrder opts -> deadlineFor("implement") -> ask deadlineMs).
+  const e17 = `${ID_PREFIX}s17-e`;
+  const oE = await scenario([e17], {
+    limit: 1,
+    implDeadlineMs: scaledDeadline(5),
+    mode: (label, dflt) => (label === `impl:${CID(e17)}` ? settleAfter(label, 120, dflt) : dflt(label)),
+  });
+  if (oE.error) check("17e knob-override scenario completes (no hang)", false, String(oE.error.message).slice(0, 200));
+  else {
+    check("17e explicit implDeadlineMs knob overrides the class default (knob reached the watchdog)",
+      oE.report.orders.length === 1 && /WATCHDOG: .*exceeded \d+m/.test(oE.report.orders[0].verdict ?? ""),
+      (oE.report.orders[0]?.verdict ?? "").slice(0, 140));
+  }
+
+  // 17f: all knobs unset, insta-settling stub → GREEN (no degenerate
+  // undefined->0ms default; the class defaults are real durations).
+  const f17 = `${ID_PREFIX}s17-f`;
+  const oF = await scenario([f17], { limit: 1 });
+  if (oF.error) check("17f no-degenerate-default scenario completes", false, String(oF.error.message).slice(0, 200));
+  else {
+    check("17f all knobs unset + insta-settling stub completes GREEN (no degenerate 0ms default)",
+      oF.report.orders.length === 1 && oF.report.orders[0].verdict === "GREEN",
+      JSON.stringify(oF.report.orders.map((r) => [r.order, r.verdict])));
+  }
+} catch (e) { check("17 phase-class-deadline case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {

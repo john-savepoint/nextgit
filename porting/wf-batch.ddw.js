@@ -84,7 +84,7 @@ export function readQueueRows(root = process.cwd(), { sourceLike } = {}) {
 // The `agent` OPTION is bound as `agentOpt` on purpose: the bare name `agent` must stay the DDW
 // spawn global that the batch-level gates below call (shadowing it crashed every batch at the
 // parity gate — `TypeError: agent is not a function`).
-export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids, phaseDeadlineMs, gateDeadlineMs = 2_700_000 } = {}) {
+export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent: agentOpt, agents, resume, sourceLike, parallel = 1, evidenceRoot: evidenceRootOpt, ids, phaseDeadlineMs, gateDeadlineMs = 2_700_000, implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs } = {}) {
   // evidenceRoot: where run evidence + batch reports land (defaults to root). Fleet lanes
   // pass the MAIN tree so all audit evidence lands in one place while the lane works in
   // its own clone.
@@ -246,7 +246,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       const runnable = units.filter((u) => !u.failed);
       const settled = await Promise.allSettled(
         runnable.map((u) =>
-          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot, lenses, agent: agentOpt, agents, resume, phaseDeadlineMs, gateDeadlineMs }),
+          runWorkOrder(makeOrder(u.row, u.wt), { root: u.wt, evidenceRoot, lenses, agent: agentOpt, agents, resume, phaseDeadlineMs, gateDeadlineMs, implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs }),
         ),
       );
       const byId = new Map();
@@ -323,7 +323,7 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
         // release path (the caller reconciles reds exactly like a gate BLOCK).
         let r;
         try {
-          r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume, phaseDeadlineMs, gateDeadlineMs });
+          r = await runWorkOrder(makeOrder(row, root), { root, evidenceRoot, lenses, agent: agentOpt, agents, resume, phaseDeadlineMs, gateDeadlineMs, implDeadlineMs, verifyDeadlineMs, healResearchDeadlineMs, healApplyDeadlineMs });
         } catch (e) {
           r = { order: row.id, title: row.title, verdict: `ERROR: ${String(e?.message ?? e).slice(0, 200)}`, heals: 0 };
           try { writeFileSync(`${batchDir}/order-${row.id}-error.txt`, String(e?.stack ?? e)); } catch { /* evidence best-effort */ }
