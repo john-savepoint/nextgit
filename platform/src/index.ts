@@ -5023,9 +5023,10 @@ const UI_ASSET_PATHS: Record<string, true> = {
  // nextgit-e16 (wave-15 lane-union marker): the issues
  // triage panel module.
  "/js/issues-panel.js": true,
- // nextgit-e16 (wave-16): the story page + the judge-set comparison module.
+ // nextgit-e16 (wave-16): the story page + the judge-set comparison + sessions panel modules.
  "/story.html": true, "/js/story-page.js": true,
  "/js/judge-comparison.js": true,
+ "/js/sessions-panel.js": true,
 };
 
 export default {

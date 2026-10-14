@@ -10,6 +10,7 @@ import { handleLandProposal, hideActionBanner } from "./land.js";
 import { revealSecret } from "./reveal.js";
 import { loadForks } from "./forks-panel.js";
 import { loadIssues } from "./issues-panel.js";
+import { loadSessions, submitSteer } from "./sessions-panel.js";
 import { submitComment } from "./comments.js";
 
 /**
@@ -105,11 +106,25 @@ export function setupInteractions() {
   }
  });
 
+ // Session steer composer: the send control lives inside the
+ // rendered session rows (#sessions-section), so the delegation
+ // is attached to the section — the proposals-grid delegation
+ // precedent. One listener, bound to #sessions-section, survives
+ // every session re-render.
+ if (el.sessionsSection) {
+  el.sessionsSection.addEventListener("click", (e) => {
+   const steerSend = e.target.closest(".steer-send");
+   if (steerSend) { submitSteer(steerSend); return; }
+  });
+ }
+
+ // Connection banner retry
  // Manual refresh
  if (el.btnRefresh) {
   el.btnRefresh.addEventListener("click", () => {
    loadProposals();
    loadEvents();
+   loadSessions();
   });
  }
 
@@ -171,4 +186,5 @@ export function init() {
  loadEvents();
  loadForks();
  loadIssues();
+ loadSessions();
 }
