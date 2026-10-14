@@ -215,7 +215,7 @@ check("C: /sessions → GET read (authorize-covered)", routeMap["/sessions"]?.me
 check("C: /harnesses → GET read (authorize-covered; the federation manifest)", routeMap["/harnesses"]?.method === "GET" && routeMap["/harnesses"]?.action === "read", `got ${J(routeMap["/harnesses"] ? { method: routeMap["/harnesses"].method, action: routeMap["/harnesses"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 8 entries (landings, issues, proposals, asset, raw, sessions, asset/uploads/, asset/uploads)", DYNAMIC_ROUTES.length === 8, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 9 entries (landings, issues, proposals, asset, raw, sessions GET+POST, asset/uploads/, asset/uploads)", DYNAMIC_ROUTES.length === 9, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
@@ -255,6 +255,20 @@ check("C: DYNAMIC_ROUTES /asset/uploads/ → POST write (the multipart-complete 
 check("C: DYNAMIC_ROUTES /asset/uploads → POST write (the direct-to-R2 upload grant)",
  DYNAMIC_ROUTES[7]?.prefix === "/asset/uploads" && DYNAMIC_ROUTES[7]?.method === "POST" && DYNAMIC_ROUTES[7]?.action === "write",
  `got ${J(DYNAMIC_ROUTES[7])}`);
+// /sessions/ GET (nextgit-e19, CONTRACT.md
+// §GET /sessions/{repo}/instructions) — the poll
+// half of session steering: a DYNAMIC read entry
+// on the SAME "/sessions/" prefix as the steer
+// POST (the dispatcher matches prefix AND method,
+// so the two never collide). Found by prefix +
+// method, NOT positionally — the positional pins
+// DYNAMIC_ROUTES[0]–[7] above stay stable because
+// the GET entry was APPENDED at the end of
+// DYNAMIC_ROUTES (the positional-pin stability
+// law).
+check("C: DYNAMIC_ROUTES /sessions/ → GET read (the session-instructions poll; appended at the END, positional pins [0]–[7] stable)",
+ DYNAMIC_ROUTES.some((r) => r.prefix === "/sessions/" && r.method === "GET" && r.action === "read"),
+ `got ${J(DYNAMIC_ROUTES.filter((r) => r.prefix === "/sessions/"))}`);
 // The static-POST set is UNCHANGED by the steer POST or the two
 // asset-upload POSTs: all three are dynamic prefixes (prefix
 // "/sessions/", "/asset/uploads/", "/asset/uploads"), not static
@@ -268,10 +282,14 @@ check("C: DYNAMIC_ROUTES /asset/uploads → POST write (the direct-to-R2 upload 
 check("C: static POST paths — /issues joins the set (the steer POST and the two asset-upload POSTs stay dynamic)",
  JSON.stringify(ROUTES.filter((r) => r.method === "POST").map((r) => r.path).sort()) ===
  JSON.stringify(["/comments", "/intents", "/issues", "/judge", "/land", "/reveal", "/upstream"].sort()));
-// DYNAMIC_ROUTES now carries exactly four POSTs, in order:
-// the issues close-once PATCH prefix, the session steer, then the
-// multipart-complete prefix, then the upload grant
-// (complete-before-grant is load-bearing).
+// DYNAMIC_ROUTES now carries exactly four mutating routes,
+// in order: the issues close-once PATCH prefix, the
+// session steer, then the multipart-complete prefix,
+// then the upload grant (complete-before-grant is
+// load-bearing). The nextgit-e19 GET /sessions/
+// instructions poll is NOT mutating (a read), so the
+// mutating count stays FOUR even though DYNAMIC_ROUTES
+// now carries NINE entries.
 check("C: DYNAMIC_ROUTES carries exactly four mutating routes (/issues/, /sessions/, /asset/uploads/, /asset/uploads)",
  DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").length === 4 &&
  JSON.stringify(DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").map((r) => r.prefix)) ===

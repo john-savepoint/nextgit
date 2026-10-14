@@ -1045,6 +1045,78 @@ Body:
 - `400` bad input; `404` unknown steer target (the path remainder is not `<repo>/steer`); `503 {ok:false,error:"event-not-recorded"}` if recordEvent rejected/dedup-dropped the frame (the fail-closed backstop — the response never asserts an event the feed does not evidence; unreachable in practice with the per-event `id` above); `500` unexpected.
 - Residual risks (MEDIUM, documented): cross-isolate steer races are last-writer-wins on the recent KV key (the append gate is per-isolate, the comments as-built posture; a repo-keyed Durable Object is the deferred multi-isolate fix); SSE steer fan-out is best-effort (a hub failure logs `events-hub-publisher` and the KV write stands — `GET /events` remains correct).
 
+## GET /sessions/{repo}/instructions
+
+The poll half of session steering (nextgit-e19): the
+`session.steered` frames `POST /sessions/{repo}/steer`
+recorded, served back to the caller. A pure projection of
+the SAME event store `GET /events` serves — **no new store,
+no new binding**; the read never re-scrubs (the frame is
+already the scrubbed form the steer seam stored, the AD-4
+single-scrub-point law).
+
+Response `200`:
+
+```json
+{ "ok": true, "repo": "agent-1", "instructions": [
+  { "id": "<12-hex>", "at": "<iso-8601-utc>",
+    "instruction": "<scrubbed text>", "cursor": "<iso-8601-utc>" }
+] }
+
+- `instructions[]` — the repo's `session.steered` frames,
+  **oldest-first**. Each row carries the recorded frame
+  verbatim: `id` (the per-event 12-hex, absent only on a
+  pre-e16 frame), `at`, and `instruction` (the scrubbed
+  form — `KEY=value` lines render `KEY=[redacted]`,
+  instruction-like lines `[stripped]`; the raw text is
+  never served).
+- `cursor` — the NEWEST served frame's `at` (the poll
+  discipline: pass it back as `?since=` to receive only
+  frames recorded strictly newer). Typed-absent when the
+  list is empty.
+- `since` — optional query param, an ISO-8601 instant;
+  only frames with `at` STRICTLY newer than `since` are
+  served (equality → excluded, the advance discipline: a
+  cursor already served never re-serves itself). Absent =
+  all frames. A present-but-unparseable `since` → `400`.
+- Empty feed (no steer ever recorded for the repo) →
+  `200 {ok:true, repo, instructions:[]}` — **never 404**
+  (the list is legitimately empty, the /pipelines law).
+- Demo-mode allowlist (AD-9): `{repo}` must match the
+  allowlist — enforced **in the handler** (the path-carried
+  repo cannot be adjudicated by the query-only
+  `extractScope`, the `/raw` carve-out posture) BEFORE any
+  store access. Secret-class repo names are REFUSED (403,
+  the §POST /issues posture) before any read.
+- Rate limit (AD-9): per-caller cap 60/min →
+  `429 {ok:false,error:"rate-limited"}`
+  (`ROUTE_RATE_LIMITS["/sessions:read"]`, see Rate limits).
+- Precondition order: `403` (allowlist) → `403`
+  (secret-class) → `429` (rate) → `400` (shape;
+  non-string/unparseable `since`) → `200`. Dated correction
+  (2026-10-14): the `since`-shape `400` fires AFTER the
+  auth/rate gates — auth-first fail-closed; an earlier draft
+  listed shape first. The only divergence is on compound
+  faults (a bad `since` from a denied caller answers `403`).
+- Cap: the 50 NEWEST frames when a repo has been steered
+  more than 50 times (`MAX_SESSION_INSTRUCTIONS`, the
+  feed-cap honest-absence posture — `cursor` still advances
+  monotonically); older frames leave the list.
+- `405` on any other method (the API-boundary method law).
+- Egress (AD-4): rows carry only the recorded frame —
+  repo name, ISO instants, the scrubbed instruction text.
+  No raw text, no secret-class value.
+- Residual risks (documented): cross-isolate KV
+  last-writer-wins is inherited from the steer write (the
+  same as-built posture of every KV read-modify-write in
+  this worker); a malformed frame in the feed is SKIPPED
+  (never a 500 — the frame-typed guard); >50-steer repos
+  serve the 50 newest (the Cap clause above is the detail,
+  verified empirically: 55 steers → exactly the newest 50
+  served, oldest evicted first by the feed cap); strict
+  `since` equality returns empty (the documented
+  advance discipline).
+
 ## POST /intents
 
 Declare an intent **before** building — the platform matches it against the fork ecosystem and returns a verdict plus the candidate forks that already carry the work (CAP-10, join-don't-restart). Advisory: the route writes nothing and lands nothing (mirrors `/judge`).
@@ -1400,7 +1472,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the twenty-three bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `PATCH /issues/{id}`, `GET /checks`, `GET /pipelines`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the twenty-four bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `PATCH /issues/{id}`, `GET /checks`, `GET /pipelines`, `GET /sessions/{repo}/instructions`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -1421,6 +1493,7 @@ Edge rate limits cover the twenty-three bound routes in the table below (`/land`
 | `POST /issues` | 20 | 60 s (the `/issues:write` class — also covers `PATCH /issues/{id}`, the store's only two writes) |
 | `GET /checks` | 60 | 60 s |
 | `GET /pipelines` | 60 | 60 s |
+| `GET /sessions/{repo}/instructions` | 60 | 60 s |
 | `POST /sessions/{repo}/steer` | 30 | 60 s |
 | `POST /asset/uploads` | 20 | 60 s (shared with `POST /asset/uploads/{uploadId}/complete` — one write class: both mint or extend a client-direct upload session) |
 | `GET /asset/{blobId}/presign` | 60 | 60 s |
