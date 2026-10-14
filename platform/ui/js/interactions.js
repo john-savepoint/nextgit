@@ -9,7 +9,7 @@ import { openModal, closeModal, modalFocusables, handleViewDiff, handlePreviewMe
 import { handleLandProposal, hideActionBanner } from "./land.js";
 import { revealSecret } from "./reveal.js";
 import { loadForks } from "./forks-panel.js";
-import { loadIssues } from "./issues-panel.js";
+import { loadIssues, submitIssue, closeIssue } from "./issues-panel.js";
 import { loadSessions, submitSteer } from "./sessions-panel.js";
 import { loadPipelines } from "./pipelines.js";import { loadRail } from "./rail.js";
 import { submitComment } from "./comments.js";
@@ -119,6 +119,23 @@ export function setupInteractions() {
   });
  }
 
+ // Issues v2: the composer form and the stored-row
+ // close button live inside the rendered issues list
+ // (#issues-section), so the delegation is attached
+ // to the section — the sessions-section precedent.
+ // One listener, bound to #issues-section, survives
+ // every issues re-render.
+ if (el.issuesSection) {
+  el.issuesSection.addEventListener("click", (e) => {
+   const issueClose = e.target.closest(".issue-close");
+   if (issueClose) { closeIssue(issueClose); return; }
+  });
+  el.issuesSection.addEventListener("submit", (e) => {
+   const composer = e.target.closest(".issue-composer");
+   if (composer) { e.preventDefault(); submitIssue(composer); }
+  });
+ }
+
  // Connection banner retry
  // Manual refresh
  if (el.btnRefresh) {
@@ -127,6 +144,7 @@ export function setupInteractions() {
    loadEvents();
    loadSessions();
    loadPipelines();   loadRail();
+   loadIssues();
   });
  }
 

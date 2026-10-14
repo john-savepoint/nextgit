@@ -1305,7 +1305,9 @@ html, body {
   .files-raw-link,
   .history-row,
   .history-crumb,
-  .history-files-link {
+  .history-files-link,
+  .issue-close,
+  .steer-send {
     min-height: 44px;
     min-width: 44px;
   }
@@ -2012,6 +2014,90 @@ html, body {
   border-color: var(--status-green-border);
   background-color: var(--status-green-bg);
   color: var(--status-green);
+}
+
+/* ——— Issues composer + close affordance (nextgit-e18, wave-18) ———
+   The POST /issues composer and the stored-row close
+   button (PATCH /issues/{id}). Var-only styling — no
+   new color literals (the pipelines-panel discipline):
+   the composer chrome reuses --bg-inset /
+   --border-subtle / --text-* tokens, the closing state
+   reuses the --status-amber family, the failed row's
+   state reuses --status-red, and the closed chip reuses
+   --status-neutral. The .issue-state / .issue-body
+   registers are ambient meta (the 0.75rem muted ramp),
+   never a color-only signal — the state word is
+   always rendered as text. */
+.issue-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-md);
+  margin-top: var(--space-md);
+}
+.issue-composer-title,
+.issue-composer-body,
+.issue-composer-severity {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: var(--space-xs) var(--space-sm);
+}
+.issue-composer-body {
+  resize: vertical;
+}
+.issue-composer-severity {
+  align-self: flex-start;
+}
+.issue-composer-submit,
+.issue-close {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.issue-composer-submit:hover:not(:disabled),
+.issue-close:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.issue-composer-submit:disabled,
+.issue-close:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.issue-close[data-closing="1"] {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+}
+.issue-row.is-pending,
+.issue-row.is-failed {
+  opacity: 0.7;
+}
+.issue-row.is-failed .issue-state {
+  color: var(--status-red);
+}
+.issue-body {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.issue-state {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.issue-state.closed {
+  color: var(--status-neutral);
 }
 
 /* ——— Pipelines panel (nextgit-e17, wave-17) ———
