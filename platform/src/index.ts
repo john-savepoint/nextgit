@@ -1095,6 +1095,24 @@ export function classifyPair(a: ProposalEntry, b: ProposalEntry): {
  }
 }
 
+/**
+ * The ONE landing-verdict derivation (AD-14 client protocol): the fold's
+ * file rows decide the proposal's landing state. Both callsites
+ * (GET /proposals card via computeProposals + GET /proposals/{repo}
+ * detail) route through this helper — a single source so the two
+ * projections cannot drift.
+ */
+export function landingVerdict(
+ files: MergeFile[],
+ status: string,
+ conflicted: string[],
+): { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number } {
+ if (files.some((f) => f.result === "withheld-secret")) return { status: "withheld-secret", files: files.length };
+ if (status === "conflict") return { status: "conflict", files: conflicted.length };
+ if (files.length === 0) return { status: "landed", files: 0 };
+ return { status: "ready", files: files.length };
+}
+
 async function computeProposals(env: Env, baseName: string, baseRef: string, ref: string, repoList: string[] | null) {
  let repos = repoList;
  if (!repos || !repos.length) {
@@ -1151,13 +1169,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
    //   ready (N files) — clean fold of N files
    //   conflict / withheld-secret — mirrors the 409 /land would return
    const fold = await computeMerge(env, baseName, baseRef, [name], ref);
-   const landing = fold.files.some((f) => f.result === "withheld-secret")
-    ? ({ status: "withheld-secret", files: fold.files.length } as const)
-    : fold.status === "conflict"
-     ? ({ status: "conflict", files: fold.conflicted.length } as const)
-     : fold.files.length === 0
-      ? ({ status: "landed", files: 0 } as const)
-      : ({ status: "ready", files: fold.files.length } as const);
+   const landing = landingVerdict(fold.files, fold.status, fold.conflicted);
    proposals.push({
     repo: name,
     head: headShas[name],
@@ -3738,18 +3750,20 @@ async function handleFloors(request: Request, env: Env): Promise<Response> {
  if (rateDenied) return rateDenied;
  const list = await env.ARTIFACTS.list({ limit: 200 });
  const agentRepos = list.repos.filter((r) => r.name.startsWith("agent-"));
- const floors = list.repos.map((r) => ({
-  id: r.name,
-  name: r.name,
-  repo: r.name,
-  branch: r.defaultBranch,
-  cloning: r.status !== "ready",
-  counts: {
-   workers: agentRepos.length,
-   busy: 0,
-   waiting: agentRepos.length,
-  },
- }));
+ const floors = list.repos
+  .filter((r) => DEMO_REPO_RE.test(r.name)) // AD-9 namespace filter: the floor enumeration publishes repo NAMES, so it runs through the same demo allowlist every other discovery route (/forks / /intents / /agents filter agent-*; the allowlist is the /floors floor's own admission gate) — a scratch chain or a non-allowlist repo never egresses in floors[].
+  .map((r) => ({
+   id: r.name,
+   name: r.name,
+   repo: r.name,
+   branch: r.defaultBranch,
+   cloning: r.status !== "ready",
+   counts: {
+    workers: agentRepos.length,
+    busy: 0,
+    waiting: agentRepos.length,
+   },
+  }));
  return Response.json({ ok: true, floors });
 }
 // ---------------------------------------------------------------------------
@@ -4106,6 +4120,21 @@ async function handleAgents(request: Request, env: Env): Promise<Response> {
 // 404 at the handler (the /landings/{commit} precedent); the repo name is
 // re-validated REPO_NAME_RE before any repo read (/reveal precedent).
 // ---------------------------------------------------------------------------
+/**
+ * The Artifacts binding's not-found family — the honest discriminator
+ * for a repo read against a name the namespace does not carry. The
+ * in-memory fakes across the suites throw `repo not found: <name>`
+ * (the tree-read / commits-read suites) or `fixture: no repo <name>`
+ * (the client-protocol / proposals-auto-discover fakes) from get()
+ * for absent repos, so the predicate matches the binding's own
+ * not-found signal in both shapes. Fail-closed: an error that does
+ * NOT match the family is a read fault (500), never silently a 404.
+ */
+function isUnknownRepoError(err: unknown): boolean {
+ if (!(err instanceof Error)) return false;
+ return /not found|no such repo|does not exist|no repo /i.test(err.message);
+}
+
 async function handleProposalDetail(request: Request, env: Env, repoParam: string): Promise<Response> {
  if (!REPO_NAME_RE.test(repoParam)) {
   return badRequest(`invalid repo name: ${JSON.stringify(repoParam)}`);
@@ -4133,19 +4162,24 @@ async function handleProposalDetail(request: Request, env: Env, repoParam: strin
   // Unknown repo -> 404 (the /landings/{commit} precedent): the
   // compute seam's first repo read (env.ARTIFACTS.get) fails for
   // a name the namespace does not carry, and the handler maps that
-  // to the contract 404 rather than a 500.
+  // to the contract 404 rather than a 500. ANY other read fault is
+  // a 500 — a blanket 404 would misreport a binding fault as
+  // "no such proposal" (the honest-error-surface seam: a 500 must
+  // never masquerade as a 404, or client retry/classification
+  // corrupts). The discriminator is the binding's own not-found
+  // family (isUnknownRepoError); fail-closed default is 500.
   changeSet = await computeChangeSet(env, base, baseRef, repoParam, ref);
   merge = await computeMerge(env, base, baseRef, [repoParam], ref);
- } catch {
-  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ } catch (err) {
+  if (isUnknownRepoError(err)) {
+   return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  return Response.json(
+   { ok: false, error: "read-fault", detail: scrubFreeText(String((err as Error)?.message ?? err)) },
+   { status: 500 },
+  );
  }
- const landing = merge.files.some((f) => f.result === "withheld-secret")
-  ? ({ status: "withheld-secret", files: merge.files.length } as const)
-  : merge.status === "conflict"
-   ? ({ status: "conflict", files: merge.conflicted.length } as const)
-   : merge.files.length === 0
-    ? ({ status: "landed", files: 0 } as const)
-    : ({ status: "ready", files: merge.files.length } as const);
+ const landing = landingVerdict(merge.files, merge.status, merge.conflicted);
 
  return Response.json({
   ok: true,

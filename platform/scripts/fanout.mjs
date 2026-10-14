@@ -19,6 +19,8 @@ import { resolveTtl, mintRepoToken, writeAgentManifest, formatAgentRow } from ".
 import { apiToken } from "./lib/api-token.mjs";
 export { resolveTtl };
 
+const API_BASE = process.env.ARTIFACTS_API_BASE ?? "https://api.cloudflare.com/client/v4"; // offline-testability seam: point fanout at an in-process fake server (leg d) without touching production; defaults to the real control plane so every live-gated leg is unchanged.
+const GIT_BASE = process.env.ARTIFACTS_GIT_BASE; // offline-testability seam: the git-over-HTTPS remote host for `git ls-remote` (lineage resolution). Defaults to `${ACCOUNT_ID}.artifacts.cloudflare.net` (set in recordLineage, after ACCOUNT_ID resolves).
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
 const OUT_FILE = process.env.AGENTS_OUT ?? "/tmp/nextgit-agents.json";
@@ -36,7 +38,8 @@ const isMain = () => {
 
 if (isMain()) {
   const token = apiToken();
-  const base = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/artifacts/namespaces/${NAMESPACE}`;
+  const base = `${API_BASE}/accounts/${ACCOUNT_ID}/artifacts/namespaces/${NAMESPACE}`;
+
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   async function call(method, url, body) {
@@ -67,7 +70,18 @@ if (isMain()) {
   // ps (the FR-36 argv law: credentials ride GIT_CONFIG_*, never argv).
   const recordLineage = async (repoName, readToken) => {
     try {
-      const baselineRemote = `https://${ACCOUNT_ID}.artifacts.cloudflare.net/git/${NAMESPACE}/${baseline}.git`;
+      // The real Artifacts git host is a bare hostname
+      // (https://<host>/git/...); the offline-testability
+      // override (ARTIFACTS_GIT_BASE) may carry a full
+      // origin (http://127.0.0.1:PORT) so the fake control
+      // plane can serve plain HTTP — a scheme-bearing base
+      // is used verbatim, a bare host keeps the https://
+      // prefix (the production shape).
+      const gitBase = GIT_BASE ?? `${ACCOUNT_ID}.artifacts.cloudflare.net`;
+      const baselineRemote = /^https?:\/\//i.test(gitBase)
+        ? `${gitBase}/git/${NAMESPACE}/${baseline}.git`
+        : `https://${gitBase}/git/${NAMESPACE}/${baseline}.git`;
+
       const ls = spawnSync(
         "git",
         ["ls-remote", baselineRemote, `refs/heads/main`],
@@ -86,7 +100,7 @@ if (isMain()) {
       if (!m) throw new Error(`ls-remote: no main ref in ${JSON.stringify(ls.stdout)}`);
       const forkPoint = m[1];
       const res = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${CACHE_ID}/values/${encodeURIComponent(`fork:${repoName}`)}`,
+        `${API_BASE}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${CACHE_ID}/values/${encodeURIComponent(`fork:${repoName}`)}`,
         {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
@@ -117,7 +131,20 @@ if (isMain()) {
       // record itself PUTs over the KV REST API with the account
       // token (repo tokens never authenticate the control plane).
       const readTok = await call("POST", `${base}/tokens`, { repo: baseline, scope: "read", ttl });
-      await recordLineage(name, readTok.plaintext);
+      try {
+        await recordLineage(name, readTok.plaintext);
+      } finally {
+        // Revoke the read-scoped lineage token whether the record
+        // landed or failed — the script-side mirror of the worker's
+        // land.ts finally (index.ts revokeToken). Best-effort: a
+        // revoke failure logs and never fails the fork; the TTL
+        // still bounds exposure (FR-36 posture, worker-side twin).
+        try {
+          await call("DELETE", `${base}/tokens/${readTok.id}`);
+        } catch (e) {
+          console.log(`lineage-token-revoke-failed  ${name} (${e?.message ?? e})`);
+        }
+      }
     }
 
     const tok = await mintRepoToken(call, { base, repo: name, ttl, headers });
