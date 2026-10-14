@@ -16,6 +16,7 @@
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
 import { BaseMovedError, foldHashOf, mintWriteToken, pushLand, TOKEN_TTL_SECONDS, type LandFile } from "./land";
+import { detectDroppedChanges, MAX_DROPS, type Contribution, type FinalState } from "./drop-guard";
 import { LandLeaseDO, acquireLandLease, releaseLandLease } from "./landLeaseDO";
 export { LandLeaseDO };
 import { EventsHubDO, publishEventToHub } from "./eventsHubDO";
@@ -607,8 +608,18 @@ export async function computeMerge(
    */
   pointerText?: string;
   note?: string;
+  /** Advisory attribution for the silent-drop guard: the last
+   * proposal that wrote this path (text, pointer, or secret row). */
+  byRepo?: string;
  }
  const folds = new Map<string, Fold>();
+
+ // Silent-drop guard (forLand only): the contributions each
+ // proposal makes to folded TEXT paths, captured as the fold
+ // absorbs them. Null for every other caller — the /merge,
+ // /proposals, /checks, /forks and /floors shapes are
+ // byte-identical (the guard attaches `drops` forLand only).
+ const contributions: Contribution[] | null = opts?.forLand ? [] : null;
 
  for (const repoName of repoList) {
   using headRepo = await env.ARTIFACTS.get(repoName);
@@ -634,13 +645,26 @@ export async function computeMerge(
     };
     folds.set(f.path, fold);
    }
+   // Silent-drop guard: capture this proposal's textual
+   // contribution to the path (its head text over the
+   // fork-point ancestor). Added files contribute over an
+   // empty ancestor. Secret/pointer/binary rows are excluded
+   // by construction (D3 — no text to verify).
+   if (contributions && cs.texts[f.path] !== undefined) {
+    contributions.push({
+     repo: repoName,
+     path: f.path,
+     removed: false,
+     ancestor: f.status === "added" ? "" : (cs.texts[f.path]!.base ?? ""),
+     head: cs.texts[f.path]!.head ?? "",
+    });
+   }
    if (isSecretPath(f.path)) {
     // Secret text never enters `cs.texts`, so read the surviving side straight
-    // from its repo: the base repo for a removal, the proposal for anything
-    // else — the same text /proposals derives its keys from.
     const repo = f.status === "removed" ? baseRepo : headRepo;
     const at = f.status === "removed" ? cs.base.sha : ref;
     fold.secretKeys = secretKeys((await readContent(repo, at, f.path))?.text ?? "");
+    fold.byRepo = repoName;
     continue;
    }
    if (isAssetPointer(f.path)) {
@@ -659,9 +683,11 @@ export async function computeMerge(
      fold.conflicted = false;
      fold.asset = fold.baseText ? (parseAssetPointer(fold.baseText) ?? undefined) : undefined;
      fold.note = `removed by ${repoName}`;
+     fold.byRepo = repoName;
      continue;
     }
     fold.asset = f.asset;
+    fold.byRepo = repoName;
     // Land fold only: carry the raw pointer text so pushLand
     // writes the exact bytes. The /merge and /proposals callers
     // omit `merged` (rendering law) — see the emission's
@@ -678,6 +704,14 @@ export async function computeMerge(
     fold.deleted = true;
     fold.conflicted = false;
     fold.note = `removed by ${repoName}`;
+    // Silent-drop guard: a removal is a delete-intent
+    // contribution — the guard checks it against the fold's
+    // final ACTION (a later writer reintroducing the path is
+    // file-reintroduced-in-fold).
+    if (contributions) {
+     contributions.push({ repo: repoName, path: f.path, removed: true, ancestor: "", head: "" });
+    }
+    fold.byRepo = repoName;
     continue;
    }
 
@@ -690,6 +724,7 @@ export async function computeMerge(
    }
    fold.ours = merged.text;
    fold.deleted = false;
+   fold.byRepo = repoName;
   }
  }
 
@@ -746,6 +781,32 @@ export async function computeMerge(
   // surviving file list.
   if (fold.ours === fold.baseText) continue;
   files.push({ path, action, result: "merged", merged: fold.ours });
+ }
+
+ // Silent-drop guard (forLand only): analyse every captured
+ // contribution against the FOLD's own final states — built
+ // from `folds`, not the emitted `files`, so the net-cancel
+ // class (a path dropped at the `ours === baseText` gate
+ // above) is still analysed. `MAX_DROPS` caps the evidence.
+ if (contributions) {
+  const finalStates = new Map<string, FinalState>();
+  for (const [path, fd] of folds) {
+   finalStates.set(path, {
+    action: fd.deleted ? "delete" : "write",
+    text: fd.deleted ? null : fd.ours,
+    byRepo: fd.byRepo ?? null,
+   });
+  }
+  const drops = detectDroppedChanges(contributions, finalStates);
+  if (drops.length > MAX_DROPS) drops.length = MAX_DROPS;
+  return {
+   base: { repo: baseName, ref: baseRef },
+   repos: repoList,
+   status: conflicted.length ? "conflict" : "clean",
+   files,
+   conflicted,
+   drops,
+  };
  }
 
  return {
@@ -1688,6 +1749,21 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    .map((f) => `${f.path}: ${f.note ?? "conflict"}`)
    .join("; ");
   return Response.json({ ok: false, error: "conflict", conflicted: merge.conflicted, detail }, { status: 409 });
+ }
+ // Silent-drop guard (CONTRACT §POST /land): a proposal's
+ // content contribution to a folded text path is missing
+ // from the fold's final state — the merge silently
+ // dropped it. Fail closed: nothing is folded or pushed,
+ // the base ref is untouched, no lease is acquired. Sits
+ // after `conflict` (a conflicted fold already refuses and
+ // reports) and before `no-changes` (the net-cancel class
+ // must be reported as a drop, never as the misleading
+ // no-changes).
+ if (merge.drops?.length) {
+  // Content-free log: counts and repo names only — never
+  // file text (NFR-3).
+  console.log("silent-drop-detected", JSON.stringify({ base, repos, count: merge.drops.length }));
+  return Response.json({ ok: false, error: "silent-drop-detected", drops: merge.drops }, { status: 409 });
  }
  // Nothing to land. The fold produced no files at all, so a commit would be an
  // empty change on the base. This is the same condition /proposals reads as

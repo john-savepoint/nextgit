@@ -154,7 +154,7 @@ const statusSeq = (body) => {
 // withheld-secret and conflict steps — that gate lives INSIDE
 // POST /land only; /upstream has no model gate, so 6d compares /upstream
 // against the /land sequence MINUS the gate codes.
-const LAND_ORDER = ["400", "429", "403", "409 stale", "409 withheld-secret", "409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 autoland-blocked", "409 conflict", "409 no-changes", "409 base-moved", "200"];
+const LAND_ORDER = ["400", "429", "403", "409 stale", "409 withheld-secret", "409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 autoland-blocked", "409 conflict", "409 silent-drop-detected", "409 no-changes", "409 base-moved", "200"];
 const LAND_ONLY_GATE_CODES = new Set(["409 content-detected-secret", "503 judge-unavailable", "409 autoland-escalate", "409 autoland-blocked"]);
 const landSeq = statusSeq(landEvidenceBlock);
 const upstreamSeq = statusSeq(upstreamKeysDeclared);
