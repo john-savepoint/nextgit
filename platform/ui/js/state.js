@@ -93,6 +93,7 @@ export const el = {
  judgeComparisonBadge: document.getElementById("judge-comparison-badge"), sessionsSection: document.getElementById("sessions-section"),
  sessionsList: document.getElementById("sessions-list"),
  sessionsMeta: document.getElementById("sessions-meta"),
+ sessionsStatus: document.getElementById("sessions-status"),
  pipelinesSection: document.getElementById("pipelines-section"),
  pipelinesList: document.getElementById("pipelines-list"),
  pipelinesMeta: document.getElementById("pipelines-meta"), railSection: document.getElementById("rail-section"),

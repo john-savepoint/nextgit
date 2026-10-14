@@ -351,7 +351,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     R.s.bodies = qs("#issues-list .issue-body").map((e) => e.textContent.trim());
     R.s.rowIds = qs("#issues-list .issue-row").map((r) => r.id);
 
-    if (CFG.mode === "composer" || CFG.mode === "composer403") {
+    if (CFG.mode === "composer" || CFG.mode === "composer403" || CFG.mode === "composer400" || CFG.mode === "composer429") {
       const form = q("#issues-list .issue-composer");
       const title = form ? form.querySelector(".issue-composer-title") : null;
       const body = form ? form.querySelector(".issue-composer-body") : null;
@@ -389,7 +389,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.s.bannerHidden = banner ? banner.hidden : null;
     }
 
-    if (CFG.mode === "close" || CFG.mode === "close409" || CFG.mode === "close404") {
+    if (CFG.mode === "close" || CFG.mode === "close409" || CFG.mode === "close404" || CFG.mode === "close400" || CFG.mode === "close429") {
       const btn = q("#issues-list .issue-close[data-issue-id='a1b2c3d4e5f6']");
       if (btn) btn.click();
       await sleep(1200);
@@ -466,6 +466,8 @@ const server = createServer((req, res) => {
       closeRequests.push({ method: "PATCH", id: decodeURIComponent(close[1]), base: searchParams.get("base"), body: payload });
       if (closeMode === "409") { closedStore = true; json(res, { ok: false, error: "already-closed" }, 409); return; }
       if (closeMode === "404") { json(res, { ok: false, error: "not-found" }, 404); return; }
+      if (closeMode === "400") { json(res, { ok: false, error: "bad-request" }, 400); return; }
+      if (closeMode === "429") { json(res, { ok: false, error: "rate-limited" }, 429); return; }
       closedStore = true;
       json(res, { ok: true, issue: { id: decodeURIComponent(close[1]), repo: searchParams.get("base"), state: "closed", closedAt: "2026-10-14T10:06:00.000Z" } });
     });
@@ -605,6 +607,34 @@ function legComposer403(dom) {
   check("6 the connection banner stays hidden (fail-soft)", c.bannerHidden === true, "connection banner is visible");
 }
 
+function legComposer400(dom) {
+  const R = parse(dom);
+  if (!R) return check("6b: scenario output present", false, "no #test-out");
+  if (R.err) return check("6b: scenario threw", false, R.err);
+  const c = R.s;
+  check("6b exactly ONE POST /issues was issued", postRequests.length === 1, `count=${postRequests.length}`);
+  check("6b the honest failure row names bad-request",
+    c.failedRows === 1 && (c.failedDetail || []).some((t) => t === "bad-request"),
+    JSON.stringify(c.failedDetail));
+  check("6b the submit is re-enabled after the failure", c.submitDisabledAfter === false, `submitDisabledAfter=${c.submitDisabledAfter}`);
+  check("6b the draft is retained", c.draftRetained === "The typed title", String(c.draftRetained));
+  check("6b the connection banner stays hidden (fail-soft)", c.bannerHidden === true, "connection banner is visible");
+}
+
+function legComposer429(dom) {
+  const R = parse(dom);
+  if (!R) return check("6c: scenario output present", false, "no #test-out");
+  if (R.err) return check("6c: scenario threw", false, R.err);
+  const c = R.s;
+  check("6c exactly ONE POST /issues was issued", postRequests.length === 1, `count=${postRequests.length}`);
+  check("6c the honest failure row names rate-limited",
+    c.failedRows === 1 && (c.failedDetail || []).some((t) => t === "rate-limited"),
+    JSON.stringify(c.failedDetail));
+  check("6c the submit is re-enabled after the failure", c.submitDisabledAfter === false, `submitDisabledAfter=${c.submitDisabledAfter}`);
+  check("6c the draft is retained", c.draftRetained === "The typed title", String(c.draftRetained));
+  check("6c the connection banner stays hidden (fail-soft)", c.bannerHidden === true, "connection banner is visible");
+}
+
 function legClose(dom) {
   const R = parse(dom);
   if (!R) return check("7: scenario output present", false, "no #test-out");
@@ -648,6 +678,30 @@ function legClose404(dom) {
     `text=${c.closeTextAfter} disabled=${c.closeDisabledAfter}`);
 }
 
+function legClose400(dom) {
+  const R = parse(dom);
+  if (!R) return check("8b: scenario output present", false, "no #test-out");
+  if (R.err) return check("8b: scenario threw", false, R.err);
+  const c = R.s;
+  check("8b exactly ONE PATCH was issued", closeRequests.length === 1, `count=${closeRequests.length}`);
+  check("8b the button is restored naming bad-request",
+    c.closeTextAfter === "close (bad-request)" && c.closeDisabledAfter === false,
+    `text=${c.closeTextAfter} disabled=${c.closeDisabledAfter}`);
+  check("8b the closing marker is removed", c.closeClosingAfter === null, `closeClosingAfter=${c.closeClosingAfter}`);
+}
+
+function legClose429(dom) {
+  const R = parse(dom);
+  if (!R) return check("8c: scenario output present", false, "no #test-out");
+  if (R.err) return check("8c: scenario threw", false, R.err);
+  const c = R.s;
+  check("8c exactly ONE PATCH was issued", closeRequests.length === 1, `count=${closeRequests.length}`);
+  check("8c the button is restored naming rate-limited",
+    c.closeTextAfter === "close (rate-limited)" && c.closeDisabledAfter === false,
+    `text=${c.closeTextAfter} disabled=${c.closeDisabledAfter}`);
+  check("8c the closing marker is removed", c.closeClosingAfter === null, `closeClosingAfter=${c.closeClosingAfter}`);
+}
+
 function legDerivedNoAffordances(dom) {
   const R = parse(dom);
   if (!R) return check("10: scenario output present", false, "no #test-out");
@@ -670,8 +724,12 @@ const scenarios = [
   { name: "4", issues: "fail", post: "ok", close: "ok", cfg: { mode: "fail" }, leg: legFail },
   { name: "5", issues: "posted", post: "ok", close: "ok", cfg: { mode: "composer", title: "The typed title", body: "The typed body", severity: "medium" }, leg: legComposer },
   { name: "6", issues: "ok", post: "403", close: "ok", cfg: { mode: "composer403", title: "The typed title", body: "The typed body", severity: "medium" }, leg: legComposer403 },
+  { name: "6b", issues: "ok", post: "400", close: "ok", cfg: { mode: "composer400", title: "The typed title", body: "The typed body", severity: "medium" }, leg: legComposer400 },
+  { name: "6c", issues: "ok", post: "429", close: "ok", cfg: { mode: "composer429", title: "The typed title", body: "The typed body", severity: "medium" }, leg: legComposer429 },
   { name: "7", issues: "ok", post: "ok", close: "ok", cfg: { mode: "close" }, leg: legClose },
   { name: "8", issues: "ok", post: "ok", close: "409", cfg: { mode: "close409" }, leg: legClose409 },
+  { name: "8b", issues: "ok", post: "ok", close: "400", cfg: { mode: "close400" }, leg: legClose400 },
+  { name: "8c", issues: "ok", post: "ok", close: "429", cfg: { mode: "close429" }, leg: legClose429 },
   { name: "9", issues: "ok", post: "ok", close: "404", cfg: { mode: "close404" }, leg: legClose404 },
   { name: "10", issues: "derived-only", post: "ok", close: "ok", cfg: { mode: "derived" }, leg: legDerivedNoAffordances },
 ];

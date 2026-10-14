@@ -207,6 +207,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.s.sentMarker = btn ? btn.getAttribute("data-steer-sent") : null;
       R.s.sentDisabled = btn ? btn.disabled : null;
       R.s.sendLabel = btn ? btn.textContent.trim() : null;
+      // The section's dedicated live region right after
+      // the steer (the issues #issues-status posture):
+      // the failure leg announced into it; the success
+      // leg left it empty.
+      R.s.statusText = q("#sessions-status") ? q("#sessions-status").textContent.trim() : null;
       // Reconcile on refresh: the manual-refresh control
       // re-runs loadSessions() (the refreshed feed carries
       // the session.steered evidence).
@@ -227,6 +232,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const btn2 = row2 ? row2.querySelector(".steer-send") : null;
       R.s.sentMarkerAfterRefresh = btn2 ? btn2.getAttribute("data-steer-sent") : null;
       R.s.sendDisabledAfterRefresh = btn2 ? btn2.disabled : null;
+      // The post-refresh live-region state: the refetch
+      // re-renders the section, so renderSessions()
+      // clears any standing announcement (the
+      // clear-on-success discipline).
+      R.s.statusTextAfterRefresh = q("#sessions-status") ? q("#sessions-status").textContent.trim() : null;
     }
 
     R.s.errCount = errCount;
@@ -349,6 +359,13 @@ function legSteer(dom) {
   check("3 the reconciled chip carries the working class", (c.agent1ChipClass || "").includes("session-state-working"), String(c.agent1ChipClass));
   check("3 the refreshed row carries the session.steered evidence", (c.agent1LastEvent || "").includes("session.steered"), String(c.agent1LastEvent));
   check("3 the sent marker survives the success path (no failure branch)", c.bannerHidden !== false || c.bannerClass == null || !String(c.bannerClass).includes("banner-error"), `banner=${c.bannerClass}`);
+  // Clear-on-success discipline (the issues
+  // renderIssues posture): the successful steer never
+  // announces into the section's live region and its
+  // refetch leaves it empty.
+  check("3 the sessions live region carries no announcement on the successful steer",
+    (c.statusText || "") === "" && (c.statusTextAfterRefresh || "") === "",
+    `statusText=${c.statusText} afterRefresh=${c.statusTextAfterRefresh}`);
   check("3 no uncaught page error", c.errCount === 0, `errCount=${c.errCount}`);
   check("3 no unhandled rejection", c.rejCount === 0, `rejCount=${c.rejCount}`);
 }
@@ -364,6 +381,13 @@ function legSteer403(dom) {
   check("4 the action banner carries banner-error", String(c.bannerClass || "").includes("banner-error"), String(c.bannerClass));
   check("4 the banner badge names steer-failed", c.bannerBadge === "steer-failed", String(c.bannerBadge));
   check("4 the banner copy names the server's repo-not-allowed token", (c.bannerMsg || "").includes("repo-not-allowed"), String(c.bannerMsg));
+  // The dedicated-slot leg (WCAG 4.1.3 — the issues
+  // #issues-status posture): the section's own
+  // aria-live region announces the steer failure,
+  // naming the repo and the server's token.
+  check("4 the sessions live region announces the steer failure",
+    (c.statusText || "").toLowerCase().includes("steer failed") && (c.statusText || "").includes("agent-1") && (c.statusText || "").includes("repo-not-allowed"),
+    `statusText=${c.statusText}`);
   check("4 no uncaught page error", c.errCount === 0, `errCount=${c.errCount}`);
   check("4 no unhandled rejection", c.rejCount === 0, `rejCount=${c.rejCount}`);
 }
