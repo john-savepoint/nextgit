@@ -800,9 +800,6 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Third-party agents hosted inside the platform — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-federation": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
-- [pending] P1 — Change-set identity — stable per-proposal fingerprint served on the change-set
-- [partial] P1 — Issues v2 — repo-scoped issues store (create/assign/close) + UI affordance
-- [pending] P1 — Submission gate v2 — extend the live gate to the wave-16/17 surfaces
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.
@@ -1167,14 +1164,21 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P1 — Reveal live identity — the audited reveal works end-to-end on the deployed demo
 - [done] P2 — UX polish — wave-14 gate mediums (modal anchoring, aria-live, empty states)
 - [done] P1 — Sessions panel + steer composer — the v1 sessions API's visible surface
+- [done] P1 — Change-set identity — stable per-proposal fingerprint served on the change-set
 - [done] P1 — Game-industry story page — three storage classes + the R2 asset tier
 - [done] P1 — Judge step-5 UI — agent-set comparison + recommendation surface
 - [done] P2 — Explicit-vs-whiteboard set semantics — CONTRACT differentiation section
 - [done] P1 — Worker CPU budget hardening — large change-sets stay within the 30s wall
+- [done] P1 — Issues v2 — repo-scoped issues store (create/assign/close) + UI affordance
 - [done] P1 — Pipelines v2 — GET /pipelines (land runs as pipeline records) + UI list
 - [done] P2 — Convergence rail — per-project timeline (branches → collision → judge → land → events)
 - [done] P1 — Machinery — wf-batch auto-close/parity record race (close own rows deterministically)
 - [done] P1 — Machinery — batched claims + whitelist-equality guard + deterministic Chrome discovery
+- [done] P1 — Submission gate v2 — extend the live gate to the wave-16/17 surfaces
 - [done] P2 — Docs refresh — HANDOFF/STATE route inventory + parity evidence for wave-16 surfaces
+- [done] P1 — Issues v2 — API suite (store round-trip, merge, PATCH semantics, rate, CSRF)
+- [done] P1 — Issues v2 — composer + close affordances (stored rows only)
+- [done] P2 — Code hygiene mediums — floors filter, proposal-detail errors, verdict ternary, fanout token revoke
+- [done] P1 — Submission runbook — one documented command chain, expected outputs, failure actions
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.

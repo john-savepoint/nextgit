@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T05:58:35.275Z",
-  "head": "2d4f8cc",
+  "generatedAt": "2026-10-14T10:04:32.110Z",
+  "head": "c9bf998",
   "branch": "main",
   "state": {
     "lastUpdated": "2026-10-14 ",
     "branch": "main",
-    "lastCommit": "1131de2",
+    "lastCommit": "c9bf998",
     "standingRedSet": null
   },
   "queue": {
-    "total": 702,
+    "total": 706,
     "byStatus": {
-      "pending": 412,
-      "partial": 2,
-      "done": 288
+      "pending": 410,
+      "partial": 1,
+      "done": 295
     },
     "items": [
       {
@@ -2071,21 +2071,6 @@
         "status": "pending",
         "priority": "P2",
         "title": "Parity gap vs GitHub: CI/CD pipeline integration"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Change-set identity"
-      },
-      {
-        "status": "partial",
-        "priority": "P1",
-        "title": "Issues v2"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Submission gate v2"
       }
     ]
   },
