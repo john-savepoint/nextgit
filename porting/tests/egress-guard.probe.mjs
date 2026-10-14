@@ -66,17 +66,17 @@ const headers = { "user-agent": UA, "content-type": "application/json" };
 // is low-volume and the fresh-dial cost is negligible (curl behaves this way
 // and never stalled the same window).
 
-// Transport hardening (2026-10-14, the observed class): a single WSL->edge
-// connect stall reds the whole probe because one `getRaw` timeout lands in
-// the top-level catch as "PROBE ERROR — TimeoutError". Retry the TRANSPORT
-// (not the assertion): 3 attempts, 1.5s/3s backoff, 30s per attempt. A
-// persistent stall still reds — but only after the bounded retries (5 x 30s
-// max, the post-land connection-storm class), so a genuine outage is never
-// masked. Mirrors the submission probe's jRetry.
+// Transport hardening (2026-10-14, root-caused): (1) a cold /proposals
+// recompute takes ~35-42s on the worker (measured) — a 30s abort cancels it
+// mid-compute, the cache write never completes, and every retry re-aborts;
+// timeout is therefore 120s (the worker's real compute class, the r2 getJson
+// precedent). (2) undici can reuse a half-dead pooled connection after churn
+// — every request sends connection:close (fresh dial). Retries stay bounded
+// (5 attempts, backoff): a persistent stall still reds, never masked.
 async function getRaw(path, tries = 5) {
   for (let a = 1; ; a++) {
     try {
-      const res = await fetch(`${PLATFORM}${path}`, { headers: { ...headers, connection: "close" }, signal: AbortSignal.timeout(30_000) });
+      const res = await fetch(`${PLATFORM}${path}`, { headers: { ...headers, connection: "close" }, signal: AbortSignal.timeout(120_000) });
       const text = await res.text();
       return { status: res.status, text };
     } catch (e) {
@@ -93,7 +93,7 @@ async function postRaw(path, body, tries = 5) {
         method: "POST",
         headers: { ...headers, connection: "close" },
         body: typeof body === "string" ? body : JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(120_000),
       });
       const text = await res.text();
       return { status: res.status, text };
