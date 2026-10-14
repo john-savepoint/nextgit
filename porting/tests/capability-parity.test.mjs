@@ -33,13 +33,15 @@ const DATA_MODULE = join(UI_DIR, "parity-data.js");
 const TABLE_MD = join(ROOT, "porting/parity/parity-table.md");
 const ROWS_JSON = join(ROOT, "porting/parity/below-baseline-rows.json");
 
-// The below set — after the 2026-10-13 flip (inline-review-comments +
-// repo-browsing shipped in wave 14; both verdicts moved to parity).
+// The below set — after the 2026-10-14 issues-CRUD flip
+// (full issue-tracker CRUD shipped in v3.8: GET derived+stored,
+// POST append, PATCH close-once — verdict moved to parity) and the
+// 2026-10-13 flip (inline-review-comments + repo-browsing shipped
+// in wave 14; both verdicts moved to parity).
 const EXPECTED_BELOW = [
   "session-steering",
   "agent-identity-policy",
   "agent-federation",
-  "issues",
   "ci",
 ];
 
@@ -70,7 +72,7 @@ try {
   check("1 derivation yields 18 dimensions", dimensions.length === 18, `got ${dimensions.length}`);
 
   const belowIds = dimensions.filter((d) => d.verdict === "below").map((d) => d.id);
-  check("1 below set is exactly the plan's expected 7",
+  check("1 below set is exactly the plan's expected 4",
     belowIds.length === EXPECTED_BELOW.length && EXPECTED_BELOW.every((id) => belowIds.includes(id)) && belowIds.every((id) => EXPECTED_BELOW.includes(id)),
     JSON.stringify(belowIds));
 
@@ -89,10 +91,10 @@ try {
     table.dimensions.every((d) => d.verdict === deriveVerdict(d.github.status, d.nextgit.status)),
     "a stored verdict disagrees with deriveVerdict");
 
-  // The markdown table shows the expected 5 below rows (post-flip).
+  // The markdown table shows the expected 4 below rows (post-flip).
   const md = readFileSync(TABLE_MD, "utf8");
   const mdBelow = (md.match(/^\| below \|/gm) || []).length;
-  check("1 parity-table.md shows 5 below rows", mdBelow === 5, `got ${mdBelow}`);
+  check("1 parity-table.md shows 4 below rows", mdBelow === 4, `got ${mdBelow}`);
 } catch (e) { check("1 derivation case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 2. verdict-rule proofs over a temp fixture ------------------------
