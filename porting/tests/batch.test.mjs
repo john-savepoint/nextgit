@@ -79,8 +79,24 @@ function fixture(rows = [], preclaimed = []) {
   mkdirSync(join(root, "porting/runs"), { recursive: true });
   mkdirSync(join(root, "porting/parity"), { recursive: true });
   mkdirSync(join(root, "docs"), { recursive: true });
-  for (const f of ["porting/wf-template.ddw.js", "porting/tasks.mjs", "docs/STATE.md", "docs/NEXT-ACTIONS.md"])
+  for (const f of ["porting/wf-template.ddw.js", "docs/STATE.md", "docs/NEXT-ACTIONS.md"])
     symlinkSync(join(ROOT, f), join(root, f));
+  // tasks.mjs is a COUNTING SHIM (not a symlink): every invocation —
+  // including the picker's own `claim-many` spawn — appends its argv to
+  // <tmp>/tasks-calls.jsonl and then delegates to the real adapter.
+  // This is the call-count capture for section 14 (the picker spawns
+  // tasks.mjs directly, so a cli-spy cannot see its claim-many calls).
+  const callsLog = join(tmp, "tasks-calls.jsonl");
+  const shim = [
+    "#!/usr/bin/env bun",
+    'import { appendFileSync } from "node:fs";',
+    'import { spawnSync } from "node:child_process";',
+    `appendFileSync(${JSON.stringify(callsLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");`,
+    `const r = spawnSync("bun", [${JSON.stringify(TASKS)}, ...process.argv.slice(2)], { stdio: "inherit" });`,
+    "process.exit(r.status ?? 1);",
+    "",
+  ].join("\n");
+  writeFileSync(join(root, "porting/tasks.mjs"), shim);
   // The parity pack (competitor mode reads the baseline as data;
   // the gate artifact hashes it at gate time).
   for (const f of ["porting/parity/baseline-github.json", "porting/parity/nextgit-capabilities.json"])
@@ -102,8 +118,12 @@ function fixture(rows = [], preclaimed = []) {
   }
   for (const id of preclaimed) cli(["claim", id, "--agent", "other-session"]);
   const listAll = () => JSON.parse(cli(["list", "--json"]).stdout);
+  const claimManyCalls = () =>
+    existsSync(callsLog)
+      ? readFileSync(callsLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((a) => a[0] === "claim-many")
+      : [];
   return {
-    tmp, root, beadsDir, cli, listAll,
+    tmp, root, beadsDir, cli, listAll, claimManyCalls,
     rowOf: (id) => listAll().find((r) => r.id === id),
     claimsOf: () => listAll().filter((r) => r.claimed_by != null),
   };
@@ -491,6 +511,101 @@ try {
       JSON.stringify([o.fx.rowOf(CID(c15))?.status, o.fx.claimsOf().length]));
   }
 } catch (e) { check("15 normalization-single-source case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+// --- 16. batched claims: the picker issues ONE claim-many invocation ----
+// nextgit-e17-mach-claims-guard-chrome (item 1): the per-row claim
+// loop was swapped for a single `tasks.mjs claim-many <ids...>`
+// spawn. These cases pin the new shape: (a) ≤1 claim-many call for
+// N picks, (b) a contended row does not abort the batch (the rest
+// still run, the contended row is reported claimed:false and never
+// runs), (c) all-green auto-close still fires on the claimed rows.
+try {
+  // 14a: two picks → at most ONE claim-many invocation carrying both ids.
+  const x = `${ID_PREFIX}s14-a`, y = `${ID_PREFIX}s14-b`;
+  let fx14;
+  const oA = await scenario([x, y], {
+    limit: 2,
+    before: (fx) => { fx14 = fx; },
+    mode: (label, dflt) => {
+      for (const id of [x, y]) if (label === `impl:${CID(id)}`) writeFileSync(join(fx14.root, `order-work-${id}.md`), `work ${id}\n`);
+      if (label.startsWith("gate:parity:") || label.startsWith("gate:merged:")) return Bun.sleep(30).then(() => dflt(label));
+      return dflt(label);
+    },
+  });
+  if (oA.error) check("16a batched-claim scenario completes", false, String(oA.error.message).slice(0, 200));
+  else {
+    const cm = fx14.claimManyCalls();
+    check("16a at most one claim-many invocation for two picks", cm.length <= 1, JSON.stringify(cm));
+    check("16a the one claim-many carries both ids",
+      cm.length === 1 && cm[0].includes(CID(x)) && cm[0].includes(CID(y)),
+      JSON.stringify(cm));
+    check("16a both orders GREEN (batch still runs)", oA.report.orders.length === 2 && oA.report.orders.every((r) => r.verdict === "GREEN"), JSON.stringify(oA.report.orders.map((r) => [r.order, r.verdict])));
+    const aRow = oA.fx.rowOf(CID(x)), bRow = oA.fx.rowOf(CID(y));
+    // The all-green batch CAS-closes its claimed rows (the close
+    // contract keys off row.claimed, which the batched claim path
+    // preserves). Auto-close releases the lease, so claimed_by is
+    // null at assertion time — the DONE status is the proof the
+    // claim was held and the row was owned by the batch.
+    check("16a all-green auto-close still fires on claimed rows", aRow?.status === "done" && bRow?.status === "done", JSON.stringify([aRow?.status, bRow?.status]));
+    check("16a report records both closed (claim was held)", Array.isArray(oA.report.closed) && oA.report.closed.length === 2 && oA.report.closed.includes(CID(x)) && oA.report.closed.includes(CID(y)), JSON.stringify(oA.report.closed));
+  }
+
+  // 14b: one row preclaimed (contended) → the batch still runs the
+  // OTHER pick; the contended row is reported claimed:false and
+  // never runs (order set excludes it).
+  const p = `${ID_PREFIX}s14-pre`, q = `${ID_PREFIX}s14-q`;
+  let fx14b;
+  const oB = await scenario([p, q], {
+    preclaimed: [p], limit: 2,
+    before: (fx) => { fx14b = fx; },
+    mode: (label, dflt) => {
+      if (label === `impl:${CID(q)}`) writeFileSync(join(fx14b.root, `order-work-${q}.md`), `work ${q}\n`);
+      if (label.startsWith("gate:parity:") || label.startsWith("gate:merged:")) return Bun.sleep(30).then(() => dflt(label));
+      return dflt(label);
+    },
+  });
+  if (oB.error) check("16b contended scenario completes", false, String(oB.error.message).slice(0, 200));
+  else {
+    check("16b only the non-contended order ran", oB.report.orders.length === 1 && oB.report.orders[0].order === CID(q), JSON.stringify(oB.report.orders.map((r) => r.order)));
+    check("16b contended row untouched (stays other-session)",
+      oB.fx.rowOf(CID(p))?.claimed_by === "other-session" && oB.fx.rowOf(CID(p))?.status === "pending",
+      JSON.stringify([oB.fx.rowOf(CID(p))?.claimed_by, oB.fx.rowOf(CID(p))?.status]));
+    check("16b contended row never ran (no run dir)", !existsSync(join(oB.fx.root, "porting/runs", CID(p))));
+    const cmB = fx14b.claimManyCalls();
+    // The preclaimed row is in_progress → readQueueRows excludes it
+    // (claimed_by != null), so claim-many carries ONLY the pending
+    // pick. The per-id contention tolerance (a row claimed in the
+    // race window between read and claim-many) is pinned at the
+    // adapter level in tasks.test.mjs 11b; here we pin that the
+    // picker's claim-many carries exactly its pending selection.
+    check("16b claim-many carries exactly the pending pick",
+      cmB.length === 1 && cmB[0].includes(CID(q)) && !cmB[0].includes(CID(p)),
+      JSON.stringify(cmB));
+    check("16b non-contended row still closed on green", oB.fx.rowOf(CID(q))?.status === "done", JSON.stringify(oB.fx.rowOf(CID(q))?.status));
+  }
+
+  // 14c: three picks, all green, default limit → auto-close on all
+  // claimed rows (the close contract is keyed off row.claimed, which
+  // the batched path preserves).
+  const c1 = `${ID_PREFIX}s14-c1`, c2 = `${ID_PREFIX}s14-c2`, c3 = `${ID_PREFIX}s14-c3`;
+  let fx14c;
+  const oC = await scenario([c1, c2, c3], {
+    limit: 3,
+    before: (fx) => { fx14c = fx; },
+    mode: (label, dflt) => {
+      for (const id of [c1, c2, c3]) if (label === `impl:${CID(id)}`) writeFileSync(join(fx14c.root, `order-work-${id}.md`), `work ${id}\n`);
+      if (label.startsWith("gate:parity:") || label.startsWith("gate:merged:")) return Bun.sleep(30).then(() => dflt(label));
+      return dflt(label);
+    },
+  });
+  if (oC.error) check("14c auto-close scenario completes", false, String(oC.error.message).slice(0, 200));
+  else {
+    check("14c all three orders GREEN", oC.report.orders.length === 3 && oC.report.orders.every((r) => r.verdict === "GREEN"), JSON.stringify(oC.report.orders.map((r) => r.verdict)));
+    check("14c all three rows auto-closed",
+      [c1, c2, c3].every((id) => oC.fx.rowOf(CID(id))?.status === "done"),
+      JSON.stringify([c1, c2, c3].map((id) => oC.fx.rowOf(CID(id))?.status)));
+    check("14c report records all closed", Array.isArray(oC.report.closed) && oC.report.closed.length === 3, JSON.stringify(oC.report.closed));
+  }
+} catch (e) { check("14 batched-claims case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {

@@ -201,6 +201,82 @@ try {
   check("9 reclaim exits 0 (live lease untouched)", rc.status === 0 && fx.rowOf(CID(`${ID_PREFIX}r-a`))?.claimed_by === "R1", rc.stdout + rc.stderr);
 } catch (e) { check("9 case threw", false, String(e?.stack ?? e).slice(0, 300)); }
 
+// --- 11. claim-many: batched claims (per-id CAS, contention-tolerant) ----
+try {
+  // 11a: three fresh ids claimed by A in ONE invocation → exit 0,
+  // all three rows claimed_by === "A" (round-trip through list --json).
+  const fx = fixture("case11");
+  for (const id of ["m-a", "m-b", "m-c"])
+    fx.run(["add", "--id", `${ID_PREFIX}${id}`, "--title", `M ${id}`, "--priority", "P1"]);
+  const k = fx.run(["claim-many", `${ID_PREFIX}m-a`, `${ID_PREFIX}m-b`, `${ID_PREFIX}m-c`, "--agent", "A"]);
+  check("11a claim-many 3 fresh → exit 0", k.status === 0, `${k.status}: ${k.stderr.trim()}`);
+  check("11a stdout names each claimed id",
+    ["m-a", "m-b", "m-c"].every((id) => k.stdout.includes(`${CID(`${ID_PREFIX}${id}`)} claimed by A`)),
+    k.stdout.trim());
+  check("11a summary line", /claimed 3\/3/.test(k.stdout), k.stdout.trim());
+  check("11a all three rows claimed_by A",
+    ["m-a", "m-b", "m-c"].every((id) => fx.rowOf(CID(`${ID_PREFIX}${id}`))?.claimed_by === "A"),
+    JSON.stringify(["m-a", "m-b", "m-c"].map((id) => [id, fx.rowOf(CID(`${ID_PREFIX}${id}`))?.claimed_by])));
+
+  // 11b: one of three preclaimed by "other" → exit 0 (2 claimed),
+  // that row stays "other", stdout names it contended.
+  const fx2 = fixture("case11b");
+  for (const id of ["m-d", "m-e", "m-f"])
+    fx2.run(["add", "--id", `${ID_PREFIX}${id}`, "--title", `M ${id}`, "--priority", "P1"]);
+  fx2.run(["claim", `${ID_PREFIX}m-e`, "--agent", "other"]);
+  const k2 = fx2.run(["claim-many", `${ID_PREFIX}m-d`, `${ID_PREFIX}m-e`, `${ID_PREFIX}m-f`, "--agent", "A"]);
+  check("11b one preclaimed → exit 0 (rest still claim)", k2.status === 0, `${k2.status}: ${k2.stderr.trim()}`);
+  check("11b contended id named on stderr", /m-e contended — skipping/.test(k2.stderr), k2.stderr.trim());
+  check("11b contended row stays other", fx2.rowOf(CID(`${ID_PREFIX}m-e`))?.claimed_by === "other", JSON.stringify(fx2.rowOf(CID(`${ID_PREFIX}m-e`))?.claimed_by));
+  check("11b claimed rows are A",
+    ["m-d", "m-f"].every((id) => fx2.rowOf(CID(`${ID_PREFIX}${id}`))?.claimed_by === "A"),
+    JSON.stringify(["m-d", "m-f"].map((id) => fx2.rowOf(CID(`${ID_PREFIX}${id}`))?.claimed_by)));
+  check("11b summary 2/3", /claimed 2\/3/.test(k2.stdout), k2.stdout.trim());
+
+  // 11c: all contended → exit 3 (nothing claimed).
+  const fx3 = fixture("case11c");
+  for (const id of ["m-g", "m-h"])
+    fx3.run(["add", "--id", `${ID_PREFIX}${id}`, "--title", `M ${id}`, "--priority", "P1"]);
+  fx3.run(["claim-many", `${ID_PREFIX}m-g`, `${ID_PREFIX}m-h`, "--agent", "other"]);
+  const k3 = fx3.run(["claim-many", `${ID_PREFIX}m-g`, `${ID_PREFIX}m-h`, "--agent", "A"]);
+  check("11c all contended → exit 3", k3.status === 3, `${k3.status}: ${k3.stderr.trim()}`);
+  check("11c rows still owned by other",
+    ["m-g", "m-h"].every((id) => fx3.rowOf(CID(`${ID_PREFIX}${id}`))?.claimed_by === "other"),
+    JSON.stringify(["m-g", "m-h"].map((id) => fx3.rowOf(CID(`${ID_PREFIX}${id}`))?.claimed_by)));
+
+  // 11d: unknown id → exit 2 (fail closed, nothing claimed).
+  const fx4 = fixture("case11d");
+  fx4.run(["add", "--id", `${ID_PREFIX}m-i`, "--title", "M i", "--priority", "P1"]);
+  const k4 = fx4.run(["claim-many", `${ID_PREFIX}m-i`, "ghost", "--agent", "A"]);
+  check("11d unknown id → exit 2", k4.status === 2, `${k4.status}: ${k4.stderr.trim()}`);
+  check("11d pre-unknown id NOT claimed (fail-closed)", fx4.rowOf(CID(`${ID_PREFIX}m-i`))?.claimed_by == null, JSON.stringify(fx4.rowOf(CID(`${ID_PREFIX}m-i`))?.claimed_by));
+
+  // 11e: no --agent → exit 2.
+  const fx5 = fixture("case11e");
+  fx5.run(["add", "--id", `${ID_PREFIX}m-j`, "--title", "M j", "--priority", "P1"]);
+  const k5 = fx5.run(["claim-many", `${ID_PREFIX}m-j`]);
+  check("11e no --agent → exit 2", k5.status === 2, `${k5.status}: ${k5.stderr.trim()}`);
+
+  // 11f: same-agent re-claim → exit 0 (refresh semantics preserved).
+  const fx6 = fixture("case11f");
+  fx6.run(["add", "--id", `${ID_PREFIX}m-k`, "--title", "M k", "--priority", "P1"]);
+  fx6.run(["claim-many", `${ID_PREFIX}m-k`, "--agent", "A"]);
+  const k6 = fx6.run(["claim-many", `${ID_PREFIX}m-k`, "--agent", "A"]);
+  check("11f same-agent re-claim → exit 0", k6.status === 0, `${k6.status}: ${k6.stderr.trim()}`);
+  check("11f row still A", fx6.rowOf(CID(`${ID_PREFIX}m-k`))?.claimed_by === "A", JSON.stringify(fx6.rowOf(CID(`${ID_PREFIX}m-k`))?.claimed_by));
+
+  // 11g: bare-slug ids canonicalize (caller may pass un-prefixed slugs).
+  const fx7 = fixture("case11g");
+  fx7.run(["add", "--id", `${ID_PREFIX}m-l`, "--title", "M l", "--priority", "P1"]);
+  // The store's ids carry the `nextgit-` prefix; a caller passes
+  // the id text WITHOUT that prefix (here the selftest-prefixed
+  // slug) and canonId re-adds `nextgit-`.
+  const k7 = fx7.run(["claim-many", `${ID_PREFIX}m-l`, "--agent", "A"]);
+  check("11g bare slug canonicalizes → exit 0",
+    k7.status === 0 && k7.stdout.includes(`${CID(`${ID_PREFIX}m-l`)} claimed by A`),
+    `${k7.status}: ${k7.stdout.trim()}`);
+} catch (e) { check("11 claim-many case threw", false, String(e?.stack ?? e).slice(0, 300)); }
+
 // --- 10. live-store isolation + cleanup ---------------------------------------
 try {
   if (existsSync(LIVE_BEADS)) {
