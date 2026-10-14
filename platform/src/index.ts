@@ -16,6 +16,7 @@
 import { createTwoFilesPatch, diffLines } from "diff";
 import { diff3Merge } from "node-diff3";
 import { BaseMovedError, foldHashOf, mintWriteToken, pushLand, TOKEN_TTL_SECONDS, type LandFile } from "./land";
+import { changeSetFingerprint } from "./identity";
 import { detectDroppedChanges, MAX_DROPS, type Contribution, type FinalState } from "./drop-guard";
 import { LandLeaseDO, acquireLandLease, releaseLandLease } from "./landLeaseDO";
 export { LandLeaseDO };
@@ -1017,11 +1018,22 @@ export async function computeChangeSet(
   // `sha` is the fork point actually diffed against, so a caller can see
   // which baseline the change-set is pinned to.
   base: { repo: baseName, ref: baseRef, treeHash: base.treeHash, sha: fork.sha },
-  head: { repo: headName, ref, treeHash: head.treeHash },
+  head: { repo: headName, ref, treeHash: head.treeHash, sha: head.headSha },
   stats,
   files,
   texts,
   commits,
+  // The change-set identity (CONTRACT.md §GET /changes
+  // identity.fingerprint): sha256 over the deterministic serialization
+  // of the file set + the base fork-point sha + the head repo/ref/sha.
+  // head.headSha (from snapshot()) is a real 40-hex commit sha —
+  // symmetric with base.sha (the fork point); the head treeHash
+  // is a tree digest, not a commit sha.
+  identity: { fingerprint: await changeSetFingerprint({
+    base: { repo: baseName, ref: baseRef, sha: fork.sha },
+    head: { repo: headName, ref, sha: head.headSha },
+    files,
+  }) },
  };
 }
 
@@ -1108,6 +1120,10 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
   intent?: string;
   stats?: unknown;
   landing?: { status: "ready" | "conflict" | "landed" | "withheld-secret"; files: number };
+  // The change-set identity (CONTRACT.md §GET /proposals
+  // identity.fingerprint) — identical to the same proposal's
+  // /changes changeSet.identity.fingerprint.
+  identity?: { fingerprint: string };
   files?: Array<{
    path: string;
    status: string;
@@ -1161,6 +1177,7 @@ async function computeProposals(env: Env, baseName: string, baseRef: string, ref
      asset: f.asset,
     })),
     landing,
+    identity: cs.identity,
    });
    for (const f of cs.files) {
     const t = cs.texts[f.path] ?? null;

@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.8 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
+Version: v3.9 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -527,7 +527,7 @@ Per-proposal change-set (server-side; no clones).
 
 ```json
 { "ok": true, "changeSet": {
-  "base": {"repo","ref","treeHash","sha"}, "head": {"repo","ref","treeHash"},
+  "base": {"repo","ref","treeHash","sha"}, "head": {"repo","ref","treeHash","sha"}, "identity": {"fingerprint": "<64-hex sha256>"},
   "stats": {"files","added","modified","removed","additions","deletions"},
   "commits": [{"hash","message","author","timestamp"}],
   "files": [{
@@ -549,6 +549,7 @@ Per-proposal change-set (server-side; no clones).
 - `patch` — absent for secret/binary/oversized files.
 - `note` (compute-downgraded) — a change-set computes at most `MAX_COMPUTE_PATCH_DIFFS` (40) per-file diffs; once that budget is spent, every further file in the set keeps its metadata row and `additions`/`deletions` stay unset, the inline `patch` is omitted, and the row carries `note: "compute-downgraded: patch omitted at the change-set compute budget (40 diffs)"`. This is the honest-degradation law: a file the compute budget skips is never silently dropped — it renders a row naming the budget. The cap is a deterministic work-unit proxy for the O(size) per-file compute (`diffLines` stats + patch construction), which a set of many large files would otherwise drive toward the 30s wall even when each file individually passes the `MAX_DIFF_FILE_CHARS` size gate. `MAX_COMPUTE_PATCH_DIFFS` (40) ≤ `MAX_FILES_WITH_PATCH` (50), so the compute budget fires before the patch budget exhausts. Residual: the counter is a deterministic proxy, not a wall-clock sample (per-isolate CPU time is non-deterministic).
 - `commits` — newest-first list of the proposal's first-parent commits from HEAD down to (and including) the fork point (`base.sha`). Each entry: `hash` (40-hex SHA-1), `message` (commit subject string), `author` (string, rendered as `Name <email>`), and `timestamp` (Unix seconds of the author date). Bounded by the fork-point walk (`limit: 200`); empty when the walk yields no commits. Never includes commits past the fork point.
+- `identity.fingerprint` (v3.9) — the change-set's stable content identity: sha256 over the deterministic serialization of exactly what the change-set MEANS — the identity block `base.repo\nbase.ref\nbase.sha\nhead.repo\nhead.ref\nhead.sha\n` followed, for each file in CODE-UNIT path order (`a < b ? -1 : a > b ? 1 : 0`, never ICU collation), by one record `${status}\n${path}\n${headHash-or-""}\n${baseHash-or-""}\x00` (the head hash is emitted only when the row is not `removed`; the base hash only when the row is not `added`; missing hashes serialize as empty strings). `head.sha` is the proposal head's 40-hex commit sha (served on both `/changes` `changeSet.head` and `/proposals` rows; identical to `commits[0].hash` — the first-parent log is newest-first). **Never** timestamps, intent, stats, or notes: identical for identical re-materializations, distinct for any content delta (any path, status, blob-hash, or base/head sha change). The pure function is `platform/src/identity.ts` (`changeSetFingerprint`); clients recompute it (the `canonicalize`/`foldHashOf` discipline). The fingerprint is an unsigned content digest — it proves identity, not authenticity (a signed variant would ride §Attestations, out of scope). Serialization assumes NUL-free paths (git tree paths cannot contain NUL); the `\n` field separators are unambiguous for all paths the Artifacts substrate can carry.
 - Demo-mode allowlist (AD-9): `repo` and `base` must match the allowlist (`^(demo|agent)(-[A-Za-z0-9._-]+)?$`); anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read.
 
 ## GET /proposals?base=demo&repos=a,b (repos optional → auto-discover `agent-*`)
@@ -557,7 +558,7 @@ The set view + conflict map.
 
 ```json
 { "ok": true, "base": {"repo","ref","head"}, "ref": "main",
-  "proposals": [ {"repo","head","forkSha?","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","classification","secret?","keys?"}]} ],
+  "proposals": [ {"repo","head","forkSha?","intent?","stats","landing":{"status":"ready|conflict|landed|withheld-secret","files":N},"files":[{"path","status","additions","deletions","classification","secret?","keys?"}],"identity":{"fingerprint"}} ],
   "conflicts": [ {"file","repos":["agent-1","agent-2"],"kind":"text-conflict",
                   "pairs":[{"a":"agent-1","b":"agent-2","kind":"text-conflict","conflict":true,"region":{"baseLines","aLines","bLines"}}]} ],
   "summary": {"proposals":4,"changedFiles":4,"sharedFiles":1,"conflictingPairs":1,"cleanPairs":0}
@@ -566,6 +567,7 @@ The set view + conflict map.
 
 - `base.head` — the base repo's current head SHA at `baseRef` (40-hex). A client echoes it to `POST /land` as `reviewed.baseHead`.
 - `proposals[].head` — that proposal repo's head SHA at `ref` (40-hex): the head of the revision the row's change-set describes. A client echoes it to `POST /land` as `reviewed.heads[repo]`; omitted on rows that carry `error` (the repo could not be read).
+- `proposals[].identity.fingerprint` — the row's change-set fingerprint — identical to the same proposal's `/changes` `changeSet.identity.fingerprint` (the stable content identity: sha256 over the deterministic serialization; see §GET /changes).
 - These are the values `POST /land` compares its optional `reviewed` fields against (§POST /land): a head that moves after this read makes a land carrying it answer `409 stale` — nothing is folded or pushed (FR-16). Distinct from `/changes`' `base.sha`, which is the fork point.
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match the allowlist (`^(demo|agent)(-[A-Za-z0-9._-]+)?$`); anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read.
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
