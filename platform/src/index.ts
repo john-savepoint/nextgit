@@ -1029,11 +1029,13 @@ export async function computeChangeSet(
   // head.headSha (from snapshot()) is a real 40-hex commit sha —
   // symmetric with base.sha (the fork point); the head treeHash
   // is a tree digest, not a commit sha.
-  identity: { fingerprint: await changeSetFingerprint({
+  identity: {
+   fingerprint: await changeSetFingerprint({
     base: { repo: baseName, ref: baseRef, sha: fork.sha },
     head: { repo: headName, ref, sha: head.headSha },
     files,
-  }) },
+   })
+  },
  };
 }
 
@@ -3647,6 +3649,34 @@ function checksForProposal(
 }
 
 /**
+ * The GitHub check-runs export (CONTRACT.md §GET /checks —
+ * GitHub check-runs export). A pure projection of the internal
+ * `{base, checks}` body: one `check_runs` entry per check per
+ * proposal, grouped by a `repo` echo on the envelope. The map
+ * is total over `ServerCheck["state"]` — an unrecognized state
+ * is a compile error (no fourth conclusion ever emits). Pure:
+ * reads nothing, throws nothing on a well-formed body.
+ */
+const CONCLUSION: Record<ServerCheck["state"], "success" | "failure" | "neutral"> = {
+ pass: "success", fail: "failure", unknown: "neutral",
+};
+
+function toGithubEnvelope(
+ baseRepo: string,
+ checksRows: Array<{ repo: string; checks: ServerCheck[] }>,
+): { ok: true; repo: string; check_runs: Array<{ name: string; status: "completed"; conclusion: "success" | "failure" | "neutral"; output: { title: string; summary: string } }> } {
+ const check_runs = checksRows.flatMap((row) =>
+  row.checks.map((check) => ({
+   name: check.id,
+   status: "completed" as const,
+   conclusion: CONCLUSION[check.state],
+   output: { title: check.label, summary: check.detail },
+  }))
+ );
+ return { ok: true, repo: baseRepo, check_runs };
+}
+
+/**
  * The server-side projection: drive computeProposals (the EXISTING
  * compute seam — no new binding method, no new compute primitive).
  * The fork point each proposal's `base` check consumes is the one
@@ -3688,6 +3718,15 @@ async function handleChecks(request: Request, env: Env): Promise<Response> {
  const parsed = parseProposalsQuery(new URL(request.url));
  if (parsed instanceof Response) return parsed;
  const { base, ref, baseRef, repoList } = parsed;
+ // The GitHub check-runs export (?format=github — the ONLY
+ // literal that switches; anything else is the internal
+ // shape, unchanged). The projection runs POST-cache on
+ // both the hit and the miss path (the no-cache-poisoning
+ // law): the KV cache stores ONLY the internal body under
+ // the format-agnostic key, so a format=github request and
+ // a plain request over the same generation share one cache
+ // entry and can never poison each other.
+ const format = new URL(request.url).searchParams.get("format");
  const rateDenied = rateGate("/checks", request);
  if (rateDenied) return rateDenied;
  // Generation-keyed KV cache — the same posture as /proposals
@@ -3704,11 +3743,25 @@ async function handleChecks(request: Request, env: Env): Promise<Response> {
  const cacheKey = `cache:checks:${gen}:${base}:${baseRef}:${ref}:${repoList ? repoList.join(",") : "*"}`;
  try {
   const hit = await env.CACHE.get(cacheKey);
-  if (hit) return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+  if (hit) {
+   if (format === "github") {
+    // Project the cached internal body (the projection runs
+    // after the cache read — a cached internal body is
+    // re-projected per request).
+    const internal = JSON.parse(hit) as { ok: boolean; base: { repo: string }; checks: Array<{ repo: string; checks: ServerCheck[] }> };
+    const github = JSON.stringify(toGithubEnvelope(internal.base.repo, internal.checks));
+    return new Response(github, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+   }
+   return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+  }
  } catch { /* cache read is best-effort — fall through to compute */ }
  const { base: baseInfo, checks } = await computeChecks(env, base, baseRef, ref, repoList);
  const body = JSON.stringify({ ok: true, base: baseInfo, checks });
  try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
+ if (format === "github") {
+  const github = JSON.stringify(toGithubEnvelope(baseInfo.repo, checks));
+  return new Response(github, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
+ }
  return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
 }
 
