@@ -78,24 +78,34 @@ NEXTGIT_PLATFORM=https://<other-worker> node porting/tests/submission-live.probe
 **Expected (exit 0):**
 
 ```
-SUBMISSION LIVE GATE: PASS (30 checks)
+SUBMISSION LIVE GATE: PASS (43 checks)
 ```
 
-**The 30 checks, in 6 groups** (labels verbatim from `porting/tests/submission-live.probe.mjs:36-129`):
+**The 43 checks, in 11 sections** (labels verbatim from `porting/tests/submission-live.probe.mjs`). Print order (observed, stable): **sections 7–11 print first** (the extension block runs eagerly before the banner), then the banner + sections 1–6.
 
-**Group 1 — health + read-route matrix (15 checks):** `1 /health 200 {ok, service, namespace}`; then `1 GET <route> 200 (<label>)` for `/changes` (change-set rows), `/proposals` (≥4 proposal rows), `/merge` (merge rows), `/events` (event feed), `/floors` (floors), `/forks` (forks + six-cluster signals), `/sessions` (sessions), `/agents` (agents + policy), `/harnesses` (harnesses), `/checks` (checks), `/issues` (issues), `/tree` (tree entries), `/commits` (commit log), `/comments` (comments read).
+**Section 1 — health + read-route matrix (15 checks):** `1 /health 200 {ok, service, namespace}`; then `1 GET <route> 200 (<label>)` for `/changes` (change-set rows), `/proposals` (≥4 proposal rows), `/merge` (merge rows), `/events` (event feed), `/floors` (floors), `/forks` (forks + six-cluster signals), `/sessions` (sessions), `/agents` (agents + policy), `/harnesses` (harnesses), `/checks` (checks), `/issues` (issues), `/tree` (tree entries), `/commits` (commit log), `/comments` (comments read).
 
-**Group 2 — file read + secret-class masking on the wire (3 checks):** `2 /file text row` (classification `text`); `2 /file secret row = keys only, never a value` (agent-5 `config/.env` → classification `secret`, `keys[]`, no `value` key, no `postgres:` in the text); `2 /raw refuses secret-class 403`.
+**Section 2 — file read + secret-class masking on the wire (3 checks):** `2 /file text row` (classification `text`); `2 /file secret row = keys only, never a value` (agent-5 `config/.env` → classification `secret`, `keys[]`, no `value` key, no `postgres:` in the text); `2 /raw refuses secret-class 403`.
 
-**Group 3 — the audited reveal with the live demo grant (4 checks):** `3 /whoami answers`; `3 /whoami + demo identity on the granted repo -> reveal:true`; `3 POST /reveal granted 200 with the value` (the demo-viewer grant, `Bearer nextgit-demo-viewer`); `3 POST /reveal wrong identity -> 403 (never a value)`.
+**Section 3 — the audited reveal with the live demo grant (4 checks):** `3 /whoami answers`; `3 /whoami + demo identity on the granted repo -> reveal:true`; `3 POST /reveal granted 200 with the value` (the demo-viewer grant, `Bearer nextgit-demo-viewer`); `3 POST /reveal wrong identity -> 403 (never a value)`.
 
-> The reveal surface is the audited identity-gated exception to the masking law: `GET /whoami` adjudicates the presented Bearer against the `REVEAL_ALLOW` Worker var (default-deny when unset). Only the demo identity holds the grant on `agent-5`; a wrong identity gets 403 and never a value — verified live, check group 3.
+> The reveal surface is the audited identity-gated exception to the masking law: `GET /whoami` adjudicates the presented Bearer against the `REVEAL_ALLOW` Worker var (default-deny when unset). Only the demo identity holds the grant on `agent-5`; a wrong identity gets 403 and never a value — verified live, check section 3.
 
-**Group 4 — SSE (1 check):** `4 /events/stream answers text/event-stream`.
+**Section 4 — SSE (1 check):** `4 /events/stream answers text/event-stream`.
 
-**Group 5 — UI pages deliver (5 checks):** `5 page <path> 200 + entry markers` for `/` (proposals-grid), `/files.html` (repo-picker + `id="file-tree"`), `/history.html` (commit-list/history), `/parity.html` (parity), `/tour.html` (tour).
+**Section 5 — UI pages deliver (5 checks):** `5 page <path> 200 + entry markers` for `/` (proposals-grid), `/files.html` (repo-picker + `id="file-tree"`), `/history.html` (commit-list/history), `/parity.html` (parity), `/tour.html` (tour).
 
-**Group 6 — honest refusals (2 checks):** `6 non-allowlisted repo 403` (`/changes?repo=notdemo-xyz`); `6 unknown path 404 JSON` (`/no-such-route` → `{ok:false}`).
+**Section 6 — honest refusals (2 checks):** `6 non-allowlisted repo 403` (`/changes?repo=notdemo-xyz`); `6 unknown path 404 JSON` (`/no-such-route` → `{ok:false}`).
+
+**Section 7 — attestation read-back (3 checks):** `7 GET /landings/<zeros> 404 not-found`; `7 GET /landings/<bad> 400 bad-request`; `7 GET /landings/<known> envelope + honest attestation union` — discovers a recorded landing in the CACHE KV and verifies the envelope against the pinned `EVIDENCE_PUBLIC_KEY` (keyId derivation guard + tamper negative-control); an honest `unavailable` envelope or no discoverable record passes the union leg (never a fabricated red).
+
+**Section 8 — presign honest-dual (3 checks):** `8 GET /asset/<not-64-hex>/presign 400 (BLOB_KEY_RE law)`; `8 GET /asset/<64hex>/presign?expires=abc 400 invalid expires`; `8 GET /asset/<64hex>/presign honest-dual (503 presign-unavailable leg)` — a credentialed `200` (url/expiry shape asserted, never followed or stored) and the fail-closed `503` are both green; anything else reds.
+
+**Section 9 — classification vocabulary (2 checks):** every `/changes` files[] row carries `classification {language, role, sensitivity}` (vocabulary-checked against `classify.ts`); agent-5 `config/.env` reads `sensitivity === "secret"` (AD-4 alignment).
+
+**Section 10 — wave-16 UI surfaces (4 checks):** `/story` 200 + story-section/story-tiers/tier kinds; `/` carries judge-comparison markers + `/js/judge-comparison.js` 200; `/` carries sessions markers + `/js/sessions-panel.js` 200; `GET /sessions?base=demo` 200 `{ok,base,sessions}`.
+
+**Section 11 — pipelines (1 check):** `GET /pipelines?base=demo` 200 with the pinned row shape (a `404` skips honestly if the route is ever reverted).
 
 **Failure action:** re-run once — transient edge stalls happen (demo-verify documents ~7 transient connect failures/day, all pre-response). Still red → §6 (read-route class). A DOM-level rendering check lives in `porting/tests/live-render.probe.mjs` (browser gate) — §5 names it for UI-affecting deploys.
 
@@ -236,7 +246,7 @@ Each class → its named recovery. One pass per class; if nothing recovers, esca
 
 ## Residual risks (silence is not a clean bill)
 
-1. **Point-in-time pins.** The counts (25 / 30 / 19 checks) pin to the plan-phase HEAD `121d7fe`; a future contract bump re-derives them. The verbatim expected outputs above are the diff surface for detecting drift.
+1. **Point-in-time pins.** The counts (25 / 43 / 19 checks) pin to the merged wave-18 probe (43 = the extended gate incl. attestation/presign/classification/wave-16-UI/pipelines sections; 30 was the pre-extension count at plan-phase HEAD `121d7fe`); a future contract bump re-derives them. The verbatim expected outputs above are the diff surface for detecting drift.
 2. **Wrangler dual-version hazard.** PATH `wrangler` 4.106.0 vs the lockfile pin 4.147.0 — §5's which-binary note is the mitigation; the Artifacts queue-subscription flag needs ≥4.147.
 3. **Competition-side acts are not automated.** Single-entry registration by 2026-10-14 (`submission-repo-location-single-entry-registered-by-oct-14`) remains an open human act — §3 states it; the gate does not perform it.
 4. **Video duration.** `482.76 s` verified via ffprobe this session — re-verify if `submission/nextgit-demo.mp4` is re-exported (R3.10).
