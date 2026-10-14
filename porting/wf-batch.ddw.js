@@ -16,7 +16,7 @@
 // Worktree-parallel mode (parallel>1) runs orders concurrently; merge-back is serial.
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 
 const DEFAULT_TEST = "node --check platform/ui/app.js && node --check platform/ui/tour.js";
@@ -118,18 +118,43 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       execFileSync("bun", [`${root}/porting/tasks.mjs`, "release", id, ...(note ? ["--note", note] : [])], { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
     } catch { /* lease expires on its own */ }
   };
+  // Selection (limit, ids filter, md-fallback rows) stays here; the
+  // CLAIM itself is one batched `tasks.mjs claim-many` invocation for
+  // all id-bearing picks (per-id CAS inside; a contended id is skipped
+  // there, not here — contention must not abort the batch). The picker
+  // shape is preserved: every picked row lands in `picked`, contended
+  // ones with claimed:false so the downstream heartbeat/release/close
+  // logic (all keyed off row.claimed) is unchanged.
   const picked = [];
+  const claimable = [];
   for (const row of rows) {
     if (picked.length >= limit) break;
     if (ids && (!row.id || !ids.includes(row.id))) continue; // O2 lane plan: explicit id set
     if (!row.id) { picked.push({ ...row, claimed: false }); continue; } // md-fallback rows carry no ids
-    try {
-      execFileSync("bun", [`${root}/porting/tasks.mjs`, "claim", row.id, "--agent", batchAgent],
-        { cwd: root, encoding: "utf8", timeout: 20000, env: process.env });
-      picked.push({ ...row, claimed: true });
-    } catch {
-      console.error(`wf-batch: ${row.id} contended — skipping`);
+    picked.push({ ...row, claimed: false });
+    claimable.push(row.id);
+  }
+  if (claimable.length) {
+    // spawnSync (not execFileSync): claim-many exits 3 when NOTHING was
+    // claimed (all contended) — a legitimate picker outcome, not a fault.
+    // The stdout lines name each outcome either way, so read them regardless
+    // of rc; the claim-many stderr already printed per-id "contended —
+    // skipping" lines (the report line the single-claim loop used to print
+    // here). rc outside {0,3} is a real adapter fault — fail the batch.
+    const claim = spawnSync("bun", [`${root}/porting/tasks.mjs`, "claim-many", ...claimable, "--agent", batchAgent],
+      { cwd: root, encoding: "utf8", timeout: 60000, env: process.env });
+    if (claim.status !== 0 && claim.status !== 3) {
+      throw new Error(`tasks.mjs claim-many rc=${claim.status}: ${((claim.stderr || "") + (claim.stdout || "")).trim().slice(0, 400)}`);
     }
+    // Per-id outcome lines: "<cid> claimed by <assignee>" (owned) |
+    // "<cid> contended — skipping" (skipped). An id with no outcome line
+    // at all (unknown id → rc 2, thrown above) never reaches here.
+    const claimedIds = new Set();
+    for (const line of (claim.stdout || "").split("\n")) {
+      const m = line.match(/^(nextgit-\S+) claimed by /);
+      if (m) claimedIds.add(m[1]);
+    }
+    for (const row of picked) if (row.id && claimedIds.has(row.id)) row.claimed = true;
   }
   if (!picked.length) return { orders: [], gate: null, gated, next: "NO PENDING ROWS (or all picks contended/dep-gated)" };
 
@@ -180,6 +205,9 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
       mkdirSync(wtRoot, { recursive: true });
       const units = [];
       for (const row of picked) {
+        // Contended picks (claimed:false) are reported but never run —
+        // mirror of the sequential branch's skip (see claim loop above).
+        if (!row.claimed) continue;
         const id = row.id ?? slug(row.title);
         const wt = `${wtRoot}/${id}`;
         try {
@@ -284,6 +312,12 @@ export async function runBatch({ limit = 1, root = process.cwd(), lenses, agent:
     } else {
       const ranIds = new Set();
       for (const row of picked) {
+        // Contended picks (claimed:false — another session owns the claim)
+        // are reported but never run: the old per-row claim loop kept them
+        // out of `picked` entirely; the batched path pushes them with
+        // claimed:false so this loop must skip them (the release sweep
+        // below already keys off row.claimed).
+        if (!row.claimed) continue;
         // A THROWN order (watchdog timeout, provider fault past retries) must not
         // abort the batch: record it as a red row, release its claim, continue the
         // release path (the caller reconciles reds exactly like a gate BLOCK).

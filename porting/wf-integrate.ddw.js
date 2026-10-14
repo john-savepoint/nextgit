@@ -30,6 +30,27 @@ const sh = (cmd, args, cwd, { timeout = 120000, allowFail = false } = {}) => {
 };
 const git = (args, cwd, opts) => sh("git", args, cwd, opts);
 
+// Deterministic Chrome discovery for the battery: the Chrome-driving
+// suites (action-banner-states, parity-dashboard, …) honor
+// process.env.CHROME_BIN, but the battery never exported it — every
+// suite fell back to its own `which` probe, which wave 16 measured
+// as flaky under fleet load (two reds, both Chrome discovery). The
+// battery now resolves ONCE and exports CHROME_BIN into the suite
+// env, so every suite shares one deterministic binary. A
+// pre-set CHROME_BIN wins (a lane with a nonstandard location
+// controls its own resolution). Fail-open: a Chrome-less box gets
+// null and the suites' own SKIP-and-exit-0 contract applies — the
+// battery must not red on a box without Chrome.
+const CHROME_CANDIDATES = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"];
+const resolveChromeBin = () => {
+  for (const bin of CHROME_CANDIDATES) {
+    const r = spawnSync("which", [bin], { encoding: "utf8" });
+    const hit = String(r.stdout ?? "").trim();
+    if (r.status === 0 && hit) return hit;
+  }
+  return null;
+};
+
 export async function open({ root, id, reuse = true } = {}) {
   const mainRoot = root ?? process.cwd();
   const runId = id ?? "main";
@@ -97,6 +118,16 @@ export async function battery({ root, id, timeoutPer = 900000, only = null } = {
   const suiteEnv = { ...process.env };
   delete suiteEnv.BEADS_DIR;
   delete suiteEnv.TASKS_DB;
+  // Deterministic Chrome: resolve once, share with every suite
+  // (a pre-set CHROME_BIN wins — `||`). When no Chrome binary
+  // exists, warn: the Chrome-gated suites self-SKIP (their own
+  // contract), so the battery stays green on a Chrome-less box
+  // but never rediscovers per-suite under load.
+  if (!suiteEnv.CHROME_BIN) {
+    const chrome = resolveChromeBin();
+    if (chrome) suiteEnv.CHROME_BIN = chrome;
+    else console.error("battery: no Chrome binary found — Chrome-gated suites will self-SKIP");
+  }
   for (const f of files) {
     if (only && !only.includes(f)) continue;
     const r = spawnSync("bun", [`porting/tests/${f}`], { cwd: wt, encoding: "utf8", timeout: timeoutPer, env: suiteEnv });

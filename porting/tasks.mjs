@@ -10,7 +10,7 @@
 // Claims are bd assigns (BD_ACTOR = --agent) with a fixed ~5m lease; long orders MUST
 // heartbeat. Evidence is appended to bd notes ("COMPLETED: ...").
 //
-// Commands: init | import <path> | add | upsert | set | claim | heartbeat | release |
+// Commands: init | import <path> | add | upsert | set | claim | claim-many | heartbeat | release |
 //           reclaim | next | done-ids | list | view | epic-upsert | epic-list | activate
 // Exit codes: 0 ok · 1 no unblocked pending / generic error · 2 usage/validation/unknown id/duplicate id · 3 claim conflict / release without claim
 //
@@ -494,6 +494,42 @@ function cmdClaim(id, agent, ttl, note) {
   if (ttl !== undefined) console.error(`tasks: note — bd leases are fixed (~5m); --ttl ignored. Use \`heartbeat <id> --agent ${agent}\` for long orders.`);
 }
 
+// Batched claim: N ids per CLI invocation, one bd CAS per id (the same
+// `bd update --claim` the single-claim path uses). Contention on one id
+// must NOT abort the batch — that id is recorded contended and skipped,
+// the rest still claim (the picker treats a contended row as a stop
+// signal for THAT row only). Exit 0 when >=1 id claimed; exit 3 when
+// nothing was claimed (all contended/empty) — mirrors single-claim's
+// rc-3 posture so a caller learns "no claims" from the exit code.
+function cmdClaimMany(ids, agent, note) {
+  if (!ids.length || !agent) throw new CliError(2, "usage: tasks.mjs claim-many <id...> --agent A [--note n]");
+  const rows = exportAll();
+  // Validate the WHOLE id set up front: an unknown id anywhere
+  // claims NOTHING (fail-closed — a partial claim from a batch
+  // carrying a typo is a repudiation hazard; the caller learns
+  // the batch is invalid and re-issues it corrected).
+  const cids = ids.map((id) => canonId(id));
+  for (let i = 0; i < cids.length; i++) {
+    if (!rows.some((r) => r.id === cids[i])) throw new CliError(2, `unknown task: ${ids[i]}`);
+  }
+  let claimed = 0;
+  const contended = [];
+  for (let i = 0; i < cids.length; i++) {
+    const cid = cids[i];
+    const r = bd(["update", cid, "--claim"], { actor: agent, allowFail: true });
+    if (r && typeof r === "object" && r.failed) {
+      const msg = r.stderr.trim().split("\n").pop() ?? "claim failed";
+      if (/already claimed|in_progress/i.test(msg)) { contended.push(cid); console.error(`${cid} contended — skipping`); continue; }
+      throw new CliError(1, `claim: ${msg}`);
+    }
+    if (note) bd(["comment", cid, note], { actor: agent, allowFail: true });
+    claimed++;
+    console.log(`${cid} claimed by ${agent} until (lease ~5m; heartbeat to extend)`);
+  }
+  console.log(`claimed ${claimed}/${ids.length}`);
+  if (claimed === 0) throw new CliError(3, `claim-many: nothing claimed (${contended.join(", ") || "empty"})`);
+}
+
 function cmdHeartbeat(id, agent) {
   if (!id) throw new CliError(2, "usage: tasks.mjs heartbeat <id> [--agent A]");
   const cid = canonId(id);
@@ -647,6 +683,12 @@ async function main() {
       cmdClaim(id, agent, ttl, str(flags.note));
       break;
     }
+    case "claim-many": {
+      const agent = str(flags.agent);
+      if (!pos.length || !agent) throw new CliError(2, "usage: tasks.mjs claim-many <id...> --agent A [--note n]");
+      cmdClaimMany(pos, agent, str(flags.note));
+      break;
+    }
     case "heartbeat": {
       const id = pos[0];
       if (!id) throw new CliError(2, "usage: tasks.mjs heartbeat <id> [--agent A]");
@@ -666,7 +708,7 @@ async function main() {
       cmdView(str(flags.out));
       break;
     default:
-      throw new CliError(2, `usage: tasks.mjs <init|import|add|upsert|set|claim|heartbeat|release|reclaim|next|done-ids|list|view|epic-upsert|epic-list|activate>${cmd ? ` (unknown command: ${cmd})` : ""}`);
+      throw new CliError(2, `usage: tasks.mjs <init|import|add|upsert|set|claim|claim-many|heartbeat|release|reclaim|next|done-ids|list|view|epic-upsert|epic-list|activate>${cmd ? ` (unknown command: ${cmd})` : ""}`);
   }
 }
 
