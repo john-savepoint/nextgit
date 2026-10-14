@@ -6,7 +6,7 @@
   "observability": { "enabled": true },
   "vars": {
     "AUTH_MODE": "demo",
-    "EVIDENCE_PUBLIC_KEY": "<base64url raw public key — attestation-keygen.mjs>"
+    "EVIDENCE_PUBLIC_KEY": "NaeMa_MfByjaOYtxToomB9IJZzf6aliKOFZJQf2Vc4Y"
   },
   "artifacts": [
     {
