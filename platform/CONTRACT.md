@@ -1398,7 +1398,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the twenty-one bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `GET /checks`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
+Edge rate limits cover the twenty-three bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `PATCH /issues/{id}`, `GET /checks`, `GET /pipelines`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the edge limiter ships — an N-isolate deployment has N x the cap. The limiter deliberately fails OPEN for unbound routes (only the bound routes in the table below are limited; `/tree` is deliberately unbound — the `/changes` posture, documented in §GET /tree; `/commits` is likewise deliberately unbound (a bounded log read — §GET /commits)).
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -1418,6 +1418,7 @@ Edge rate limits cover the twenty-one bound routes in the table below (`/land`, 
 | `GET /issues` | 60 | 60 s |
 | `POST /issues` | 20 | 60 s (the `/issues:write` class — also covers `PATCH /issues/{id}`, the store's only two writes) |
 | `GET /checks` | 60 | 60 s |
+| `GET /pipelines` | 60 | 60 s |
 | `POST /sessions/{repo}/steer` | 30 | 60 s |
 | `POST /asset/uploads` | 20 | 60 s (shared with `POST /asset/uploads/{uploadId}/complete` — one write class: both mint or extend a client-direct upload session) |
 | `GET /asset/{blobId}/presign` | 60 | 60 s |
