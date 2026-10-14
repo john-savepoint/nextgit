@@ -13,6 +13,15 @@
 //     every card stays inside the viewport and the four cards stack as four rows
 //   B floor regime (768 / 1024 / 1440) — the 360px-floor arithmetic still yields 1/2/3
 //     equal tracks and 4/2/2 packed card rows: wide behavior is unchanged
+//   C mobile pass (390; the rail also at 320) — the wave-17/19 sections (rail, sessions,
+//     issues, pipelines) reflow at phone widths: the document still does not scroll
+//     horizontally, EVERY element in the document stays inside the viewport (the
+//     element-level walk, not just the document box), the rail's per-repo bands STACK
+//     (each band >=60% of the section width, >1 distinct y) instead of holding the
+//     desktop 20rem horizontal scroller, the four sections render their rows (4 sessions
+//     / 2 issues / 1 pipeline / 4 rail bands), and the new-section touch controls
+//     (.steer-send / .issue-close / .issue-composer-submit / .steer-input) hold the
+//     44x44 floor
 // A box without a Chrome binary skips the suite (precedent: ui-focus-visible /
 // ui-first-load-panels); the order's acceptance gate hard-requires Chrome separately.
 
@@ -30,6 +39,10 @@ const NARROW = [320, 375, 423, 424];
 const WIDE = [768, 1024, 1440];
 const WIDE_TRACKS = { 768: 1, 1024: 2, 1440: 3 };
 const CARDS = 4;
+const MOBILE = [390]; // the order's named phone width
+const RAIL = [320, 390]; // the rail is also asserted at 320px
+// The touch register's new-section controls (owner: the <=720px register in styles.css).
+const TOUCH_SELS = [".steer-send", ".issue-close", ".issue-composer-submit", ".steer-input"];
 
 let fails = 0;
 const check = (name, ok, detail = "") => {
@@ -104,6 +117,91 @@ const JUDGE = {
 };
 const EVENTS = { ok: true, events: [{ type: "change", repo: "agent-1", at: "2026-10-08T10:00:00Z" }] };
 
+// The wave-17/19 section payloads the C legs measure (shapes per CONTRACT.md: GET
+// /sessions, GET /sessions/{repo}/instructions, GET /issues, GET /pipelines, GET
+// /agents). Each carries at least one deliberately unbroken long string: the wrap
+// registers the mobile pass adds are the contract being defended.
+const SESSIONS = {
+  ok: true,
+  base: "demo",
+  sessions: FIXTURE.proposals.map((p, i) => ({
+    repo: p.repo,
+    state: i === 0 ? "working" : "idle",
+    intent: p.intent,
+    lastEvent: "session.started",
+    lastActivityAt: "2026-10-08T10:00:00Z",
+  })),
+};
+// agent-1 carries the long recorded instruction; the rest carry the honest empty shape.
+const INSTRUCTIONS = {
+  ok: true,
+  repo: "agent-1",
+  instructions: [
+    {
+      id: "c4",
+      text: "a very long recorded instruction string that must wrap inside the session-instruction register at 390px without pushing the row wider than the viewport",
+      at: "2026-10-08T10:00:04Z",
+    },
+  ],
+  cursor: "c4",
+};
+const ISSUES = {
+  ok: true,
+  base: "demo",
+  issues: [
+    {
+      kind: "derived",
+      id: "conflict:agent-conflict:src/a.ts",
+      issue: "conflict",
+      repo: "agent-conflict",
+      severity: "high",
+      title: "Merge conflict in src/a.ts with a deliberately long title that must wrap inside the issue-title register at 390px rather than widen the row",
+      detail: "src/a.ts",
+      links: ["/merge?base=demo&repos=agent-conflict"],
+    },
+    {
+      kind: "stored",
+      id: "a1b2c3d4e5f6",
+      repo: "agent-1",
+      title: "Login form posts to the wrong endpoint",
+      body: "The login form POSTs to /api/v1/login instead of /api/v2/login on staging.",
+      severity: "high",
+      state: "open",
+      assignee: null,
+      at: "2026-10-08T10:00:00Z",
+      closedAt: null,
+    },
+  ],
+};
+const PIPELINES = {
+  ok: true,
+  base: "demo",
+  pipelines: [
+    {
+      id: "f".repeat(40),
+      repos: ["agent-1", "agent-2", "agent-3", "agent-4"],
+      at: "2026-10-08T10:00:00Z",
+      checks: ["merged-sha-equals-tested-sha"],
+      results: ["pass"],
+      status: "passed",
+      attestation: "signed",
+    },
+  ],
+};
+const AGENTS = {
+  ok: true,
+  base: "demo",
+  agents: FIXTURE.proposals.map((p, i) => ({
+    repo: p.repo,
+    harness: "omp",
+    capabilities: ["write"],
+    policy: { land: i === 0 ? "enabled" : "disabled", secretClass: "withhold" },
+    lastSeenAt: "2026-10-08T10:00:00Z",
+  })),
+};
+const WHOAMI = { ok: true, authorized: false, reveal: false };
+const FORKS = { ok: true, base: "demo", forks: [] };
+
 const CHROME =
   ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
     .map((bin) => String(spawnSync("which", [bin], { encoding: "utf8" }).stdout ?? "").trim())
@@ -127,6 +225,17 @@ const server = createServer((req, res) => {
   if (pathname === "/proposals") return json(FIXTURE);
   if (pathname === "/judge") return json(JUDGE);
   if (pathname === "/events") return json(EVENTS);
+  if (pathname === "/sessions") return json(SESSIONS);
+  // The per-repo instructions poll: agent-1 carries the long recorded instruction, every
+  // other repo the honest empty shape (cursor null -> the next poll re-reads).
+  if (pathname.startsWith("/sessions/") && pathname.endsWith("/instructions")) {
+    return json(pathname === "/sessions/agent-1/instructions" ? INSTRUCTIONS : { ok: true, instructions: [], cursor: null });
+  }
+  if (pathname === "/issues") return json(ISSUES);
+  if (pathname === "/pipelines") return json(PIPELINES);
+  if (pathname === "/agents") return json(AGENTS);
+  if (pathname === "/whoami") return json(WHOAMI);
+  if (pathname === "/forks") return json(FORKS);
   const file = join(UI, pathname === "/" ? "index.html" : pathname);
   if (!file.startsWith(UI) || !existsSync(file)) {
     res.writeHead(404);
@@ -231,6 +340,66 @@ const READ_LAYOUT = `(() => {
     gap: parseFloat(cs.columnGap) || 0,
     tracks: cs.gridTemplateColumns.split(/\\s+/).filter(Boolean),
     cards,
+  };
+})()`;
+
+// Live layout of the wave-17/19 mobile surface: the document box, an element-level
+// overflow walk over EVERY body descendant (the same law the document box carries, but
+// attributed to the offending element), the four sections' rects, the rail band rects,
+// the touch register's computed minima + rects, and the rendered row counts.
+const READ_MOBILE = `(() => {
+  const doc = document.documentElement;
+  const clientWidth = doc.clientWidth;
+  const overflowing = [];
+  for (const node of [document.body, ...document.body.querySelectorAll("*")]) {
+    if (!node) continue;
+    const r = node.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    if (r.right > clientWidth + 0.5) {
+      overflowing.push({
+        tag: node.tagName.toLowerCase(),
+        id: node.id || "",
+        cls: typeof node.className === "string" ? node.className : "",
+        right: +r.right.toFixed(2),
+      });
+    }
+  }
+  const sectionRect = (id) => {
+    const node = document.getElementById(id);
+    if (!node) return null;
+    const r = node.getBoundingClientRect();
+    return { width: +r.width.toFixed(2), right: +r.right.toFixed(2) };
+  };
+  const railRows = [...document.querySelectorAll("#rail-list .rail-row")].map((node) => {
+    const r = node.getBoundingClientRect();
+    return { id: node.id || "", y: +r.y.toFixed(2), width: +r.width.toFixed(2), right: +r.right.toFixed(2) };
+  });
+  const touch = {};
+  for (const sel of ${JSON.stringify(TOUCH_SELS)}) {
+    touch[sel] = [...document.querySelectorAll(sel)].map((node) => {
+      const cs = getComputedStyle(node);
+      const r = node.getBoundingClientRect();
+      return { w: +r.width.toFixed(2), h: +r.height.toFixed(2), minH: cs.minHeight, minW: cs.minWidth };
+    });
+  }
+  return {
+    docClientWidth: clientWidth,
+    docScrollWidth: doc.scrollWidth,
+    overflowing,
+    sections: {
+      sessions: sectionRect("sessions-section"),
+      issues: sectionRect("issues-section"),
+      pipelines: sectionRect("pipelines-section"),
+      rail: sectionRect("rail-section"),
+    },
+    railRows,
+    touch,
+    counts: {
+      sessions: document.querySelectorAll("#sessions-list .session-row").length,
+      issues: document.querySelectorAll("#issues-list .issue-row").length,
+      pipelines: document.querySelectorAll("#pipelines-list .pipeline-row").length,
+      rail: railRows.length,
+    },
   };
 })()`;
 
@@ -387,6 +556,99 @@ try {
       m.cards.length === CARDS && m.cards.every((c) => c.right <= m.docClientWidth + 0.5),
       `clientWidth=${m.docClientWidth} cards=${JSON.stringify(m.cards)}`,
     );
+  }
+
+  // --- C: mobile pass (390px; the rail also at 320px) --------------------------------
+  const measureMobile = async (width) => {
+    await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
+    await sleep(SETTLE_MS);
+    await waitFor(`document.querySelectorAll("#rail-list .rail-row").length === 4`, 10000);
+    return evl(READ_MOBILE);
+  };
+
+  // The rail predicate: every band is inside the viewport AND the bands read as real
+  // bands — more than one distinct y (they stacked) and each at least 60% of the
+  // section width (the fluid floor, not a shrink-to-unreadable column of slivers).
+  const railBad = (m) => {
+    const section = m.sections.rail;
+    if (!section) return "no #rail-section rect";
+    if (m.railRows.length !== 4) return `bands=${m.railRows.length}`;
+    const right = Math.max(...m.railRows.map((r) => r.right));
+    if (right > m.docClientWidth + 0.5) return `max right=${right} clientWidth=${m.docClientWidth}`;
+    const ys = new Set(m.railRows.map((r) => Math.round(r.y)));
+    if (ys.size < 2) return `distinct y=${ys.size} (bands did not stack)`;
+    const narrow = m.railRows.filter((r) => r.width < section.width * 0.6);
+    if (narrow.length) return `band widths=${m.railRows.map((r) => r.width).join(",")} section=${section.width}`;
+    return "";
+  };
+
+  // The touch predicate: each register control computes min 44px AND presents a
+  // >=44x44 border-box rect at the acceptance boundary.
+  const touchBad = (m) => {
+    const bad = [];
+    for (const sel of TOUCH_SELS) {
+      const rows = m.touch[sel] ?? [];
+      if (rows.length === 0) {
+        bad.push(`${sel}: no elements`);
+        continue;
+      }
+      for (const r of rows) {
+        if (r.minH !== "44px" || r.minW !== "44px") bad.push(`${sel}: min=${r.minH}/${r.minW}`);
+        else if (r.w < 43.5 || r.h < 43.5) bad.push(`${sel}: rect=${r.w}x${r.h}`);
+      }
+    }
+    return bad;
+  };
+
+  for (const width of MOBILE) {
+    try {
+      const m = await measureMobile(width);
+      check(
+        `C ${width}px: the page does not scroll horizontally`,
+        m.docScrollWidth <= m.docClientWidth + 1,
+        `scrollWidth=${m.docScrollWidth} clientWidth=${m.docClientWidth}`,
+      );
+      check(
+        `C ${width}px: every element in the document stays inside the viewport`,
+        m.overflowing.length === 0,
+        JSON.stringify(m.overflowing.slice(0, 6)),
+      );
+      check(
+        `C ${width}px: the rail, sessions, issues and pipelines sections render their rows`,
+        m.counts.sessions === 4 && m.counts.issues === 2 && m.counts.pipelines === 1 && m.counts.rail === 4,
+        JSON.stringify(m.counts),
+      );
+      const rb = railBad(m);
+      check(`C ${width}px: the rail bands stack inside the viewport as full-width bands`, rb === "", rb);
+      const tb = touchBad(m);
+      check(
+        `C ${width}px: the new-section touch controls hold the 44x44 floor`,
+        tb.length === 0,
+        JSON.stringify(tb.slice(0, 4)),
+      );
+    } catch (e) {
+      check(`C ${width}px: mobile walk threw`, false, String(e?.message ?? e));
+    }
+  }
+
+  for (const width of RAIL) {
+    try {
+      const m = await measureMobile(width);
+      check(
+        `C rail @${width}px: the page does not scroll horizontally`,
+        m.docScrollWidth <= m.docClientWidth + 1,
+        `scrollWidth=${m.docScrollWidth} clientWidth=${m.docClientWidth}`,
+      );
+      check(
+        `C rail @${width}px: every element in the document stays inside the viewport`,
+        m.overflowing.length === 0,
+        JSON.stringify(m.overflowing.slice(0, 6)),
+      );
+      const rb = railBad(m);
+      check(`C rail @${width}px: the rail bands stack inside the viewport as full-width bands`, rb === "", rb);
+    } catch (e) {
+      check(`C rail @${width}px: rail walk threw`, false, String(e?.message ?? e));
+    }
   }
 } catch (e) {
   check("harness setup failed", false, String(e?.message ?? e));

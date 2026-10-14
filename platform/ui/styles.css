@@ -1307,7 +1307,12 @@ html, body {
   .history-crumb,
   .history-files-link,
   .issue-close,
-  .steer-send {
+  .steer-send,
+  .issue-composer-submit,
+  .issue-composer-title,
+  .issue-composer-body,
+  .issue-composer-severity,
+  .steer-input {
     min-height: 44px;
     min-width: 44px;
   }
@@ -2137,6 +2142,30 @@ html, body {
 .issue-state.closed {
   color: var(--status-neutral);
 }
+/* Wrap discipline for the issues triage text registers (nextgit-e20,
+   mobile pass). Titles, details and repo names are repo content —
+   untrusted (AD-4) and served escaped — so a long unbroken title or a
+   long derived-issue href must wrap inside the row's content box rather
+   than widen it past the viewport (the .issue-body / .rail-intent
+   overflow-wrap:anywhere precedent). min-width:0 is what lets the
+   .issue-links flex items shrink below their content width (a flex
+   item's automatic minimum); var-only, no new color literals. */
+.issue-title,
+.issue-detail,
+.issue-repo {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.issue-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.issue-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 
 /* ——— Pipelines panel (nextgit-e17, wave-17) ———
    Landed runs as pipeline records (GET /pipelines).
@@ -2195,6 +2224,11 @@ html, body {
   font-size: 0.8125rem;
   color: var(--text-primary);
   margin-bottom: var(--space-2xs);
+  /* The repo list is server-derived and untrusted (AD-4): a long repo
+     name must wrap inside the row rather than widen it (nextgit-e20,
+     mobile pass; the .pipeline-row min-width:0 precedent). */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .pipeline-row-footer {
   display: flex;
@@ -2408,4 +2442,40 @@ html, body {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-family: var(--font-mono);
+}
+
+/* ——— Phone-width reflow — rail stacking + the new-section floors (nextgit-e20,
+   mobile pass) ———
+   This block is authored AFTER the base rules it overrides, deliberately: a media
+   query carries no specificity, so a <=720px override placed above the desktop rule
+   it targets loses to that rule on source order (measured: the rail override placed
+   with the touch register near the top of this sheet left the bands at right=1085.5
+   in a 375px-wide viewport). Two jobs:
+     1. The convergence rail's bands (wave-17) are 20rem fixed-width rows in a
+        horizontal scroller — the desktop posture. Below the phone breakpoint the
+        bands STACK (one per row) so the rail reflows at 390px/320px instead of
+        scrolling: the list flips to a column and the fixed row width yields to a
+        fluid floor (min(20rem,100%) — never wider than the list's content box,
+        never narrower than the authored band when space allows). The 721px+ regime
+        is untouched: the scroller and the fixed 20rem bands carry exactly as before.
+     2. .steer-input's min-width floor is re-asserted here for the same source-order
+        reason: its base rule (authored later in this sheet than the touch register)
+        sets min-width:0, so the register's 44px loses; the register's min-height
+        floor stands (no competing declaration). The other four new-section controls
+        (.issue-composer-submit / -title / -body / -severity) take both floors from
+        the register. */
+@media (max-width: 720px) {
+  .rail-list {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+  .rail-row {
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    width: min(20rem, 100%);
+  }
+  .steer-input {
+    min-width: 44px;
+  }
 }

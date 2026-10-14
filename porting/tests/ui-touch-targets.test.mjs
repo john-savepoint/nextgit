@@ -11,15 +11,17 @@
 //   T0 fixture sanity — the states T1–T4 measure really rendered (exactly 2 .btn-file-diff
 //      controls on the card; >=2 .merge-file-tab in the open modal)
 //   T1 phone base surface (360/390/720) — .toggle-label, #btn-manual-refresh (.btn-refresh),
-//      .btn-tour-header, .btn-tour-help, .btn-card-action, .btn-file-diff
+//      .btn-tour-header, .btn-tour-help, .btn-card-action, .btn-file-diff, .issue-close,
+//      .steer-send, .issue-composer-submit (the issues composer) and .steer-input (the
+//      steer textarea — the .steer-send control's pair)
 //   T2 phone modal (390/720) — .merge-file-tab + .btn-close-modal
 //   T3 phone connection banner (390/720) — .connection-banner-action
 //   T4 phone action banner (390/720) — .action-banner-close after a real failed land
 //   T5 pill invariance (390/720) — .toggle-input keeps computed min "auto" and stays shorter
 //      than 20px; at 720 exactly its authored 26x14.625 (the 2rem pill is not resized)
-//   T6 breakpoint boundary — floor active at 720, inert at 721 (all twelve classes across the
+//   T6 breakpoint boundary — floor active at 720, inert at 721 (all fourteen classes across the
 //      base, modal, and banner surfaces)
-//   T7 desktop unchanged (1280) — all twelve computed "auto", authored .btn-tour-help 19.5x19.5,
+//   T7 desktop unchanged (1280) — all fourteen computed "auto", authored .btn-tour-help 19.5x19.5,
 //      every measured height <44
 //   T8 touch operability (390) — a mouse click and a touch tap at the label edge (inside the
 //      enlarged label box, outside the pill) each flip the toggle; no hover precondition
@@ -41,7 +43,7 @@ const TOL = 0.5; // border-box rect tolerance at the acceptance boundary
 const PHONE_WIDTHS = [360, 390, 720];
 const MODAL_WIDTHS = [390, 720];
 
-// The twelve control classes the touch register covers, in the states that render them.
+// The fourteen control classes the touch register covers, in the states that render them.
 const BASE_SELS = [
   ".toggle-label",
   "#btn-manual-refresh",
@@ -51,6 +53,8 @@ const BASE_SELS = [
   "#card-agent-1 .btn-file-diff",
   ".issue-close",
   ".steer-send",
+  ".issue-composer-submit",
+  ".steer-input",
 ];
 const MODAL_SELS = [".merge-file-tab", ".btn-close-modal"];
 const CONNECTION_SELS = ["#connection-banner-retry"];
@@ -109,6 +113,27 @@ const SESSIONS = {
     { repo: "agent-1", state: "working", intent: "fixture intent", lastEvent: "fixture event", lastActivityAt: "2026-10-14T00:00:00Z" },
   ],
 };
+// One landed run renders the pipelines panel. The remaining secondaries answer
+// minimally so every fail-soft panel stands while the register is measured.
+const PIPELINES = {
+  ok: true,
+  base: "fixture",
+  pipelines: [
+    {
+      id: "f".repeat(40),
+      repos: ["agent-1"],
+      at: "2026-10-14T00:00:00Z",
+      checks: ["merged-sha-equals-tested-sha"],
+      results: ["pass"],
+      status: "passed",
+      attestation: "signed",
+    },
+  ],
+};
+const CHECKS = { ok: true, base: "fixture", checks: [] };
+const AGENTS = { ok: true, base: "fixture", agents: [] };
+const FORKS = { ok: true, base: "fixture", forks: [] };
+const WHOAMI = { ok: true, authorized: false, reveal: false };
 
 let fails = 0;
 let cases = 0;
@@ -177,6 +202,33 @@ const server = createServer((req, res) => {
   if (pathname === "/sessions") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(SESSIONS));
+    return;
+  }
+  // Every remaining fail-soft secondary stands (a 404 leaves a loader in the panel,
+  // and the register is measured against the rendered surface, not a loader).
+  if (pathname === "/pipelines") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(PIPELINES));
+    return;
+  }
+  if (pathname === "/checks") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(CHECKS));
+    return;
+  }
+  if (pathname === "/agents") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(AGENTS));
+    return;
+  }
+  if (pathname === "/forks") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(FORKS));
+    return;
+  }
+  if (pathname === "/whoami") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(WHOAMI));
     return;
   }
   const file = join(UI, pathname === "/" ? "index.html" : pathname);
@@ -447,7 +499,7 @@ try {
     await sleep(SETTLE_MS);
   };
 
-  // Every one of the twelve classes in the state that renders it, at one width.
+  // Every one of the fourteen classes in the state that renders it, at one width.
   const measureAllStates = async (width) => {
     const base = { els: {} };
     await openBase(width);
@@ -488,7 +540,7 @@ try {
       const res = await measure(BASE_SELS);
       const bad = floorBad(res.els, BASE_SELS);
       check(
-        `T1 phone base surface @${width}px: label, refresh, tour header/help, card actions and file diffs present >=44×44 with computed min 44px`,
+        `T1 phone base surface @${width}px: label, refresh, tour header/help, card actions, file diffs, issue close/composer controls and the steer input + send pair present >=44×44 with computed min 44px`,
         bad.length === 0 && res.mq === true,
         bad.length ? JSON.stringify(bad.slice(0, 4)) : `mq=${res.mq} vw=${res.vw}`,
       );
@@ -563,14 +615,14 @@ try {
     }
   }
 
-  // --- T6: breakpoint boundary (720 active / 721 inert, all twelve classes) ----------
+  // --- T6: breakpoint boundary (720 active / 721 inert, all fourteen classes) ----------
   try {
     const at720 = await measureAllStates(720);
     const bad720 = floorBad(at720.els, ALL_SELS);
     const help720 = only(at720.els, ".btn-tour-help");
     const label720 = only(at720.els, ".toggle-label");
     check(
-      "T6 breakpoint boundary @720px: floor active — all twelve controls >=44×44 with computed min 44px; .btn-tour-help exactly 44×44",
+      "T6 breakpoint boundary @720px: floor active — all fourteen controls >=44×44 with computed min 44px; .btn-tour-help exactly 44×44",
       bad720.length === 0 && at720.mq === true && near(help720?.w, 44) && near(help720?.h, 44) && label720?.minH === "44px" && label720?.minW === "44px",
       bad720.length ? JSON.stringify(bad720.slice(0, 4)) : `help=${help720?.w}×${help720?.h} mq=${at720.mq}`,
     );
@@ -582,7 +634,7 @@ try {
     const bad721 = inertBad(at721.els, ALL_SELS);
     const help721 = only(at721.els, ".btn-tour-help");
     check(
-      "T6 breakpoint boundary @721px: floor inert — all twelve controls computed min auto, help back to author 19.5×19.5, every height <44",
+      "T6 breakpoint boundary @721px: floor inert — all fourteen controls computed min auto, help back to author 19.5×19.5, every height <44",
       bad721.length === 0 && at721.mq === false && near(help721?.w, 19.5) && near(help721?.h, 19.5),
       bad721.length ? JSON.stringify(bad721.slice(0, 4)) : `help=${help721?.w}×${help721?.h} mq=${at721.mq}`,
     );
@@ -596,7 +648,7 @@ try {
     const bad = inertBad(at1280.els, ALL_SELS);
     const help = only(at1280.els, ".btn-tour-help");
     check(
-      "T7 desktop unchanged @1280px: all twelve controls computed min auto with every height <44; help at its authored 19.5×19.5",
+      "T7 desktop unchanged @1280px: all fourteen controls computed min auto with every height <44; help at its authored 19.5×19.5",
       bad.length === 0 && at1280.mq === false && near(help?.w, 19.5) && near(help?.h, 19.5),
       bad.length ? JSON.stringify(bad.slice(0, 4)) : `help=${help?.w}×${help?.h} mq=${at1280.mq}`,
     );
