@@ -63,6 +63,14 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // <=200 discovered repos — the /changes posture), so only the
  // ":write" key exists; see CONTRACT.md §GET /sessions.
  "/sessions:write": { limit: 30, windowMs: 60_000 },
+ // Session instructions poll (nextgit-e19, CONTRACT.md
+ // §GET /sessions/{repo}/instructions): the read half
+ // of the session-steering surface — its own string-
+ // keyed budget, distinct from the steer write
+ // ("/sessions:write"), the /comments read/write
+ // idiom. Capped 60/60s (a bounded projection over
+ // the recorded feed — the /checks class).
+ "/sessions:read": { limit: 60, windowMs: 60_000 },
  // Presigned direct-to-R2 transfers (nextgit-serve-blobs-via-presigned-
  // direct-to-r2-transfers): the grant + the multipart complete share ONE
  // write-class budget (both mint or extend a client-direct upload

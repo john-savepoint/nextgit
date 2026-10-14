@@ -481,6 +481,12 @@ const MAX_INTENT_CHARS = 500; // intent is free text — cap before it reaches a
 const SESSION_EVENT_TYPE = "session.steered";
 const MAX_STEER_INSTRUCTION_CHARS = 500;
 const SESSION_WORKING_WINDOW_MS = 15 * 60_000;
+// Session instructions poll (nextgit-e19, CONTRACT.md
+// §GET /sessions/{repo}/instructions): the feed-cap for
+// the instructions read — a repo steered more than this
+// many times serves the NEWEST frames (cursor still
+// advances monotonically), the MAX_EVENTS posture.
+const MAX_SESSION_INSTRUCTIONS = 50;
 
 async function readNotes(repo: ArtifactsRepo): Promise<Map<string, string>> {
  const notes = new Map<string, string>();
@@ -1029,11 +1035,13 @@ export async function computeChangeSet(
   // head.headSha (from snapshot()) is a real 40-hex commit sha —
   // symmetric with base.sha (the fork point); the head treeHash
   // is a tree digest, not a commit sha.
-  identity: { fingerprint: await changeSetFingerprint({
+  identity: {
+   fingerprint: await changeSetFingerprint({
     base: { repo: baseName, ref: baseRef, sha: fork.sha },
     head: { repo: headName, ref, sha: head.headSha },
     files,
-  }) },
+   })
+  },
  };
 }
 
@@ -5581,6 +5589,129 @@ async function handleSessionsSteer(request: Request, env: Env, repoParam: string
  });
 }
 
+/**
+ * GET /sessions/{repo}/instructions — the poll half of
+ * session steering (nextgit-e19, CONTRACT.md
+  * §GET /sessions/{repo}/instructions). Serves the repo's
+  * recorded `session.steered` frames (the same event store
+  * GET /events serves) OLDEST-FIRST — a pure projection of
+  * the steer write, no new store. The read never re-scrubs:
+  * the stored frame is already the scrubbed form the steer
+  * seam stored (the AD-4 single-scrub-point law), so the
+  * response carries the recorded `instruction` verbatim.
+  * Precondition order: 400 (path shape / non-string or
+  * unparseable `since`) -> 403 (AD-9 allowlist — the
+  * path-carried repo cannot be adjudicated by
+  * extractScope, so the handler re-checks DEMO_REPO_RE
+  * BEFORE any store read, the /raw carve-out posture) ->
+  * 403 (secret-class repo name, the §POST /issues
+  * posture) -> 429 (rate, ROUTE_RATE_LIMITS
+  * ["/sessions:read"] 60/60s) -> 200. `since` filters
+  * STRICTLY newer (equality excluded — a cursor already
+  * served never re-serves itself). Empty feed answers
+  * 200 with instructions:[] (never 404 — the list is
+  * legitimately empty, the /pipelines law); a malformed
+  * frame in the feed is SKIPPED (the frame-typed guard —
+  * never a 500).
+  */
+async function handleSessionsInstructions(request: Request, env: Env, repoParam: string): Promise<Response> {
+ // Handler-side path discipline: the dynamic prefix is
+ // "/sessions/" — the remainder must be exactly
+ // "<repo>/instructions". Anything else is a 404 — the
+ // handleSessionsSteer idiom: the handler returns it
+ // rather than guessing a repo — EXCEPT a remainder that
+ // is a REGISTERED dynamic path under a different method
+ // (the boundary's 405-before-404 law, the API-boundary
+ // discipline in the dispatcher: a wrong method on a
+ // known path is more specific than an unknown path).
+ // "<repo>/steer" is the registered POST /sessions/{repo}
+ // suffix, so GET on it is the boundary 405 (the
+ // sessions-v1 group-9 pin), never the handler 404.
+ if (!repoParam.endsWith("/instructions")) {
+  const steerTarget = repoParam.endsWith("/steer");
+  return Response.json(
+   { ok: false, error: steerTarget ? "method-not-allowed" : "not-found" },
+   { status: steerTarget ? 405 : 404 },
+  );
+ }
+ const repo = repoParam.slice(0, -"/instructions".length);
+ if (!REPO_NAME_RE.test(repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(repo)}`);
+ }
+
+ // Demo allowlist (AD-9) — the path-carried repo is
+ // adjudicated HERE, before any store read (the /raw
+ // carve-out posture: extractScope cannot see path
+ // params).
+ if (!DEMO_REPO_RE.test(repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+
+ // Secret-class repo name (the §POST /issues posture):
+ // a secret-class path never materializes on this read —
+ // refused before any store access, fail-closed.
+ if (isSecretPath(repo)) {
+  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+ }
+
+ const rateDenied = rateGate("/sessions:read", request);
+ if (rateDenied) return rateDenied;
+
+ // `since` — an optional ISO-8601 instant. Present but
+ // unparseable (or non-string) is a 400 (the param
+ // shape law); absent means all frames.
+ const sinceParam = new URL(request.url).searchParams.get("since");
+ let sinceMs: number | undefined;
+ if (sinceParam !== null) {
+  const parsed = Date.parse(sinceParam);
+  if (!sinceParam || Number.isNaN(parsed)) {
+   return badRequest(`invalid since: ${JSON.stringify(sinceParam)}`);
+  }
+  sinceMs = parsed;
+ }
+
+ const events = await readEvents(env);
+ const frames = events.filter(
+  (ev): ev is LiveEvent & { type: string; repo: string; at: string } =>
+   typeof ev.type === "string" &&
+   ev.type === SESSION_EVENT_TYPE &&
+   typeof ev.repo === "string" &&
+   ev.repo === repo &&
+   typeof ev.at === "string",
+ );
+ // Strict `since` (the advance discipline): only frames
+ // recorded STRICTLY newer than the cursor are served —
+ // equality returns empty so a served cursor never
+ // re-serves itself.
+ const newer = sinceMs === undefined ? frames : frames.filter((ev) => Date.parse(ev.at) > sinceMs);
+ // The feed stores newest-first (recordEvent prepends);
+ // the poll serves OLDEST-FIRST (chronological replay of
+ // the steer history) and caps at the 50 newest frames
+ // (MAX_SESSION_INSTRUCTIONS — >50-steer repos serve
+ // the newest half; cursor still advances monotonically).
+ const served = newer
+  .slice()
+  .reverse()
+  .slice(0, MAX_SESSION_INSTRUCTIONS);
+ // Cursor = the NEWEST served frame's `at` (the poll
+ // discipline: pass it back as `?since=` for the next
+ // page). Typed-absent when the list is empty.
+ const cursor = served.length ? served[served.length - 1]?.at : undefined;
+ return Response.json({
+  ok: true,
+  repo,
+  instructions: served.map((ev) => ({
+   id: ev.id,
+   at: ev.at,
+   instruction: ev.instruction,
+   cursor,
+  })),
+ });
+}
+
 /** Static API routes — every entry authorizes before its handler runs. */
 export const ROUTES: RouteEntry[] = [
  { path: "/health", method: "GET", action: "read", handler: handleHealth },
@@ -5774,8 +5905,25 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST" | "P
  // wrong method on "/asset/uploads" still 405s at the boundary.
  // The handler refuses any remainder (path discipline).
  { prefix: "/asset/uploads", method: "POST", action: "write", handler: (request, env) => handleAssetUploadGrant(request, env, new URL(request.url).pathname.slice("/asset/uploads".length)) },
+ // GET /sessions/{repo}/instructions — the poll half
+ // of session steering (nextgit-e19, CONTRACT.md
+ // §GET /sessions/{repo}/instructions). GET,
+ // read-only: the authorize() chokepoint covers it
+ // (demo mode gate; the path-carried repo is
+ // re-checked against DEMO_REPO_RE inside the handler
+ // BEFORE any store read, the /raw carve-out posture —
+ // extractScope is query-only and cannot adjudicate a
+ // path param). Capped 60/60s
+ // (ROUTE_RATE_LIMITS["/sessions:read"], rateGate in
+ // the handler). No csrfGate on GET (the dispatcher's
+ // dynamic branch applies it to POST/PATCH only).
+ // Appended at the END of DYNAMIC_ROUTES — the
+ // positional pins DYNAMIC_ROUTES[0]–[7] stay stable
+ // (auth-seam.test.mjs); GET vs POST on the same
+ // "/sessions/" prefix never collide (the dispatcher
+ // matches prefix AND method).
+ { prefix: "/sessions/", method: "GET", action: "read", handler: (request, env) => handleSessionsInstructions(request, env, new URL(request.url).pathname.slice("/sessions/".length)) },
 ];
-
 // UI document set (AD-8 boundary discipline): the wrangler-assets
 // binding (env.ASSETS) serves exactly platform/ui/'s documents.
 // The dispatcher's terminal fallthrough hands a request to ASSETS
