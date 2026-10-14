@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.9 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
+Version: v3.10 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -516,6 +516,23 @@ Read-only; no write/clone/push surface, no `ASSET_BLOB`/`LIVE`/
 route is a pure projection of the `/proposals` compute — no caller
 input enters the derivation beyond the validated `base`/`repos`/
 `ref`/`baseRef` params (the cache-key-poisoning law).
+
+### GET /checks — GitHub check-runs export (?format=github)
+
+`?format=github` (optional; absent or any other value = the internal
+shape above, unchanged). Pure projection — the same `computeChecks`
+output, remapped; no new compute, no new precondition.
+
+- **200** — `{ ok:true, repo, check_runs:[{ name, status:"completed", conclusion:"success"|"failure"|"neutral", output:{ title, summary } }] }`.
+  Mapping law (published so a CI consumer recomputes it):
+  - `name` = the check `id` (`fold|collision|conflicts|secrets|base`).
+  - `state` pass→`conclusion:"success"`, fail→`conclusion:"failure"`, unknown→`conclusion:"neutral"` — the closed set; no other conclusion ever emits.
+  - `output.title` = the check `label`; `output.summary` = the check `detail` (the honest serialized detail — the SAME string the internal shape serves; the masking law travels to the projection unchanged: NEVER a secret-class path/key/value, never a fork-point sha).
+  - One `check_runs` entry per check per proposal, grouped per proposal by a `repo` echo on the envelope (a 5-proposal set emits 25 check-runs, 5×5).
+- `status:"completed"` is constant (the checks are computed post-hoc, never queued/pending).
+- **400/403/429** preconditions UNCHANGED (the `parseProposalsQuery` law, the AD-9 chokepoint, the `/proposals` compute-cost class) — the projection adds no precondition and no new failure mode.
+- Rate: still 60/60s (`ROUTE_RATE_LIMITS["/checks"]` — the same compute-cost class; no new row).
+- **No-cache-poisoning law:** the KV cache stores ONLY the internal body under the format-agnostic key; the github projection is computed AFTER the cache read/hit, so a `format=github` request and a plain request over the same generation share one cache entry and can never poison each other (a cached internal body is re-projected per request).
 
 ## GET /health
 
