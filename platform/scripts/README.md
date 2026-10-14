@@ -187,11 +187,12 @@ The 90-day expiry is far greater than the orphan sweep's grace window
 deletes a blob the sweep would have kept inside its grace window: the two
 reclamation layers are ordered (sweep at days, lifecycle at months), not
 competing. No `storageClassTransitions` (no Infrequent Access tier this
-phase). The rule carries no `abortMultipartUploadsTransition` — correct when
-this rule was written (`upload-asset.mjs` PUTs a single object), but **no
-longer sufficient (dated correction 2026-10-14)**: the presigned upload grant
-below can open a client-direct **multipart** upload, and an abandoned one is
-*not* an object, so this rule does not reclaim it (see the recipe below).
+phase). The committed rule carries an `abortMultipartUploadsTransition`
+(age 604800) alongside the object expiry (added 2eb8f37, applied live:
+`lifecycle list` shows both actions; dated correction 2026-10-14 — an
+earlier revision of this paragraph said the rule carried none, which became
+material once the presigned upload grant below could open a client-direct
+**multipart** upload).
 
 ### Presigned direct-to-R2 transfers (ASSET_* credentials)
 

@@ -246,15 +246,13 @@ Response `200`:
 
 Abandoned sessions are not aborted by a route (the client simply stops). The
 module carries `abortMultipartSession` for operator/out-of-band use. **Residual
-risk (MEDIUM, documented, unmanaged today):** the committed bucket lifecycle
-rule (§R2 asset tier) expires *objects* by age; it carries **no**
-`abortMultipartUploadsTransition`, so an incomplete multipart upload is not
-reclaimed by it, and nothing else aborts one — a client that starts a
-multipart upload and walks away leaves an incomplete upload in the bucket
-(billed storage, no visible object) until an operator aborts it. Closing this
-needs either a client-visible abort route or an
-`abortMultipartUploadsTransition` on the committed rule (the provisioning
-recipe is in `platform/scripts/README.md`); neither ships in this slice.
+risk (LOW, documented):** the committed bucket lifecycle rule (§R2 asset tier)
+carries an `abortMultipartUploadsTransition` (age 604800 s) alongside the
+object expiry, so an abandoned incomplete multipart upload **is** reclaimed by
+the applied rule (live-verified 2026-10-14: `lifecycle list` shows both the
+90-day expire and the 7-day abort actions). The residual is operational only —
+a fresh bucket needs the rule applied (`platform/scripts/README.md`); no
+client-visible abort route ships in this slice.
 
 ## GET /tree?repo=...&ref=main&path=...
 
