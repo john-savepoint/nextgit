@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.7 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
+Version: v3.8 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -777,6 +777,42 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - **`gate` is not a client-supplied field** — engagement is server-side and
     record-gated; a body carrying `gate` => `400 {ok:false, error:"bad-request"}`
     (same bucket and precedence as `reviewed`/`validation`).
+- **Silent-drop guard (post-merge behavioral verification):** every
+  content contribution a proposal makes to a folded **text** path
+  must be present in the fold's final state for that path —
+  otherwise the fold silently dropped it. The guard runs server-side
+  after the fold and before anything is pushed (deterministic,
+  CI-independent): a build/CI signal is not a merge-correctness
+  signal, so a green build can never mask a lost change. Detection
+  law (`platform/src/drop-guard.ts`): for each proposal
+  contribution to a text path (the lines it adds over the 3-way
+  ancestor, blank lines ignored, de-duplicated), if the fold's
+  final state for that path does not carry those lines, the change
+  was dropped. `DropCause` vocabulary (closed):
+  `file-removed-in-fold` (a modifying proposal's file is deleted
+  by a later proposal), `file-reintroduced-in-fold` (a removing
+  proposal's file is resurrected by a later proposal's
+  modification), `lines-absent-in-fold` (specific contributed
+  lines missing from the folded text).
+  - Drop evidence row: `{ repo, path, cause, missing[], byRepo }`
+    — `repo` is the proposal whose change was dropped, `byRepo`
+    the proposal that absorbed it (`null` when no single writer is
+    attributable); `missing` is the dropped lines (whole-file
+    causes carry the added lines, `≤8` entries).
+  - Any drop => `409 {ok:false, error:"silent-drop-detected", drops:[{repo,path,cause,missing,byRepo}]}`
+    (`drops` `≤50` entries, sorted `(path, repo, cause)`).
+    **Nothing is folded or pushed** — the gate sits after `conflict`
+    and before `no-changes`, ahead of the clone/token/push critical
+    section, and the base ref is untouched.
+  - Log line is content-free (`silent-drop-detected` with counts
+    and repo names only — never file text, NFR-3).
+  - Egress: text-class rows only. Secret-class, asset-pointer and
+    binary rows are excluded by construction (last-write-wins is
+    their designed semantics; there is no text to verify). The
+    net-cancel class (a later proposal reverts an earlier one's
+    contribution, so the fold reproduces the base) is detected here
+    and reported as `silent-drop-detected`, never as the
+    misleading `no-changes`.
 - Concurrency precondition: after the in-memory clone and before the push, the worker re-reads the base head; if it no longer equals the head the fold was computed against → `409 {ok:false, error:"base-moved", detail}` (the concurrent double-land loser path; a push rejected because the ref moved is reported as `base-moved` too). Nothing is pushed.
 - `200` carries `evidence` in addition to `landed` — the landing record (AD-3/FR-18); the returned `commit` is the evidence reference:
 
@@ -799,7 +835,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). The persisted record carries a third key, `attestation`, byte-identical to the `200`'s envelope. Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
-- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` / `409 autoland-blocked` (the auto-land gate, engaged posture only) → `409 conflict` → `409 no-changes` → `409 base-moved` → `200`.
+- Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` / `409 autoland-blocked` (the auto-land gate, engaged posture only) → `409 conflict` → `409 silent-drop-detected` → `409 no-changes` → `409 base-moved` → `200`.
 - After landing, a `repo.pushed` event for the base repo flows through `/events` — the UI refreshes itself.
 - `400` bad input; `500` unexpected.
 ## GET /landings/{commit}
