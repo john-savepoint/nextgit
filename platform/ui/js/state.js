@@ -26,6 +26,8 @@ export const state = {
  judgeSignature: null,   // payload signature the last judge call answered
  judgeLastAttempt: 0,    // ms clock of the last judge attempt (cheap-path throttle)
  judgeInFlight: false,   // a judge request is in flight
+ judgeComparisonError: false, // a /judge observation the comparison could not consume (fail-soft: never trips the connection banner)
+ judgeSkipped: null,     // /judge skipped[] the platform recorded (name-only skip rows for the comparison surface)
  stream: null,           // active EventSource for /events/stream (one per page)
  streamHealthy: false,   // SSE open and receiving -> pollers stay down
  streamTimer: null,      // reconnect backoff timer for the SSE stream
@@ -80,4 +82,8 @@ export const el = {
  issuesSection: document.getElementById("issues-section"),
  issuesList: document.getElementById("issues-list"),
  issuesMeta: document.getElementById("issues-meta"),
+ judgeComparisonSection: document.getElementById("judge-comparison-section"),
+ judgeComparisonList: document.getElementById("judge-comparison-list"),
+ judgeComparisonMeta: document.getElementById("judge-comparison-meta"),
+ judgeComparisonBadge: document.getElementById("judge-comparison-badge"),
 };
