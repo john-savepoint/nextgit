@@ -414,6 +414,7 @@ export function renderProposals() {
         <div class="${cardClasses}" id="card-${repo}">
           <div class="proposal-card-header">
             <span class="proposal-repo-title">${repo}</span>
+            <span class="proposal-semantics-note">proposals — explicit intent sets land; whiteboard groupings never land</span>
             <div class="proposal-badges">${judgeChipsHtml(p.repo, isLanded)}${landVerdictBadgeHtml(p.repo)}</div>
             <div class="proposal-actions">
               ${actionButtonsHtml}

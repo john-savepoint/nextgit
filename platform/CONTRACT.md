@@ -651,6 +651,43 @@ Each proposal's change-set is computed against its **fork point** — the most r
 
 `/merge` and `/land` use the fork point as the 3-way merge ancestor: ancestor = fork-point texts, ours = current base head, theirs = proposal head.
 
+## Set semantics — explicit intent sets vs whiteboards
+
+The platform serves TWO set semantics, and the difference is normative:
+
+**Explicit intent sets** — typed, landable, evidence-carrying. The carrier is the
+`reviewed` object on `POST /land` (`reviewed.baseHead` + `reviewed.heads`, above):
+a closed schema where every value is a head sha compared by exact equality, the key
+set must cover exactly the requested `repos`, and a violation refuses the fold
+(`409 stale` / `400 bad-request`) before anything is folded or pushed. An explicit
+set may also carry `validation` evidence (FR-18) — the checks that ran, position-
+paired results, and the `testedSha` of the fold they ran against, recorded on the
+landing. Only an explicit set can land: the reviewed-state precondition (AD-3) is
+what makes a landing a reviewed landing.
+
+**Whiteboard sets** — loose grouping, never landable. A whiteboard is the client-
+local overlay (interface-contract entity 8: strokes + cursors per floor; not
+persisted by the platform). Grouping proposals on a whiteboard — or any other
+ad-hoc selection, including a bare `repos` list with no `reviewed` object —
+records no intent, carries no evidence, and creates no reviewed state. **A
+whiteboard set is never landable as such**: landing it requires the same explicit
+`reviewed` carrier as any other set, and `POST /land` with no `reviewed` present
+defaults to legacy behavior (no precondition checks) — which is the absence of
+reviewed state, not a weaker form of it.
+
+**Precedence rule:** a set's semantics are determined by its carrier, not by where
+it was displayed. The explicit typed carrier (`reviewed` / `validation`) always
+wins: a proposal shown on a whiteboard and then landed through `/land` lands under
+explicit-set rules (with whatever `reviewed` object the caller supplied — none,
+partial, or complete). No display surface, grouping, or client-side selection ever
+upgrades a whiteboard set to an explicit one; the upgrade path is exactly one
+thing — supplying the typed `reviewed` (and optionally `validation`) fields.
+
+**UI labeling:** the triage proposals card header carries one copy line
+("proposals — explicit intent sets land; whiteboard groupings never land") so a
+reviewer sees the two semantics side by side at the point of landing. The label is
+copy only — it never alters, gates, or extends any route behavior.
+
 ## GET /merge?base=demo&repos=agent-3[,agent-1,...]&ref=main&baseRef=main
 
 Fold proposals in order onto the baseline — per-file 3-way merge (diff3).
