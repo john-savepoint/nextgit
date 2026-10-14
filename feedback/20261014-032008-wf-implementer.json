@@ -1,0 +1,39 @@
+{
+  "agent": "healnextgit-keep-pushes-small-and-incremental-un",
+  "task": "HEAL-1 apply round 1 for nextgit-keep-pushes-small-and-incremental-under-the-64-mib-cap (atomicity of incremental land)",
+  "command": "bun porting/tests/land-incremental.test.mjs",
+  "cwd": "/home/johnzealanddoyle/projects/cloudflare-git-comp/.fleet/lane-6",
+  "result": "ALL PASS (45 checks), exit 0; tsc --noEmit 0 errors; 22 affected suites exit 0; live demo chain + demo-verify 25/25",
+  "problems": [
+    {
+      "problem": "heal-1-research.md's fix snippet is mechanically incomplete in two ways, and its own strict-6c instruction is unreachable without fixing both: (a) the revert push has no `force: true`, but rewinding a ref to an ancestor is never a fast-forward, so receive-pack rejects it and the partial fold would persist on every attempt; (b) the revert target is `input.expectedBaseHead`, yet in the witness-refusal case (check 6b) that value is a stale sha naming no object, so `git.branch({object})` can never succeed. A probe of the pre-fix tree confirmed the witness fires AFTER the refused increment's pack reached the remote (remote held 2 commits: base + one land commit), which is why check 6c could not be made strict as instructed.",
+      "severity": "medium",
+      "where": "porting/runs/nextgit-.../heal-1-research.md:33-49 (and its 6c instruction at :66)",
+      "fix": "Applied with two corrections: `force: true` on the compensating revert push (same documented idiom as the notes-mirror push), and the revert targets the tip the FIRST increment's own `onPrePush` discovery reported (`observedBaseHead`) instead of `input.expectedBaseHead`; `pushedAnyIncrement` moved to immediately after the push resolves (before the post-push witness) so the witness-refusal case reverts too. Verified: pre-fix probe count=2, post-fix count=1."
+    },
+    {
+      "problem": "The researched fix adds a third `git.push` call site in land.ts without noting that TWO suites pin that count at exactly 2 (`countCallSites(landSrc, \"git.push\") === 2`) alongside prose saying 'Any third push site fails this gate'. A naive apply lands a red structural gate in two files outside the finding's named scope; it is also a merge-collision hazard if a parallel lane edits either pin for the same order.",
+      "severity": "medium",
+      "where": "porting/tests/platform-native-merge.test.mjs:78-89 and porting/tests/worker-cpu-budget-structural.test.mjs:58-68",
+      "fix": "Both pins moved 2 -> 3 in lockstep with restated prose (base + notes-mirror + compensating revert), in the same change. Flagged in heal-1.md §5 and §7.4 for the merge step."
+    },
+    {
+      "problem": "The feedback mandate points at `feedback/README.md` for the schema, but no such file exists at the project root, in `.fleet/lane-6/`, or at any searched depth; two different shapes are in live use (`{problems:[{problem,severity,where,fix}]}` at the project root, `{agent,task,command,cwd,result,problems}` in lanes).",
+      "severity": "low",
+      "where": "feedback/README.md (missing)",
+      "fix": "Wrote the superset shape (agent/task/command/cwd/result + problems[] with problem/severity/where/fix) to both `.fleet/lane-6/feedback/` and the run-evidence dir, matching both observed precedents."
+    },
+    {
+      "problem": "The assignment's type-check path `bun run check:types` from `packages/coding-agent` does not exist in this repo (no `packages/` directory) — it is harness boilerplate for a different repository; the only type-check in scope is nextgit-platform's.",
+      "severity": "low",
+      "where": "assignment boilerplate vs /home/johnzealanddoyle/projects/cloudflare-git-comp",
+      "fix": "Ran the repo's equivalent from platform/: `bunx tsc --noEmit` (also `bun run type-check`) -> exit 0, tsc 7.0.2, with `--listFilesOnly` confirming src/land.ts and src/push-budget.ts are in the program."
+    },
+    {
+      "problem": "The live demo chain is not reliably re-runnable between seats: the wf-verifier recorded a 401 from the Cloudflare oauth token ('could not re-run live here'), while the same chain ran green for this seat minutes later. Evidence quality therefore depends on which seat happened to hold a live token.",
+      "severity": "low",
+      "where": "platform/scripts/{seed,agents,secret-fixture,demo-verify}.mjs vs sandbox token state",
+      "fix": "None applied (environment). Noted so a gate does not read the verify.md 401 note as a defect of the change; the deterministic in-process histogram (real git plumbing) covers the case when the token is unavailable."
+    }
+  ]
+}

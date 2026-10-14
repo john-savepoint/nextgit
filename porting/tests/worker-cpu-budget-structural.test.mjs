@@ -56,13 +56,15 @@ check("forkPoint bound log walks use limit: FORK_LOG_LIMIT", logCallsInFork.leng
 check("no child_process in index.ts", !/child_process/.test(indexSrc));
 
 // 3. git.clone / git.push only in land.ts — index.ts has zero; land.ts carries exactly
-// one clone and the PINNED PUSH PAIR (1 base push with the AD-3 witness + 1 best-effort
-// notes-mirror push, per e3-impl-landing-decision-note 1f74707). Any third push fails.
+// one clone and the PINNED PUSH TRIO: the base push with the AD-3 witness
+// (e3-impl-landing-decision-note 1f74707), the best-effort notes-mirror push, and the
+// compensating revert push that puts the base ref back after a mid-increment failure
+// (heal-1). Any fourth push fails.
 check("git.clone only in land.ts", indexSrc.match(/git\.clone/g) === null && countCallSites(landSrc, "git.clone") === 1);
 check(
- "git.push pinned pair in land.ts (base + notes-mirror), zero in index.ts",
+ "git.push pinned trio in land.ts (base + notes-mirror + compensating revert), zero in index.ts",
  indexSrc.match(/git\.push/g) === null &&
- countCallSites(landSrc, "git.push") === 2 &&
+ countCallSites(landSrc, "git.push") === 3 &&
  (landSrc.match(/remoteTipAtPush = info\.remoteRef\.oid/g) ?? []).length === 1 &&
  (landSrc.match(/remoteRef: NOTES_BRANCH_LOCAL/g) ?? []).length === 1,
 );

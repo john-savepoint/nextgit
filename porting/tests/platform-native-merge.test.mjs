@@ -75,16 +75,19 @@ check("classifyPair defined in index.ts", /function\s+classifyPair\s*\(/.test(in
 check("classifyPair called in computeProposals", indexSrc.includes("classifyPair(") && /async function computeProposals/.test(indexSrc));
 check("git.clone / git.push absent from index.ts", !/git\.clone/.test(indexSrc) && !/git\.push/.test(indexSrc));
 check("exactly one git.clone call site in land.ts", countCallSites(landSrc, "git.clone") === 1, `found ${countCallSites(landSrc, "git.clone")}`);
-// Push sites are a PINNED PAIR (e3-impl-landing-decision-note, 1f74707): exactly one
-// BASE-branch push (the AD-3 witness carrier: `remoteTipAtPush = info.remoteRef.oid`)
-// plus exactly one best-effort notes-mirror push (`remoteRef: NOTES_BRANCH_LOCAL`).
-// Any third push site, or a missing/duplicated identity, fails this gate.
+// Push sites are a PINNED TRIO: exactly one BASE-branch push site (the AD-3
+// witness carrier `remoteTipAtPush = info.remoteRef.oid`, whose call site in the
+// increment loop also serves the compensating revert in the loop's catch), one
+// best-effort notes-mirror push (`remoteRef: NOTES_BRANCH_LOCAL`), and that
+// compensating revert push (heal-1: the base ref goes back to the head the land
+// found after a mid-increment failure, so no partial fold survives). A
+// missing/duplicated identity, or any fourth push site, fails this gate.
 const pushSites = countCallSites(landSrc, "git.push");
 const basePushWitness = (landSrc.match(/remoteTipAtPush = info\.remoteRef\.oid/g) ?? []).length;
 const notesMirrorPush = (landSrc.match(/remoteRef: NOTES_BRANCH_LOCAL/g) ?? []).length;
 check(
-  "git.push call sites pinned: 1 base (AD-3 witness) + 1 notes-mirror (best-effort)",
-  pushSites === 2 && basePushWitness === 1 && notesMirrorPush === 1,
+  "git.push call sites pinned: 1 base (AD-3 witness) + 1 notes-mirror + 1 compensating revert",
+  pushSites === 3 && basePushWitness === 1 && notesMirrorPush === 1,
   `pushes=${pushSites} witness=${basePushWitness} notesMirror=${notesMirrorPush}`,
 );
 

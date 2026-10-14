@@ -19,6 +19,7 @@ import { ensureWorkspaceFiles } from "./workspace-manifest.mjs";
 import { loadRegistry, buildArgs, checkRegistry } from "./harness-registry.mjs";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
 import { resolveTtl, mintRepoToken, writeAgentManifest, gitAuthEnv } from "./lib/tokens.mjs";
+import { assertPushBudgetGit } from "./lib/push-guard.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -436,6 +437,10 @@ async function runAgent(task, cand) {
   // refs/notes/*, so it is mirrored to a branch (CONTRACT "Notes mirror").
   one("notes", "add", "-m", task.note, "HEAD");
   // Forced mirror (derived state: mirror := refs/notes/commits). See agents.mjs comment.
+  // Push budget (fail closed BEFORE the wire call): the ~64 MiB Artifacts cap
+  // returns an opaque 500 above 63 MiB — refuse here (PushBudgetError -> the
+  // row fails as push-budget-exceeded) so no over-budget push leaves the box.
+  assertPushBudgetGit(dir, ["main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes"]);
   one("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
 
   row.status = "ok";

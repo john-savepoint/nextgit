@@ -13,6 +13,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { bustProposalsCache } from "./lib/bust-cache.mjs";
 import { resolveTtl, mintRepoToken, writeAgentManifest, gitAuthEnv } from "./lib/tokens.mjs";
+import { assertPushBudgetGit } from "./lib/push-guard.mjs";
 
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "bb7d292ca65ba01cbdfbdabcace0c3d0";
 const NAMESPACE = process.env.ARTIFACTS_NAMESPACE ?? "nextgit";
@@ -270,6 +271,11 @@ async function main() {
       // both note refspecs in one command. The mirror is DERIVED state (always :=
       // refs/notes/commits) and forks inherit stale mirrors from the base — without
       // `+` the mirror push is rejected non-ff and intent goes dark (2026-10-10).
+      // Push budget (fail closed BEFORE the wire call): the ~64 MiB Artifacts
+      // cap returns an opaque 500 above 63 MiB, so an over-budget push is
+      // refused here (PushBudgetError -> the row fails as
+      // push-budget-exceeded) and never leaves the box.
+      assertPushBudgetGit(dir, ["main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes"]);
       one("push", "origin", "main", "+refs/notes/commits", "+refs/notes/commits:refs/heads/nextgit-notes");
 
       row.status = "ok";

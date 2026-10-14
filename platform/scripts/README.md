@@ -48,6 +48,23 @@ All scripts resolve the Cloudflare API token via the same `apiToken()` helper:
 
 ---
 
+## Pre-submission eligibility gate
+
+One command verifies the submission package against every competition requirement
+(license file, README + run instructions, 5–10 min demo video, Workers + Artifacts
+usage, the concurrent agent fleet):
+
+```bash
+bun porting/tests/submission-eligibility.test.mjs          # offline, deterministic
+bun porting/tests/submission-eligibility.test.mjs --live   # + live-worker confirmation
+```
+
+Exit 0 = every requirement is met; exit 1 prints the unmet requirement ids (R1–R8).
+Run it before filing the entry; it is the automation of judge-layer idea #29
+(docs/judge-layer-ideas.md:78).
+
+---
+
 ## The corrected run order
 
 The canonical demo chain is a strict 4-step gate sequence (`docs/CHECKPOINT.md:51`, root `README.md:37-43`):
