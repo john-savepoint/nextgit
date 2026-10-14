@@ -3770,10 +3770,16 @@ async function handleForks(request: Request, env: Env): Promise<Response> {
 // → 429 → 200.
 // ---------------------------------------------------------------------------
 
-/** The derived issue row (CONTRACT.md §GET /issues response shape). */
+/** The derived issue row (CONTRACT.md §GET /issues response
+ *  shape — nextgit-e17 wire revision). The derivation LEG
+ *  moved from `kind` to `issue` (a dated correction,
+ *  CONTRACT §GET /issues): `kind` is now the row-ORIGIN
+ *  discriminator carried by every row — `"derived"` on
+ *  derivation rows, `"stored"` on store rows. The seven
+ *  original fields are otherwise unchanged. */
 interface DerivedIssue {
  id: string;
- kind: "conflict" | "withheld-secret" | "stale-base" | "blocked-intent";
+ issue: "conflict" | "withheld-secret" | "stale-base" | "blocked-intent";
  repo: string;
  severity: "high" | "medium" | "low" | "info";
  title: string;
@@ -3863,7 +3869,7 @@ async function deriveIssues(
    if (f.result !== "conflict") continue;
    issues.push({
     id: `conflict:${repo}:${f.path}`,
-    kind: "conflict",
+    issue: "conflict",
     repo,
     severity: "high",
     title: `Merge conflict in ${f.path}`,
@@ -3880,7 +3886,7 @@ async function deriveIssues(
    const keyCount = withheld ? Number(withheld[1]) : 0;
    issues.push({
     id: `withheld-secret:${repo}:${f.path}`,
-    kind: "withheld-secret",
+    issue: "withheld-secret",
     repo,
     severity: "medium",
     title: `Secret-class file withheld: ${f.path}`,
@@ -3893,7 +3899,7 @@ async function deriveIssues(
   if (staleBase) {
    issues.push({
     id: `stale-base:${repo}`,
-    kind: "stale-base",
+    issue: "stale-base",
     repo,
     severity: "low",
     title: `Fork ${repo} shares no history with ${base}`,
@@ -3907,7 +3913,7 @@ async function deriveIssues(
   if (matcherVerdict === "ignore") {
    issues.push({
     id: `blocked-intent:${repo}`,
-    kind: "blocked-intent",
+    issue: "blocked-intent",
     repo,
     severity: "info",
     title: `Matcher verdict "ignore" for ${repo}`,
@@ -3917,12 +3923,12 @@ async function deriveIssues(
   }
  }
 
- // Deterministic order: (severityRank, kind, repo, detail) —
- // lexicographic, a pure comparator (no timestamps, no
- // Map-iteration order).
+ // Deterministic order: (severityRank, issue-leg, repo,
+ // detail) — lexicographic, a pure comparator (no
+ // timestamps, no Map-iteration order).
  issues.sort((a, b) =>
   ISSUE_SEVERITY_RANK[a.severity] - ISSUE_SEVERITY_RANK[b.severity] ||
-  (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
+  (a.issue < b.issue ? -1 : a.issue > b.issue ? 1 : 0) ||
   (a.repo < b.repo ? -1 : a.repo > b.repo ? 1 : 0) ||
   (a.detail < b.detail ? -1 : a.detail > b.detail ? 1 : 0)
  );
@@ -3962,7 +3968,24 @@ async function handleIssues(request: Request, env: Env): Promise<Response> {
   .filter((entry) => entry.name.startsWith("agent-") && entry.status === "ready")
   .map((entry) => entry.name);
 
- const issues = await deriveIssues(env, base, baseRef, ref, candidates);
+ const derived = await deriveIssues(env, base, baseRef, ref, candidates);
+ // Merge step (nextgit-e17): the derived set (tagged
+ // kind:"derived") followed by the repo's stored rows
+ // (tagged kind:"stored") in append order. The merge is
+ // a CONCATENATION, not a re-sort — derived rows keep
+ // their deterministic (severityRank, issue-leg, repo,
+ // detail) order and the derived prefix stays
+ // byte-identical across reads; stored rows follow in
+ // the store's append order (oldest-first, the comments
+ // read posture). readStoredIssues is fail-closed [] on
+ // absence/corruption (the readComments posture), so a
+ // missing or malformed store degrades to the pure
+ // derived list, never a throw.
+ const stored = await readStoredIssues(env, base);
+ const issues = [
+  ...derived.map((d) => ({ ...d, kind: "derived" as const })),
+  ...stored.map((s) => ({ ...s, kind: "stored" as const })),
+ ];
  return Response.json({ ok: true, base, issues });
 }
 
@@ -4650,6 +4673,368 @@ async function handleCommentsGet(request: Request, env: Env): Promise<Response> 
   .map((c) => ({ id: c.id, path: c.path, line: c.line, body: c.body, author: c.author, at: c.at }));
  return Response.json({ ok: true, repo, ref, comments });
 }
+// ---------------------------------------------------------------------------
+// Repo-scoped issue store (CONTRACT.md §POST /issues,
+// §PATCH /issues/{id}, nextgit-e17) — the worker data
+// plane for the triage issue list's WRITABLE half. Storage
+// is the worker's script-writable durable namespace
+// (env.CACHE — the comments / fork-lineage /
+// landing-record precedent): repo-scoped JSONL at
+// `issues:<repo>`, append order preserved (oldest-first).
+// The forward posture (named in CONTRACT) is the same wire
+// contract over an `issues.jsonl` tree entry in the
+// Artifacts repo once the (read-only) binding exposes a
+// write seam.
+//
+// POST appends one issue (fresh id, server-set `at`);
+// PATCH closes one issue ONCE (in-place JSONL line rewrite
+// — same line index, same id, `state:"closed"` + `closedAt`;
+// repeat -> 409 already-closed). Derived rows (the v1
+// legs) are READ-ONLY — they are never in the store, so a
+// PATCH targeting a derived row id is a 404 (the store is
+// the only mutable surface).
+// ---------------------------------------------------------------------------
+
+/** Issue title cap in characters (CONTRACT §POST /issues). */
+const MAX_ISSUE_TITLE_CHARS = 128;
+/** Issue body cap in characters (CONTRACT §POST /issues). */
+const MAX_ISSUE_BODY_CHARS = 2000;
+/** Issue assignee cap in characters (CONTRACT §PATCH /issues/{id}). */
+const MAX_ISSUE_ASSIGNEE_CHARS = 128;
+/** CACHE KV key prefix for a repo's issue JSONL (`issues:<repo>`). */
+const ISSUES_KEY_PREFIX = "issues:";
+/** Issue id length in hex characters (48 random bits). */
+const ISSUE_ID_HEX = 12;
+
+/** The issue severity vocabulary (first-class on both row families). */
+type IssueSeverity = "high" | "medium" | "low" | "info";
+
+/**
+ * One stored triage issue. `state` is the lifecycle
+ * ("open" until a PATCH closes it once); `closedAt` is
+ * `null` while open and the server-set ISO-8601 instant
+ * of the close once closed. `assignee` is display text
+ * only — never an identity claim (NFR-3, the comments
+ * `author` posture).
+ */
+interface StoredIssueRecord {
+ id: string;
+ repo: string;
+ title: string;
+ body: string;
+ severity: IssueSeverity;
+ state: "open" | "closed";
+ assignee: string | null;
+ at: string;
+ closedAt: string | null;
+}
+
+/** A fresh issue id — 12 lowercase hex chars (48 random bits). */
+function newIssueId(): string {
+ const bytes = crypto.getRandomValues(new Uint8Array(ISSUE_ID_HEX / 2));
+ return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Closed request schema for POST /issues (AD-9): exactly
+ *  {repo, title, body, severity}. */
+interface IssuesPostBody {
+ repo?: unknown;
+ title?: unknown;
+ body?: unknown;
+ severity?: unknown;
+}
+
+/**
+ * Validate the POST /issues body — the closed-schema twin
+ * of parseCommentsBody (unknown field -> 400). `repo`
+ * REPO_NAME_RE; `title` 1..MAX_ISSUE_TITLE_CHARS; `body`
+ * 1..MAX_ISSUE_BODY_CHARS; `severity` the 4-value
+ * vocabulary.
+ */
+function parseIssuesPostBody(raw: unknown): { repo: string; title: string; body: string; severity: IssueSeverity } | Response {
+ if (!raw || typeof raw !== "object") return badRequest("bad-request");
+ const body = raw as IssuesPostBody;
+ if (!Object.keys(body).every((k) => k === "repo" || k === "title" || k === "body" || k === "severity")) {
+  return badRequest("bad-request");
+ }
+ if (typeof body.repo !== "string" || !REPO_NAME_RE.test(body.repo)) {
+  return badRequest(`invalid repo name: ${JSON.stringify(body.repo)}`);
+ }
+ if (typeof body.title !== "string" || body.title.length < 1 || body.title.length > MAX_ISSUE_TITLE_CHARS) {
+  return badRequest(`invalid title: 1..${MAX_ISSUE_TITLE_CHARS} characters`);
+ }
+ if (typeof body.body !== "string" || body.body.length < 1 || body.body.length > MAX_ISSUE_BODY_CHARS) {
+  return badRequest(`invalid body: 1..${MAX_ISSUE_BODY_CHARS} characters`);
+ }
+ if (body.severity !== "high" && body.severity !== "medium" && body.severity !== "low" && body.severity !== "info") {
+  return badRequest(`invalid severity: high|medium|low|info`);
+ }
+ return { repo: body.repo, title: body.title, body: body.body, severity: body.severity };
+}
+
+/** Closed request schema for PATCH /issues/{id} (AD-9):
+ *  exactly {state, assignee?}. */
+interface IssuesPatchBody {
+ state?: unknown;
+ assignee?: unknown;
+}
+
+/**
+ * Validate the PATCH /issues/{id} body — the closed-schema
+ * twin of parseIssuesPostBody (unknown field -> 400).
+ * `state` is the close-only vocabulary ("open"|"closed" —
+ * close-once semantics: "open" against a closed issue is
+ * the 409, not a re-open); `assignee` is optional display
+ * text (1..MAX_ISSUE_ASSIGNEE_CHARS when present).
+ */
+function parseIssuesPatchBody(raw: unknown): { state: "open" | "closed"; assignee?: string } | Response {
+ if (!raw || typeof raw !== "object") return badRequest("bad-request");
+ const body = raw as IssuesPatchBody;
+ if (!Object.keys(body).every((k) => k === "state" || k === "assignee")) {
+  return badRequest("bad-request");
+ }
+ if (body.state !== "open" && body.state !== "closed") {
+  return badRequest(`invalid state: open|closed`);
+ }
+ if (body.assignee !== undefined) {
+  if (typeof body.assignee !== "string" || body.assignee.length < 1 || body.assignee.length > MAX_ISSUE_ASSIGNEE_CHARS) {
+   return badRequest(`invalid assignee: 1..${MAX_ISSUE_ASSIGNEE_CHARS} characters`);
+  }
+  return { state: body.state, assignee: body.assignee };
+ }
+ return { state: body.state };
+}
+
+/**
+ * Read one repo's stored issues from CACHE (JSONL at
+ * `issues:<repo>`). Fail closed on absence OR corruption:
+ * a missing key, an unparseable line, or a malformed
+ * record yields the empty list (the readComments posture
+ * — never a throw). Per-line shape validation: all nine
+ * StoredIssueRecord fields typed.
+ */
+async function readStoredIssues(env: Env, repo: string): Promise<StoredIssueRecord[]> {
+ try {
+  const raw = await env.CACHE.get(`${ISSUES_KEY_PREFIX}${repo}`);
+  if (!raw) return [];
+  const out: StoredIssueRecord[] = [];
+  for (const line of raw.split("\n")) {
+   if (line === "") continue;
+   const parsed = JSON.parse(line) as Partial<StoredIssueRecord>;
+   if (!parsed || typeof parsed !== "object") return [];
+   if (
+    typeof parsed.id !== "string" || typeof parsed.repo !== "string" ||
+    typeof parsed.title !== "string" || typeof parsed.body !== "string" ||
+    (parsed.severity !== "high" && parsed.severity !== "medium" && parsed.severity !== "low" && parsed.severity !== "info") ||
+    (parsed.state !== "open" && parsed.state !== "closed") ||
+    (parsed.assignee !== null && typeof parsed.assignee !== "string") ||
+    typeof parsed.at !== "string" ||
+    (parsed.closedAt !== null && typeof parsed.closedAt !== "string")
+   ) return [];
+   out.push({
+    id: parsed.id, repo: parsed.repo, title: parsed.title, body: parsed.body,
+    severity: parsed.severity, state: parsed.state, assignee: parsed.assignee,
+    at: parsed.at, closedAt: parsed.closedAt,
+   });
+  }
+  return out;
+ } catch {
+  return [];
+ }
+}
+
+// Concurrency posture for POST /issues (the
+// withCommentAppendGate pattern, keyed per repo):
+// appendIssue and rewriteIssueLine are read-modify-writes
+// of the whole `issues:<repo>` JSONL, and the awaits
+// inside readStoredIssues (CACHE.get) and before CACHE.put
+// interleave concurrent writes WITHIN one isolate — N
+// simultaneous writes each read the same pre-state and
+// last-write-wins drops N-1. One in-flight append chain
+// per repo key, so different repos still write
+// concurrently. Cross-isolate remains last-writer-wins
+// (the documented as-built posture; a repo-keyed Durable
+// Object is the multi-isolate fix — Proposal B, the
+// comments precedent).
+const issueAppendChains = new Map<string, Promise<void>>();
+
+/** Queue fn behind any in-flight write for the same repo:
+ *  one issue write critical section per repo key, per
+ *  isolate. */
+async function withIssueAppendGate<T>(repo: string, fn: () => Promise<T>): Promise<T> {
+ const prev = issueAppendChains.get(repo) ?? Promise.resolve();
+ const { promise: next, resolve: release } = Promise.withResolvers<void>();
+ issueAppendChains.set(repo, next);
+ await prev;
+ try {
+  return await fn();
+ } finally {
+  release();
+ }
+}
+
+/** Append one issue: read-modify-write the repo's JSONL in
+ *  CACHE (append order preserved). Serialized per repo key
+ *  by withIssueAppendGate — one in-isolate writer at a
+ *  time, so concurrent POSTs cannot interleave the
+ *  read-modify-write window. (Cross-isolate remains
+ *  last-writer-wins, the documented as-built posture; a
+ *  repo-keyed Durable Object is the multi-isolate fix —
+ *  Proposal B.) */
+async function appendIssue(env: Env, repo: string, record: StoredIssueRecord): Promise<void> {
+ await withIssueAppendGate(repo, async () => {
+  const existing = await readStoredIssues(env, repo);
+  const jsonl = [...existing, record].map((i) => JSON.stringify(i)).join("\n");
+  await env.CACHE.put(`${ISSUES_KEY_PREFIX}${repo}`, jsonl);
+ });
+}
+
+/** Rewrite one issue's JSONL line IN PLACE (the close path):
+ *  read all rows, replace the line whose id matches, put
+ *  the set back — same line index, same id, so the append
+ *  order and the row's identity are preserved (the PATCH
+ *  close-once semantics, CONTRACT §PATCH /issues/{id}).
+ *  Serialized per repo key by withIssueAppendGate. Returns
+ *  false when the id is not present (the caller 404s). */
+async function rewriteIssueLine(env: Env, repo: string, updated: StoredIssueRecord): Promise<boolean> {
+ return withIssueAppendGate(repo, async () => {
+  const existing = await readStoredIssues(env, repo);
+  const found = existing.some((i) => i.id === updated.id);
+  if (!found) return false;
+  const jsonl = existing
+   .map((i) => (i.id === updated.id ? updated : i))
+   .map((i) => JSON.stringify(i))
+   .join("\n");
+  await env.CACHE.put(`${ISSUES_KEY_PREFIX}${repo}`, jsonl);
+  return true;
+ });
+}
+
+/**
+ * POST /issues — append one triage issue to the base
+ * repo's store. A write action behind authorize() +
+ * csrfGate (the dispatcher applies both), with the
+ * handler-side AD-9 allowlist re-check (the /land,
+ * /comments POST posture: the body-carried repo is
+ * adjudicated before any store access). Secret-class
+ * repo NAMES are REFUSED (403) before any store access
+ * (the /comments secret-class posture — `REPO_NAME_RE`
+ * excludes `/`, so the `secrets/` segment leg can never
+ * fire on a repo name; the basename rules are the live
+ * legs, and the refusal is fail-closed correct under any
+ * future charset widening). Order: 400 (shape) -> 403
+ * (allowlist) -> 403 (secret-class) -> 429 -> 201.
+ */
+async function handleIssuesPost(request: Request, env: Env): Promise<Response> {
+ const parsed = parseIssuesPostBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ const { repo, title, body, severity } = parsed;
+
+ if (!DEMO_REPO_RE.test(repo)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${repo}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ if (isSecretPath(repo)) {
+  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+ }
+
+ const rateDenied = rateGate("/issues:write", request);
+ if (rateDenied) return rateDenied;
+
+ const issue: StoredIssueRecord = {
+  id: newIssueId(), repo, title, body, severity,
+  state: "open", assignee: null, at: new Date().toISOString(), closedAt: null,
+ };
+ await appendIssue(env, repo, issue);
+ const { ...wire } = issue;
+ return Response.json({ ok: true, issue: wire }, { status: 201 });
+}
+
+/**
+ * PATCH /issues/{id} — close one stored issue ONCE (the
+ * close-once semantics, CONTRACT §PATCH /issues/{id}):
+ * the stored record's `state:"closed"` + `closedAt` are
+ * rewritten in place (same JSONL line index, same id). A
+ * second identical PATCH reads `state === "closed"` ->
+ * 409 already-closed; a PATCH carrying `state:"open"`
+ * against a closed issue is likewise 409 (close-only —
+ * opening again is not in the contract). `state:"open"`
+ * against an OPEN issue is an idempotent no-op 200. An
+ * unknown id (including any DERIVED row id — derived rows
+ * are not in the store) is 404 not-found. A write action
+ * behind authorize() + csrfGate (the dispatcher applies
+ * both to POST and PATCH — the nextgit-e17 CSRF
+ * extension), with the handler-side AD-9 allowlist
+ * re-check and the secret-class repo refusal BEFORE any
+ * store access (the POST /issues posture). Order: 400
+ * (shape / empty id) -> 403 (allowlist) -> 403
+ * (secret-class) -> 429 -> 404 -> 409 -> 200.
+ */
+async function handleIssuesPatch(request: Request, env: Env, idParam: string): Promise<Response> {
+ const id = idParam;
+ if (typeof id !== "string" || id === "") {
+  return badRequest("bad-request");
+ }
+
+ const parsed = parseIssuesPatchBody(await request.json().catch(() => null));
+ if (parsed instanceof Response) return parsed;
+ const { state, assignee } = parsed;
+
+ // The target repo is the BASE repo the issue lives in.
+ // The id is opaque; the repo is carried by the query
+ // (the GET /issues `base`), so the handler re-checks the
+ // AD-9 allowlist on it before any store access (the
+ // /comments POST /land posture — extractScope adjudicates
+ // the query-carried base at the chokepoint pre-read, and
+ // the handler re-checks belt-and-braces).
+ const { base } = resolveRouteBase({ base: new URL(request.url).searchParams.get("base") ?? undefined });
+ if (typeof base !== "string" || !REPO_NAME_RE.test(base)) {
+  return badRequest(`invalid base repo: ${JSON.stringify(base)}`);
+ }
+ if (!DEMO_REPO_RE.test(base)) {
+  return Response.json(
+   { ok: false, error: "repo-not-allowed", detail: `repo "${base}" is outside the demo allowlist` },
+   { status: 403 },
+  );
+ }
+ if (isSecretPath(base)) {
+  return Response.json({ ok: false, error: "secret-class" }, { status: 403 });
+ }
+
+ const rateDenied = rateGate("/issues:write", request);
+ if (rateDenied) return rateDenied;
+
+ const existing = await readStoredIssues(env, base);
+ const record = existing.find((i) => i.id === id);
+ if (!record) {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ if (record.state === "closed") {
+  return Response.json({ ok: false, error: "already-closed" }, { status: 409 });
+ }
+
+ // Close-once: rewrite the line in place (same index,
+ // same id). `assignee` rides along when supplied (the
+ // close may name the assignee taking the issue); an
+ // unsent assignee keeps the stored value.
+ const updated: StoredIssueRecord = {
+  ...record,
+  state: "closed",
+  closedAt: new Date().toISOString(),
+  assignee: assignee ?? record.assignee,
+ };
+ const landed = await rewriteIssueLine(env, base, updated);
+ if (!landed) {
+  // Lost between the read and the rewrite (a concurrent
+  // close won the race) — the honest answer is the
+  // already-closed posture, never a fabricated 200.
+  return Response.json({ ok: false, error: "already-closed" }, { status: 409 });
+ }
+ const { ...wire } = updated;
+ return Response.json({ ok: true, issue: wire });
+}
 
 // Route table (AD-8: single registration point; every route authorizes).
 // ---------------------------------------------------------------------------
@@ -4657,7 +5042,7 @@ async function handleCommentsGet(request: Request, env: Env): Promise<Response> 
 /** A registered API route. `path` matches exact paths; `dynamicPrefix` matches a prefix (e.g. "/landings/"). */
 interface RouteEntry {
  path: string;
- method: "GET" | "POST";
+ method: "GET" | "POST" | "PATCH";
  action: ActionType;
  handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
 }
@@ -4973,6 +5358,17 @@ export const ROUTES: RouteEntry[] = [
  // 60/60s (rateGate in the handler — the per-candidate merge
  // simulation is the /merge compute-cost class).
  { path: "/issues", method: "GET", action: "read", handler: handleIssues },
+ // Issues v2 (nextgit-e17): the repo-scoped issue
+ // store's WRITE verb. Registered at the same path as
+ // the GET (the /comments dual-registration precedent)
+ // — the dispatcher matches path AND method exactly, so
+ // the API-boundary 405 law still covers any third
+ // method. POST is body-carried (the /land /comments
+ // POST posture: the handler re-checks the AD-9
+ // allowlist before any store access) and runs behind
+ // authorize() + csrfGate (the dispatcher applies both
+ // to every POST).
+ { path: "/issues", method: "POST", action: "write", handler: handleIssuesPost },
  // Agent roster + policy surface (identity v1): read-only
  // closed projection per discovered agent-* repo. The
  // authorize() chokepoint covers it (demo mode gate;
@@ -5050,8 +5446,27 @@ export const ROUTES: RouteEntry[] = [
  { path: "/sessions", method: "GET", action: "read", handler: handleSessions },
 ];
 
-export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
+export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST" | "PATCH"; action: ActionType; handler: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> }> = [
  { prefix: "/landings/", method: "GET", action: "read", handler: (request, env) => handleLandingsRead(new URL(request.url).pathname.slice("/landings/".length), env) },
+ // PATCH /issues/{id} — the issue-store close write
+ // (nextgit-e17, CONTRACT.md §PATCH /issues/{id}).
+ // DYNAMIC rather than a static ROUTES entry: the
+ // dispatcher matches path AND method exactly, so a
+ // literal "{path:"/issues/{id}"}" cannot register —
+ // the /landings/ prefix precedent carries the id in
+ // the pathname tail (the handler reads
+ // url.pathname.slice("/issues/".length) as the id;
+ // an empty id is the handler's 400). PATCH,
+ // mutating: the dispatcher's dynamic branch applies
+ // authorize() + csrfGate() (the nextgit-e17 CSRF
+ // extension — csrfGate runs on POST AND PATCH).
+ // The target repo is the query-carried `base` (the
+ // GET /issues base), adjudicated by extractScope at
+ // the chokepoint pre-read and re-checked in the
+ // handler before any store access (the /comments
+ // POST posture). Capped 20/60s
+ // (ROUTE_RATE_LIMITS["/issues:write"]).
+ { prefix: "/issues/", method: "PATCH", action: "write", handler: (request, env) => handleIssuesPatch(request, env, new URL(request.url).pathname.slice("/issues/".length)) },
  // /proposals/{repo} — the proposal card + detail entity (AD-14 client
  // protocol). Static `/proposals` (the set view) wins for the bare
  // path; `/proposals/<repo>` falls to this prefix (static-before-
@@ -5153,7 +5568,11 @@ export default {
      // CSRF precondition (FR-45): mutating routes run the cookie-identity
      // gate after authorize() (so 401 and 403 repo-not-allowed keep
      // precedence) and before the handler. GET routes are unaffected.
-     if (request.method === "POST") {
+     // nextgit-e17: the gate covers POST AND PATCH — a PATCH close is a
+     // cross-site state change from a cookie-identity browser context the
+     // same way a POST append is (the nextgit-e17 ship-gate blocker;
+     // CONTRACT §Authorization records the extension).
+     if (request.method === "POST" || request.method === "PATCH") {
       const csrf = csrfGate(request);
       if (csrf) return csrf;
      }
@@ -5166,7 +5585,7 @@ export default {
     if (url.pathname.startsWith(route.prefix) && request.method === route.method) {
      const denied = authorize(request, env, route.action, extractScope(request));
      if (denied) return denied;
-     if (request.method === "POST") {
+     if (request.method === "POST" || request.method === "PATCH") {
       const csrf = csrfGate(request);
       if (csrf) return csrf;
      }

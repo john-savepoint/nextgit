@@ -169,7 +169,7 @@ const demoEnv = makeEnv("demo");
 // ---------------------------------------------------------------------------
 
 check("C: ROUTES is array", Array.isArray(ROUTES), `typeof ${typeof ROUTES}`);
-check("C: ROUTES has 24 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, GET /checks, GET /sessions, GET /agents, GET /harnesses)", ROUTES.length === 24, `got ${ROUTES?.length}`);
+check("C: ROUTES has 25 entries (base 9 + GET /floors, POST /upstream, POST /intents, GET /whoami, GET /tree, GET /file, GET /commits, GET /forks, GET /comments, POST /comments, GET /issues, POST /issues, GET /checks, GET /sessions, GET /agents, GET /harnesses)", ROUTES.length === 25, `got ${ROUTES?.length}`);
 const validActions = new Set(["read", "write", "judge", "reveal"]);
 let allActionsValid = true;
 let routeMap = {};
@@ -215,19 +215,22 @@ check("C: /sessions → GET read (authorize-covered)", routeMap["/sessions"]?.me
 check("C: /harnesses → GET read (authorize-covered; the federation manifest)", routeMap["/harnesses"]?.method === "GET" && routeMap["/harnesses"]?.action === "read", `got ${J(routeMap["/harnesses"] ? { method: routeMap["/harnesses"].method, action: routeMap["/harnesses"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 7 entries (landings, proposals, asset, raw, sessions, asset/uploads/, asset/uploads)", DYNAMIC_ROUTES.length === 7, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 8 entries (landings, issues, proposals, asset, raw, sessions, asset/uploads/, asset/uploads)", DYNAMIC_ROUTES.length === 8, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
-check("C: DYNAMIC_ROUTES /proposals/ → GET read",
- DYNAMIC_ROUTES[1]?.prefix === "/proposals/" && DYNAMIC_ROUTES[1]?.method === "GET" && DYNAMIC_ROUTES[1]?.action === "read",
+check("C: DYNAMIC_ROUTES /issues/ → PATCH write (the issues close-once route; authorize + csrf-covered — PATCH is a mutating verb)",
+ DYNAMIC_ROUTES[1]?.prefix === "/issues/" && DYNAMIC_ROUTES[1]?.method === "PATCH" && DYNAMIC_ROUTES[1]?.action === "write",
  `got ${J(DYNAMIC_ROUTES[1])}`);
-check("C: DYNAMIC_ROUTES /asset/ → GET read (the e12 asset download route)",
- DYNAMIC_ROUTES[2]?.prefix === "/asset/" && DYNAMIC_ROUTES[2]?.method === "GET" && DYNAMIC_ROUTES[2]?.action === "read",
+check("C: DYNAMIC_ROUTES /proposals/ → GET read",
+ DYNAMIC_ROUTES[2]?.prefix === "/proposals/" && DYNAMIC_ROUTES[2]?.method === "GET" && DYNAMIC_ROUTES[2]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[2])}`);
-check("C: DYNAMIC_ROUTES /raw/ → GET read (the repo-browsing raw-byte read; authorize-covered, the handler re-checks the path-carried repo)",
- DYNAMIC_ROUTES[3]?.prefix === "/raw/" && DYNAMIC_ROUTES[3]?.method === "GET" && DYNAMIC_ROUTES[3]?.action === "read",
+check("C: DYNAMIC_ROUTES /asset/ → GET read (the e12 asset download route)",
+ DYNAMIC_ROUTES[3]?.prefix === "/asset/" && DYNAMIC_ROUTES[3]?.method === "GET" && DYNAMIC_ROUTES[3]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[3])}`);
+check("C: DYNAMIC_ROUTES /raw/ → GET read (the repo-browsing raw-byte read; authorize-covered, the handler re-checks the path-carried repo)",
+ DYNAMIC_ROUTES[4]?.prefix === "/raw/" && DYNAMIC_ROUTES[4]?.method === "GET" && DYNAMIC_ROUTES[4]?.action === "read",
+ `got ${J(DYNAMIC_ROUTES[4])}`);
 // /sessions/ (nextgit-e16) — the FIRST dynamic POST
 // route: the session-steering write. The dispatcher's
 // dynamic branch applies authorize() + csrfGate() to
@@ -235,8 +238,8 @@ check("C: DYNAMIC_ROUTES /raw/ → GET read (the repo-browsing raw-byte read; au
 // re-checks the path-carried repo against the demo
 // allowlist (the /raw carve-out posture).
 check("C: DYNAMIC_ROUTES /sessions/ → POST write (the first dynamic POST; authorize + csrf-covered, the handler re-checks the path-carried repo)",
- DYNAMIC_ROUTES[4]?.prefix === "/sessions/" && DYNAMIC_ROUTES[4]?.method === "POST" && DYNAMIC_ROUTES[4]?.action === "write",
- `got ${J(DYNAMIC_ROUTES[4])}`);
+ DYNAMIC_ROUTES[5]?.prefix === "/sessions/" && DYNAMIC_ROUTES[5]?.method === "POST" && DYNAMIC_ROUTES[5]?.action === "write",
+ `got ${J(DYNAMIC_ROUTES[5])}`);
 // The asset presign surface (nextgit-serve-blobs-via-presigned-
 // direct-to-r2-transfers) adds TWO dynamic POST entries:
 // "/asset/uploads/" (the multipart-complete control plane) and
@@ -247,11 +250,11 @@ check("C: DYNAMIC_ROUTES /sessions/ → POST write (the first dynamic POST; auth
 // covered by the dispatcher's dynamic POST branch, and neither is
 // a static ROUTES entry (see the static-POST pin below).
 check("C: DYNAMIC_ROUTES /asset/uploads/ → POST write (the multipart-complete control plane; registered before the grant prefix)",
- DYNAMIC_ROUTES[5]?.prefix === "/asset/uploads/" && DYNAMIC_ROUTES[5]?.method === "POST" && DYNAMIC_ROUTES[5]?.action === "write",
- `got ${J(DYNAMIC_ROUTES[5])}`);
-check("C: DYNAMIC_ROUTES /asset/uploads → POST write (the direct-to-R2 upload grant)",
- DYNAMIC_ROUTES[6]?.prefix === "/asset/uploads" && DYNAMIC_ROUTES[6]?.method === "POST" && DYNAMIC_ROUTES[6]?.action === "write",
+ DYNAMIC_ROUTES[6]?.prefix === "/asset/uploads/" && DYNAMIC_ROUTES[6]?.method === "POST" && DYNAMIC_ROUTES[6]?.action === "write",
  `got ${J(DYNAMIC_ROUTES[6])}`);
+check("C: DYNAMIC_ROUTES /asset/uploads → POST write (the direct-to-R2 upload grant)",
+ DYNAMIC_ROUTES[7]?.prefix === "/asset/uploads" && DYNAMIC_ROUTES[7]?.method === "POST" && DYNAMIC_ROUTES[7]?.action === "write",
+ `got ${J(DYNAMIC_ROUTES[7])}`);
 // The static-POST set is UNCHANGED by the steer POST or the two
 // asset-upload POSTs: all three are dynamic prefixes (prefix
 // "/sessions/", "/asset/uploads/", "/asset/uploads"), not static
@@ -262,16 +265,17 @@ check("C: DYNAMIC_ROUTES /asset/uploads → POST write (the direct-to-R2 upload 
 // by the "/asset/" GET prefix (a 400 via handleAssetDownload) instead
 // of the API boundary's 405 method-not-allowed — the route-discipline
 // 405 law.
-check("C: static POST paths unchanged (the steer POST and the two asset-upload POSTs are dynamic, not static)",
+check("C: static POST paths — /issues joins the set (the steer POST and the two asset-upload POSTs stay dynamic)",
  JSON.stringify(ROUTES.filter((r) => r.method === "POST").map((r) => r.path).sort()) ===
- JSON.stringify(["/comments", "/intents", "/judge", "/land", "/reveal", "/upstream"].sort()));
-// DYNAMIC_ROUTES now carries exactly three POSTs, in order:
-// the session steer, then the multipart-complete prefix, then the
-// upload grant (complete-before-grant is load-bearing).
-check("C: DYNAMIC_ROUTES carries exactly three POSTs (/sessions/, /asset/uploads/, /asset/uploads)",
- DYNAMIC_ROUTES.filter((r) => r.method === "POST").length === 3 &&
- JSON.stringify(DYNAMIC_ROUTES.filter((r) => r.method === "POST").map((r) => r.prefix)) ===
- JSON.stringify(["/sessions/", "/asset/uploads/", "/asset/uploads"]));
+ JSON.stringify(["/comments", "/intents", "/issues", "/judge", "/land", "/reveal", "/upstream"].sort()));
+// DYNAMIC_ROUTES now carries exactly four POSTs, in order:
+// the issues close-once PATCH prefix, the session steer, then the
+// multipart-complete prefix, then the upload grant
+// (complete-before-grant is load-bearing).
+check("C: DYNAMIC_ROUTES carries exactly four mutating routes (/issues/, /sessions/, /asset/uploads/, /asset/uploads)",
+ DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").length === 4 &&
+ JSON.stringify(DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").map((r) => r.prefix)) ===
+ JSON.stringify(["/issues/", "/sessions/", "/asset/uploads/", "/asset/uploads"]));
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is
