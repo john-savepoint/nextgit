@@ -11,6 +11,7 @@ import { revealSecret } from "./reveal.js";
 import { loadForks } from "./forks-panel.js";
 import { loadIssues } from "./issues-panel.js";
 import { loadSessions, submitSteer } from "./sessions-panel.js";
+import { loadRail } from "./rail.js";
 import { submitComment } from "./comments.js";
 
 /**
@@ -125,6 +126,7 @@ export function setupInteractions() {
    loadProposals();
    loadEvents();
    loadSessions();
+   loadRail();
   });
  }
 
@@ -182,9 +184,14 @@ export function init() {
  // zero times.
  startPollers();
  loadRevealCapability();
- loadProposals();
- loadEvents();
- loadForks();
+ // The rail derives from /proposals, /events and /agents, so it
+ // renders on the refresh cycle and again once every source has
+ // settled — `agentRoster` lands LAST (forks-panel's second
+ // fetch, after /checks), so the settle re-render is what makes
+ // the first paint carry the roster's policy chips.
+ const railSources = [loadProposals(), loadEvents(), loadForks()];
  loadIssues();
  loadSessions();
+ loadRail();
+ Promise.allSettled(railSources).then(loadRail);
 }

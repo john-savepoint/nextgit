@@ -90,4 +90,7 @@ export const el = {
  judgeComparisonBadge: document.getElementById("judge-comparison-badge"), sessionsSection: document.getElementById("sessions-section"),
  sessionsList: document.getElementById("sessions-list"),
  sessionsMeta: document.getElementById("sessions-meta"),
+ railSection: document.getElementById("rail-section"),
+ railList: document.getElementById("rail-list"),
+ railMeta: document.getElementById("rail-meta"),
 };

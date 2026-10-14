@@ -5063,6 +5063,8 @@ const UI_ASSET_PATHS: Record<string, true> = {
  "/story.html": true, "/js/story-page.js": true,
  "/js/judge-comparison.js": true,
  "/js/sessions-panel.js": true,
+ // nextgit-e17 (wave-17 lane L4): the convergence rail module.
+ "/js/rail.js": true,
 };
 
 export default {

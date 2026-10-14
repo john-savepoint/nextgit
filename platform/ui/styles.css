@@ -2013,3 +2013,157 @@ html, body {
   background-color: var(--status-green-bg);
   color: var(--status-green);
 }
+/* ——— Convergence rail (nextgit-e17, wave-17 lane L4) ———
+   The per-repo timeline band. Render-only — no affordances.
+   Existing tokens only — no new color literals (the
+   contrast-register pin forbids new hues): the landing
+   chips reuse the --status-* token families (the
+   fork-policy-chip precedent), the check dots reuse the
+   checks-strip's .check-pass/.check-fail/.check-unknown,
+   and the chrome classes (.rail-* / .rail-row* /
+   .rail-chip*) are the panel's own (deliberately not
+   .section-meta / .loading-indicator), so the contrast
+   suite's structural counts are unaffected. The rail is
+   a horizontal scroll of per-repo bands. */
+.rail-section {
+  margin-bottom: var(--space-3xl);
+}
+.rail-list {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md);
+  overflow-x: auto;
+  padding-bottom: var(--space-xs);
+}
+.rail-row {
+  flex: 0 0 auto;
+  width: 20rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-inset);
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.rail-row-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+.rail-repo {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.rail-intent {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.rail-badge {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+}
+.rail-badge-attestation {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.rail-chip {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+}
+.rail-chip-ready {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-secondary);
+}
+.rail-chip-conflict {
+  border-color: var(--status-red-border);
+  background-color: var(--status-red-bg);
+  color: var(--status-red);
+}
+.rail-chip-landed {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.rail-chip-withheld-secret {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+}
+.rail-chip-unknown {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-secondary);
+}
+.rail-chip-unrecorded {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-muted);
+}
+.rail-policy {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.rail-policy .rail-chip-label {
+  color: var(--text-muted);
+}
+.rail-policy .rail-chip-value {
+  color: var(--text-secondary);
+}
+.rail-check-dots {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+.rail-policies {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+.rail-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.rail-event {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: baseline;
+  font-size: 0.6875rem;
+}
+.rail-event-type {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.rail-event-time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.rail-event-empty {
+  color: var(--text-muted);
+}
+.rail-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.rail-loading,
+.rail-unavailable {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+.rail-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}

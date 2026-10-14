@@ -8,6 +8,7 @@ import { getConflictSeverity, renderConflicts } from "./conflicts.js";
 import { renderLandVerdict } from "../land-verdict.js";
 import { checksStripHtml } from "./checks.js";
 import { refreshJudgeComparison } from "./judge-comparison.js";
+import { renderRail } from "./rail.js";
 
 /**
  * Fetch and render proposals + conflicts
@@ -460,6 +461,7 @@ export function renderProposalsView() {
  renderHeader();
  renderConflicts();
  renderProposals();
+ renderRail();
 }
 
 /**
