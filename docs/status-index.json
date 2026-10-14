@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T05:31:48.348Z",
-  "head": "af09e42",
-  "branch": "integrate-wave17",
+  "generatedAt": "2026-10-14T05:55:56.985Z",
+  "head": "1131de2",
+  "branch": "main",
   "state": {
     "lastUpdated": "2026-10-14 ",
     "branch": "main",
-    "lastCommit": "13dd275",
+    "lastCommit": "1131de2",
     "standingRedSet": null
   },
   "queue": {
     "total": 702,
     "byStatus": {
-      "pending": 419,
-      "partial": 1,
-      "done": 282
+      "pending": 412,
+      "partial": 2,
+      "done": 288
     },
     "items": [
       {
@@ -276,11 +276,6 @@
         "status": "pending",
         "priority": "P0",
         "title": "Pin isomorphic-git 1"
-      },
-      {
-        "status": "pending",
-        "priority": "P0",
-        "title": "Post-merge behavioral verification"
       },
       {
         "status": "pending",
@@ -2083,39 +2078,14 @@
         "title": "Change-set identity"
       },
       {
-        "status": "pending",
+        "status": "partial",
         "priority": "P1",
         "title": "Issues v2"
       },
       {
         "status": "pending",
         "priority": "P1",
-        "title": "Pipelines v2"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Convergence rail"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Machinery"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
-        "title": "Machinery"
-      },
-      {
-        "status": "pending",
-        "priority": "P1",
         "title": "Submission gate v2"
-      },
-      {
-        "status": "pending",
-        "priority": "P2",
-        "title": "Docs refresh"
       }
     ]
   },

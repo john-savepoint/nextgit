@@ -89,8 +89,6 @@ Ref: session history 2026-10-06T01:27, 2026-10-06T01:55, 2026-10-06T02:30 user m
 Ref: agentic-git-platform-ecosystem-feature-matrix/report.md:115,167
 - [pending] P0 — Pin isomorphic-git 1.42.x; never disk-checkout untrusted trees — CVE-2026-89011 is fixed in 1.42.0 and six further 2026 advisories include symlink/path-traversal file-write (one with potential RCE): pin latest 1.42.x, keep an advisory watch, and never check out untrusted trees to disk.
 Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:56,102
-- [pending] P0 — Post-merge behavioral verification (silent-drop guard) — Parallel agents silently drop features at merge with no error or test signal: verify behavior after merge (not just build) and surface any lost change; never let 'passed its own CI' mean safe to merge.
-Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:50,83; agentic-git-platform-ecosystem-feature-matrix/report.md:75
 - [pending] P0 — Risk-tiered specialist review over shared cached context — Implement risk-tiered review (the $0.20/$0.67/$1.68 archetype) so cheap review covers low risk and deep specialist panels are reserved for high risk; share cached context (85.7% cache-hit archetype) across reviewers.
 Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:74; agentic-git-platform-ecosystem-feature-matrix/report.md:121,255,383
 - [pending] P0 — Scale Cloudflare's coordinator->specialists->arbitration judge to sets — Borrow the strongest existing pattern (7 specialists + coordinator, 131,246 runs, 3m39s median) and scale it from one PR to a set: specialists score each proposal, the coordinator aggregates one verdict, humans arbitrate disagreements.
@@ -803,13 +801,8 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
 - [pending] P1 — Change-set identity — stable per-proposal fingerprint served on the change-set
-- [pending] P1 — Issues v2 — repo-scoped issues store (create/assign/close) + UI affordance
-- [pending] P1 — Pipelines v2 — GET /pipelines (land runs as pipeline records) + UI list
-- [pending] P2 — Convergence rail — per-project timeline (branches → collision → judge → land → events)
-- [pending] P1 — Machinery — wf-batch auto-close/parity record race (close own rows deterministically)
-- [pending] P1 — Machinery — batched claims + whitelist-equality guard + deterministic Chrome discovery
+- [partial] P1 — Issues v2 — repo-scoped issues store (create/assign/close) + UI affordance
 - [pending] P1 — Submission gate v2 — extend the live gate to the wave-16/17 surfaces
-- [pending] P2 — Docs refresh — HANDOFF/STATE route inventory + parity evidence for wave-16 surfaces
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.
@@ -901,6 +894,8 @@ Ref: docs/CHECKPOINT.md:5-9 (entry 2026-10-06; commit d0d8b17, worker 87958c11);
 Ref: demo-scope.md MUST map (set-level triage canvas); platform/ui/index.html:103; platform/ui/app.js:163-236,404-541
 - [done] P0 — Pin competition milestone calendar (deadline, finalists, finals) — Submission due Oct 14 11:59 PM PDT (single entry); finalists named Oct 16; finals Oct 21, live on stage at Cloudflare Connect, Moscone West SF — 10-minute presentation, up to 2 people flown out, winner must be present. Calendar must be treated as hard stops for every workstream.
 Ref: session history 2026-10-05 competition-terms read summary (deadline/finalists/finals); SPEC.md Constraints (due 2026-10-14, Oct 21)
+- [done] P0 — Post-merge behavioral verification (silent-drop guard) — Parallel agents silently drop features at merge with no error or test signal: verify behavior after merge (not just build) and surface any lost change; never let 'passed its own CI' mean safe to merge.
+Ref: technical-next-gen-git-platform-on-cloudflare-2026-10-02/research.md:50,83; agentic-git-platform-ecosystem-feature-matrix/report.md:75
 - [done] P0 — Production build chain: PRD → epics → registry → systematic build — John's directive: populate the DB with everything discussed — every item as a buildable row — so dynamic workflows iterate over it ad nauseum and create the entire production software in the allocated timeframe. Ordered chain: PRD (bmad-prd) → epics/stories (bmad-create-epics-and-stories) → master registry in the task store → systematic workflow build. PRD inputs (analysis, dossiers, brainstorm, SPEC+companions, judge catalog) are ready; the PRD artifact is not yet generated.
 Ref: session history 2026-10-06T02:30 user msg + assistant reply ('PRD → epics → master registry → systematic build'); docs/NEXT-ACTIONS.md [pending] P0 — Write the PRD
 - [done] P0 — Registry harvest wave: itemize every source into harvest JSONs — The 7-worker harvest itemizes every discussed capability from all sources — spec, memlog, research, judge catalog, source conversation docs, session history — into porting/harvest/<source>.json rows (title/priority/layer/scope/acceptance/check/ref) for DB import. Session coverage (this file) must capture conversation-only asks that files miss.
@@ -1176,5 +1171,10 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P1 — Judge step-5 UI — agent-set comparison + recommendation surface
 - [done] P2 — Explicit-vs-whiteboard set semantics — CONTRACT differentiation section
 - [done] P1 — Worker CPU budget hardening — large change-sets stay within the 30s wall
+- [done] P1 — Pipelines v2 — GET /pipelines (land runs as pipeline records) + UI list
+- [done] P2 — Convergence rail — per-project timeline (branches → collision → judge → land → events)
+- [done] P1 — Machinery — wf-batch auto-close/parity record race (close own rows deterministically)
+- [done] P1 — Machinery — batched claims + whitelist-equality guard + deterministic Chrome discovery
+- [done] P2 — Docs refresh — HANDOFF/STATE route inventory + parity evidence for wave-16 surfaces
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.
