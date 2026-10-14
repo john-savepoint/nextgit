@@ -124,7 +124,7 @@ async function api(method, path, body) {
     try {
       const res = await fetch(`${apiBase}${path}`, {
         method,
-        headers: apiHeaders(),
+        headers: { ...apiHeaders(), connection: "close" },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(30_000),
       });
@@ -193,7 +193,7 @@ const gitAuthEnv = (token) => ({ ...process.env, GIT_CONFIG_COUNT: "1", GIT_CONF
 async function land(body) {
   const res = await fetch(`${PLATFORM}/land`, {
     method: "POST",
-    headers: { "content-type": "application/json", "user-agent": UA },
+    headers: { "content-type": "application/json", "user-agent": UA, connection: "close" },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(120_000),
   });
@@ -203,14 +203,25 @@ async function land(body) {
 }
 
 // getJson(path): read-only GET against the platform (/changes + /merge arms).
-async function getJson(path) {
-  const res = await fetch(`${PLATFORM}${path}`, {
-    headers: { "user-agent": UA },
-    signal: AbortSignal.timeout(120_000),
-  });
-  const json = await res.json().catch(() => null);
-  console.log(`  GET ${path} -> HTTP ${res.status}`);
-  return { status: res.status, json, body: JSON.stringify(json ?? {}) };
+// Transport retry (2026-10-14): a single connect stall used to red the probe's
+// read legs; 3 attempts with backoff. POST /land deliberately stays
+// single-shot — a retried land is non-idempotent (a lost-response retry can
+// 409 base-moved); that residual is documented, not blind-retried.
+async function getJson(path, tries = 3) {
+  for (let a = 1; ; a++) {
+    try {
+      const res = await fetch(`${PLATFORM}${path}`, {
+        headers: { "user-agent": UA, connection: "close" },
+        signal: AbortSignal.timeout(120_000),
+      });
+      const json = await res.json().catch(() => null);
+      console.log(`  GET ${path} -> HTTP ${res.status}`);
+      return { status: res.status, json, body: JSON.stringify(json ?? {}) };
+    } catch (e) {
+      if (a >= tries) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * a));
+    }
+  }
 }
 
 // spawnLogs / parseTailEvents / messageTexts / messageText: the worker-log

@@ -60,22 +60,48 @@ function scanBody(text) {
 // HTTP helpers
 
 const headers = { "user-agent": UA, "content-type": "application/json" };
+// Keep-alive hazard (2026-10-14): undici pools a keep-alive socket to the edge;
+// after heavy churn the pooled socket goes half-closed and EVERY retry reuses
+// it (3x30s hangs, retry-immune). Close the connection per request — the probe
+// is low-volume and the fresh-dial cost is negligible (curl behaves this way
+// and never stalled the same window).
 
-async function getRaw(path) {
-  const res = await fetch(`${PLATFORM}${path}`, { headers, signal: AbortSignal.timeout(30_000) });
-  const text = await res.text();
-  return { status: res.status, text };
+// Transport hardening (2026-10-14, the observed class): a single WSL->edge
+// connect stall reds the whole probe because one `getRaw` timeout lands in
+// the top-level catch as "PROBE ERROR — TimeoutError". Retry the TRANSPORT
+// (not the assertion): 3 attempts, 1.5s/3s backoff, 30s per attempt. A
+// persistent stall still reds — but only after the bounded retries (5 x 30s
+// max, the post-land connection-storm class), so a genuine outage is never
+// masked. Mirrors the submission probe's jRetry.
+async function getRaw(path, tries = 5) {
+  for (let a = 1; ; a++) {
+    try {
+      const res = await fetch(`${PLATFORM}${path}`, { headers: { ...headers, connection: "close" }, signal: AbortSignal.timeout(30_000) });
+      const text = await res.text();
+      return { status: res.status, text };
+    } catch (e) {
+      if (a >= tries) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * a));
+    }
+  }
 }
 
-async function postRaw(path, body) {
-  const res = await fetch(`${PLATFORM}${path}`, {
-    method: "POST",
-    headers,
-    body: typeof body === "string" ? body : JSON.stringify(body),
-    signal: AbortSignal.timeout(30_000),
-  });
-  const text = await res.text();
-  return { status: res.status, text };
+async function postRaw(path, body, tries = 5) {
+  for (let a = 1; ; a++) {
+    try {
+      const res = await fetch(`${PLATFORM}${path}`, {
+        method: "POST",
+        headers: { ...headers, connection: "close" },
+        body: typeof body === "string" ? body : JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const text = await res.text();
+      return { status: res.status, text };
+    } catch (e) {
+      if (a >= tries) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * a));
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

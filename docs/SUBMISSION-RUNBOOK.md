@@ -208,8 +208,11 @@ The Artifacts queue-subscription source flag requires ≥4.147 (verified: presen
 
 ```bash
 node porting/tests/land-hardening.probe.mjs    # exit 0 (scratch chain demo-lh-base/agent-lh-1 only)
+sleep 65                                        # — the probe-spacing law (see below)
 node porting/tests/egress-guard.probe.mjs      # exit 0 = no credential material + self-test caught the injected token
 ```
+
+> **Probe-spacing law (verified 2026-10-14, root-caused):** chained probe reds on this box come from TWO classes: (a) **rate windows** — land-touching probes share the box IP and the worker's 60 s in-isolate limiter gates `/land` + the token-mint class, so back-to-back land probes make the second one's calls answer `429`; (b) **connection stalls** — after a land-heavy probe, the next probe's Node/undici fetches can reuse a half-dead connection (transport `TimeoutError`, retry-immune because retries reuse the same socket) while `curl`/fresh dials answer fine in the same window. Fixes, both landed in the probes themselves: every land-touching probe (`land-hardening`, `egress-guard`, `r2-land-invariance`) now sends `connection: close` per request (fresh dial — the observed deterministic fix; the `land-hardening → egress-guard` pair passes on demand after it) plus bounded transport retries on reads; POST `/land` stays single-shot (non-idempotent). Residual operator law: still space consecutive land-touching probes by ≥ 65 s for the rate class, and if a probe reds in a chain, **re-run it alone** before treating it as a platform fault — standalone-green after a chained red is this environment class, not a regression. The platform answers all routes correctly throughout (the submission gate passed inside the same chained windows).
 
 **UI-affecting deploys** add the live-page law pair:
 
@@ -226,7 +229,7 @@ Each class → its named recovery. One pass per class; if nothing recovers, esca
 
 | Class | Symptom | Recovery |
 |---|---|---|
-| **Read-route / probe red** | any §1/§2/§5 probe fails | Re-run once (edge latency). Still red → check worker deploy state: `curl $NEXTGIT_PLATFORM/health` → `{ok, service, namespace}`; `wrangler tail` for runtime errors. |
+| **Read-route / probe red** | any §1/§2/§5 probe fails | Check the probe-spacing law (§5) first — a land-touching probe run within 60 s of another land-touching probe reds on 429s; re-run it alone (green = that class). Otherwise re-run once (edge latency). Still red → check worker deploy state: `curl $NEXTGIT_PLATFORM/health` → `{ok, service, namespace}`; `wrangler tail` for runtime errors. |
 | **Demo-state red** | `demo-verify` < 25/25 | Fixture drift → **§4 reset chain**. Wave-6 incident class (stray commits in a demo fork): targeted `reset-agent-1.mjs` / `reset-agent-4.mjs`, then the full chain if uncertain. |
 | **Cache-stale red** | state looks right but `/proposals` serves old rows | `bustProposalsCache` runs automatically inside the fixture scripts; after a manual mutation the queue invalidation is the backstop (`platform/scripts/lib/bust-cache.mjs`) — wait one queue cycle or re-run the fixture script. |
 | **Scratch pollution** | `demo-verify` check 4 fails with unexpected repos | Sweep throwaway dirs: `/tmp/nextgit-agents.json`, `/tmp/real-agents/`, `agent-*-<ts>` scratch repos (the `real-agents.mjs` idiom). Scratch repos must be deleted per the demo-safety law, or the exact `agent-1..5` assertion fails. |

@@ -88,7 +88,7 @@ async function api(method, path, body) {
     try {
       const res = await fetch(`${apiBase}${path}`, {
         method,
-        headers: apiHeaders(),
+        headers: { ...apiHeaders(), connection: "close" },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(30_000),
       });
@@ -169,7 +169,7 @@ async function deleteRepo(name) {
 async function land(body) {
   const res = await fetch(`${PLATFORM}/land`, {
     method: "POST",
-    headers: { "content-type": "application/json", "user-agent": UA },
+    headers: { "content-type": "application/json", "user-agent": UA, connection: "close" },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(120_000),
   });
@@ -183,7 +183,7 @@ async function land(body) {
 // captures below are one-shot, so per-call logging would flood the verdict.
 async function getJson(path) {
   const res = await fetch(`${PLATFORM}${path}`, {
-    headers: { "user-agent": UA },
+    headers: { "user-agent": UA, connection: "close" },
     signal: AbortSignal.timeout(120_000),
   });
   const json = await res.json().catch(() => null);
@@ -334,7 +334,7 @@ try {
   console.log("\n(3) deployed module set — conflict banner copy present");
   const sha256 = (s) => createHash("sha256").update(s).digest("hex");
   const fetchText = async (asset) => {
-    const r = await fetch(`${PLATFORM}${asset}`, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(30_000) });
+    const r = await fetch(`${PLATFORM}${asset}`, { headers: { "user-agent": UA, connection: "close" }, signal: AbortSignal.timeout(30_000) });
     check(`(h) GET ${asset} -> 200`, r.status === 200, `HTTP ${r.status}`);
     return { status: r.status, text: await r.text() };
   };

@@ -95,7 +95,7 @@ async function api(method, path, body) {
   try {
    const res = await fetch(`${apiBase}${path}`, {
     method,
-    headers: apiHeaders(),
+    headers: { ...apiHeaders(), connection: "close" },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
    });
@@ -167,7 +167,7 @@ const gitAuthEnv = (token) => ({ ...process.env, GIT_CONFIG_COUNT: "1", GIT_CONF
 async function land(body) {
  const res = await fetch(`${PLATFORM}/land`, {
   method: "POST",
-  headers: { "content-type": "application/json", "user-agent": UA },
+  headers: { "content-type": "application/json", "user-agent": UA, connection: "close" },
   body: JSON.stringify(body),
   signal: AbortSignal.timeout(120_000),
  });
@@ -179,7 +179,7 @@ async function land(body) {
 // getJson(path): read-only GET against the platform (the /merge arm).
 async function getJson(path) {
  const res = await fetch(`${PLATFORM}${path}`, {
-  headers: { "user-agent": UA },
+  headers: { "user-agent": UA, connection: "close" },
   signal: AbortSignal.timeout(120_000),
  });
  const json = await res.json().catch(() => null);
