@@ -83,11 +83,11 @@ SUBMISSION LIVE GATE: PASS (30 checks)
 
 **The 30 checks, in 6 groups** (labels verbatim from `porting/tests/submission-live.probe.mjs:36-129`):
 
-**Group 1 — health + read-route matrix (14 checks):** `1 /health 200 {ok, service, namespace}`; then `1 GET <route> 200 (<label>)` for `/changes` (change-set rows), `/proposals` (≥4 proposal rows), `/merge` (merge rows), `/events` (event feed), `/floors` (floors), `/forks` (forks + six-cluster signals), `/sessions` (sessions), `/agents` (agents + policy), `/harnesses` (harnesses), `/checks` (checks), `/issues` (issues), `/tree` (tree entries), `/commits` (commit log), `/comments` (comments read).
+**Group 1 — health + read-route matrix (15 checks):** `1 /health 200 {ok, service, namespace}`; then `1 GET <route> 200 (<label>)` for `/changes` (change-set rows), `/proposals` (≥4 proposal rows), `/merge` (merge rows), `/events` (event feed), `/floors` (floors), `/forks` (forks + six-cluster signals), `/sessions` (sessions), `/agents` (agents + policy), `/harnesses` (harnesses), `/checks` (checks), `/issues` (issues), `/tree` (tree entries), `/commits` (commit log), `/comments` (comments read).
 
 **Group 2 — file read + secret-class masking on the wire (3 checks):** `2 /file text row` (classification `text`); `2 /file secret row = keys only, never a value` (agent-5 `config/.env` → classification `secret`, `keys[]`, no `value` key, no `postgres:` in the text); `2 /raw refuses secret-class 403`.
 
-**Group 3 — the audited reveal with the live demo grant (3 checks):** `3 /whoami answers`; `3 /whoami + demo identity on the granted repo -> reveal:true`; `3 POST /reveal granted 200 with the value` (the demo-viewer grant, `Bearer nextgit-demo-viewer`); `3 POST /reveal wrong identity -> 403 (never a value)`.
+**Group 3 — the audited reveal with the live demo grant (4 checks):** `3 /whoami answers`; `3 /whoami + demo identity on the granted repo -> reveal:true`; `3 POST /reveal granted 200 with the value` (the demo-viewer grant, `Bearer nextgit-demo-viewer`); `3 POST /reveal wrong identity -> 403 (never a value)`.
 
 > The reveal surface is the audited identity-gated exception to the masking law: `GET /whoami` adjudicates the presented Bearer against the `REVEAL_ALLOW` Worker var (default-deny when unset). Only the demo identity holds the grant on `agent-5`; a wrong identity gets 403 and never a value — verified live, check group 3.
 
