@@ -3,7 +3,7 @@
 // The PARITY_TABLE contract consumed by platform/ui/parity.js.
 // Strings are escaped at RENDER time (parity.js), not at generation.
 export const PARITY_TABLE = {
-  "generated": "2026-10-14T12:00:36Z",
+  "generated": "2026-10-14T17:56:07Z",
   "dimensions": [
     {
       "id": "session-steering",
@@ -18,14 +18,17 @@ export const PARITY_TABLE = {
       },
       "nextgit": {
         "status": "partial",
-        "evidence": "Honest v1: GET /sessions (feed-evidence-derived state working/idle, real activity + intent, repos absent without evidence — never fabricated) + POST /sessions/{repo}/steer (the instruction lands in the event stream the agent CLIs read; closed schema, <=500 chars, secret-class refused 403, rate-bounded 30/60s, per-steer dedup uniqueness). Mid-session LIVE process injection remains absent — documented v1 limitation. Wave-16 UI surface: sessions panel + steer composer mounted in /. Wave-19 steer poll half (GET /sessions/{repo}/instructions) ships in concurrent lane L1 — not landed at plan-phase HEAD cf436f2, so the instructions-read half is not part of this surface.",
+        "evidence": "Honest v1: GET /sessions (feed-evidence-derived state working/idle, real activity + intent, repos absent without evidence — never fabricated) + POST /sessions/{repo}/steer (the instruction lands in the event stream the agent CLIs read; closed schema, <=500 chars, secret-class refused 403, rate-bounded 30/60s, per-steer dedup uniqueness). Mid-session LIVE process injection remains absent — documented v1 limitation. Wave-16 UI surface: sessions panel + steer composer mounted in /. Wave-19 steer poll half LANDED (GET /sessions/{repo}/instructions — the recorded session.steered projection): 60/60s (/sessions:read), oldest-first within the 50-newest window, a strict ?since= cursor advance, the 50-newest cap verified at 55 steers — porting/tests/sessions-instructions.test.mjs 43 checks ALL PASS.",
         "sources": [
-          "platform/CONTRACT.md:962 (§GET /sessions)",
-          "platform/CONTRACT.md:1022 (§POST /sessions/{repo}/steer — the session.steered event seam)",
-          "platform/CONTRACT.md:1036 (steer rate — 30/60s, /sessions:write class)",
-          "platform/CONTRACT.md:960 (session.steered frame — instruction scrubbed, never echoed)",
-          "platform/CONTRACT.md:985 (honest v1 limitation — feed-evidence-derived, never process-observed)",
-          "docs/CHECKPOINT.md:14"
+          "platform/CONTRACT.md:979 (§GET /sessions)",
+          "platform/CONTRACT.md:1063 (§POST /sessions/{repo}/steer — the session.steered event seam)",
+          "platform/CONTRACT.md:1538 (steer rate — Rate-limits table: 30/60s, /sessions:write class)",
+          "platform/CONTRACT.md:977 (session.steered frame — instruction scrubbed, never echoed)",
+          "platform/CONTRACT.md:1002 (honest v1 limitation — feed-evidence-derived, never process-observed)",
+          "platform/CONTRACT.md:1004 (§GET /sessions/{repo}/instructions?since=<cursor> — the poll half of steering)",
+          "platform/CONTRACT.md:1089 (§GET /sessions/{repo}/instructions — the poll half, AD-4 single-scrub-point projection)",
+          "docs/CHECKPOINT.md:14",
+          "docs/HANDOFF-PLATFORM.md:49 (/sessions row — the poll half, nextgit-e19)"
         ]
       },
       "verdict": "below"
@@ -45,8 +48,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Artifacts forks per proposal (N=4 proven with the demo fleet agent-1..5); repo-scoped tokens with narrow scopes; per-agent repo isolation.",
         "sources": [
-          "platform/CONTRACT.md:1020 (§GET /forks — fork isolation)",
-          "platform/CONTRACT.md:1158 (§Client protocol — per-agent repos)",
+          "platform/CONTRACT.md:1204 (§GET /forks — fork isolation)",
+          "platform/CONTRACT.md:1365 (§Client protocol — per-agent repos)",
           "docs/HANDOFF-PLATFORM.md:50"
         ]
       },
@@ -66,8 +69,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Fork-point change-sets computed server-side via the binding (no clones); a proposal's change-set is vs its fork point (first shared commit) and stays stable while the base moves.",
         "sources": [
-          "platform/CONTRACT.md:650 (§Change-set semantics — fork point)",
-          "platform/CONTRACT.md:526 (§GET /changes — server-side compute)",
+          "platform/CONTRACT.md:669 (§Change-set semantics — fork point)",
+          "platform/CONTRACT.md:541 (§GET /changes — server-side compute)",
           "docs/HANDOFF-PLATFORM.md:71"
         ]
       },
@@ -88,8 +91,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Pairwise diff3 conflict map across the whole concurrent set (the /proposals summary), plus the fold preview (/merge) with per-file clean/conflict before anything lands.",
         "sources": [
-          "platform/CONTRACT.md:556 (§GET /proposals — conflict map)",
-          "platform/CONTRACT.md:693 (§GET /merge — fold preview)",
+          "platform/CONTRACT.md:572 (§GET /proposals — conflict map)",
+          "platform/CONTRACT.md:710 (§GET /merge — fold preview)",
           "docs/HANDOFF-PLATFORM.md:43"
         ]
       },
@@ -110,7 +113,7 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "The set view: all proposals as one comparable canvas (/proposals) with per-proposal stats, landing verdicts and the conflict map; auto-discovers agent-* repos.",
         "sources": [
-          "platform/CONTRACT.md:556 (§GET /proposals — the set view)",
+          "platform/CONTRACT.md:572 (§GET /proposals — the set view)",
           "docs/HANDOFF-PLATFORM.md:43"
         ]
       },
@@ -129,12 +132,12 @@ export const PARITY_TABLE = {
       },
       "nextgit": {
         "status": "shipped",
-        "evidence": "git-notes intent plumbing (refs/notes/commits) mirrored to a notes branch so intent is durable and survives the moving base; landing-decision notes (metadata-only {repos, commit, foldHash, at}) recorded after each land ride the same mirror (CONTRACT.md:1270-1283).",
+        "evidence": "git-notes intent plumbing (refs/notes/commits) mirrored to a notes branch so intent is durable and survives the moving base; landing-decision notes (metadata-only {repos, commit, foldHash, at}) recorded after each land ride the same mirror (CONTRACT.md:1477-1490).",
         "sources": [
-          "platform/CONTRACT.md:1205 (§Notes mirror — recipe)",
-          "platform/CONTRACT.md:1211 (force-push rationale)",
-          "platform/CONTRACT.md:1272 (§Landing-decision note)",
-          "platform/CONTRACT.md:1283 (reader surface)",
+          "platform/CONTRACT.md:1410 (§Notes mirror — recipe)",
+          "platform/CONTRACT.md:1418 (force-push rationale)",
+          "platform/CONTRACT.md:1477 (§Landing-decision note)",
+          "platform/CONTRACT.md:1490 (reader surface)",
           "docs/HANDOFF-PLATFORM.md:43"
         ]
       },
@@ -154,8 +157,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "SSE hub (/events/stream) + KV durable feed (/events, last 50 pushes written by the queue consumer); the UI renders chips from the stream.",
         "sources": [
-          "platform/CONTRACT.md:922 (§GET /events)",
-          "platform/CONTRACT.md:1098 (§GET /events/stream — SSE hub)",
+          "platform/CONTRACT.md:975 (§GET /events)",
+          "platform/CONTRACT.md:1305 (§GET /events/stream — SSE hub)",
           "docs/HANDOFF-PLATFORM.md:47"
         ]
       },
@@ -176,8 +179,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Server-side fold-merge + push (/land) carrying evidence {repos, commit, ancestor, heads, foldHash} — mergedSha == testedSha; advisory judge (fail-closed) before landing. Every 200 carries a signed Ed25519 attestation (canonicalized envelope, every field but sig); stored KV + R2 nextgit-evidence two-copy; honest-unavailable {status:\"unavailable\"} never fails a land. Live-verified 2026-10-14 (land-hardening.probe rc=0, keyId 1da5bb06bbb8f3a5).",
         "sources": [
-          "platform/CONTRACT.md:712 (§POST /land)",
-          "platform/CONTRACT.md:1464 (§Attestations — signed validation evidence)",
+          "platform/CONTRACT.md:729 (§POST /land)",
+          "platform/CONTRACT.md:1674 (§Attestations — signed validation evidence)",
           "docs/HANDOFF-PLATFORM.md:45"
         ]
       },
@@ -197,8 +200,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Path-based secret-class masking law (secret:true + keys[] only, no patch, no intent anywhere), schema-only views, and the audited /reveal seam — the only route that returns a value, gated and recorded.",
         "sources": [
-          "platform/CONTRACT.md:1337 (§Secret classes — masking law)",
-          "platform/CONTRACT.md:876 (§POST /reveal — the audited seam)",
+          "platform/CONTRACT.md:1547 (§Secret classes — masking law)",
+          "platform/CONTRACT.md:929 (§POST /reveal — the audited seam)",
           "docs/HANDOFF-PLATFORM.md:73"
         ]
       },
@@ -218,8 +221,8 @@ export const PARITY_TABLE = {
         "status": "partial",
         "evidence": "Bearer-token allowlist on mutating routes + GET /agents: the discovered agent roster with policy-as-data (land: manual while the interlock is off; secretClass: refused) surfaced on the forks panel. Read-only projection — developer-like policy MANAGEMENT remains absent.",
         "sources": [
-          "platform/CONTRACT.md:594 (§GET /agents)",
-          "platform/CONTRACT.md:1260 (demo-mode allowlist at the authorize() chokepoint)"
+          "platform/CONTRACT.md:611 (§GET /agents)",
+          "platform/CONTRACT.md:1467 (demo-mode allowlist at the authorize() chokepoint)"
         ]
       },
       "verdict": "below"
@@ -238,8 +241,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Clef judge (/judge, setId v1): typed judgments risk{label,score} / intent{verdict,overclaim} / collision with fail-closed 503 and egress masking; advisory-only.",
         "sources": [
-          "platform/CONTRACT.md:816 (§POST /judge)",
-          "platform/CONTRACT.md:852 (card-signal vocabulary, setId v1)",
+          "platform/CONTRACT.md:869 (§POST /judge)",
+          "platform/CONTRACT.md:905 (card-signal vocabulary, setId v1)",
           "docs/HANDOFF-PLATFORM.md:45"
         ]
       },
@@ -259,8 +262,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Inline per-line review threads: POST/GET /comments (repo-scoped, secret-class 403, closed schema, per-repo append gate) + the merge-preview modal thread (compose, optimistic append, honest failure, draft retention across tabs) — live-verified (201 -> GET round-trip; thread renders server rows; secret path refused).",
         "sources": [
-          "platform/CONTRACT.md:409 (§POST /comments)",
-          "platform/CONTRACT.md:452 (§GET /comments)",
+          "platform/CONTRACT.md:407 (§POST /comments)",
+          "platform/CONTRACT.md:450 (§GET /comments)",
           "docs/CHECKPOINT.md:14"
         ]
       },
@@ -281,8 +284,8 @@ export const PARITY_TABLE = {
         "status": "partial",
         "evidence": "BYO harness onboarding (bring-your-own agents push via the git-over-HTTPS protocol) — but no hosted third-party-agent marketplace.",
         "sources": [
-          "platform/CONTRACT.md:1133 (§GET /harnesses)",
-          "platform/CONTRACT.md:1205 (§Notes mirror — BYO push recipe)",
+          "platform/CONTRACT.md:1340 (§GET /harnesses)",
+          "platform/CONTRACT.md:1410 (§Notes mirror — BYO push recipe)",
           "docs/HANDOFF-PLATFORM.md:50"
         ]
       },
@@ -302,11 +305,11 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Files page (platform/ui/files.html + js/files-page.js) over the worker read API (GET /tree, GET /file, GET /raw) + the history page (platform/ui/history.html + GET /commits) — directory navigation, text/binary rendering, secret-class key-names-only with no raw link, commit log with per-commit changed files. Live-verified end-to-end. Per-file classification (judge idea 12): every /file 200 carries file:{language, role, sensitivity} (platform/src/classify.ts, pure path/extension law); /changes//proposals rows carry classification server-side; sensitivity is the AD-4 vocabulary (public|internal|secret). Pinned by porting/tests/classify-every-file.test.mjs (6 groups). The file-browsing surface (files page over GET /tree + /file + /commits + /raw) also serves change-set identity: identity.fingerprint (v3.9) — the change-set's stable content identity, cross-served identically on /changes and /proposals.",
         "sources": [
-          "platform/CONTRACT.md:259 (§GET /tree)",
-          "platform/CONTRACT.md:292 (§GET /file — classification + file triple)",
-          "platform/CONTRACT.md:320 (§GET /commits)",
-          "platform/CONTRACT.md:379 (§GET /raw)",
-          "platform/CONTRACT.md:552 (§identity.fingerprint v3.9 — change-set content identity, cross-served on /changes and /proposals)",
+          "platform/CONTRACT.md:257 (§GET /tree)",
+          "platform/CONTRACT.md:290 (§GET /file — classification + file triple)",
+          "platform/CONTRACT.md:318 (§GET /commits)",
+          "platform/CONTRACT.md:377 (§GET /raw)",
+          "platform/CONTRACT.md:569 (§identity.fingerprint v3.9 — change-set content identity, cross-served on /changes and /proposals)",
           "docs/CHECKPOINT.md:14"
         ]
       },
@@ -326,10 +329,10 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Full issue-tracker CRUD shipped in v3.8: GET /issues (served array = derived set then stored set, every row kind:derived|stored — derived rows carry issue:conflict|withheld-secret|stale-base|blocked-intent with key-names-only, stored rows carry state:open|closed + title/body/assignee/at); POST /issues (append a stored issue, KV JSONL at issues:<repo>, 20/60s write class); PATCH /issues/{id} (close-once — 409 on repeat close, CSRF-gated). Issues panel UI (platform/ui/js/issues-panel.js) renders the merged set. Suites: 102-check API (porting/tests/issues-api-v2.test.mjs) + 719-line UI (porting/tests/ui-issues-panel.test.mjs), both ALL PASS (CHECKPOINT WAVE 18 CLOSED).",
         "sources": [
-          "platform/CONTRACT.md:1112 (§GET /issues — derived + stored merge semantics, kind:derived|stored)",
-          "platform/CONTRACT.md:1134 (v3.8 merge semantics — derived set then stored set)",
-          "platform/CONTRACT.md:1139 (§POST /issues — append stored issue, 20/60s)",
-          "platform/CONTRACT.md:1151 (§PATCH /issues/{id} — close-once, 409 on repeat close, CSRF-gated)",
+          "platform/CONTRACT.md:1225 (§GET /issues — derived + stored merge semantics, kind:derived|stored)",
+          "platform/CONTRACT.md:1247 (v3.8 merge semantics — derived set then stored set)",
+          "platform/CONTRACT.md:1252 (§POST /issues — append stored issue, 20/60s)",
+          "platform/CONTRACT.md:1264 (§PATCH /issues/{id} — close-once, 409 on repeat close, CSRF-gated)",
           "porting/tests/issues-api-v2.test.mjs (102 checks, ALL PASS)",
           "porting/tests/ui-issues-panel.test.mjs (UI suite)",
           "platform/ui/js/issues-panel.js (issues panel UI)",
@@ -350,12 +353,13 @@ export const PARITY_TABLE = {
       },
       "nextgit": {
         "status": "partial",
-        "evidence": "GET /pipelines (CONTRACT v3.9): landed runs projected as pipeline records from the landing registry (landing:<commit> KV records via the landing-registry key — no new store/binding/namespace); checks/results ledger verbatim, status passed|not-recorded|failed, attestation union signed|unavailable|null; limit default 20 / cap 100, 60/60s. Plus GET /checks (server-authoritative per-proposal checks: fold/collision/conflicts/secrets/base, tri-state with honest unknowns) feeding the checks strip. Honest no-flip: both surfaces read back LANDED runs (post-hoc observability) or compute per-proposal checks — neither controls WHEN CI runs on agent code pre-merge; GitHub Actions provides branch controls over CI on agent code (the baseline's shipped criterion). The wave-19 push (GET /checks?format=github check-run interop) is concurrent lane L2, absent at plan-phase HEAD cf436f2. Verdict stays below.",
+        "evidence": "GET /pipelines (CONTRACT v3.9): landed runs projected as pipeline records from the landing registry (landing:<commit> KV records via the landing-registry key — no new store/binding/namespace); checks/results ledger verbatim, status passed|not-recorded|failed, attestation union signed|unavailable|null; limit default 20 / cap 100, 60/60s. Plus GET /checks (server-authoritative per-proposal checks: fold/collision/conflicts/secrets/base, tri-state with honest unknowns) feeding the checks strip. Honest no-flip: both surfaces read back LANDED runs (post-hoc observability) or compute per-proposal checks — neither controls WHEN CI runs on agent code pre-merge; GitHub Actions provides branch controls over CI on agent code (the baseline's shipped criterion). The wave-19 push (GET /checks?format=github check-run interop) LANDED (nextgit-e19-impl-checks-github-export; porting/tests/checks-github-export.test.mjs 30 checks ALL PASS). Verdict stays below.",
         "sources": [
-          "platform/CONTRACT.md:474 (§GET /checks — server-authoritative checks)",
-          "platform/CONTRACT.md:987 (§GET /pipelines — landed runs as pipeline records)",
-          "platform/CONTRACT.md:1012 (pipelines limit law — default 20, cap 100)",
-          "platform/CONTRACT.md:1014 (pipelines rate — 60/60s, /checks compute-cost class)",
+          "platform/CONTRACT.md:472 (§GET /checks — server-authoritative checks)",
+          "platform/CONTRACT.md:1028 (§GET /pipelines — landed runs as pipeline records)",
+          "platform/CONTRACT.md:1053 (pipelines limit law — default 20, cap 100)",
+          "platform/CONTRACT.md:1536 (pipelines rate — 60/60s, /checks compute-cost class)",
+          "porting/tests/checks-github-export.test.mjs (30 checks, ALL PASS) — the ?format=github check-runs leg",
           "porting/tests/pipelines-api.test.mjs (43 checks, ALL PASS)",
           "docs/SUBMISSION-RUNBOOK.md:108 (submission-live gate §11 pipelines leg)",
           "docs/CHECKPOINT.md:22 (WAVE 17 CLOSED — pipelines landed)",
@@ -378,8 +382,8 @@ export const PARITY_TABLE = {
         "status": "shipped",
         "evidence": "Ordered fold of the set (/merge, /land): the set lands as one ordered merge in declared order — a different model than a queue, but an ordered merge path.",
         "sources": [
-          "platform/CONTRACT.md:693 (§GET /merge — ordered fold)",
-          "platform/CONTRACT.md:712 (§POST /land)",
+          "platform/CONTRACT.md:710 (§GET /merge — ordered fold)",
+          "platform/CONTRACT.md:729 (§POST /land)",
           "docs/HANDOFF-PLATFORM.md:45"
         ]
       },

@@ -212,6 +212,10 @@ sleep 65                                        # — the probe-spacing law (see
 node porting/tests/egress-guard.probe.mjs      # exit 0 = no credential material + self-test caught the injected token
 ```
 
+```bash
+# wave-19/20 surface suites: bun porting/tests/sessions-instructions.test.mjs (43 checks) ; bun porting/tests/checks-github-export.test.mjs (30 checks)
+```
+
 > **Probe-red law (2026-10-14, root-caused with measurements — supersedes the earlier rate/spacing guesses):** chained probe reds on this box come from TWO measured classes:
 > **(a) Cold `/proposals` recompute ≈ 35–42 s** (measured: 42.0s cold, 0.7s warm; any land bumps `cache:gen` → cold again). A probe abort at the old 30 s timeout CANCELS the recompute mid-flight, so the cache write never completes and every retry re-aborts — the probe reds *forever* until one call is allowed to finish. Fixed: the land-touching probes' HTTP timeouts are 120 s (the worker's real compute class; `demo-verify` already used TIMEOUT_MS=120s, which is why it never red'd). Proven: cache-bust → egress-guard immediately → green (54.7 s).
 > **(b) Half-dead pooled connections.** After land-heavy churn, Node/undici can reuse a half-dead keep-alive socket; retries reuse it too (transport `TimeoutError`, retry-immune) while fresh dials answer fine. Fixed: every land-touching probe sends `connection: close` per request (fresh dial; the `land-hardening → egress-guard` reproducer pairs green on demand after it).
