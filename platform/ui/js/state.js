@@ -86,6 +86,7 @@ export const el = {
  issuesSection: document.getElementById("issues-section"),
  issuesList: document.getElementById("issues-list"),
  issuesMeta: document.getElementById("issues-meta"),
+ issuesStatus: document.getElementById("issues-status"),
  judgeComparisonSection: document.getElementById("judge-comparison-section"),
  judgeComparisonList: document.getElementById("judge-comparison-list"),
  judgeComparisonMeta: document.getElementById("judge-comparison-meta"),
