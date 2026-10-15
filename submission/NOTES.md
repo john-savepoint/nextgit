@@ -40,7 +40,7 @@ git grep -l 'api_token|api_key|secret.*=' -- 'platform/wrangler.jsonc'
 
 **Video vintage (for the freeze call):** `submission/nextgit-demo.mp4` (f3fd213, recorded 2026-10-09) predates the wave-7 integration and the `31f75bb4` deploy; it also carries recording-session blemishes (Chrome `--no-sandbox` bar, scratch-repo traffic in the ticker). Re-record is a deliberate choice, recommended in the wave-7 close-out.
 
-**Audio fix (2026-10-15):** the take's AAC track was digital silence (measured −91 dB mean/max). The identical take was re-muxed with an 8-minute music bed (seamless 7-loop crossfade of the promo theme, normalized −21 LUFS / TP −1.8 dBTP); video stream copied (no re-encode), duration 482.23 s (still inside the 5–10 min window). Eligibility gate re-run on the replaced file: ALL PASS (19/19). The silent original is preserved at `/tmp/demo-orig.mp4` on the build machine.
+**Audio fix + chrome crop (2026-10-15, final):** the take's AAC track was digital silence (measured −91 dB mean/max). The take was re-muxed with an 8-minute music bed (seamless 7-loop crossfade of the promo theme, normalized −21 LUFS / TP −1.8 dBTP), then re-encoded once more to crop the browser chrome out of frame (Chrome toolbar + the `--no-sandbox` warning bar removed; app header intact). **The shipped file is that cropped cut:** 482.24 s, 1920×1080, 17.3 MB — still inside the 5–10 min window. The eligibility gate was re-run after each swap on the exact shipped bytes: ALL PASS (19/19). Intermediates preserved on the build machine: `/tmp/demo-orig.mp4` (silent original), `/tmp/demo-v2-audiomux.mp4` (audio-only fix). Still visible in the recording: the Chrome "Can't update Chrome" popup (top-right), an idle cursor, and scratch repo names in the event ticker.
 
 ## Section B — Single-entry filing
 
@@ -78,6 +78,9 @@ the single-entry filing itself remains with the US-resident teammate.
 - Pre-push secrets sweep: tracked tree + 300-commit history scanned for
   key-shaped strings; the only match is the intentional fake-key fixture in
   `porting/tests/masking-posture.test.mjs` (`MIIByKEY` — a masking-test dummy).
+- **Post-push fixes (commits `29e6849`, `328c1a9`):** the demo's silent-audio
+  fix and the browser-chrome crop (see the addendum in §A); the
+  `submission-2026-10-15` tag now marks this fixed tip.
 
 ## License
 
