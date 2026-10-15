@@ -1,0 +1,738 @@
+{
+  "run": {
+    "platform": "https://nextgit-platform.john-b7d.workers.dev",
+    "capturedAt": "2026-10-15T06:08:23.753Z",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "dpr": {
+      "hero": 2,
+      "macros": 3
+    },
+    "chromium": "147.0.7727.15",
+    "demoState": {
+      "ok": true,
+      "base": "demo",
+      "repos": [
+        "agent-1",
+        "agent-2",
+        "agent-3",
+        "agent-4",
+        "agent-5"
+      ],
+      "conflicts": 1,
+      "heads": {
+        "agent-1": "eb2c4a49d6551fff458fb58aaf91cff3d8ce9909",
+        "agent-2": "6cf72f195281ca952e3d394bb79001fff349029a",
+        "agent-3": "4d17993d353917196b1b48cc825aa2ba4eae3b21",
+        "agent-4": "995a2ebb1b4842efc48e35e89c18d569e621d1b8",
+        "agent-5": "245e9c2ae24e161be940db9872bbc604ffee4c7d"
+      }
+    },
+    "shots": 37,
+    "warnings": [
+      "tour live-connection status not observed"
+    ],
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 400 ()"
+    ]
+  },
+  "shots": [
+    {
+      "name": "triage-viewport",
+      "rel": "assets/triage-viewport.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 425586,
+      "sha256": "9c8337e10577bb1583a5a94da16b3497ee6430591db2604ed5129f61fe853184"
+    },
+    {
+      "name": "triage-full",
+      "rel": "assets/triage-full.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": null,
+      "fullPage": true,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 7670
+      },
+      "bytes": 995463,
+      "sha256": "64774a6d6b7a6ac222280e2c84467dd83e7465b5bc0d3bb9959dda5f8f1e4391"
+    },
+    {
+      "name": "sec-header",
+      "rel": "assets/sec-header.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": ".app-header",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 19.5,
+        "width": 1388,
+        "height": 98.921875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 200
+      },
+      "bytes": 41034,
+      "sha256": "5d2115ebfa1c671bf948c491ef081ec82af01ce1ec1a9582544b53205cc1cf0f"
+    },
+    {
+      "name": "sec-ticker",
+      "rel": "assets/sec-ticker.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#ticker-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 134.671875,
+        "width": 1388,
+        "height": 27.09375
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 56
+      },
+      "bytes": 23131,
+      "sha256": "be4182a122f1581bef3ef9f7d9773eb531a03e5dca156bf7c31977af960c65c3"
+    },
+    {
+      "name": "sec-conflicts",
+      "rel": "assets/sec-conflicts.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#conflicts-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 178.015625,
+        "width": 1388,
+        "height": 140.59375
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 282
+      },
+      "bytes": 53214,
+      "sha256": "155f42ec0ea72101936e12b4b0e8ec5fd3d51ed24f67cda95a609226f6f735db"
+    },
+    {
+      "name": "sec-proposals",
+      "rel": "assets/sec-proposals.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#proposals-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 344.609375,
+        "width": 1388,
+        "height": 556.1875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 1114
+      },
+      "bytes": 303105,
+      "sha256": "754539d4228482e6334c78956817abfbf61f90ebc49ee0eb295577f6e548fad4"
+    },
+    {
+      "name": "sec-card-agent1",
+      "rel": "assets/sec-card-agent1.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#card-agent-1",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 371.609375,
+        "width": 451.828125,
+        "height": 255.96875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 904,
+        "height": 514
+      },
+      "bytes": 58065,
+      "sha256": "fee4af8c7b2ff64e45ea60dde20fd3418857df491282bfa1f98320b450223c7d"
+    },
+    {
+      "name": "sec-card-agent5",
+      "rel": "assets/sec-card-agent5.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#card-agent-5",
+      "fullPage": false,
+      "cssBox": {
+        "x": 494.078125,
+        "y": 643.828125,
+        "width": 451.828125,
+        "height": 255.96875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 904,
+        "height": 514
+      },
+      "bytes": 89991,
+      "sha256": "8a0aa92c6d23d632f9f0fe37582a00b5fd6ded0df233fcce1f5ad9d51d705b80"
+    },
+    {
+      "name": "sec-forks",
+      "rel": "assets/sec-forks.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#forks-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 925.796875,
+        "width": 1388,
+        "height": 611.0625
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 1224
+      },
+      "bytes": 121660,
+      "sha256": "bf4522526cd198f1d714ac82ad289a52df23ec19e87eed50d871155d828c8c35"
+    },
+    {
+      "name": "sec-issues",
+      "rel": "assets/sec-issues.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#issues-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 781.859375,
+        "width": 1388,
+        "height": 50.375
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 104
+      },
+      "bytes": 9200,
+      "sha256": "ffe632b037ec2c00837605b495e41e968cc73cdac40a8def129f0b9bb09cec6d"
+    },
+    {
+      "name": "sec-judge",
+      "rel": "assets/sec-judge.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#judge-comparison-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 832.234375,
+        "width": 1388,
+        "height": 384.875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 772
+      },
+      "bytes": 72993,
+      "sha256": "f50ea99ed7c373ddccb052af2a75f05811d4689070d10e1ce4d27f7df5de4613"
+    },
+    {
+      "name": "sec-pipelines",
+      "rel": "assets/sec-pipelines.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#pipelines-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 995.953125,
+        "width": 1388,
+        "height": 1453.875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 2910
+      },
+      "bytes": 275733,
+      "sha256": "725649ac31e630fa0362a32c56a96f3ed968eae466359418197cbc531c6a1bad"
+    },
+    {
+      "name": "sec-rail",
+      "rel": "assets/sec-rail.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#rail-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 1202.828125,
+        "width": 1388,
+        "height": 142.03125
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 286
+      },
+      "bytes": 60952,
+      "sha256": "289ff80ec49b4211af144555f78a6dd2cb4f013f647454a6732d4597bfaf20bc"
+    },
+    {
+      "name": "sec-sessions-empty",
+      "rel": "assets/sec-sessions-empty.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#sessions-section",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": -909.890625,
+        "width": 1388,
+        "height": 43.84375
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 88
+      },
+      "bytes": 10907,
+      "sha256": "78ba9164a4ef2cbd96c0755ee88c949c65d68866fe130f407e7a13bcbc891e6c"
+    },
+    {
+      "name": "modal-merge-clean",
+      "rel": "assets/modal-merge-clean.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#inspector-modal .modal-window",
+      "fullPage": false,
+      "cssBox": {
+        "x": 240,
+        "y": 91.34375,
+        "width": 960,
+        "height": 717.296875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 1920,
+        "height": 1436
+      },
+      "bytes": 185499,
+      "sha256": "d35335402935563bb28890a8205a85110792099e17f18d5fe4b461d60a2d21ba"
+    },
+    {
+      "name": "modal-comments",
+      "rel": "assets/modal-comments.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#inspector-modal [data-comment-thread]",
+      "fullPage": false,
+      "cssBox": {
+        "x": 257.25,
+        "y": 671.71875,
+        "width": 925.5,
+        "height": 119.671875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 1852,
+        "height": 242
+      },
+      "bytes": 16821,
+      "sha256": "34c1df9f4773952db650a68dc023288b59b0d2470b8b348eaeff3572dfa59293"
+    },
+    {
+      "name": "modal-merge-conflict",
+      "rel": "assets/modal-merge-conflict.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#inspector-modal .modal-window",
+      "fullPage": false,
+      "cssBox": {
+        "x": 240,
+        "y": 103.578125,
+        "width": 960,
+        "height": 692.84375
+      },
+      "dpr": 2,
+      "px": {
+        "width": 1920,
+        "height": 1388
+      },
+      "bytes": 184899,
+      "sha256": "160fd3fadcefa2e91114d25b0c9d9612ef6a706d9eb12b348cf2dc534ba1cd5c"
+    },
+    {
+      "name": "modal-conflict-pane",
+      "rel": "assets/modal-conflict-pane.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#inspector-modal .merge-pane.has-conflict",
+      "fullPage": false,
+      "cssBox": {
+        "x": 257.25,
+        "y": 220.953125,
+        "width": 925.5,
+        "height": 450
+      },
+      "dpr": 2,
+      "px": {
+        "width": 1852,
+        "height": 902
+      },
+      "bytes": 141004,
+      "sha256": "6baa6990df764eff338f491070ce2ace447def996741a0cbe718b1918a0c7c4f"
+    },
+    {
+      "name": "files-agent5-view",
+      "rel": "assets/files-agent5-view.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/files",
+      "selector": "main",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 87.3125,
+        "width": 1388,
+        "height": 151
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 304
+      },
+      "bytes": 21553,
+      "sha256": "8d3504b25aa78515e306c4dbf4e020be74eb45d4a638f867a15ef98df417a707"
+    },
+    {
+      "name": "files-agent5-env-secret",
+      "rel": "assets/files-agent5-env-secret.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/files",
+      "selector": "#file-viewer",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 196.875,
+        "width": 1388,
+        "height": 118
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 238
+      },
+      "bytes": 15871,
+      "sha256": "cc46e50ae8919b6886ac64a17f11d058afd58b1426e9ef5e9f62267ce0abf50f"
+    },
+    {
+      "name": "files-agent5-env-revealed",
+      "rel": "assets/files-agent5-env-revealed.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/files",
+      "selector": "#file-viewer",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 196.875,
+        "width": 1388,
+        "height": 167.125
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 336
+      },
+      "bytes": 30573,
+      "sha256": "668251d4125860f4b371759efd586902fa57ba01e9b0f6f8d4b8fab868ea4169"
+    },
+    {
+      "name": "files-agent1-auth",
+      "rel": "assets/files-agent1-auth.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/files",
+      "selector": "#file-viewer",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 312.25,
+        "width": 1388,
+        "height": 515.75
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 1032
+      },
+      "bytes": 159124,
+      "sha256": "206856df054528d037e95b2c3fa3f7754be4de7bcaa1542327e9133656d1798b"
+    },
+    {
+      "name": "files-agent1-view",
+      "rel": "assets/files-agent1-view.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/files",
+      "selector": "main",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 87.3125,
+        "width": 1388,
+        "height": 740.6875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 1482
+      },
+      "bytes": 186844,
+      "sha256": "234d62af5eda0c00295aba9835120b7173fae7d828713c50e8fbf2083eefb32b"
+    },
+    {
+      "name": "history-viewport",
+      "rel": "assets/history-viewport.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/history?repo=agent-1&ref=eb2c4a49d6551fff458fb58aaf91cff3d8ce9909",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 223418,
+      "sha256": "e7888e234834dc89dc222e5b14b69ec9823c285fd09e67df44f7c9af067f6a03"
+    },
+    {
+      "name": "history-detail",
+      "rel": "assets/history-detail.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/history?repo=agent-1&ref=eb2c4a49d6551fff458fb58aaf91cff3d8ce9909",
+      "selector": "#commit-detail",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 616.03125,
+        "width": 1388,
+        "height": 59.46875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 2776,
+        "height": 120
+      },
+      "bytes": 12831,
+      "sha256": "614da645f26dc6b909d1c3d67e8bf0816ac3b533fbc332637675a62e1338bb48"
+    },
+    {
+      "name": "parity-viewport",
+      "rel": "assets/parity-viewport.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/parity",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 505395,
+      "sha256": "2768f56ca8e29764bcf38b469d07d06601f8c629dff6f4f17d75ea5385428bab"
+    },
+    {
+      "name": "parity-full",
+      "rel": "assets/parity-full.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/parity",
+      "selector": null,
+      "fullPage": true,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 4506
+      },
+      "bytes": 1357644,
+      "sha256": "79c60d933f550714dc25141d37c167526a55ac9a5c147e0830adebb81dc3fd10"
+    },
+    {
+      "name": "tour-step-01",
+      "rel": "assets/tour-step-01.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/tour",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 210542,
+      "sha256": "718885e4058fbc3c7c7351f1f7329a1349e7b9b5ed9df99c1f3afde7e46c7cac"
+    },
+    {
+      "name": "tour-step-04",
+      "rel": "assets/tour-step-04.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/tour",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 165022,
+      "sha256": "979c520efa2821da464c825a6cb0d66f2ea1d4069a930ab0bb530e5f50738425"
+    },
+    {
+      "name": "tour-step-07-live",
+      "rel": "assets/tour-step-07-live.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/tour",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 207282,
+      "sha256": "26f0a18f9a9d1894c3cc889228f0f8683d56ffce0c94a430b1cb0d2265b92311"
+    },
+    {
+      "name": "tour-step-09",
+      "rel": "assets/tour-step-09.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/tour",
+      "selector": null,
+      "fullPage": false,
+      "cssBox": null,
+      "dpr": 2,
+      "px": {
+        "width": 2880,
+        "height": 1800
+      },
+      "bytes": 177071,
+      "sha256": "5e2fa989559468fadaa94a39c4d0fe0dad58267cf9ddf6a741e2c1a37b372e4f"
+    },
+    {
+      "name": "macro-card-agent1",
+      "rel": "assets/macro-card-agent1.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#card-agent-1",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 372.609375,
+        "width": 451.828125,
+        "height": 255.96875
+      },
+      "dpr": 2,
+      "px": {
+        "width": 1356,
+        "height": 771
+      },
+      "bytes": 95041,
+      "sha256": "0f091071a5ac7769e16dae3fcf09e542bdf3229b1e8ff05113374cf8b4bd744f"
+    },
+    {
+      "name": "macro-rail-agent1",
+      "rel": "assets/macro-rail-agent1.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#rail-agent-1",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 3602.828125,
+        "width": 260,
+        "height": 112.09375
+      },
+      "dpr": 2,
+      "px": {
+        "width": 780,
+        "height": 339
+      },
+      "bytes": 33905,
+      "sha256": "0cb7cd15e61efe08d80b6af2eb3a73dd900fad24355505ec934460b6add5e1d2"
+    },
+    {
+      "name": "macro-pipeline-row",
+      "rel": "assets/macro-pipeline-row.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#pipelines-list .pipeline-row",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": -812.046875,
+        "width": 1388,
+        "height": 62.03125
+      },
+      "dpr": 2,
+      "px": {
+        "width": 4164,
+        "height": 189
+      },
+      "bytes": 22194,
+      "sha256": "8ce1021574ed712c755f4bc7dcf147760599c47441ae12ce56f76e6a573d2cb2"
+    },
+    {
+      "name": "macro-judge-row",
+      "rel": "assets/macro-judge-row.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#judge-comparison-list .judge-comparison-row",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": -38.640625,
+        "width": 1388,
+        "height": 70.03125
+      },
+      "dpr": 2,
+      "px": {
+        "width": 4164,
+        "height": 213
+      },
+      "bytes": 15352,
+      "sha256": "4043fbaf25c5683367c2668df04e0bce51a726b639973b31789e3e33cbfad5d7"
+    },
+    {
+      "name": "macro-fork-agent5",
+      "rel": "assets/macro-fork-agent5.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/",
+      "selector": "#fork-agent-5",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": -591.640625,
+        "width": 1388,
+        "height": 108.8125
+      },
+      "dpr": 2,
+      "px": {
+        "width": 4164,
+        "height": 330
+      },
+      "bytes": 38578,
+      "sha256": "5ad329d6f9314a31d0e52c7da00aeb6b9c091e279ceebd3982679703f1136120"
+    },
+    {
+      "name": "macro-env-revealed",
+      "rel": "assets/macro-env-revealed.png",
+      "url": "https://nextgit-platform.john-b7d.workers.dev/files",
+      "selector": "#file-viewer",
+      "fullPage": false,
+      "cssBox": {
+        "x": 26,
+        "y": 196.875,
+        "width": 1388,
+        "height": 167.125
+      },
+      "dpr": 2,
+      "px": {
+        "width": 4164,
+        "height": 504
+      },
+      "bytes": 49105,
+      "sha256": "976eab50c2776a14b08c5540bb19e9c3b867d1caa9c79bef20a29f618aa616a6"
+    }
+  ]
+}

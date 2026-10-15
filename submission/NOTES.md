@@ -52,6 +52,31 @@ git grep -l 'api_token|api_key|secret.*=' -- 'platform/wrangler.jsonc'
 
 **Ready artifacts:** README.md, LICENSE (8169aa2), platform/package.json (license field), CONTRACT.md (v2.3), index.ts, demo-verify.mjs (25/25), submission/NOTES.md (this file).
 
+## Section C — Public repository (repo location)
+
+**Repo:** https://github.com/john-savepoint/nextgit — public, MIT.
+
+Pushed 2026-10-15 from local HEAD `d217015` (wave-19 integrated tree +
+wave-20 plan commit). This performs the `submission-repo-location` half of
+`nextgit-submission-repo-location-single-entry-registered-by-oct-14`;
+the single-entry filing itself remains with the US-resident teammate.
+
+- Submission-eligibility gate re-run at push time: **ALL PASS (19 checks)**,
+  including R3.9–R3.11 on `submission/nextgit-demo.mp4` (482.76 s measured).
+  The demo-video vintage note in Section A stands (re-record optional; the
+  promo cut in `video/nextgit-promo/` is a separate short-form artifact).
+- The push includes `video/nextgit-promo/` — the promo film's brief,
+  storyboard, locked script, capture rig, and 37 fresh 2×/3× captures of the
+  live deployed platform (canonical demo state, demo-verify PASS 25/25).
+- Wave-20 in-flight lane work (proposals-warm, sessions-mediums, api-hygiene,
+  pipeline-notify, mobile-pass, docs-refresh) is **not** in this push — the
+  lane branches live in local refs and the working-tree edits were stashed
+  (`wave20 main leaks (round 13)`) so the public tree stays a coherent,
+  gate-green state.
+- Pre-push secrets sweep: tracked tree + 300-commit history scanned for
+  key-shaped strings; the only match is the intentional fake-key fixture in
+  `porting/tests/masking-posture.test.mjs` (`MIIByKEY` — a masking-test dummy).
+
 ## License
 
 MIT

@@ -1,0 +1,3314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<style>/* nextgit — convergence triage UI
+   Aesthetic: near-black (#0a0e14 range), subtle 1px borders, dual type
+   (sans UI copy, ui-monospace for paths/hashes/diffs/IDs), generous
+   whitespace, no emoji, no heavy gradients
+*/
+
+:root {
+  --bg-app: #0a0e14;
+  --bg-surface: #0f141c;
+  --bg-surface-elevated: #141b24;
+  --bg-card: #111822;
+  --bg-card-hover: #151e2b;
+  --bg-subtle: #182230;
+  --bg-inset: #070a0e;
+  
+  --border-subtle: #1c2634;
+  --border-default: #253346;
+  --border-focus: #3e5473;
+  
+  /* Text ramp — contrast floor (PRD NFR-9 / DESIGN.md "Contrast notes").
+     --text-primary and --text-secondary are AA-safe for small text on every
+     surface (≈16.4–6.3:1). --text-muted (≈3.3:1 on app) and --text-dim (≈2.1:1)
+     are BELOW the 4.5:1 floor: confined to meta and ambient chrome only — chip
+     labels, section meta, timestamps, pair regions, diff meta rows, the footer,
+     and the ticker pulse/empty registers. Never use them for body copy or state
+     and content messaging (empty states, loading text, diff placeholders, the
+     landed banner). Raising the two values is a pending decision — do not edit
+     the token values to work around this. */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b9bb0;
+  --text-muted: #57657a;
+  --text-dim: #3d4959;
+  
+  /* Status & Severity */
+  --status-green: #2ea043;
+  --status-green-bg: rgba(46, 160, 67, 0.12);
+  --status-green-border: rgba(46, 160, 67, 0.35);
+  
+  --status-red: #f85149;
+  --status-red-bg: rgba(248, 81, 73, 0.12);
+  --status-red-border: rgba(248, 81, 73, 0.35);
+  
+  --status-amber: #d29922;
+  --status-amber-bg: rgba(210, 153, 34, 0.12);
+  --status-amber-border: rgba(210, 153, 34, 0.35);
+  
+  --status-neutral: #7d8590;
+  --status-neutral-bg: rgba(125, 133, 144, 0.12);
+  --status-neutral-border: rgba(125, 133, 144, 0.3);
+
+  --accent-blue: #58a6ff;
+  --accent-blue-bg: rgba(88, 166, 255, 0.1);
+  --accent-blue-border: rgba(88, 166, 255, 0.3);
+  
+  --diff-add-bg: rgba(46, 160, 67, 0.15);
+  --diff-add-text: #3fb950;
+  --diff-del-bg: rgba(248, 81, 73, 0.15);
+  --diff-del-text: #f85149;
+  --diff-hunk-bg: rgba(88, 166, 255, 0.08);
+  --diff-hunk-text: #79c0ff;
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Spacing scale — 2xs→5xl, rooted at the 13px base (DESIGN.md "spacing").
+     Values are today's literals, tokenized verbatim; every rem in the
+     component rules below is an expression of these tokens. */
+  --space-2xs: 0.1rem;
+  --space-xs: 0.15rem;
+  --space-sm: 0.25rem;
+  --space-sm-plus: 0.375rem;
+  --space-md: 0.5rem;
+  --space-md-plus: 0.625rem;
+  --space-lg: 0.75rem;
+  --space-lg-plus: 0.875rem;
+  --space-xl: 1rem;
+  --space-xl-plus: 1.125rem;
+  --space-2xl: 1.25rem;
+  --space-2xl-plus: 1.5rem;
+  --space-3xl: 2rem;
+  --space-3xl-plus: 2.5rem;
+  --space-4xl: 3rem;
+  --space-5xl: 4rem;
+
+  /* Shapes — square by default; radius only for the physical exceptions
+     (status indicators, toggle track; circles draw 50% direct). */
+  --radius: 0;
+  --radius-sm: 2px;
+  --radius-full: 999px;
+
+  /* Elevation — the only two shadows in the spine (conflict card, modal). */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  /* Motion — the only two durations in the spine. 0.15s standard, 0.12s
+     fast (card actions). Under prefers-reduced-motion the kill-switch at
+     the file foot zeroes every transition/animation, so these tokens
+     carry the normal-mode values only. Durations are pinned by
+     ui-reduced-motion.test.mjs — do not retune. */
+  --motion-fast: 0.12s;
+  --motion-std: 0.15s;
+  --motion-ease: ease;
+}
+
+/* Action banner */
+.action-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md-plus) var(--space-xl);
+  border: 1px solid var(--border-default);
+  font-size: 0.8125rem;
+  margin-bottom: var(--space-2xl);
+  gap: var(--space-xl);
+  transition: all var(--motion-std) var(--motion-ease);
+}
+.action-banner[hidden] {
+  display: none;
+}
+.action-banner.banner-success {
+  background-color: var(--status-green-bg);
+  border-color: var(--status-green-border);
+  color: var(--status-green);
+}
+.action-banner.banner-error {
+  background-color: var(--status-red-bg);
+  border-color: var(--status-red-border);
+  color: var(--status-red);
+}
+.action-banner.banner-warn {
+  background-color: var(--status-amber-bg);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+.action-banner-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.action-banner-msg {
+  overflow-wrap: anywhere;
+}
+.action-banner-msg .commit-sha {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  padding: var(--space-2xs) 0.35rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+}
+.action-banner-msg .action-hint {
+  color: var(--text-secondary);
+  margin-left: var(--space-md);
+}
+.action-banner-close {
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  padding: 0.2rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.action-banner-close:hover {
+  opacity: 0.8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Machine tokens render mono under the dual-typography regime:
+   paths, hashes, diffs, and merge panes stay monospace; all
+   other copy (brand, titles, chips, badges, banners, empty
+   states, footer) inherits the sans root; the nine control
+   affordances (.action-banner-close, .connection-banner-action,
+   .btn-refresh, .btn-tour-header, .btn-tour-help, .btn-card-action,
+   .btn-file-diff, .btn-reveal, .btn-close-modal) keep an explicit
+   mono declaration — a deliberate instrument aesthetic, preserved
+   value-for-value. */
+.commit-sha,
+.file-path,
+.merge-file-tab,
+.diff-viewer,
+.diff-line,
+.merge-pane,
+.reveal-value,
+.ref-spec .val {
+  font-family: var(--font-mono);
+}
+
+/* App container */
+.app-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-2xl-plus) var(--space-3xl) var(--space-5xl);
+}
+
+/* Connection banner */
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md-plus) var(--space-xl);
+  background-color: var(--status-red-bg);
+  border: 1px solid var(--status-red-border);
+  color: var(--status-red);
+  font-size: 0.8125rem;
+  margin-bottom: var(--space-2xl);
+}
+.connection-banner[hidden] {
+  display: none;
+}
+.connection-banner-action {
+  background: transparent;
+  border: 1px solid var(--status-red-border);
+  color: var(--status-red);
+  padding: 0.2rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.connection-banner-action:hover {
+  background: rgba(248, 81, 73, 0.2);
+}
+
+/* Header */
+.app-header {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2xl);
+  margin-bottom: var(--space-2xl);
+}
+.header-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-lg-plus);
+}
+.brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-lg);
+}
+.brand-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.brand-title .sep {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin: 0 var(--space-xs);
+}
+.brand-subtitle {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.875rem;
+}
+.ref-spec {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  padding: var(--space-xs) var(--space-md);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+.ref-spec .val {
+  color: var(--accent-blue);
+}
+
+.header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-lg-plus);
+}
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-input {
+  appearance: none;
+  width: 2rem;
+  height: 1.125rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--motion-std) var(--motion-ease), border-color var(--motion-std) var(--motion-ease);
+}
+.toggle-input::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  width: 0.875rem;
+  height: 0.875rem;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform var(--motion-std) var(--motion-ease), background var(--motion-std) var(--motion-ease);
+}
+.toggle-input:checked {
+  background: var(--status-green-bg);
+  border-color: var(--status-green-border);
+}
+.toggle-input:checked::after {
+  transform: translateX(0.875rem);
+  background: var(--status-green);
+}
+
+.btn-refresh {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 0.3rem var(--space-lg);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background var(--motion-std) var(--motion-ease), border-color var(--motion-std) var(--motion-ease);
+}
+.btn-refresh:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-focus);
+}
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-tour-header {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  color: var(--accent-blue);
+  padding: 0.3rem var(--space-lg);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--motion-std) var(--motion-ease), border-color var(--motion-std) var(--motion-ease), color var(--motion-std) var(--motion-ease);
+}
+.btn-tour-header:hover {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--accent-blue);
+  color: #fff;
+  text-decoration: none;
+}
+.btn-tour-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--motion-std) var(--motion-ease);
+}
+.btn-tour-help:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-focus);
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+/* Summary chips */
+.header-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md-plus);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  min-height: 28px;
+  transition: all var(--motion-std) var(--motion-ease);
+}
+.summary-chip .chip-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+.summary-chip .chip-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.summary-chip.is-alert {
+  border-color: var(--status-red-border);
+  background-color: var(--status-red-bg);
+}
+.summary-chip.is-alert .chip-value {
+  color: var(--status-red);
+}
+.summary-chip.is-warn {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+}
+.summary-chip.is-warn .chip-value {
+  color: var(--status-amber);
+}
+.summary-chip.is-clean {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+}
+.summary-chip.is-clean .chip-value {
+  color: var(--status-green);
+}
+
+/* Ticker */
+.ticker-section {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 0.35rem var(--space-lg);
+  margin-bottom: var(--space-2xl);
+  overflow: hidden;
+  gap: var(--space-lg);
+}
+.ticker-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ticker-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--status-green);
+  opacity: 0.8;
+}
+.ticker-pulse.is-stale {
+  background-color: var(--text-dim);
+}
+.ticker-pulse.is-fallback {
+  background-color: var(--status-amber);
+}
+.ticker-events {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ticker-events::-webkit-scrollbar {
+  display: none;
+}
+.ticker-event {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.ticker-event .event-type {
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  padding: var(--space-2xs) 0.35rem;
+  font-size: 0.6875rem;
+}
+.ticker-event .event-repo {
+  color: var(--text-primary);
+}
+.ticker-event .event-time {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.ticker-empty {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+/* Layout section headers */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg-plus);
+}
+.section-title {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.section-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Conflict panel */
+.conflicts-section {
+  margin-bottom: var(--space-3xl);
+}
+.conflicts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.conflict-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  padding: var(--space-xl) var(--space-xl-plus);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md-plus);
+  box-shadow: var(--shadow-card);
+}
+.conflict-card.severity-red {
+  border-left: 4px solid var(--status-red);
+  background: linear-gradient(90deg, rgba(248, 81, 73, 0.05) 0%, var(--bg-surface) 120px);
+}
+.conflict-card.severity-amber {
+  border-left: 4px solid var(--status-amber);
+  background: linear-gradient(90deg, rgba(210, 153, 34, 0.05) 0%, var(--bg-surface) 120px);
+}
+.conflict-card.severity-neutral {
+  border-left: 4px solid var(--status-neutral);
+}
+
+.conflict-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.conflict-file {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.conflict-badge-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.badge-red {
+  background-color: var(--status-red-bg);
+  border-color: var(--status-red-border);
+  color: var(--status-red);
+}
+.badge-amber {
+  background-color: var(--status-amber-bg);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+.badge-neutral {
+  background-color: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
+  color: var(--status-neutral);
+}
+.badge-secret {
+  background-color: rgba(210, 153, 34, 0.15);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+.badge-clean {
+  background-color: var(--status-green-bg);
+  border-color: var(--status-green-border);
+  color: var(--status-green);
+}
+
+.conflict-repos-involved {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.conflict-repos-involved .repo-tag {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-2xs) 0.4rem;
+  color: var(--text-primary);
+}
+
+.conflict-pairs {
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-md) var(--space-lg);
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm-plus);
+}
+.conflict-pair-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+}
+.pair-endpoints {
+  color: var(--text-primary);
+}
+.pair-region {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* Proposals grid */
+.proposals-section {
+  margin-bottom: var(--space-3xl);
+}
+.proposals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  gap: var(--space-2xl);
+}
+.proposal-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-xl) var(--space-xl-plus);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  transition: border-color var(--motion-std) var(--motion-ease), opacity var(--motion-std) var(--motion-ease);
+}
+.proposal-card:hover {
+  border-color: var(--border-default);
+}
+.proposal-card.is-landed {
+  opacity: 0.55;
+  border-style: dashed;
+  background-color: var(--bg-surface);
+}
+.proposal-card.is-landed:hover {
+  opacity: 0.85;
+}
+.proposal-card.is-withheld-secret {
+  border-left: 4px solid var(--status-amber);
+  background: linear-gradient(90deg, rgba(210, 153, 34, 0.05) 0%, var(--bg-card) 120px);
+}
+.proposal-card.is-conflict {
+  border-left: 4px solid var(--status-red);
+  background: linear-gradient(90deg, rgba(248, 81, 73, 0.05) 0%, var(--bg-card) 120px);
+}
+.proposal-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-md);
+}
+.proposal-repo-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+.proposal-badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.proposal-badges .chip-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+.judge-overclaim {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+}
+.proposal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm-plus);
+  flex-wrap: wrap;
+}
+.btn-card-action {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--motion-ease);
+  line-height: 1.2;
+}
+.btn-card-action:hover:not(:disabled) {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.btn-card-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-land {
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+.btn-land:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+.btn-land.is-confirming {
+  background: var(--status-amber-bg);
+  border-color: var(--status-amber-border);
+  color: var(--status-amber);
+}
+.btn-land.is-confirming:hover:not(:disabled) {
+  background: rgba(210, 153, 34, 0.25);
+  color: #fff;
+}
+.btn-cancel-land {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+.btn-cancel-land:hover {
+  color: var(--text-primary);
+}
+
+.proposal-intent {
+  background: var(--bg-surface);
+  border-left: 2px solid var(--accent-blue);
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.proposal-intent .intent-label {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.35rem;
+  font-weight: 400;
+}
+
+.proposal-stats {
+  display: flex;
+  gap: var(--space-lg);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.stat-item .stat-num {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.stat-item.additions .stat-num { color: var(--diff-add-text); }
+.stat-item.deletions .stat-num { color: var(--diff-del-text); }
+
+.landed-banner {
+  padding: var(--space-lg) var(--space-xl);
+  background-color: var(--bg-inset);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.landed-banner .landed-status {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.proposal-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm-plus);
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-sm-plus) var(--space-md-plus);
+  font-size: 0.75rem;
+  gap: var(--space-md);
+}
+.file-path-col {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+  flex: 1;
+}
+.file-path {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-status-indicator {
+  font-size: 0.625rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.file-status-indicator.status-added {
+  background: var(--diff-add-bg);
+  color: var(--diff-add-text);
+}
+.file-status-indicator.status-modified {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+.file-status-indicator.status-removed {
+  background: var(--diff-del-bg);
+  color: var(--diff-del-text);
+}
+
+.file-actions-col {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+.file-counts {
+  font-size: 0.6875rem;
+}
+.file-counts .adds { color: var(--diff-add-text); margin-right: 0.25rem; }
+.file-counts .dels { color: var(--diff-del-text); }
+
+.btn-file-diff {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  padding: var(--space-xs) 0.45rem;
+  cursor: pointer;
+}
+.btn-file-diff:hover {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.secret-keys-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.secret-key-tag {
+  background: rgba(210, 153, 34, 0.12);
+  border: 1px solid rgba(210, 153, 34, 0.25);
+  color: var(--status-amber);
+  padding: 0.05rem 0.35rem;
+  font-size: 0.625rem;
+}
+
+/* Elevated-reveal affordance (CAP-8): the control renders only for an
+   authorized viewer (reveal:true from /whoami); the value slot renders only
+   from the audited POST /reveal response. 44px touch target, focus ring,
+   hover — tokens match the neighboring badge/secret blocks; no new hue. */
+.btn-reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--space-md) var(--space-xl);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-reveal:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+.btn-reveal:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+.reveal-value {
+  margin-top: var(--space-xl);
+  padding: var(--space-lg);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.reveal-value[hidden] {
+  display: none;
+}
+.reveal-value-line {
+  white-space: pre-wrap;
+}
+
+/* Modals / Drawers for Diff and Merge Preview */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(4, 7, 11, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-2xl-plus);
+}
+.modal-backdrop[hidden] {
+  display: none;
+}
+.modal-window {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  width: 100%;
+  max-width: 960px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-modal);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg-plus) var(--space-2xl);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-elevated);
+}
+.modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+.modal-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn-close-modal {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+.btn-close-modal:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--space-2xl);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Diff viewer */
+.diff-viewer {
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-x: auto;
+}
+.diff-line {
+  display: flex;
+  padding: 0 var(--space-md);
+  white-space: pre;
+}
+.diff-line.line-add {
+  background-color: var(--diff-add-bg);
+  color: var(--diff-add-text);
+}
+.diff-line.line-del {
+  background-color: var(--diff-del-bg);
+  color: var(--diff-del-text);
+}
+.diff-line.line-hunk {
+  background-color: var(--diff-hunk-bg);
+  color: var(--diff-hunk-text);
+}
+.diff-line.line-meta {
+  color: var(--text-muted);
+}
+.diff-placeholder {
+  padding: var(--space-3xl);
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Merge viewer */
+.merge-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+.merge-files-tabs {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-sm);
+}
+.merge-file-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+}
+.merge-file-tab.active {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+.merge-pane {
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-lg) var(--space-xl);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+  min-height: 200px;
+  max-height: 50vh;
+}
+.merge-pane.has-conflict {
+  border-color: var(--status-red-border);
+}
+
+/* Repo files page (files.html) */
+.files-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.files-picker-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.files-picker {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.5rem;
+}
+.files-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+}
+.files-crumb {
+  color: var(--accent-blue);
+}
+.files-crumb:hover {
+  color: var(--text-primary);
+}
+.files-crumb-sep {
+  color: var(--text-muted);
+}
+.files-crumb-current {
+  color: var(--text-secondary);
+}
+.files-tree {
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-card);
+  margin-bottom: 1.25rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.files-tree:empty {
+  display: none;
+}
+.files-row {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.files-row:last-child {
+  border-bottom: none;
+}
+.files-dir {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+.files-dir:hover,
+.files-file:hover {
+  background-color: var(--bg-card-hover);
+}
+.files-secret {
+  color: var(--status-amber);
+}
+.files-empty {
+  padding: 0.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.files-viewer {
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-inset);
+}
+.files-meta {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.files-content {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 50vh;
+}
+.files-raw-link {
+  display: inline-block;
+  padding: 0.375rem 1rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+}
+.files-reveal {
+  padding: 0 1rem 0.75rem;
+}
+.files-raw-link:hover {
+  color: var(--text-primary);
+}
+/* Author display:inline-block would override the UA [hidden] rule — the
+   companion rule every .action-banner/.reveal-value-style surface carries.
+   Without it, a secret-class view shows a DEAD "raw" affordance. */
+.files-raw-link[hidden] {
+  display: none;
+}
+.files-back-link {
+  font-size: 0.75rem;
+}
+
+/* Empty states */
+.empty-state {
+  padding: var(--space-3xl-plus) var(--space-xl);
+  text-align: center;
+  border: 1px dashed var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+}
+.empty-state-title {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-sm);
+}
+.empty-state-desc {
+  font-size: 0.75rem;
+}
+
+/* Loading indicator */
+.loading-indicator {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+/* Footer info */
+.app-footer {
+  margin-top: var(--space-4xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  font-size: 0.6875rem;
+}
+
+/* Focus visibility — keyboard focus indicator on every interactive control
+   (EXPERIENCE.md Accessibility Floor 'To build': the border-strong {colors.border-focus} lift) */
+.btn-refresh:focus-visible,
+.btn-tour-header:focus-visible,
+.btn-tour-help:focus-visible,
+.toggle-input:focus-visible,
+.btn-card-action:focus-visible,
+.btn-file-diff:focus-visible,
+.btn-close-modal:focus-visible,
+.connection-banner-action:focus-visible,
+.action-banner-close:focus-visible,
+.merge-file-tab:focus-visible,
+.comment-line-input:focus-visible,
+.comment-body-input:focus-visible,
+.btn-comment-submit:focus-visible,
+.files-row:focus-visible,
+.files-crumb:focus-visible,
+.files-picker:focus-visible,
+.files-raw-link:focus-visible,
+.history-row:focus-visible,
+.history-crumb:focus-visible,
+.history-files-link:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Phone-width touch targets — every listed control presents a ≥44×44px hit area at ≤720px
+   viewports (EXPERIENCE.md Accessibility Floor 'To build': touch targets ≥44px at phone widths;
+   PRD NFR-9). The auto-refresh toggle targets its wrapping label so the 2rem pill is not resized. */
+@media (max-width: 720px) {
+  .btn-refresh,
+  .btn-tour-header,
+  .btn-tour-help,
+  .toggle-label,
+  .btn-card-action,
+  .btn-file-diff,
+  .btn-close-modal,
+  .connection-banner-action,
+  .action-banner-close,
+  .merge-file-tab,
+  .comment-line-input,
+  .comment-body-input,
+  .btn-comment-submit,
+  .files-row,
+  .files-crumb,
+  .files-picker,
+  .files-raw-link,
+  .history-row,
+  .history-crumb,
+  .history-files-link,
+  .issue-close,
+  .steer-send {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ——— prefers-reduced-motion honoring ———
+   Scope: platform/ui/styles.css
+   When the user prefers reduced motion, kill every transition and animation
+   so no element in the triage app animates. The ticker pulse (.ticker-pulse)
+   is a static tint by design (background-color swap, no transition/animation),
+   so it is unaffected in either mode. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ——— Commit history page (wave-14) ———
+   history.html + js/history-page.js. Existing tokens only — no new color
+   literals. Mirrors the wave-13 files-page rules value-for-value so the two
+   repo-browsing surfaces render identically (.files-controls/.files-tree/
+   .files-row/.files-secret/.files-empty/.files-viewer/.files-meta/
+   .files-crumb*). The machine-token mono regime (see the .commit-sha /
+   .file-path rule) is honored on .history-sha. */
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.history-files-link {
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+}
+.history-files-link:hover {
+  color: var(--text-primary);
+}
+.history-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+}
+.history-crumb {
+  color: var(--accent-blue);
+}
+.history-crumb:hover {
+  color: var(--text-primary);
+}
+.history-crumb-sep {
+  color: var(--text-muted);
+}
+.history-crumb-current {
+  color: var(--text-secondary);
+}
+.history-list {
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-card);
+  margin-bottom: 1.25rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.history-list:empty {
+  display: none;
+}
+.history-row {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.history-row:last-child {
+  border-bottom: none;
+}
+.history-row:hover {
+  background-color: var(--bg-card-hover);
+}
+.history-sha {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.history-meta {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.history-detail {
+  margin-top: 1.25rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-inset);
+}
+.history-detail-meta {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.history-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history-empty,
+.history-root-note {
+  padding: 0.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.commit-file-row {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.commit-file-row:last-child {
+  border-bottom: none;
+}
+.commit-asset {
+  color: var(--text-secondary);
+}
+.commit-secret {
+  color: var(--status-amber);
+}
+
+/* ——— Forks panel (wave-14) ———
+   The six-cluster fork-signals triage section (CAP-10). Existing tokens
+   only — no new color literals. The chip row wraps (flex-wrap) so a
+   narrow viewport never scrolls horizontally. The .forks-meta /
+   .forks-loading / .forks-unavailable / .forks-empty* classes are the
+   panel's own (deliberately not .section-meta / .loading-indicator /
+   .empty-state*), so the contrast suite's structural counts are
+   unaffected. */
+.forks-section {
+  margin-bottom: var(--space-3xl);
+}
+.forks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.forks-loading {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.forks-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.forks-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.forks-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.forks-empty-desc {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.fork-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-xl) var(--space-xl-plus);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.fork-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.fork-repo-title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.fork-base {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.fork-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.fork-signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  background-color: var(--status-neutral-bg);
+  border: 1px solid var(--status-neutral-border);
+  color: var(--text-secondary);
+}
+.fork-signal-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.fork-signal-value {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+/* Policy chips (wave-15 GET /agents) — the same chip language as the signal
+   row above, so the two rows read as one card system. Tokens only. */
+.fork-policy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.fork-policy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  background-color: var(--status-neutral-bg);
+  border: 1px solid var(--status-neutral-border);
+  color: var(--text-secondary);
+}
+.fork-policy-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.fork-policy-value {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* ——— land confirm sheet (decision-point surface) ———
+   Scope: platform/ui/styles.css
+   The land confirm sheet carries the what-the-land-will-do line and the
+   judge's verdict at the two-step confirm point. Mirrors the .landed-banner
+   precedent (inset bg, dashed border, secondary text); the container is a
+   column so the sheet cannot perturb the action row's flex layout, and the
+   in-card .action-hint re-scopes the copy that .action-banner-msg scopes
+   nowhere else. */
+.land-confirm-sheet {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--bg-inset);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.land-confirm-sheet .action-hint {
+  color: var(--text-secondary);
+}
+
+/* Per-proposal checks strip (wave-14). Tri-state; `unknown` is neutral —
+   never green (the honesty law). Text uses AA-safe tokens; state is carried
+   by the border/background tint plus the detail copy. */
+.checks-strip {
+  display: flex; flex-wrap: wrap; gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+.check {
+  display: inline-flex; align-items: center; gap: var(--space-sm);
+  padding: 0 var(--space-md-plus);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere;
+}
+.check-label {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 0.625rem;
+}
+.check-detail { font-family: var(--font-mono); color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
+.check-pass { border-color: var(--status-green-border); background: var(--status-green-bg); }
+.check-fail { border-color: var(--status-red-border); background: var(--status-red-bg); }
+.check-unknown { border-color: var(--status-neutral-border); background: var(--status-neutral-bg); }
+
+/* Inline review comments (merge preview modal) — the per-file thread + composer.
+   Meta chrome (author/line/time) uses --text-muted (the contrast-register
+   boundary); STATE text (sending… / failed — …) is state messaging and renders
+   in the AA register — --text-secondary in flight, --status-red on failure —
+   mirroring .loading-indicator and .comment-thread-error; body copy uses
+   --text-primary. Bodies wrap with overflow-wrap: anywhere so a long comment can
+   never cause horizontal overflow. */
+.comment-thread {
+  margin-top: var(--space-xl);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-lg);
+}
+.comment-thread-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+}
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.comment-item {
+  border-left: 2px solid var(--border-subtle);
+  padding: var(--space-sm-plus) var(--space-lg);
+  background-color: var(--bg-inset);
+  min-width: 0;
+}
+.comment-item.is-pending {
+  border-left-color: var(--status-neutral-border);
+}
+.comment-item.is-failed {
+  border-left-color: var(--status-red-border);
+}
+.comment-meta {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2xs);
+  overflow-wrap: anywhere;
+}
+.comment-state {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+.comment-item.is-failed .comment-state {
+  color: var(--status-red);
+}
+.comment-body {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.comment-compose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+.comment-line-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+.comment-line-input {
+  width: 5rem;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: var(--space-sm) var(--space-md);
+}
+.comment-body-input {
+  flex: 1 1 20rem;
+  min-width: 0;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  padding: var(--space-md);
+  resize: vertical;
+}
+.btn-comment-submit {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+.btn-comment-submit:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.btn-comment-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.comment-thread.is-refused {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.comment-thread-error {
+  font-size: 0.8125rem;
+  color: var(--status-red);
+  overflow-wrap: anywhere;
+}
+ /* nextgit-e16 (wave-16 L3): the story page — tier grid + live R2 chip. */
+.story-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+}
+.story-heading {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  margin: 0;
+}
+.story-lede {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0;
+  max-width: 70ch;
+}
+.story-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  gap: var(--space-md);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.story-tier {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 0.5rem);
+  padding: var(--space-md);
+}
+.story-tier-name {
+  color: var(--accent-blue);
+  font-size: 1rem;
+  margin: 0;
+}
+.story-tier-kind {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.story-tier-holds,
+.story-tier-serves {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+.story-code {
+  font-family: var(--font-mono);
+}
+.story-asset-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 6px);
+  padding: var(--space-md);
+}
+.story-asset-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 0.5rem);
+}
+.story-loading {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.story-asset-row {
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm, 0.5rem);
+  font-size: 0.875rem;
+}
+.story-asset-path {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.story-asset-field {
+  font-family: var(--font-mono);
+}
+.story-asset-label {
+  color: var(--text-secondary);
+}
+.story-asset-blob {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.story-asset-caption {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+/* ——— Judge-set comparison (nextgit-e16, wave-16 lane-4) ———
+   The comparison surface over the platform's own recorded
+   /judge artifacts. Render-only — no new affordances. The
+   recommendation badge reuses the land-confirm-sheet's
+   inset language; rows reuse the fork-card posture. Tokens
+   only — no new color literals. */
+.judge-comparison-section {
+  margin-bottom: var(--space-3xl);
+}
+.judge-comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.judge-comparison-loading,
+.judge-comparison-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.judge-comparison-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.judge-comparison-row {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-xl);
+}
+.judge-comparison-repo {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.judge-comparison-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.judge-comparison-score {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.judge-comparison-badge {
+  background-color: var(--bg-inset);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: var(--space-sm) var(--space-md);
+}
+.judge-comparison-badge .judge-comparison-repo {
+  font-weight: 600;
+}
+.judge-comparison-disclaimer {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+.judge-comparison-skip {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.judge-comparison-empty {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* ——— Sessions panel (wave-16) ———
+   The honest v1 session list + the per-repo steer
+   composer. Var-only styling — no new color literals.
+   State chips reuse the --status-* token families
+   (the fork-policy-chip precedent); the panel's
+   chrome classes (.sessions-* / .session-* /
+   .steer-*) are the panel's own (deliberately not
+   .section-meta / .loading-indicator), so the
+   contrast suite's structural counts are unaffected. */
+.sessions-section {
+  margin-bottom: var(--space-3xl);
+}
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.sessions-loading {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.sessions-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.sessions-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.sessions-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.session-row {
+  border-left: 2px solid var(--border-subtle);
+  padding: var(--space-sm-plus) var(--space-lg);
+  background-color: var(--bg-inset);
+  min-width: 0;
+}
+.session-row-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+.session-repo {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.session-state {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+.session-state-working {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.session-state-idle {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-muted);
+}
+.session-state-blocked {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+}
+.session-state-unknown {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--status-neutral);
+}
+.session-intent {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.session-last-event {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.steer-composer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.steer-input {
+  flex: 1 1 20rem;
+  min-width: 0;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  padding: var(--space-sm);
+  resize: vertical;
+}
+.steer-send {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+.steer-send:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.steer-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.steer-send[data-steer-sent="1"] {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+
+/* ——— Session instructions subsection (nextgit-e19) ———
+   The GET /sessions/{repo}/instructions projection rendered
+   inside each .session-row, newest-first. The
+   .session-instructions register is ambient meta and
+   var-only — no new color literals (the contrast-suite
+   structural discipline): the instruction rows reuse the
+   --text-secondary / --text-muted ramp and --font-mono, the
+   session-instructions row chrome reuses --space-sm. A repo
+   with no recorded instruction renders the honest
+   .session-instructions-empty state — the
+   .session-instructions subsection never fabricates a row. */
+.session-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.session-instruction {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-sm);
+}
+.session-instruction-text {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.session-instruction-time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.session-instructions-empty {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* ——— Issues composer + close affordance (nextgit-e18, wave-18) ———
+   The POST /issues composer and the stored-row close
+   button (PATCH /issues/{id}). Var-only styling — no
+   new color literals (the pipelines-panel discipline):
+   the composer chrome reuses --bg-inset /
+   --border-subtle / --text-* tokens, the closing state
+   reuses the --status-amber family, the failed row's
+   state reuses --status-red, and the closed chip reuses
+   --status-neutral. The .issue-state / .issue-body
+   registers are ambient meta (the 0.75rem muted ramp),
+   never a color-only signal — the state word is
+   always rendered as text. */
+.issue-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-md);
+  margin-top: var(--space-md);
+}
+.issue-composer-title,
+.issue-composer-body,
+.issue-composer-severity {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: var(--space-xs) var(--space-sm);
+}
+.issue-composer-body {
+  resize: vertical;
+}
+.issue-composer-severity {
+  align-self: flex-start;
+}
+.issue-composer-submit,
+.issue-close {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.issue-composer-submit:hover:not(:disabled),
+.issue-close:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.issue-composer-submit:disabled,
+.issue-close:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.issue-close[data-closing="1"] {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+}
+.issue-row.is-pending,
+.issue-row.is-failed {
+  opacity: 0.7;
+}
+.issue-row.is-failed .issue-state {
+  color: var(--status-red);
+}
+.issue-body {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.issue-state {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.issue-state.closed {
+  color: var(--status-neutral);
+}
+
+/* ——— Pipelines panel (nextgit-e17, wave-17) ———
+   Landed runs as pipeline records (GET /pipelines).
+   Var-only styling — no new color literals. Status
+   chips reuse the --status-* token families (the
+   session-state-chip precedent); the panel's chrome
+   classes (.pipelines-* / .pipeline-*) are the
+   panel's own (deliberately not .section-meta /
+   .loading-indicator), so the contrast suite's
+   structural counts are unaffected. The status word
+   is always rendered as text, never color-only. */
+.pipelines-section {
+  margin-bottom: var(--space-3xl);
+}
+.pipelines-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.pipelines-loading {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.pipelines-unavailable {
+  display: inline-block;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.pipelines-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.pipelines-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.pipeline-row {
+  border-left: 2px solid var(--border-subtle);
+  padding: var(--space-sm-plus) var(--space-lg);
+  background-color: var(--bg-inset);
+  min-width: 0;
+}
+.pipeline-row-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+.pipeline-sha {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+.pipeline-repos {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2xs);
+}
+.pipeline-row-footer {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+.pipeline-at {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.pipeline-link {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.pipeline-status {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-secondary);
+}
+.pipeline-status-passed {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.pipeline-status-failed {
+  border-color: var(--status-red-border);
+  background-color: var(--status-red-bg);
+  color: var(--status-red);
+}
+.pipeline-status-not-recorded {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.pipeline-status-unknown {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.pipeline-attestation {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-secondary);
+}
+.pipeline-attestation-signed {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.pipeline-attestation-unavailable {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.pipeline-attestation-unrecorded {
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+/* ——— Convergence rail (nextgit-e17, wave-17 lane L4) ———
+   The per-repo timeline band. Render-only — no affordances.
+   Existing tokens only — no new color literals (the
+   contrast-register pin forbids new hues): the landing
+   chips reuse the --status-* token families (the
+   fork-policy-chip precedent), the check dots reuse the
+   checks-strip's .check-pass/.check-fail/.check-unknown,
+   and the chrome classes (.rail-* / .rail-row* /
+   .rail-chip*) are the panel's own (deliberately not
+   .section-meta / .loading-indicator), so the contrast
+   suite's structural counts are unaffected. The rail is
+   a horizontal scroll of per-repo bands. */
+.rail-section {
+  margin-bottom: var(--space-3xl);
+}
+.rail-list {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md);
+  overflow-x: auto;
+  padding-bottom: var(--space-xs);
+}
+.rail-row {
+  flex: 0 0 auto;
+  width: 20rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-inset);
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.rail-row-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+.rail-repo {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.rail-intent {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.rail-badge {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+}
+.rail-badge-attestation {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.rail-chip {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+}
+.rail-chip-ready {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-secondary);
+}
+.rail-chip-conflict {
+  border-color: var(--status-red-border);
+  background-color: var(--status-red-bg);
+  color: var(--status-red);
+}
+.rail-chip-landed {
+  border-color: var(--status-green-border);
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+}
+.rail-chip-withheld-secret {
+  border-color: var(--status-amber-border);
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+}
+.rail-chip-unknown {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-secondary);
+}
+.rail-chip-unrecorded {
+  border-color: var(--status-neutral-border);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-muted);
+}
+.rail-policy {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.rail-policy .rail-chip-label {
+  color: var(--text-muted);
+}
+.rail-policy .rail-chip-value {
+  color: var(--text-secondary);
+}
+.rail-check-dots {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+.rail-policies {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+.rail-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.rail-event {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: baseline;
+  font-size: 0.6875rem;
+}
+.rail-event-type {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.rail-event-time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.rail-event-empty {
+  color: var(--text-muted);
+}
+.rail-empty-title {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.rail-loading,
+.rail-unavailable {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+.rail-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+</style>
+
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Connection error banner -->
+    <div id="connection-banner" class="connection-banner" hidden role="alert">
+      <span id="connection-banner-msg">Disconnected from platform worker. Retrying...</span>
+      <button id="connection-banner-retry" class="connection-banner-action" type="button">Retry now</button>
+    </div>
+
+    <!-- Action notification / banner -->
+    <div id="action-banner" class="action-banner" hidden role="status" aria-live="polite">
+      <div class="action-banner-content">
+        <span id="action-banner-badge" class="badge"></span>
+        <span id="action-banner-msg" class="action-banner-msg"></span>
+      </div>
+      <button id="action-banner-close" class="action-banner-close" type="button" aria-label="Dismiss banner">dismiss</button>
+    </div>
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-group">
+          <h1 class="brand-title">NextGit<span class="sep">/</span><span class="brand-subtitle">your agents' work, all in one place</span></h1>
+          <div class="ref-spec" id="ref-spec">
+            base: <span class="val" id="base-val">demo</span> · ref: <span class="val" id="ref-val">main</span>
+          </div>
+        </div>
+
+        <div class="header-controls">
+          <label class="toggle-label" title="Poll /proposals every 8 seconds">
+            <input type="checkbox" id="auto-refresh-toggle" class="toggle-input" checked>
+            <span>auto-refresh (8s)</span>
+          </label>
+          <button id="btn-manual-refresh" class="btn-refresh" type="button" title="Fetch proposals now">
+            refresh
+          </button>
+          <a href="tour.html" class="btn-tour-header" title="Interactive tour: how NextGit works">Start the tour</a>
+          <a href="parity.html" class="btn-tour-header" title="Capability parity vs GitHub: what we ship vs the baseline">Capability parity</a>
+          <a href="files.html" class="btn-tour-header" title="Browse repo files (secret-class paths render key names only)">Repo files</a>
+          <a href="tour.html" class="btn-tour-help" title="Tour & Help" aria-label="Tour and help">?</a>
+      </div>
+
+      <!-- Summary chips -->
+      <div class="header-summary" id="header-summary">
+        <div class="summary-chip" id="chip-proposals">
+          <span class="chip-label">proposals</span>
+          <span class="chip-value" id="val-proposals">5</span>
+        </div>
+        <div class="summary-chip is-warn" id="chip-shared">
+          <span class="chip-label">shared files</span>
+          <span class="chip-value" id="val-shared">1</span>
+        </div>
+        <div class="summary-chip is-alert" id="chip-conflicts">
+          <span class="chip-label">conflicting pairs</span>
+          <span class="chip-value" id="val-conflicts">1</span>
+        </div>
+        <div class="summary-chip" id="chip-changed">
+          <span class="chip-label">changed files</span>
+          <span class="chip-value" id="val-changed">4</span>
+        </div>
+        <div class="summary-chip" id="chip-clean">
+          <span class="chip-label">clean pairs</span>
+          <span class="chip-value" id="val-clean">0</span>
+        </div>
+      </div>
+    </div></header>
+
+    <!-- Live ticker -->
+    <div class="ticker-section" id="ticker-section" aria-label="Live event ticker">
+      <div class="ticker-label">
+        <span class="ticker-pulse" id="ticker-pulse" title="event feed status"></span>
+        <span>events</span>
+      </div>
+      <div class="ticker-events" id="ticker-events">
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">demo-lh-base</span>
+          <span class="event-time">00:42:31</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">demo-lh-base</span>
+          <span class="event-time">00:42:31</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">demo-lh-base</span>
+          <span class="event-time">00:42:30</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">demo-lh-base</span>
+          <span class="event-time">00:42:30</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">demo-lh-base</span>
+          <span class="event-time">00:42:29</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">demo-lh-base</span>
+          <span class="event-time">00:42:29</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">agent-lh-1</span>
+          <span class="event-time">00:42:29</span>
+        </div>
+      
+        <div class="ticker-event">
+          <span class="event-type">repo.pushed</span>
+          <span class="event-repo">agent-lh-1</span>
+          <span class="event-time">00:42:29</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content: Conflicts & Proposals -->
+    <main>
+      <!-- Conflict panel -->
+      <section class="conflicts-section" id="conflicts-section">
+        <div class="section-header">
+          <h2 class="section-title">Convergence Conflicts</h2>
+          <span class="section-meta" id="conflicts-meta">1 detected</span>
+        </div>
+        <div class="conflicts-list" id="conflicts-list">
+        <div class="conflict-card severity-red">
+          <div class="conflict-card-header">
+            <span class="conflict-file">src/auth.ts</span>
+            <div class="conflict-badge-group">
+              <span class="badge badge-red">text-conflict</span>
+            </div>
+          </div>
+          <div class="conflict-repos-involved">
+            <span>proposals:</span>
+            <span class="repo-tag">agent-1</span><span class="repo-tag">agent-2</span>
+          </div>
+          <div class="conflict-pairs">
+            
+                  <div class="conflict-pair-row">
+                    <span class="pair-endpoints">agent-1 ↔ agent-2</span>
+                    <span class="pair-kind">text-conflict</span>
+                    <span class="pair-region">(base: 2L, agent-1: 7L, agent-2: 2L)</span>
+                  </div>
+                
+          </div>
+        </div>
+      </div>
+      </section>
+
+      <!-- Proposal Cards Grid -->
+      <section class="proposals-section" id="proposals-section">
+        <div class="section-header">
+          <h2 class="section-title">Concurrent Proposals</h2>
+          <span class="section-meta" id="proposals-meta">5 active</span>
+        </div>
+        <div class="proposals-grid" id="proposals-grid">
+        <div class="proposal-card" id="card-agent-1">
+          <div class="proposal-card-header">
+            <span class="proposal-repo-title">agent-1</span>
+            <span class="proposal-semantics-note">proposals — explicit intent sets land; whiteboard groupings never land</span>
+            <div class="proposal-badges"><span class="badge badge-amber" title="risk score 1.5069"><span class="chip-label">risk:</span> focused</span><span class="badge badge-neutral">insufficient</span><span class="badge badge-amber" title="semantic collision — same behavior as another proposal (distinct from the diff3 conflict map)">soft collision</span></div>
+            <div class="proposal-actions">
+              
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="agent-1">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" data-action="start-land" data-repo="agent-1">Land into demo</button>
+        
+            </div>
+          </div>
+
+          <div class="checks-strip" role="group" aria-label="proposal checks"><span class="check check-pass" data-check="fold" title="fold: folds clean"><span class="check-label">fold</span><span class="check-detail">folds clean</span></span><span class="check check-fail" data-check="collision" title="collision: text-conflict · src/auth.ts"><span class="check-label">collision</span><span class="check-detail">text-conflict · src/auth.ts</span></span><span class="check check-fail" data-check="conflicts" title="conflicts: 1"><span class="check-label">conflicts</span><span class="check-detail">1</span></span><span class="check check-pass" data-check="secrets" title="secrets: none"><span class="check-label">secrets</span><span class="check-detail">none</span></span><span class="check check-unknown" data-check="base" title="base: fork point not in set payload"><span class="check-label">base</span><span class="check-detail">fork point not in set payload</span></span></div>
+          
+          <div class="proposal-intent"><span class="intent-label">intent:</span>Refactor: session refresh with TTL</div>
+          
+                <div class="proposal-stats">
+                  <span class="stat-item"><span class="stat-num">1</span> files</span>
+                  <span class="stat-item additions"><span class="stat-num">+6</span></span>
+                  <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+                </div>
+
+                <div class="proposal-files-list">
+                  
+            <div class="file-row">
+              <div class="file-path-col">
+                <span class="file-status-indicator status-modified">modified</span>
+                <span class="file-path" title="src/auth.ts">src/auth.ts</span>
+                
+              </div>
+              <div class="file-actions-col">
+                
+                <div class="file-counts">
+                  <span class="adds">+6</span>
+                  <span class="dels">-0</span>
+                </div>
+                <button class="btn-file-diff" type="button" data-repo="agent-1" data-path="src/auth.ts">view diff</button>
+              </div>
+            </div>
+          
+                </div>
+              
+        </div>
+      
+        <div class="proposal-card" id="card-agent-2">
+          <div class="proposal-card-header">
+            <span class="proposal-repo-title">agent-2</span>
+            <span class="proposal-semantics-note">proposals — explicit intent sets land; whiteboard groupings never land</span>
+            <div class="proposal-badges"><span class="badge badge-amber" title="risk score 1.6028"><span class="chip-label">risk:</span> focused</span><span class="badge badge-clean">intent verified</span><span class="judge-overclaim" title="overclaim probability">overclaim 0.3233</span></div>
+            <div class="proposal-actions">
+              
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="agent-2">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" data-action="start-land" data-repo="agent-2">Land into demo</button>
+        
+            </div>
+          </div>
+
+          <div class="checks-strip" role="group" aria-label="proposal checks"><span class="check check-pass" data-check="fold" title="fold: folds clean"><span class="check-label">fold</span><span class="check-detail">folds clean</span></span><span class="check check-fail" data-check="collision" title="collision: text-conflict · src/auth.ts"><span class="check-label">collision</span><span class="check-detail">text-conflict · src/auth.ts</span></span><span class="check check-fail" data-check="conflicts" title="conflicts: 1"><span class="check-label">conflicts</span><span class="check-detail">1</span></span><span class="check check-pass" data-check="secrets" title="secrets: none"><span class="check-label">secrets</span><span class="check-detail">none</span></span><span class="check check-unknown" data-check="base" title="base: fork point not in set payload"><span class="check-label">base</span><span class="check-detail">fork point not in set payload</span></span></div>
+          
+          <div class="proposal-intent"><span class="intent-label">intent:</span>Fix: clock-skew leeway for expiry</div>
+          
+                <div class="proposal-stats">
+                  <span class="stat-item"><span class="stat-num">1</span> files</span>
+                  <span class="stat-item additions"><span class="stat-num">+2</span></span>
+                  <span class="stat-item deletions"><span class="stat-num">-2</span></span>
+                </div>
+
+                <div class="proposal-files-list">
+                  
+            <div class="file-row">
+              <div class="file-path-col">
+                <span class="file-status-indicator status-modified">modified</span>
+                <span class="file-path" title="src/auth.ts">src/auth.ts</span>
+                
+              </div>
+              <div class="file-actions-col">
+                
+                <div class="file-counts">
+                  <span class="adds">+2</span>
+                  <span class="dels">-2</span>
+                </div>
+                <button class="btn-file-diff" type="button" data-repo="agent-2" data-path="src/auth.ts">view diff</button>
+              </div>
+            </div>
+          
+                </div>
+              
+        </div>
+      
+        <div class="proposal-card" id="card-agent-3">
+          <div class="proposal-card-header">
+            <span class="proposal-repo-title">agent-3</span>
+            <span class="proposal-semantics-note">proposals — explicit intent sets land; whiteboard groupings never land</span>
+            <div class="proposal-badges"><span class="badge badge-amber" title="risk score 0.8707"><span class="chip-label">risk:</span> focused</span><span class="badge badge-clean">intent verified</span><span class="judge-overclaim" title="overclaim probability">overclaim 0.51</span></div>
+            <div class="proposal-actions">
+              
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="agent-3">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" data-action="start-land" data-repo="agent-3">Land into demo</button>
+        
+            </div>
+          </div>
+
+          <div class="checks-strip" role="group" aria-label="proposal checks"><span class="check check-pass" data-check="fold" title="fold: folds clean"><span class="check-label">fold</span><span class="check-detail">folds clean</span></span><span class="check check-pass" data-check="collision" title="collision: none"><span class="check-label">collision</span><span class="check-detail">none</span></span><span class="check check-pass" data-check="conflicts" title="conflicts: 0"><span class="check-label">conflicts</span><span class="check-detail">0</span></span><span class="check check-pass" data-check="secrets" title="secrets: none"><span class="check-label">secrets</span><span class="check-detail">none</span></span><span class="check check-unknown" data-check="base" title="base: fork point not in set payload"><span class="check-label">base</span><span class="check-detail">fork point not in set payload</span></span></div>
+          
+          <div class="proposal-intent"><span class="intent-label">intent:</span>Perf: memoize store reads</div>
+          
+                <div class="proposal-stats">
+                  <span class="stat-item"><span class="stat-num">1</span> files</span>
+                  <span class="stat-item additions"><span class="stat-num">+16</span></span>
+                  <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+                </div>
+
+                <div class="proposal-files-list">
+                  
+            <div class="file-row">
+              <div class="file-path-col">
+                <span class="file-status-indicator status-modified">modified</span>
+                <span class="file-path" title="src/store.ts">src/store.ts</span>
+                
+              </div>
+              <div class="file-actions-col">
+                
+                <div class="file-counts">
+                  <span class="adds">+16</span>
+                  <span class="dels">-0</span>
+                </div>
+                <button class="btn-file-diff" type="button" data-repo="agent-3" data-path="src/store.ts">view diff</button>
+              </div>
+            </div>
+          
+                </div>
+              
+        </div>
+      
+        <div class="proposal-card" id="card-agent-4">
+          <div class="proposal-card-header">
+            <span class="proposal-repo-title">agent-4</span>
+            <span class="proposal-semantics-note">proposals — explicit intent sets land; whiteboard groupings never land</span>
+            <div class="proposal-badges"><span class="badge badge-amber" title="risk score 0.7581"><span class="chip-label">risk:</span> focused</span><span class="badge badge-clean">intent verified</span><span class="judge-overclaim" title="overclaim probability">overclaim 0.5248</span></div>
+            <div class="proposal-actions">
+              
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="agent-4">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" data-action="start-land" data-repo="agent-4">Land into demo</button>
+        
+            </div>
+          </div>
+
+          <div class="checks-strip" role="group" aria-label="proposal checks"><span class="check check-pass" data-check="fold" title="fold: folds clean"><span class="check-label">fold</span><span class="check-detail">folds clean</span></span><span class="check check-pass" data-check="collision" title="collision: none"><span class="check-label">collision</span><span class="check-detail">none</span></span><span class="check check-pass" data-check="conflicts" title="conflicts: 0"><span class="check-label">conflicts</span><span class="check-detail">0</span></span><span class="check check-pass" data-check="secrets" title="secrets: none"><span class="check-label">secrets</span><span class="check-detail">none</span></span><span class="check check-unknown" data-check="base" title="base: fork point not in set payload"><span class="check-label">base</span><span class="check-detail">fork point not in set payload</span></span></div>
+          
+          <div class="proposal-intent"><span class="intent-label">intent:</span>Feature: checkout flags + env template</div>
+          
+                <div class="proposal-stats">
+                  <span class="stat-item"><span class="stat-num">1</span> files</span>
+                  <span class="stat-item additions"><span class="stat-num">+29</span></span>
+                  <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+                </div>
+
+                <div class="proposal-files-list">
+                  
+            <div class="file-row">
+              <div class="file-path-col">
+                <span class="file-status-indicator status-added">added</span>
+                <span class="file-path" title="src/feature.ts">src/feature.ts</span>
+                
+              </div>
+              <div class="file-actions-col">
+                
+                <div class="file-counts">
+                  <span class="adds">+29</span>
+                  <span class="dels">-0</span>
+                </div>
+                <button class="btn-file-diff" type="button" data-repo="agent-4" data-path="src/feature.ts">view diff</button>
+              </div>
+            </div>
+          
+                </div>
+              
+        </div>
+      
+        <div class="proposal-card is-withheld-secret" id="card-agent-5">
+          <div class="proposal-card-header">
+            <span class="proposal-repo-title">agent-5</span>
+            <span class="proposal-semantics-note">proposals — explicit intent sets land; whiteboard groupings never land</span>
+            <div class="proposal-badges"></div>
+            <div class="proposal-actions">
+              
+          <span class="badge badge-amber">blocked</span>
+          <button class="btn-card-action btn-preview-merge" type="button" data-repo="agent-5">preview merge</button>
+          <button class="btn-card-action btn-land" type="button" disabled>withheld-secret file — landing blocked</button>
+        
+            </div>
+          </div>
+
+          <div class="checks-strip" role="group" aria-label="proposal checks"><span class="check check-fail" data-check="fold" title="fold: secret-class blocks fold"><span class="check-label">fold</span><span class="check-detail">secret-class blocks fold</span></span><span class="check check-pass" data-check="collision" title="collision: none"><span class="check-label">collision</span><span class="check-detail">none</span></span><span class="check check-pass" data-check="conflicts" title="conflicts: 0"><span class="check-label">conflicts</span><span class="check-detail">0</span></span><span class="check check-fail" data-check="secrets" title="secrets: withheld"><span class="check-label">secrets</span><span class="check-detail">withheld</span></span><span class="check check-unknown" data-check="base" title="base: fork point not in set payload"><span class="check-label">base</span><span class="check-detail">fork point not in set payload</span></span></div>
+          
+          
+          
+                <div class="proposal-stats">
+                  <span class="stat-item"><span class="stat-num">1</span> files</span>
+                  <span class="stat-item additions"><span class="stat-num">+2</span></span>
+                  <span class="stat-item deletions"><span class="stat-num">-0</span></span>
+                </div>
+
+                <div class="proposal-files-list">
+                  
+            <div class="file-row">
+              <div class="file-path-col">
+                <span class="file-status-indicator status-added">added</span>
+                <span class="file-path" title="config/.env">config/.env</span>
+                <span class="badge badge-secret">secret-typed</span>
+              </div>
+              <div class="file-actions-col">
+                <div class="secret-keys-list">
+                        <span class="secret-key-tag">DATABASE_URL</span><span class="secret-key-tag">REDIS_URL</span>
+                       </div>
+                <div class="file-counts">
+                  <span class="adds">+2</span>
+                  <span class="dels">-0</span>
+                </div>
+                
+              </div>
+            </div>
+          
+                </div>
+              
+        </div>
+      </div>
+      </section>
+
+      <!-- Fork Signals: six-cluster triage for the fork ecosystem (CAP-10) -->
+      <section class="forks-section" id="forks-section">
+        <div class="section-header">
+          <h2 class="section-title">Fork Signals</h2>
+          <span class="forks-meta" id="forks-meta">5 forks</span>
+        </div>
+        <div class="forks-list" id="forks-list">
+        <div class="fork-card" id="fork-agent-4">
+          <div class="fork-card-header">
+            <span class="fork-repo-title">agent-4</span>
+            <span class="fork-base" data-base="demo">base: demo</span>
+          </div>
+          <div class="fork-signals"><span class="fork-signal-chip" data-signal="fitOverlap"><span class="fork-signal-label">fit</span><span class="fork-signal-value">0.98</span></span><span class="fork-signal-chip" data-signal="peopleTrust"><span class="fork-signal-label">trust</span><span class="fork-signal-value">unmeasured</span></span><span class="fork-signal-chip" data-signal="liveness"><span class="fork-signal-label">liveness</span><span class="fork-signal-value">0.95</span></span><span class="fork-signal-chip" data-signal="proof"><span class="fork-signal-label">proof</span><span class="fork-signal-value">0.20</span></span><span class="fork-signal-chip" data-signal="distance"><span class="fork-signal-label">distance</span><span class="fork-signal-value">0.00</span></span><span class="fork-signal-chip" data-signal="costToAdoptVsRegenerate"><span class="fork-signal-label">cost</span><span class="fork-signal-value">0.99</span></span></div>
+          <div class="fork-policy"><span class="fork-policy-chip" data-policy="land"><span class="fork-policy-label">land</span><span class="fork-policy-value">manual</span></span><span class="fork-policy-chip" data-policy="secretClass"><span class="fork-policy-label">secrets</span><span class="fork-policy-value">refused</span></span></div>
+        </div>
+      
+        <div class="fork-card" id="fork-agent-5">
+          <div class="fork-card-header">
+            <span class="fork-repo-title">agent-5</span>
+            <span class="fork-base" data-base="demo">base: demo</span>
+          </div>
+          <div class="fork-signals"><span class="fork-signal-chip" data-signal="fitOverlap"><span class="fork-signal-label">fit</span><span class="fork-signal-value">0.98</span></span><span class="fork-signal-chip" data-signal="peopleTrust"><span class="fork-signal-label">trust</span><span class="fork-signal-value">unmeasured</span></span><span class="fork-signal-chip" data-signal="liveness"><span class="fork-signal-label">liveness</span><span class="fork-signal-value">0.69</span></span><span class="fork-signal-chip" data-signal="proof"><span class="fork-signal-label">proof</span><span class="fork-signal-value">0.20</span></span><span class="fork-signal-chip" data-signal="distance"><span class="fork-signal-label">distance</span><span class="fork-signal-value">0.00</span></span><span class="fork-signal-chip" data-signal="costToAdoptVsRegenerate"><span class="fork-signal-label">cost</span><span class="fork-signal-value">0.99</span></span></div>
+          <div class="fork-policy"><span class="fork-policy-chip" data-policy="land"><span class="fork-policy-label">land</span><span class="fork-policy-value">manual</span></span><span class="fork-policy-chip" data-policy="secretClass"><span class="fork-policy-label">secrets</span><span class="fork-policy-value">refused</span></span></div>
+        </div>
+      
+        <div class="fork-card" id="fork-agent-3">
+          <div class="fork-card-header">
+            <span class="fork-repo-title">agent-3</span>
+            <span class="fork-base" data-base="demo">base: demo</span>
+          </div>
+          <div class="fork-signals"><span class="fork-signal-chip" data-signal="fitOverlap"><span class="fork-signal-label">fit</span><span class="fork-signal-value">0.98</span></span><span class="fork-signal-chip" data-signal="peopleTrust"><span class="fork-signal-label">trust</span><span class="fork-signal-value">unmeasured</span></span><span class="fork-signal-chip" data-signal="liveness"><span class="fork-signal-label">liveness</span><span class="fork-signal-value">0.95</span></span><span class="fork-signal-chip" data-signal="proof"><span class="fork-signal-label">proof</span><span class="fork-signal-value">0.20</span></span><span class="fork-signal-chip" data-signal="distance"><span class="fork-signal-label">distance</span><span class="fork-signal-value">0.25</span></span><span class="fork-signal-chip" data-signal="costToAdoptVsRegenerate"><span class="fork-signal-label">cost</span><span class="fork-signal-value">0.84</span></span></div>
+          <div class="fork-policy"><span class="fork-policy-chip" data-policy="land"><span class="fork-policy-label">land</span><span class="fork-policy-value">manual</span></span><span class="fork-policy-chip" data-policy="secretClass"><span class="fork-policy-label">secrets</span><span class="fork-policy-value">refused</span></span></div>
+        </div>
+      
+        <div class="fork-card" id="fork-agent-2">
+          <div class="fork-card-header">
+            <span class="fork-repo-title">agent-2</span>
+            <span class="fork-base" data-base="demo">base: demo</span>
+          </div>
+          <div class="fork-signals"><span class="fork-signal-chip" data-signal="fitOverlap"><span class="fork-signal-label">fit</span><span class="fork-signal-value">0.98</span></span><span class="fork-signal-chip" data-signal="peopleTrust"><span class="fork-signal-label">trust</span><span class="fork-signal-value">unmeasured</span></span><span class="fork-signal-chip" data-signal="liveness"><span class="fork-signal-label">liveness</span><span class="fork-signal-value">0.95</span></span><span class="fork-signal-chip" data-signal="proof"><span class="fork-signal-label">proof</span><span class="fork-signal-value">0.20</span></span><span class="fork-signal-chip" data-signal="distance"><span class="fork-signal-label">distance</span><span class="fork-signal-value">0.25</span></span><span class="fork-signal-chip" data-signal="costToAdoptVsRegenerate"><span class="fork-signal-label">cost</span><span class="fork-signal-value">0.84</span></span></div>
+          <div class="fork-policy"><span class="fork-policy-chip" data-policy="land"><span class="fork-policy-label">land</span><span class="fork-policy-value">manual</span></span><span class="fork-policy-chip" data-policy="secretClass"><span class="fork-policy-label">secrets</span><span class="fork-policy-value">refused</span></span></div>
+        </div>
+      
+        <div class="fork-card" id="fork-agent-1">
+          <div class="fork-card-header">
+            <span class="fork-repo-title">agent-1</span>
+            <span class="fork-base" data-base="demo">base: demo</span>
+          </div>
+          <div class="fork-signals"><span class="fork-signal-chip" data-signal="fitOverlap"><span class="fork-signal-label">fit</span><span class="fork-signal-value">0.98</span></span><span class="fork-signal-chip" data-signal="peopleTrust"><span class="fork-signal-label">trust</span><span class="fork-signal-value">unmeasured</span></span><span class="fork-signal-chip" data-signal="liveness"><span class="fork-signal-label">liveness</span><span class="fork-signal-value">0.95</span></span><span class="fork-signal-chip" data-signal="proof"><span class="fork-signal-label">proof</span><span class="fork-signal-value">0.20</span></span><span class="fork-signal-chip" data-signal="distance"><span class="fork-signal-label">distance</span><span class="fork-signal-value">0.25</span></span><span class="fork-signal-chip" data-signal="costToAdoptVsRegenerate"><span class="fork-signal-label">cost</span><span class="fork-signal-value">0.84</span></span></div>
+          <div class="fork-policy"><span class="fork-policy-chip" data-policy="land"><span class="fork-policy-label">land</span><span class="fork-policy-value">manual</span></span><span class="fork-policy-chip" data-policy="secretClass"><span class="fork-policy-label">secrets</span><span class="fork-policy-value">refused</span></span></div>
+        </div>
+      </div>
+      </section>
+
+      <!-- Issues triage: derived issues for the base repo (nextgit-e16) -->
+      <section class="issues-section" id="issues-section" tabindex="-1">
+        <div class="section-header">
+          <h2 class="section-title">Issues</h2>
+          <span class="issues-meta" id="issues-meta">—</span>
+        </div>
+        <div class="issues-list" id="issues-list"><div class="issues-unavailable">Issues unavailable.</div></div>
+        <div class="issues-status" id="issues-status" role="status" aria-live="polite"></div>
+      </section>
+
+      <!-- Judge-set comparison (nextgit-e16): the recorded /judge
+           artifacts compared across the proposal set — render-only. -->
+      <section class="judge-comparison-section" id="judge-comparison-section">
+        <div class="section-header">
+          <h2 class="section-title">Judge-Set Comparison</h2>
+          <span class="judge-comparison-meta" id="judge-comparison-meta">4 proposals compared · 1 not judged</span>
+        </div>
+        <div class="judge-comparison-badges" id="judge-comparison-badge" role="status" aria-live="polite">
+        <span class="judge-comparison-badge">strongest candidate: <span class="judge-comparison-repo">agent-4</span></span>
+        <span class="judge-comparison-disclaimer">advisory only — the judge advises; code decides; humans own irreversible acts</span>
+      </div>
+        <div class="judge-comparison-list" id="judge-comparison-list">
+        
+      <div class="judge-comparison-row">
+        <span class="judge-comparison-repo">agent-4</span>
+        <span class="judge-comparison-badges">
+          <span class="badge badge-amber">risk: focused</span>
+          <span class="judge-comparison-score">0.7581</span>
+          <span class="badge badge-clean">intent verified</span>
+          
+        </span>
+      </div>
+    
+      <div class="judge-comparison-row">
+        <span class="judge-comparison-repo">agent-3</span>
+        <span class="judge-comparison-badges">
+          <span class="badge badge-amber">risk: focused</span>
+          <span class="judge-comparison-score">0.8707</span>
+          <span class="badge badge-clean">intent verified</span>
+          
+        </span>
+      </div>
+    
+      <div class="judge-comparison-row">
+        <span class="judge-comparison-repo">agent-2</span>
+        <span class="judge-comparison-badges">
+          <span class="badge badge-amber">risk: focused</span>
+          <span class="judge-comparison-score">1.6028</span>
+          <span class="badge badge-clean">intent verified</span>
+          
+        </span>
+      </div>
+    
+      <div class="judge-comparison-row">
+        <span class="judge-comparison-repo">agent-1</span>
+        <span class="judge-comparison-badges">
+          <span class="badge badge-amber">risk: focused</span>
+          <span class="judge-comparison-score">1.5069</span>
+          <span class="badge badge-neutral">insufficient</span>
+          <span class="badge badge-amber" title="semantic collision — same behavior as another proposal (distinct from the diff3 conflict map)">soft collision</span>
+        </span>
+      </div>
+    
+        <div class="judge-comparison-skip">agent-5 — secret-typed — not judged</div>
+      </div>
+      </section>
+    
+      <!-- Sessions: the honest v1 session list + per-repo steer composer (GET /sessions, POST /sessions/{repo}/steer) -->
+      <section class="sessions-section" id="sessions-section">
+        <div class="section-header">
+          <h2 class="section-title">Sessions</h2>
+          <span class="sessions-meta" id="sessions-meta">0 sessions</span>
+        </div>
+        <div class="sessions-list" id="sessions-list">
+      <div class="sessions-empty">
+        <div class="sessions-empty-title">No session activity for demo</div>
+      </div>
+    </div>
+        <div class="sessions-status" id="sessions-status" role="status" aria-live="polite"></div>
+      </section>
+
+      <!-- Pipelines: landed runs as pipeline records (GET /pipelines) -->
+      <section class="pipelines-section" id="pipelines-section">
+        <div class="section-header">
+          <h2 class="section-title">Pipelines</h2>
+          <span class="pipelines-meta" id="pipelines-meta">20 runs · demo</span>
+        </div>
+        <div class="pipelines-list" id="pipelines-list">
+      <div class="pipeline-row" id="pipeline-7d490bcc60da86217fa1a8bb7285e98906501f32">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="7d490bcc60da86217fa1a8bb7285e98906501f32">7d490bc</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:42:00</span>
+          <a class="pipeline-link" href="/landings/7d490bcc60da86217fa1a8bb7285e98906501f32">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-aebd0d738c2abb5576fac6b7c661afd808a73068">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="aebd0d738c2abb5576fac6b7c661afd808a73068">aebd0d7</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:41:28</span>
+          <a class="pipeline-link" href="/landings/aebd0d738c2abb5576fac6b7c661afd808a73068">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-17f177d7a5391f6cb935e04a1956d530b236600a">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="17f177d7a5391f6cb935e04a1956d530b236600a">17f177d</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:40:54</span>
+          <a class="pipeline-link" href="/landings/17f177d7a5391f6cb935e04a1956d530b236600a">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-8779b458154a965417b96cf32c26baaa7cd49eb7">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="8779b458154a965417b96cf32c26baaa7cd49eb7">8779b45</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:40:00</span>
+          <a class="pipeline-link" href="/landings/8779b458154a965417b96cf32c26baaa7cd49eb7">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-83ed4826ae4b2560c0b299c21351cc5a2de8315e">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="83ed4826ae4b2560c0b299c21351cc5a2de8315e">83ed482</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-r2i-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:29:09</span>
+          <a class="pipeline-link" href="/landings/83ed4826ae4b2560c0b299c21351cc5a2de8315e">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-630bf28c1b656489d79860f7b1ad5f184e41cb8f">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="630bf28c1b656489d79860f7b1ad5f184e41cb8f">630bf28</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-r2i-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:28:40</span>
+          <a class="pipeline-link" href="/landings/630bf28c1b656489d79860f7b1ad5f184e41cb8f">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-3be0cb26ff03423464279cfaf9e527dea26e03f7">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="3be0cb26ff03423464279cfaf9e527dea26e03f7">3be0cb2</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-r2i-ctrl</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:28:05</span>
+          <a class="pipeline-link" href="/landings/3be0cb26ff03423464279cfaf9e527dea26e03f7">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-909381a3b8978cded7e3c471599a412f0c5dd1e5">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="909381a3b8978cded7e3c471599a412f0c5dd1e5">909381a</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-r2i-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:26:42</span>
+          <a class="pipeline-link" href="/landings/909381a3b8978cded7e3c471599a412f0c5dd1e5">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-e5ec6e563d170f1c64fbed41321ed8f652dc9451">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="e5ec6e563d170f1c64fbed41321ed8f652dc9451">e5ec6e5</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:19:36</span>
+          <a class="pipeline-link" href="/landings/e5ec6e563d170f1c64fbed41321ed8f652dc9451">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-338287594a86be9206d9ff175225ff1a973bb6a6">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="338287594a86be9206d9ff175225ff1a973bb6a6">3382875</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:19:05</span>
+          <a class="pipeline-link" href="/landings/338287594a86be9206d9ff175225ff1a973bb6a6">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-2071b1e09577463304378f0c4be1397d03a4989e">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="2071b1e09577463304378f0c4be1397d03a4989e">2071b1e</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:18:33</span>
+          <a class="pipeline-link" href="/landings/2071b1e09577463304378f0c4be1397d03a4989e">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-1b5358958d587b3c63a531218b97b106de8b9098">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="1b5358958d587b3c63a531218b97b106de8b9098">1b53589</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:17:52</span>
+          <a class="pipeline-link" href="/landings/1b5358958d587b3c63a531218b97b106de8b9098">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-4b13a5ad72288d9bfcb7c9959d09ffa297920171">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="4b13a5ad72288d9bfcb7c9959d09ffa297920171">4b13a5a</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:16:20</span>
+          <a class="pipeline-link" href="/landings/4b13a5ad72288d9bfcb7c9959d09ffa297920171">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-884b03208c081b64e04a58ca3a17fe7672c31917">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="884b03208c081b64e04a58ca3a17fe7672c31917">884b032</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:15:48</span>
+          <a class="pipeline-link" href="/landings/884b03208c081b64e04a58ca3a17fe7672c31917">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-d2df7f3baa881d52deb421a152adbf5042c8506b">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="d2df7f3baa881d52deb421a152adbf5042c8506b">d2df7f3</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:15:13</span>
+          <a class="pipeline-link" href="/landings/d2df7f3baa881d52deb421a152adbf5042c8506b">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-bafd68021adac913433cb9f17124e542b1f7ee18">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="bafd68021adac913433cb9f17124e542b1f7ee18">bafd680</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:14:24</span>
+          <a class="pipeline-link" href="/landings/bafd68021adac913433cb9f17124e542b1f7ee18">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-7d800e754b54a313f08e0ac6d4fe6acd31d1bb15">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="7d800e754b54a313f08e0ac6d4fe6acd31d1bb15">7d800e7</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:13:21</span>
+          <a class="pipeline-link" href="/landings/7d800e754b54a313f08e0ac6d4fe6acd31d1bb15">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-02f4aa2d785f2a7cbf6f5657ae52c580103b67a1">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="02f4aa2d785f2a7cbf6f5657ae52c580103b67a1">02f4aa2</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:12:51</span>
+          <a class="pipeline-link" href="/landings/02f4aa2d785f2a7cbf6f5657ae52c580103b67a1">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-b02d5676fa5ff5712242c06c1dcf19852287e61e">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="b02d5676fa5ff5712242c06c1dcf19852287e61e">b02d567</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:12:18</span>
+          <a class="pipeline-link" href="/landings/b02d5676fa5ff5712242c06c1dcf19852287e61e">landing record</a>
+        </div>
+      </div>
+    
+      <div class="pipeline-row" id="pipeline-ed111a3b92ce8862a83691f477c8b6eec4f48b94">
+        <div class="pipeline-row-header">
+          <code class="pipeline-sha" title="ed111a3b92ce8862a83691f477c8b6eec4f48b94">ed111a3</code>
+          <span class="pipeline-status pipeline-status-not-recorded">not-recorded</span>
+          <span class="pipeline-attestation pipeline-attestation-signed">signed</span>
+        </div>
+        <div class="pipeline-repos">agent-lh-1</div>
+        <div class="pipeline-row-footer">
+          <span class="pipeline-at">00:11:36</span>
+          <a class="pipeline-link" href="/landings/ed111a3b92ce8862a83691f477c8b6eec4f48b94">landing record</a>
+        </div>
+      </div>
+    </div>
+      </section>
+    
+      <!-- Convergence rail (nextgit-e17): the per-repo timeline —
+           landing status, collision, checks, policy, events —
+           render-only, from already-fetched payloads. -->
+      <section class="rail-section" id="rail-section" role="region" aria-label="Convergence Rail">
+        <div class="section-header">
+          <h2 class="section-title">Convergence Rail</h2>
+          <span class="rail-meta" id="rail-meta">5 repos</span>
+        </div>
+        <div class="rail-list" id="rail-list" role="list">
+      <div class="rail-row" id="rail-agent-1" role="listitem">
+        <div class="rail-row-header">
+          <span class="rail-repo">agent-1</span>
+          <span class="rail-chip rail-chip-ready">ready</span>
+          
+        </div>
+        <div class="rail-intent">Refactor: session refresh with TTL</div>
+        <div class="rail-check-dots" role="group" aria-label="agent-1 checks"><span class="check check-unknown" data-check="fold" title="fold: not in payload"><span class="check-label">fold</span></span><span class="check check-unknown" data-check="collision" title="collision: not in payload"><span class="check-label">collision</span></span><span class="check check-unknown" data-check="conflicts" title="conflicts: not in payload"><span class="check-label">conflicts</span></span><span class="check check-unknown" data-check="secrets" title="secrets: not in payload"><span class="check-label">secrets</span></span><span class="check check-unknown" data-check="base" title="base: not in payload"><span class="check-label">base</span></span></div>
+        <div class="rail-policies"><span class="rail-chip rail-policy" data-policy="land"><span class="rail-chip-label">land</span><span class="rail-chip-value">manual</span></span><span class="rail-chip rail-policy" data-policy="secretClass"><span class="rail-chip-label">secretClass</span><span class="rail-chip-value">refused</span></span></div>
+        <div class="rail-events"><div class="rail-event rail-event-empty">no events</div></div>
+      </div>
+    
+      <div class="rail-row" id="rail-agent-2" role="listitem">
+        <div class="rail-row-header">
+          <span class="rail-repo">agent-2</span>
+          <span class="rail-chip rail-chip-ready">ready</span>
+          
+        </div>
+        <div class="rail-intent">Fix: clock-skew leeway for expiry</div>
+        <div class="rail-check-dots" role="group" aria-label="agent-2 checks"><span class="check check-unknown" data-check="fold" title="fold: not in payload"><span class="check-label">fold</span></span><span class="check check-unknown" data-check="collision" title="collision: not in payload"><span class="check-label">collision</span></span><span class="check check-unknown" data-check="conflicts" title="conflicts: not in payload"><span class="check-label">conflicts</span></span><span class="check check-unknown" data-check="secrets" title="secrets: not in payload"><span class="check-label">secrets</span></span><span class="check check-unknown" data-check="base" title="base: not in payload"><span class="check-label">base</span></span></div>
+        <div class="rail-policies"><span class="rail-chip rail-policy" data-policy="land"><span class="rail-chip-label">land</span><span class="rail-chip-value">manual</span></span><span class="rail-chip rail-policy" data-policy="secretClass"><span class="rail-chip-label">secretClass</span><span class="rail-chip-value">refused</span></span></div>
+        <div class="rail-events"><div class="rail-event rail-event-empty">no events</div></div>
+      </div>
+    
+      <div class="rail-row" id="rail-agent-3" role="listitem">
+        <div class="rail-row-header">
+          <span class="rail-repo">agent-3</span>
+          <span class="rail-chip rail-chip-ready">ready</span>
+          
+        </div>
+        <div class="rail-intent">Perf: memoize store reads</div>
+        <div class="rail-check-dots" role="group" aria-label="agent-3 checks"><span class="check check-unknown" data-check="fold" title="fold: not in payload"><span class="check-label">fold</span></span><span class="check check-unknown" data-check="collision" title="collision: not in payload"><span class="check-label">collision</span></span><span class="check check-unknown" data-check="conflicts" title="conflicts: not in payload"><span class="check-label">conflicts</span></span><span class="check check-unknown" data-check="secrets" title="secrets: not in payload"><span class="check-label">secrets</span></span><span class="check check-unknown" data-check="base" title="base: not in payload"><span class="check-label">base</span></span></div>
+        <div class="rail-policies"><span class="rail-chip rail-policy" data-policy="land"><span class="rail-chip-label">land</span><span class="rail-chip-value">manual</span></span><span class="rail-chip rail-policy" data-policy="secretClass"><span class="rail-chip-label">secretClass</span><span class="rail-chip-value">refused</span></span></div>
+        <div class="rail-events"><div class="rail-event rail-event-empty">no events</div></div>
+      </div>
+    
+      <div class="rail-row" id="rail-agent-4" role="listitem">
+        <div class="rail-row-header">
+          <span class="rail-repo">agent-4</span>
+          <span class="rail-chip rail-chip-ready">ready</span>
+          
+        </div>
+        <div class="rail-intent">Feature: checkout flags + env template</div>
+        <div class="rail-check-dots" role="group" aria-label="agent-4 checks"><span class="check check-unknown" data-check="fold" title="fold: not in payload"><span class="check-label">fold</span></span><span class="check check-unknown" data-check="collision" title="collision: not in payload"><span class="check-label">collision</span></span><span class="check check-unknown" data-check="conflicts" title="conflicts: not in payload"><span class="check-label">conflicts</span></span><span class="check check-unknown" data-check="secrets" title="secrets: not in payload"><span class="check-label">secrets</span></span><span class="check check-unknown" data-check="base" title="base: not in payload"><span class="check-label">base</span></span></div>
+        <div class="rail-policies"><span class="rail-chip rail-policy" data-policy="land"><span class="rail-chip-label">land</span><span class="rail-chip-value">manual</span></span><span class="rail-chip rail-policy" data-policy="secretClass"><span class="rail-chip-label">secretClass</span><span class="rail-chip-value">refused</span></span></div>
+        <div class="rail-events"><div class="rail-event rail-event-empty">no events</div></div>
+      </div>
+    
+      <div class="rail-row" id="rail-agent-5" role="listitem">
+        <div class="rail-row-header">
+          <span class="rail-repo">agent-5</span>
+          <span class="rail-chip rail-chip-withheld-secret">withheld-secret</span>
+          
+        </div>
+        
+        <div class="rail-check-dots" role="group" aria-label="agent-5 checks"><span class="check check-unknown" data-check="fold" title="fold: not in payload"><span class="check-label">fold</span></span><span class="check check-unknown" data-check="collision" title="collision: not in payload"><span class="check-label">collision</span></span><span class="check check-unknown" data-check="conflicts" title="conflicts: not in payload"><span class="check-label">conflicts</span></span><span class="check check-unknown" data-check="secrets" title="secrets: not in payload"><span class="check-label">secrets</span></span><span class="check check-unknown" data-check="base" title="base: not in payload"><span class="check-label">base</span></span></div>
+        <div class="rail-policies"><span class="rail-chip rail-policy" data-policy="land"><span class="rail-chip-label">land</span><span class="rail-chip-value">manual</span></span><span class="rail-chip rail-policy" data-policy="secretClass"><span class="rail-chip-label">secretClass</span><span class="rail-chip-value">refused</span></span></div>
+        <div class="rail-events"><div class="rail-event rail-event-empty">no events</div></div>
+      </div>
+    </div>
+      </section>
+    </main>
+
+    <!-- Modal for Diff and Merge Preview -->
+    <div id="inspector-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+      <div class="modal-window">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span id="modal-badge" class="badge"></span>
+            <h3 id="modal-title" class="modal-title">Inspector</h3>
+          </div>
+          <button id="btn-close-modal" class="btn-close-modal" type="button" aria-label="Close inspector">close</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Minimal footer -->
+    <footer class="app-footer">
+      <span>nextgit — serverless convergence engine</span>
+      <span id="last-sync-time">synced 14:43:02</span>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+
+
+
+</body>
+</html>

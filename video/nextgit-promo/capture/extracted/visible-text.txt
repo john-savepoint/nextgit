@@ -1,0 +1,484 @@
+[span] Disconnected from platform worker. Retrying...
+[button] Retry now
+[button] dismiss
+[h1] NextGit
+[span] your agents' work, all in one place
+[div] base:
+[span] demo
+[div] · ref:
+[span] main
+[span] auto-refresh (8s)
+[button] refresh
+[a] Start the tour
+[a] Capability parity
+[a] Repo files
+[span] proposals
+[span] shared files
+[span] conflicting pairs
+[span] changed files
+[span] clean pairs
+[span] events
+[span] repo.pushed
+[span] demo-lh-base
+[span] 00:42:31
+[span] repo.pushed
+[span] demo-lh-base
+[span] 00:42:31
+[span] repo.pushed
+[span] demo-lh-base
+[span] 00:42:30
+[span] repo.pushed
+[span] demo-lh-base
+[span] 00:42:30
+[span] repo.pushed
+[span] demo-lh-base
+[span] 00:42:29
+[span] repo.pushed
+[span] demo-lh-base
+[span] 00:42:29
+[span] repo.pushed
+[span] agent-lh-1
+[span] 00:42:29
+[span] repo.pushed
+[span] agent-lh-1
+[span] 00:42:29
+[h2] Convergence Conflicts
+[span] 1 detected
+[span] src/auth.ts
+[span] text-conflict
+[span] proposals:
+[span] agent-1
+[span] agent-2
+[span] agent-1 ↔ agent-2
+[span] text-conflict
+[span] (base: 2L, agent-1: 7L, agent-2: 2L)
+[h2] Concurrent Proposals
+[span] 5 active
+[span] agent-1
+[span] proposals — explicit intent sets land; whiteboard groupings never land
+[span] risk:
+[span] focused
+[span] insufficient
+[span] soft collision
+[button] preview merge
+[button] Land into demo
+[span] fold
+[span] folds clean
+[span] collision
+[span] text-conflict · src/auth.ts
+[span] conflicts
+[span] secrets
+[span] none
+[span] base
+[span] fork point not in set payload
+[span] intent:
+[div] Refactor: session refresh with TTL
+[span] files
+[span] modified
+[span] src/auth.ts
+[button] view diff
+[span] agent-2
+[span] proposals — explicit intent sets land; whiteboard groupings never land
+[span] risk:
+[span] focused
+[span] intent verified
+[span] overclaim 0.3233
+[button] preview merge
+[button] Land into demo
+[span] fold
+[span] folds clean
+[span] collision
+[span] text-conflict · src/auth.ts
+[span] conflicts
+[span] secrets
+[span] none
+[span] base
+[span] fork point not in set payload
+[span] intent:
+[div] Fix: clock-skew leeway for expiry
+[span] files
+[span] modified
+[span] src/auth.ts
+[button] view diff
+[span] agent-3
+[span] proposals — explicit intent sets land; whiteboard groupings never land
+[span] risk:
+[span] focused
+[span] intent verified
+[span] overclaim 0.51
+[button] preview merge
+[button] Land into demo
+[span] fold
+[span] folds clean
+[span] collision
+[span] none
+[span] conflicts
+[span] secrets
+[span] none
+[span] base
+[span] fork point not in set payload
+[span] intent:
+[div] Perf: memoize store reads
+[span] files
+[span] +16
+[span] modified
+[span] src/store.ts
+[span] +16
+[button] view diff
+[span] agent-4
+[span] proposals — explicit intent sets land; whiteboard groupings never land
+[span] risk:
+[span] focused
+[span] intent verified
+[span] overclaim 0.5248
+[button] preview merge
+[button] Land into demo
+[span] fold
+[span] folds clean
+[span] collision
+[span] none
+[span] conflicts
+[span] secrets
+[span] none
+[span] base
+[span] fork point not in set payload
+[span] intent:
+[div] Feature: checkout flags + env template
+[span] files
+[span] +29
+[span] added
+[span] src/feature.ts
+[span] +29
+[button] view diff
+[span] agent-5
+[span] proposals — explicit intent sets land; whiteboard groupings never land
+[span] blocked
+[button] preview merge
+[button] withheld-secret file — landing blocked
+[span] fold
+[span] secret-class blocks fold
+[span] collision
+[span] none
+[span] conflicts
+[span] secrets
+[span] withheld
+[span] base
+[span] fork point not in set payload
+[span] files
+[span] added
+[span] config/.env
+[span] secret-typed
+[span] DATABASE_URL
+[span] REDIS_URL
+[h2] Fork Signals
+[span] 5 forks
+[span] agent-4
+[span] base: demo
+[span] fit
+[span] 0.98
+[span] trust
+[span] unmeasured
+[span] liveness
+[span] 0.95
+[span] proof
+[span] 0.20
+[span] distance
+[span] 0.00
+[span] cost
+[span] 0.99
+[span] land
+[span] manual
+[span] secrets
+[span] refused
+[span] agent-5
+[span] base: demo
+[span] fit
+[span] 0.98
+[span] trust
+[span] unmeasured
+[span] liveness
+[span] 0.69
+[span] proof
+[span] 0.20
+[span] distance
+[span] 0.00
+[span] cost
+[span] 0.99
+[span] land
+[span] manual
+[span] secrets
+[span] refused
+[span] agent-3
+[span] base: demo
+[span] fit
+[span] 0.98
+[span] trust
+[span] unmeasured
+[span] liveness
+[span] 0.95
+[span] proof
+[span] 0.20
+[span] distance
+[span] 0.25
+[span] cost
+[span] 0.84
+[span] land
+[span] manual
+[span] secrets
+[span] refused
+[span] agent-2
+[span] base: demo
+[span] fit
+[span] 0.98
+[span] trust
+[span] unmeasured
+[span] liveness
+[span] 0.95
+[span] proof
+[span] 0.20
+[span] distance
+[span] 0.25
+[span] cost
+[span] 0.84
+[span] land
+[span] manual
+[span] secrets
+[span] refused
+[span] agent-1
+[span] base: demo
+[span] fit
+[span] 0.98
+[span] trust
+[span] unmeasured
+[span] liveness
+[span] 0.95
+[span] proof
+[span] 0.20
+[span] distance
+[span] 0.25
+[span] cost
+[span] 0.84
+[span] land
+[span] manual
+[span] secrets
+[span] refused
+[h2] Issues
+[div] Issues unavailable.
+[h2] Judge-Set Comparison
+[span] 4 proposals compared · 1 not judged
+[span] strongest candidate:
+[span] agent-4
+[span] advisory only — the judge advises; code decides; humans own irreversible acts
+[span] agent-4
+[span] risk: focused
+[span] 0.7581
+[span] intent verified
+[span] agent-3
+[span] risk: focused
+[span] 0.8707
+[span] intent verified
+[span] agent-2
+[span] risk: focused
+[span] 1.6028
+[span] intent verified
+[span] agent-1
+[span] risk: focused
+[span] 1.5069
+[span] insufficient
+[span] soft collision
+[div] agent-5 — secret-typed — not judged
+[h2] Sessions
+[span] 0 sessions
+[div] No session activity for demo
+[h2] Pipelines
+[span] 20 runs · demo
+[code] 7d490bc
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:42:00
+[a] landing record
+[code] aebd0d7
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:41:28
+[a] landing record
+[code] 17f177d
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:40:54
+[a] landing record
+[code] 8779b45
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:40:00
+[a] landing record
+[code] 83ed482
+[span] not-recorded
+[span] signed
+[div] agent-r2i-1
+[span] 00:29:09
+[a] landing record
+[code] 630bf28
+[span] not-recorded
+[span] signed
+[div] agent-r2i-1
+[span] 00:28:40
+[a] landing record
+[code] 3be0cb2
+[span] not-recorded
+[span] signed
+[div] agent-r2i-ctrl
+[span] 00:28:05
+[a] landing record
+[code] 909381a
+[span] not-recorded
+[span] signed
+[div] agent-r2i-1
+[span] 00:26:42
+[a] landing record
+[code] e5ec6e5
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:19:36
+[a] landing record
+[code] 3382875
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:19:05
+[a] landing record
+[code] 2071b1e
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:18:33
+[a] landing record
+[code] 1b53589
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:17:52
+[a] landing record
+[code] 4b13a5a
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:16:20
+[a] landing record
+[code] 884b032
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:15:48
+[a] landing record
+[code] d2df7f3
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:15:13
+[a] landing record
+[code] bafd680
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:14:24
+[a] landing record
+[code] 7d800e7
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:13:21
+[a] landing record
+[code] 02f4aa2
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:12:51
+[a] landing record
+[code] b02d567
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:12:18
+[a] landing record
+[code] ed111a3
+[span] not-recorded
+[span] signed
+[div] agent-lh-1
+[span] 00:11:36
+[a] landing record
+[h2] Convergence Rail
+[span] 5 repos
+[span] agent-1
+[span] ready
+[div] Refactor: session refresh with TTL
+[span] fold
+[span] collision
+[span] conflicts
+[span] secrets
+[span] base
+[span] land
+[span] manual
+[span] secretClass
+[span] refused
+[div] no events
+[span] agent-2
+[span] ready
+[div] Fix: clock-skew leeway for expiry
+[span] fold
+[span] collision
+[span] conflicts
+[span] secrets
+[span] base
+[span] land
+[span] manual
+[span] secretClass
+[span] refused
+[div] no events
+[span] agent-3
+[span] ready
+[div] Perf: memoize store reads
+[span] fold
+[span] collision
+[span] conflicts
+[span] secrets
+[span] base
+[span] land
+[span] manual
+[span] secretClass
+[span] refused
+[div] no events
+[span] agent-4
+[span] ready
+[div] Feature: checkout flags + env template
+[span] fold
+[span] collision
+[span] conflicts
+[span] secrets
+[span] base
+[span] land
+[span] manual
+[span] secretClass
+[span] refused
+[div] no events
+[span] agent-5
+[span] withheld-secret
+[span] fold
+[span] collision
+[span] conflicts
+[span] secrets
+[span] base
+[span] land
+[span] manual
+[span] secretClass
+[span] refused
+[div] no events
+[h3] Inspector
+[button] close
+[span] nextgit — serverless convergence engine
+[span] synced 14:43:02

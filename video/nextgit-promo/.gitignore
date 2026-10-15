@@ -1,0 +1,7 @@
+# local build state (never publish)
+node_modules/
+.media/
+.hyperframes/artifacts/
+.hyperframes/frame-packets/
+audio_request.json
+audio_engine_meta.json
