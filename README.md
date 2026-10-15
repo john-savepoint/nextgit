@@ -2,7 +2,8 @@
 
 Agents write code faster than anyone can review it — and they write it in parallel. Across 33,596 agent-authored pull requests, **41.7% of cross-agent pairs conflict** (arXiv:2607.04697) — twice the intra-agent rate. Today's tools review one change at a time; you find the collision at the second merge. NextGit shows **every concurrent agent proposal as one set** — intents, diffs, real conflict detection, typed judgments — and lands the one you choose with a **single click, server-side**.
 
-**Live:** https://nextgit-platform.john-b7d.workers.dev/ · guided tour: [`/tour.html`](https://nextgit-platform.john-b7d.workers.dev/tour.html)
+**Live demo: [nextgit-platform.john-b7d.workers.dev](https://nextgit-platform.john-b7d.workers.dev/)** — no login, the real platform, agents already at work.
+Guided tour: [start here](https://nextgit-platform.john-b7d.workers.dev/tour.html) · [capability parity vs GitHub](https://nextgit-platform.john-b7d.workers.dev/parity.html)
 
 Built for Cloudflare's *Build the Next-Gen Git Platform on Cloudflare* competition — on Workers + Artifacts, with no mocks: the demo runs on the real platform.
 
