@@ -40,6 +40,8 @@ git grep -l 'api_token|api_key|secret.*=' -- 'platform/wrangler.jsonc'
 
 **Video vintage (for the freeze call):** `submission/nextgit-demo.mp4` (f3fd213, recorded 2026-10-09) predates the wave-7 integration and the `31f75bb4` deploy; it also carries recording-session blemishes (Chrome `--no-sandbox` bar, scratch-repo traffic in the ticker). Re-record is a deliberate choice, recommended in the wave-7 close-out.
 
+**Audio fix (2026-10-15):** the take's AAC track was digital silence (measured −91 dB mean/max). The identical take was re-muxed with an 8-minute music bed (seamless 7-loop crossfade of the promo theme, normalized −21 LUFS / TP −1.8 dBTP); video stream copied (no re-encode), duration 482.23 s (still inside the 5–10 min window). Eligibility gate re-run on the replaced file: ALL PASS (19/19). The silent original is preserved at `/tmp/demo-orig.mp4` on the build machine.
+
 ## Section B — Single-entry filing
 
 **Eligibility:** US-resident teammate will file (CHECKPOINT.md:95 — "eligibility RESOLVED"; SPEC.md:50 §3 residency).
