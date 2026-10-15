@@ -409,6 +409,57 @@ const CONCLUSIONS = new Set(["success", "failure", "neutral"]);
   J(Object.keys(plain.body ?? {})));
 }
 
+// 6b. CACHE-HIT PARSE GUARD — a MALFORMED cached body under
+//     the checks cache key (untrusted KV bytes: valid JSON
+//     of the wrong shape, and non-JSON text) degrades to a
+//     recompute-projected github body — never a 500, never a
+//     crash. This is the parse-nit closure (e19 gate quality
+//     medium #2 / spec-fit note 4): the cache-hit projection
+//     must validate, not cast.
+{
+ const REQ = { base: "demo", repos: "agent-ready,agent-secret,agent-collide,agent-elsewhere,agent-broken" };
+ const cacheKeyPrefix = "cache:checks:"; // gen defaults "0" in a fresh env
+ const cases = [
+  ["valid-JSON-wrong-shape", JSON.stringify({ ok: true, surprise: "not a checks body" })],
+  ["valid-JSON-wrong-inner-shape", JSON.stringify({ ok: true, base: { repo: 7 }, checks: "nope" })],
+  ["non-JSON text", "{not json at all"],
+ ];
+ for (const [label, poisoned] of cases) {
+  const cache = makeFakeKV();
+  // Seed the cache with the poisoned entry under the
+  // param-shaped key the handler derives (gen "0").
+  const key = `${cacheKeyPrefix}0:${REQ.base}:main:main:${REQ.repos}`;
+  await cache.put(key, poisoned);
+  const env = envFor({ cache });
+  const github = await get(env, "/checks", GITHUB_QUERY);
+  check(`6b ${label} -> 200 projected check_runs (degraded to recompute, never a 500)`,
+   github.status === 200 && Array.isArray(github.body?.check_runs) &&
+   github.body?.check_runs.length === 25 && github.body?.checks === undefined &&
+   github.body?.check_runs[0]?.conclusion === "success",
+   github.status + " " + J(github.body ?? null).slice(0, 120));
+  // The recompute path PUTs the correct internal body under
+  // the same key — the cache self-heals.
+  const healed = await cache.get(key);
+  check(`6b ${label} self-heals the cache entry to the internal shape`,
+   typeof healed === "string" && (() => { try { const b = JSON.parse(healed); return b.ok === true && Array.isArray(b.checks); } catch { return false; } })(),
+   String(healed).slice(0, 120));
+ }
+ // Negative control: a WELL-FORMED cached internal body is
+ // still projected FROM the cache (the guard admits the good
+ // shape — the no-poisoning law is preserved, not just the
+ // failure path).
+ {
+  const cache = makeFakeKV();
+  const env = envFor({ cache });
+  const first = await get(env, "/checks", INTERNAL_QUERY); // populates a GOOD entry
+  check("6b control plain request populates a well-formed entry", first.status === 200, String(first.status));
+  const github = await get(env, "/checks", GITHUB_QUERY); // projected FROM the good hit
+  check("6b control well-formed cached body -> projected from the hit",
+   github.status === 200 && github.body?.check_runs?.length === 25 && github.body?.checks === undefined,
+   github.status + " " + J(github.body ?? null).slice(0, 120));
+ }
+}
+
 // 7. PRECONDITIONS TRAVEL — 403 chokepoint (zero Artifacts reads),
 //    400, 405, 429 all reachable in the github shape.
 {

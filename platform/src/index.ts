@@ -1035,13 +1035,11 @@ export async function computeChangeSet(
   // head.headSha (from snapshot()) is a real 40-hex commit sha —
   // symmetric with base.sha (the fork point); the head treeHash
   // is a tree digest, not a commit sha.
-  identity: {
-   fingerprint: await changeSetFingerprint({
+  identity: { fingerprint: await changeSetFingerprint({
     base: { repo: baseName, ref: baseRef, sha: fork.sha },
     head: { repo: headName, ref, sha: head.headSha },
     files,
-   })
-  },
+  }) },
  };
 }
 
@@ -3682,6 +3680,22 @@ function toGithubEnvelope(
  return { ok: true, repo: baseRepo, check_runs };
 }
 
+// Structural type-guard for the cached internal /checks
+// body. `unknown` in, never throws, admits only the exact
+// shape toGithubEnvelope consumes — untrusted cache bytes
+// are not cast, they are validated (the parse-nit closure).
+function isChecksBody(v: unknown): v is { ok: boolean; base: { repo: string }; checks: Array<{ repo: string; checks: ServerCheck[] }> } {
+ if (typeof v !== "object" || v === null) return false;
+ const { ok, base, checks } = v as Record<string, unknown>;
+ if (ok !== true || typeof base !== "object" || base === null ||
+     typeof (base as Record<string, unknown>).repo !== "string" ||
+     !Array.isArray(checks)) return false;
+ return (checks as Array<unknown>).every((row) =>
+  typeof row === "object" && row !== null &&
+  typeof (row as Record<string, unknown>).repo === "string" &&
+  Array.isArray((row as Record<string, unknown>).checks));
+}
+
 /**
  * The server-side projection: drive computeProposals (the EXISTING
  * compute seam — no new binding method, no new compute primitive).
@@ -3751,14 +3765,24 @@ async function handleChecks(request: Request, env: Env): Promise<Response> {
   const hit = await env.CACHE.get(cacheKey);
   if (hit) {
    if (format === "github") {
-    // Project the cached internal body (the projection runs
-    // after the cache read — a cached internal body is
-    // re-projected per request).
-    const internal = JSON.parse(hit) as { ok: boolean; base: { repo: string }; checks: Array<{ repo: string; checks: ServerCheck[] }> };
-    const github = JSON.stringify(toGithubEnvelope(internal.base.repo, internal.checks));
-    return new Response(github, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+    // Project the cached internal body (the projection
+    // runs after the cache read — a cached internal body
+    // is re-projected per request). The cached bytes are
+    // UNTRUSTED (the KV is outside the Worker's control):
+    // a structural guard — not an `as` cast — admits only
+    // a well-formed internal body; anything else degrades
+    // to a recompute through the fall-through (the same
+    // posture as a corrupt/non-JSON cache entry — never
+    // a 500).
+    const internal: unknown = JSON.parse(hit);
+    if (isChecksBody(internal)) {
+     const github = JSON.stringify(toGithubEnvelope(internal.base.repo, internal.checks));
+     return new Response(github, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
+    }
+    // Malformed cached body — fall through to recompute.
+   } else {
+    return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
    }
-   return new Response(hit, { headers: { "content-type": "application/json", "x-nextgit-cache": "hit" } });
   }
  } catch { /* cache read is best-effort — fall through to compute */ }
  const { base: baseInfo, checks } = await computeChecks(env, base, baseRef, ref, repoList);
