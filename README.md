@@ -9,9 +9,11 @@ Built for Cloudflare's *Build the Next-Gen Git Platform on Cloudflare* competiti
 
 ## The 86-second promo
 
-Every screen in the promo is a live capture of this deployment — the five-check set, the collision and its merge preview, the judge that skips the secret-class repo on purpose, the audited reveal, signed landings, and the honest parity ledger.
+[![Watch the NextGit promo — 86 seconds, five AI agents, one repo](https://img.youtube.com/vi/R-IcNhRHj0M/maxresdefault.jpg)](https://www.youtube.com/watch?v=R-IcNhRHj0M)
 
-**[Download the master (17.7 MB MP4)](video/nextgit-promo/renders/video.mp4)** · source + receipt: [`video/nextgit-promo/`](video/nextgit-promo/).
+**[▶ Watch on YouTube](https://www.youtube.com/watch?v=R-IcNhRHj0M)** · [download the master (17.7 MB MP4)](video/nextgit-promo/renders/video.mp4) · source + receipt: [`video/nextgit-promo/`](video/nextgit-promo/).
+
+Every screen in the promo is a live capture of this deployment — the five-check set, the collision and its merge preview, the judge that skips the secret-class repo on purpose, the audited reveal, signed landings, and the honest parity ledger.
 
 ## What the demo shows
 
