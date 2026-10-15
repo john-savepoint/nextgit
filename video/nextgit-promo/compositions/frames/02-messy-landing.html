@@ -1,0 +1,400 @@
+<template>
+  <div data-hf-id="hf-nika" id="root" data-composition-id="02-messy-landing" data-width="1920" data-height="1080" data-duration="8.9">
+    <!-- Full-bleed ground: dark register (frame.md). Lowest content track, full frame duration. -->
+    <div data-hf-id="hf-bfvm"
+      class="clip hf-02-messy-landing-ground"
+      data-start="0"
+      data-duration="8.9"
+      data-track-index="0"
+    >
+      <div data-hf-id="hf-3ej4" class="hf-02-messy-landing-stage">
+        <!-- frame.md `rule` — the system's only ornament; green-lit for the whole shot -->
+        <div data-hf-id="hf-ih60" class="hf-02-messy-landing-rule"></div>
+
+        <!-- Scene 1 headline: builds word-by-word, then split-slides clear on the Scene 2 cue -->
+        <div data-hf-id="hf-8tx2" class="hf-02-messy-landing-headline">
+          <span data-hf-id="hf-u2tm" class="hf-02-messy-landing-word-a1">five</span>
+          <span data-hf-id="hf-ob7h" class="hf-02-messy-landing-word-a2">change-sets</span>
+        </div>
+
+        <!-- Scene 2 headline: same center slot, relayed in per word -->
+        <div data-hf-id="hf-zsuy" class="hf-02-messy-landing-headline">
+          <span data-hf-id="hf-hm99" class="hf-02-messy-landing-word-b1">one</span>
+          <span data-hf-id="hf-r9ht" class="hf-02-messy-landing-word-b2">shared</span>
+          <span data-hf-id="hf-sa27" class="hf-02-messy-landing-word-b3">file —</span>
+        </div>
+
+        <!-- Scene 1 burst / Scene 2 collapse: five agent chips share one center origin -->
+        <div data-hf-id="hf-1874" class="hf-02-messy-landing-chip" data-target-x="-690" data-target-y="-300">agent-1</div>
+        <div data-hf-id="hf-83lp" class="hf-02-messy-landing-chip" data-target-x="-720" data-target-y="150">agent-2</div>
+        <div data-hf-id="hf-fvau" class="hf-02-messy-landing-chip" data-target-x="660" data-target-y="-290">agent-3</div>
+        <div data-hf-id="hf-xo8z" class="hf-02-messy-landing-chip" data-target-x="720" data-target-y="140">agent-4</div>
+        <div data-hf-id="hf-vm6t" class="hf-02-messy-landing-chip" data-target-x="-380" data-target-y="-330">agent-5</div>
+
+        <!-- Scene 2 payoff: the collisions collapse into one file, boxed in status-red -->
+        <div data-hf-id="hf-m99k" class="hf-02-messy-landing-srcrow">
+          <span data-hf-id="hf-uh0x" class="hf-02-messy-landing-srcstack">
+            <span data-hf-id="hf-54vm" class="hf-02-messy-landing-srcbox"></span>
+            <span data-hf-id="hf-c6l2" class="hf-02-messy-landing-srctext">src/auth.ts</span>
+          </span>
+        </div>
+
+        <!-- Scene 3: the real conflicts capture, masked-slid up from below the frame edge -->
+        <div data-hf-id="hf-9gsw" class="hf-02-messy-landing-platewin">
+          <img data-hf-id="hf-i4bq"
+            class="hf-02-messy-landing-plate"
+            src="assets/sec-conflicts.png"
+            alt="NextGit convergence-conflicts panel: the src/auth.ts text-conflict between agent-1 and agent-2"
+          />
+        </div>
+
+        <!-- Scene 3: the secret-class risk tag -->
+        <div data-hf-id="hf-tviz" class="hf-02-messy-landing-envwrap">
+          <span data-hf-id="hf-90oh" class="hf-02-messy-landing-env">.env</span>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      /* Shipped faces only — files live in assets/fonts/. */
+      @font-face {
+        font-family: "Barlow";
+        src: url("assets/fonts/Barlow-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Barlow";
+        src: url("assets/fonts/Barlow-SemiBold.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Barlow";
+        src: url("assets/fonts/Barlow-Bold.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Barlow";
+        src: url("assets/fonts/Barlow-ExtraBold.woff2") format("woff2");
+        font-weight: 800;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Barlow";
+        src: url("assets/fonts/Barlow-Black.woff2") format("woff2");
+        font-weight: 900;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+        font-weight: 500;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("assets/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+        font-display: block;
+      }
+
+      /* Frame root: geometry only — the ground is painted by the clip below, never here. */
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Container law: cqw resolves against the frame box (1cqw = 19.2px). */
+      .hf-02-messy-landing-ground {
+        position: absolute;
+        inset: 0;
+        background: #0a0e14;
+        container-type: size;
+      }
+      .hf-02-messy-landing-stage {
+        position: absolute;
+        inset: 0;
+      }
+
+      .hf-02-messy-landing-rule {
+        position: absolute;
+        left: 942px;
+        top: 210px;
+        width: 36px;
+        height: 2px;
+        background: #58a6ff;
+      }
+
+      /* One display moment per frame: both headlines share the center slot. */
+      .hf-02-messy-landing-headline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 312px;
+        text-align: center;
+        font-family: "Barlow", sans-serif;
+        font-weight: 900;
+        font-size: 7.5cqw;
+        line-height: 0.9;
+        letter-spacing: -0.03em;
+        color: #e6edf3;
+      }
+      .hf-02-messy-landing-headline span {
+        display: inline-block;
+        will-change: transform;
+      }
+
+      /* Chips share ONE origin (the slot the collapsed file lands in). */
+      .hf-02-messy-landing-chip {
+        position: absolute;
+        left: 960px;
+        top: 576px;
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 500;
+        font-size: 1.45cqw;
+        letter-spacing: 0.04em;
+        color: #57657a;
+        border: 1px solid #1c2634;
+        background: #070a0e;
+        padding: 10px 18px;
+        white-space: nowrap;
+        will-change: transform;
+      }
+
+      .hf-02-messy-landing-srcrow {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 552px;
+        display: flex;
+        justify-content: center;
+      }
+      .hf-02-messy-landing-srcstack {
+        position: relative;
+        display: inline-block;
+      }
+      /* Marker box: hairline only — it is the frame's one status-red stroke. */
+      .hf-02-messy-landing-srcbox {
+        position: absolute;
+        inset: -16px -28px;
+        border: 1px solid #f85149;
+        transform-origin: 50% 50%;
+        will-change: transform;
+      }
+      .hf-02-messy-landing-srctext {
+        position: relative;
+        z-index: 1;
+        display: inline-block;
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 500;
+        font-size: 1.875cqw;
+        color: #e6edf3;
+      }
+
+      /* Masked slide window: the plate rises into it from below the frame edge. */
+      .hf-02-messy-landing-platewin {
+        position: absolute;
+        left: 105px;
+        top: 672px;
+        width: 1190px;
+        height: 174px;
+        overflow: hidden;
+      }
+      .hf-02-messy-landing-plate {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 1190px;
+        height: auto;
+        opacity: 0.85;
+        will-change: transform;
+      }
+
+      .hf-02-messy-landing-envwrap {
+        position: absolute;
+        left: 1330px;
+        top: 705px;
+      }
+      .hf-02-messy-landing-env {
+        display: inline-block;
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 500;
+        font-size: 1.77cqw;
+        letter-spacing: 0.02em;
+        color: #e6edf3;
+        border: 1px solid #d29922;
+        background: #0a0e14;
+        padding: 12px 20px;
+        transform-origin: 50% 50%;
+        will-change: transform;
+      }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      /*
+        Frame 02 — the messy landing. One paused timeline, built synchronously.
+        Every element owns exactly ONE tween (a keyframed fromTo where it needs two
+        moves), so the from-state is explicit and the shot is correct at any seek.
+      */
+      const tl = gsap.timeline({ paused: true });
+
+      /* The composition's length IS the timeline's: pin it to the frame's 8.5s. */
+      const hfDriver = { t: 0 };
+      tl.to(hfDriver, { t: 8.5, duration: 8.5, ease: "none" }, 0);
+
+      /* ---- Scene 1 (0.0–2.6): "five change-sets" builds word-by-word --------------
+         dynamic-content-sequencing: each word's window is derived from its own
+         content length, pre-computed once here — never in an update loop. */
+      const HF_BASE_DURATION = 0.16;
+      const HF_SEC_PER_CHAR = 0.045;
+      const HF_HOLD_MID = 0.22;
+      const HF_START_PAD = 0.1;
+      const HF_A_ENTRANCE_DUR = 0.45;
+      const HF_A_EXIT_AT = [2.6, 2.66];
+      const HF_A_EXIT_DUR = 0.34;
+
+      let hfCumulative = HF_START_PAD;
+      const HF_WORD_TIMELINE = [
+        { sel: ".hf-02-messy-landing-word-a1", text: "five", exitX: -180 },
+        { sel: ".hf-02-messy-landing-word-a2", text: "change-sets", exitX: 180 },
+      ].map((entry, i) => {
+        const duration = HF_BASE_DURATION + entry.text.length * HF_SEC_PER_CHAR + HF_HOLD_MID;
+        const start = hfCumulative;
+        hfCumulative += duration;
+        return { ...entry, start, end: hfCumulative, exitAt: HF_A_EXIT_AT[i] };
+      });
+
+      HF_WORD_TIMELINE.forEach((entry) => {
+        const hold = Math.max(0, entry.exitAt - (entry.start + HF_A_ENTRANCE_DUR));
+        tl.fromTo(
+          entry.sel,
+          { opacity: 0, y: 26 },
+          {
+            keyframes: [
+              { opacity: 1, y: 0, duration: HF_A_ENTRANCE_DUR, ease: "power3.out" },
+              { opacity: 1, y: 0, duration: hold, ease: "none" },
+              {
+                x: entry.exitX,
+                opacity: 0,
+                scale: 0.94,
+                duration: HF_A_EXIT_DUR,
+                ease: "power2.in",
+              },
+            ],
+          },
+          entry.start,
+        );
+      });
+
+      /* ---- Scene 1 → 2: the five chips, one origin -------------------------------
+         center-outward-expansion: each chip lerps from the shared center to its
+         data-target offset, holds, then the SAME machinery runs inward — the
+         collapse that becomes "src/auth.ts". */
+      const HF_CHIPS = gsap.utils.toArray(".hf-02-messy-landing-chip");
+      const HF_BURST_AT = 2.2;
+      const HF_EXPAND_DUR = 0.3;
+      const HF_EXPAND_STAGGER = 0.035;
+      const HF_CHIP_HOLD = 0.8;
+      const HF_CONVERGE_DUR = 0.5;
+
+      HF_CHIPS.forEach((el, i) => {
+        const targetX = Number(el.dataset.targetX);
+        const targetY = Number(el.dataset.targetY);
+        tl.fromTo(
+          el,
+          { xPercent: -50, yPercent: -50, x: 0, y: 0, scale: 0.6, opacity: 0 },
+          {
+            keyframes: [
+              {
+                x: targetX,
+                y: targetY,
+                scale: 1,
+                opacity: 1,
+                duration: HF_EXPAND_DUR,
+                ease: "power3.out",
+              },
+              {
+                x: targetX,
+                y: targetY,
+                scale: 1,
+                opacity: 1,
+                duration: HF_CHIP_HOLD,
+                ease: "none",
+              },
+              { x: 0, y: 0, scale: 0.5, opacity: 0, duration: HF_CONVERGE_DUR, ease: "power2.in" },
+            ],
+          },
+          HF_BURST_AT + i * HF_EXPAND_STAGGER,
+        );
+      });
+
+      /* ---- Scene 2 (2.6–5.0): "one shared file —" lands in the same slot ---------- */
+      const HF_B_AT = 3.02;
+      const HF_B_STAGGER = 0.1;
+      [
+        ".hf-02-messy-landing-word-b1",
+        ".hf-02-messy-landing-word-b2",
+        ".hf-02-messy-landing-word-b3",
+      ].forEach((sel, i) => {
+        tl.fromTo(
+          sel,
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" },
+          HF_B_AT + i * HF_B_STAGGER,
+        );
+      });
+
+      /* The collision, resolved: the mono line lands, then the box frames it. */
+      tl.fromTo(
+        ".hf-02-messy-landing-srctext",
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" },
+        4.05,
+      );
+      tl.fromTo(
+        ".hf-02-messy-landing-srcbox",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.42, ease: "power3.out" },
+        4.28,
+      );
+
+      /* ---- Scene 3 (5.0–8.5): the real conflicts capture, then the secret tag ----
+         Masked slide: the plate travels up inside its clipping window (it is out of
+         frame — and invisible — until its cue). */
+      tl.fromTo(
+        ".hf-02-messy-landing-plate",
+        { y: 200 },
+        { y: 0, duration: 0.85, ease: "power3.out" },
+        5.0,
+      );
+      tl.fromTo(
+        ".hf-02-messy-landing-env",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" },
+        6.4,
+      );
+
+      window.__timelines["02-messy-landing"] = tl;
+      tl.seek(0);
+    </script>
+  </div>
+</template>

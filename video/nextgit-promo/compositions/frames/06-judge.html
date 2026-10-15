@@ -1,0 +1,414 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 400;
+      font-display: block;
+      src: url("assets/fonts/Barlow-Regular.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 600;
+      font-display: block;
+      src: url("assets/fonts/Barlow-SemiBold.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 700;
+      font-display: block;
+      src: url("assets/fonts/Barlow-Bold.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 800;
+      font-display: block;
+      src: url("assets/fonts/Barlow-ExtraBold.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 900;
+      font-display: block;
+      src: url("assets/fonts/Barlow-Black.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-style: normal;
+      font-weight: 400;
+      font-display: block;
+      src: url("assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-style: normal;
+      font-weight: 500;
+      font-display: block;
+      src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-style: normal;
+      font-weight: 600;
+      font-display: block;
+      src: url("assets/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+    }
+
+    /* Frame root — styled by #root only (never a class on the composition element).
+       No ground here: the full-bleed ground is painted by its own clip layer below. */
+    #root {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: transparent;
+      color: #e6edf3;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    .f06-clip {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      /* container law: every frame-relative unit below is cqw/cqh against the 1920x1080 clip */
+      container-type: size;
+    }
+
+    /* ── clip 0 · the flat dark register ground ─────────────────────────── */
+    #f06-judge-ground {
+      background: #0a0e14;
+    }
+
+    /* ── clip 1 · the shot: plate field (camera) + fixed annotation layer ── */
+    #f06-judge-scene {
+      background: transparent;
+    }
+
+    /* camera: one slow continuous push-in runs under the whole shot.
+       Pinned to the left edge so the plate's captured left-hand content never leaves frame. */
+    #f06-judge-field {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform-origin: 0% 45%;
+      will-change: transform;
+    }
+
+    /* the judge plate — real capture, the shot's ground. Dimmed to 62% with a light
+       optical falloff (--dof) as the reading column takes over. */
+    #f06-judge-plate {
+      position: absolute;
+      top: 150px;
+      left: 0;
+      width: 1920px;
+      height: auto;
+      --dof: 0px;
+      filter: blur(var(--dof));
+      will-change: filter;
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        #000 0%,
+        #000 74%,
+        rgba(0, 0, 0, 0) 100%
+      );
+      mask-image: linear-gradient(to bottom, #000 0%, #000 74%, rgba(0, 0, 0, 0) 100%);
+    }
+
+    /* reading-side falloff: darkens the plate's empty right region under the score column */
+    #f06-judge-scrim {
+      position: absolute;
+      top: 0;
+      left: 900px;
+      width: 1020px;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        rgba(10, 14, 20, 0) 0%,
+        rgba(10, 14, 20, 0.94) 40%,
+        #0a0e14 100%
+      );
+    }
+
+    /* ── annotation layer (film's own, sits above the plate and never moves) ── */
+    .f06-hair {
+      position: absolute;
+      height: 1px;
+      background: #1c2634;
+    }
+    #f06-judge-hair-top {
+      top: 96px;
+      left: 106px;
+      width: 1708px;
+    }
+    #f06-judge-hair-bot {
+      top: 848px;
+      left: 158px;
+      width: 1656px;
+    }
+    #f06-judge-stub {
+      position: absolute;
+      top: 848px;
+      left: 106px;
+      width: 36px;
+      height: 2px;
+      background: #58a6ff;
+    }
+
+    /* ── the reading column: four real scores, mono + tabular ────────────── */
+    #f06-judge-col {
+      position: absolute;
+      left: 1140px;
+      top: 240px;
+      width: 674px;
+    }
+    .f06-row {
+      position: relative;
+      box-sizing: border-box;
+      height: 80px;
+      padding-top: 12px;
+      border-top: 1px solid #1c2634;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .f06-tag {
+      font-size: 1.45cqw;
+      line-height: 1;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #8b9bb0;
+      white-space: nowrap;
+    }
+    .f06-score {
+      display: inline-block;
+      /* fixed-width slot: digits keep equal width, the count never reflows */
+      min-width: 8ch;
+      text-align: right;
+      font-size: 3.1cqw;
+      line-height: 1;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      color: #e6edf3;
+    }
+
+    /* ── Scene 2 · the skip row, resolved last, framed in accent ─────────── */
+    #f06-judge-skiprow {
+      position: absolute;
+      left: 0;
+      top: 620px;
+      width: 100%;
+      height: 96px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #f06-judge-skip {
+      --pulse: 1;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      height: 96px;
+      padding: 0 44px;
+      background: #0a0e14;
+      border: 1px solid rgba(88, 166, 255, var(--pulse));
+      font-size: 1.5cqw;
+      line-height: 1;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: #e6edf3;
+      white-space: nowrap;
+      will-change: transform;
+    }
+  </style>
+
+  <div data-hf-id="hf-hkjp" id="root" data-composition-id="06-judge" data-width="1920" data-height="1080" data-duration="6.4">
+    <!-- clip 0 · full-bleed ground -->
+    <div data-hf-id="hf-conl"
+      class="clip f06-clip"
+      id="f06-judge-ground"
+      data-start="0"
+      data-duration="6.4"
+      data-track-index="0"
+    ></div>
+
+    <!-- clip 1 · the shot -->
+    <div data-hf-id="hf-x8tr"
+      class="clip f06-clip"
+      id="f06-judge-scene"
+      data-start="0"
+      data-duration="6.4"
+      data-track-index="1"
+    >
+      <div data-hf-id="hf-2lom" id="f06-judge-field">
+        <img data-hf-id="hf-6lol" id="f06-judge-plate" src="assets/sec-judge.png" alt="" />
+        <div data-hf-id="hf-g9xo" id="f06-judge-scrim"></div>
+      </div>
+
+      <div data-hf-id="hf-lvoy" class="f06-hair" id="f06-judge-hair-top"></div>
+      <div data-hf-id="hf-6j04" class="f06-hair" id="f06-judge-hair-bot"></div>
+      <div data-hf-id="hf-7oc6" id="f06-judge-stub"></div>
+
+      <div data-hf-id="hf-kx1w" id="f06-judge-col">
+        <div data-hf-id="hf-n6ko" class="f06-row" id="f06-judge-row-1">
+          <span data-hf-id="hf-oqil" class="f06-tag" id="f06-judge-tag-1">agent-2</span>
+          <span data-hf-id="hf-hq2f" class="f06-score" id="f06-judge-score-1">0</span>
+        </div>
+        <div data-hf-id="hf-vugj" class="f06-row" id="f06-judge-row-2">
+          <span data-hf-id="hf-dy6t" class="f06-tag" id="f06-judge-tag-2">agent-1</span>
+          <span data-hf-id="hf-e5iy" class="f06-score" id="f06-judge-score-2">0</span>
+        </div>
+        <div data-hf-id="hf-rwci" class="f06-row" id="f06-judge-row-3">
+          <span data-hf-id="hf-0fp0" class="f06-tag" id="f06-judge-tag-3">agent-3</span>
+          <span data-hf-id="hf-6j0d" class="f06-score" id="f06-judge-score-3">0</span>
+        </div>
+        <div data-hf-id="hf-94mt" class="f06-row" id="f06-judge-row-4">
+          <span data-hf-id="hf-otos" class="f06-tag" id="f06-judge-tag-4">agent-4</span>
+          <span data-hf-id="hf-6t28" class="f06-score" id="f06-judge-score-4">0</span>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-q1k9" id="f06-judge-skiprow">
+        <div data-hf-id="hf-0u0f" id="f06-judge-skip">agent-5 — secret-typed — not judged</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var ID = "06-judge";
+
+      function build() {
+        var tl = gsap.timeline({ paused: true });
+
+        /* ── camera: one slow continuous push-in under the whole shot ────── */
+        tl.fromTo(
+          "#f06-judge-field",
+          { scale: 1 },
+          { scale: 1.04, duration: 6, ease: "none" },
+          0,
+        );
+
+        /* ── Scene 1 · the plate lands as the shot's ground ──────────────── */
+        tl.fromTo(
+          "#f06-judge-plate",
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" },
+          0,
+        );
+
+        tl.fromTo(
+          ["#f06-judge-hair-top", "#f06-judge-hair-bot", "#f06-judge-stub"],
+          { opacity: 0 },
+          { opacity: 1, duration: 0.6, ease: "power2.out" },
+          0.15,
+        );
+
+        /* ── Scene 1 · the plate falls back to context: the reading column's
+              ground darkens, and the plate dims to 62% with a light optical
+              falloff on the same window as the push-in (rack focus) ─────── */
+        tl.fromTo(
+          "#f06-judge-scrim",
+          { opacity: 0 },
+          { opacity: 1, duration: 0.9, ease: "power2.inOut" },
+          1.0,
+        );
+        tl.to(
+          "#f06-judge-plate",
+          { "--dof": "1.5px", duration: 1.2, ease: "power2.inOut" },
+          1.2,
+        );
+        tl.to("#f06-judge-plate", { opacity: 0.62, duration: 1.2, ease: "power2.inOut" }, 1.2);
+
+        /* ── Scene 1 · the four real scores, arriving on the VO's cadence.
+              counting-dynamic-scale per numeral: the value counts up while the
+              transform grows to its static size (no font-size tween), and the
+              count lands exactly on its cue time. The digits are stepped once per
+              captured frame with a power3.out eased value curve — a plain property
+              write on the seek clock, so every rendered frame is deterministic. ── */
+        var COUNT = 0.85;
+        var FPS = 30;
+        var rows = [
+          { row: "#f06-judge-row-1", score: "#f06-judge-score-1", value: 1.6028, land: 1.5 },
+          { row: "#f06-judge-row-2", score: "#f06-judge-score-2", value: 1.5069, land: 2.2 },
+          { row: "#f06-judge-row-3", score: "#f06-judge-score-3", value: 0.8707, land: 2.9 },
+          { row: "#f06-judge-row-4", score: "#f06-judge-score-4", value: 0.7581, land: 3.5 },
+        ];
+        var easeOut = function (p) {
+          return 1 - Math.pow(1 - p, 3);
+        };
+
+        rows.forEach(function (r) {
+          var start = r.land - COUNT;
+          var el = document.querySelector(r.score);
+          var steps = Math.round(COUNT * FPS);
+          var i;
+
+          tl.fromTo(
+            r.row,
+            { opacity: 0, y: 16 },
+            { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+            start - 0.3,
+          );
+          tl.fromTo(
+            el,
+            { scale: 0.94 },
+            { scale: 1, duration: COUNT, ease: "power3.out" },
+            start,
+          );
+          for (i = 1; i <= steps; i++) {
+            tl.set(
+              el,
+              { innerText: (r.value * easeOut(i / steps)).toFixed(4) },
+              start + (COUNT * i) / steps,
+            );
+          }
+        });
+
+        /* ── Scene 2 · the skip row resolves last, on purpose: it lifts out of
+              the plate's skip-row position and settles at centre (no bounce),
+              then takes one restrained accent pulse on the box. ─────────── */
+        tl.fromTo(
+          "#f06-judge-skip",
+          { opacity: 0, x: -520, y: 60, scale: 0.97 },
+          { opacity: 1, x: 0, y: 0, scale: 1, duration: 1.0, ease: "power3.out" },
+          3.6,
+        );
+        tl.fromTo(
+          "#f06-judge-skip",
+          { "--pulse": 1 },
+          { "--pulse": 0.26, duration: 0.2, ease: "power2.in" },
+          5.3,
+        );
+        tl.to("#f06-judge-skip", { "--pulse": 1, duration: 0.4, ease: "power2.out" }, 5.5);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines[ID] = tl;
+        tl.seek(0);
+        return tl;
+      }
+
+      /* The host index already loads gsap; the frame carries its own load too, so a
+         standalone/preview mount builds the same timeline. */
+      if (window.gsap && typeof window.gsap.timeline === "function") {
+        build();
+      } else {
+        window.addEventListener("load", function () {
+          if (window.gsap && typeof window.gsap.timeline === "function") build();
+        });
+      }
+    })();
+  </script>
+</template>

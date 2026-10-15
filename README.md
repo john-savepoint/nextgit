@@ -7,6 +7,15 @@ Guided tour: [start here](https://nextgit-platform.john-b7d.workers.dev/tour.htm
 
 Built for Cloudflare's *Build the Next-Gen Git Platform on Cloudflare* competition — on Workers + Artifacts, with no mocks: the demo runs on the real platform.
 
+## The 86-second promo
+
+<video src="https://raw.githubusercontent.com/john-savepoint/nextgit/main/video/nextgit-promo/renders/video.mp4" controls muted playsinline></video>
+
+Every screen in the promo is a live capture of this deployment — the five-check set, the
+collision and its merge preview, the judge that skips the secret-class repo on purpose,
+the audited reveal, signed landings, and the honest parity ledger. Source + receipt:
+[`video/nextgit-promo/`](video/nextgit-promo/).
+
 ## What the demo shows
 
 | | |

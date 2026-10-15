@@ -1,0 +1,342 @@
+<template>
+  <!--
+    Frame 4 — the five-check set (04-five-checks) · 1920x1080 · 10.5s · captions disabled.
+    Register: dark (ink-black ground, cream text, the one accent #58A6FF). All authored
+    ids/classes use the `f04-` prefix because a CSS selector may not begin with a digit
+    (frame_id `04-five-checks` still carries data-composition-id + the __timelines key verbatim).
+    Scene 1: the proposals board settles full-width behind a mask (power3, no bounce).
+    Scene 2: the annotation layer walks the check strip — target first, box derived from the
+    target in the same pass (ai-tracking-box, static-bracket variant); each landing fires a
+    300ms attack/sustain/release glow envelope (asr-keyword-glow) behind the box; the box
+    releases on "server-side" and one hairline rule sweeps left->right and stays (svg-path-draw).
+    Scene 3: hold — four instant opacity steps on the rule (server-side heartbeat), then stillness.
+  -->
+  <style>
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-style: normal;
+      font-weight: 500;
+      font-display: block;
+      src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    #root {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 1080px;
+      container-type: size;
+      overflow: hidden;
+      background-color: #0A0E14;
+    }
+
+    /* full-bleed ground on a clip layer — never on #root */
+    .f04-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0A0E14;
+      background-image: radial-gradient(rgba(28, 38, 52, 0.85) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    /* the plate: a real capture, rising into a masked exhibit — never rebuilt in HTML */
+    .f04-mask {
+      position: absolute;
+      left: 0;
+      top: 63px;
+      width: 1920px;
+      height: 771px;
+      overflow: hidden;
+    }
+    .f04-plate {
+      display: block;
+      width: 1920px;
+      height: 771px;
+      object-fit: cover;
+    }
+
+    /* the film's own annotation layer — never a repaint of the product UI */
+    .f04-anno {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .f04-aura {
+      position: absolute;
+      left: -7.9px;
+      top: 215.4px;
+      width: 200px;
+      height: 90px;
+      transform-origin: 0 0;
+      background: radial-gradient(
+        closest-side,
+        rgba(88, 166, 255, 0.32) 0%,
+        rgba(88, 166, 255, 0.12) 52%,
+        rgba(88, 166, 255, 0) 100%
+      );
+      opacity: 0;
+    }
+    .f04-target {
+      position: absolute;
+      left: 85.4px;
+      top: 221.8px;
+      width: 6px;
+      height: 6px;
+      opacity: 0;
+    }
+    .f04-box {
+      position: absolute;
+      left: 14.1px;
+      top: 241.7px;
+      width: 142.6px;
+      height: 38.1px;
+      border: 1px solid #58A6FF;
+      opacity: 0;
+    }
+    .f04-tick {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+    }
+    .f04-tl { top: -1px; left: -1px; border-top: 1px solid #58A6FF; border-left: 1px solid #58A6FF; }
+    .f04-tr { top: -1px; right: -1px; border-top: 1px solid #58A6FF; border-right: 1px solid #58A6FF; }
+    .f04-bl { bottom: -1px; left: -1px; border-bottom: 1px solid #58A6FF; border-left: 1px solid #58A6FF; }
+    .f04-br { bottom: -1px; right: -1px; border-bottom: 1px solid #58A6FF; border-right: 1px solid #58A6FF; }
+
+    .f04-tag {
+      position: absolute;
+      display: inline-block;
+      padding: 7px 12px;
+      border: 1px solid #58A6FF;
+      background-color: #0A0E14;
+      color: #58A6FF;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 1.15cqw;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+      opacity: 0;
+      transform-origin: 50% 50%;
+    }
+    .f04-tag-fold { left: 14.1px; top: 195.7px; }
+    .f04-tag-collision { left: 162.1px; top: 195.7px; }
+    .f04-tag-conflicts { left: 458.2px; top: 195.7px; }
+    .f04-tag-secrets { left: 14.1px; top: 226.2px; }
+    .f04-tag-base { left: 130.3px; top: 226.2px; }
+
+    .f04-rule {
+      position: absolute;
+      left: 0;
+      top: 305px;
+      overflow: visible;
+    }
+    .f04-pulse {
+      position: absolute;
+      left: 384px;
+      top: 297.6px;
+      width: 2px;
+      height: 18px;
+      background-color: #58A6FF;
+      opacity: 0.16;
+    }
+  </style>
+
+  <div data-hf-id="hf-9l6k" id="root" data-composition-id="04-five-checks" data-width="1920" data-height="1080" data-duration="11">
+    <div data-hf-id="hf-04xe" class="clip f04-ground" data-start="0" data-duration="11" data-track-index="0"></div>
+
+    <div data-hf-id="hf-vj37" class="clip f04-exhibit" data-start="0" data-duration="11" data-track-index="1">
+      <div data-hf-id="hf-xixr" class="f04-mask">
+        <img data-hf-id="hf-z3wm"
+          id="f04-plate"
+          class="f04-plate"
+          src="assets/sec-proposals.png"
+          alt="concurrent proposals — five cards, each with its five-check strip"
+        />
+      </div>
+    </div>
+
+    <div data-hf-id="hf-c2un" class="clip f04-anno" data-start="0" data-duration="11" data-track-index="2">
+      <div data-hf-id="hf-0e0i" class="f04-aura" id="f04-aura"></div>
+      <div data-hf-id="hf-rk42" class="f04-target" id="f04-target"></div>
+      <div data-hf-id="hf-k2jm" class="f04-box" id="f04-box">
+        <i data-hf-id="hf-ots7" class="f04-tick f04-tl"></i>
+        <i data-hf-id="hf-h15l" class="f04-tick f04-tr"></i>
+        <i data-hf-id="hf-9l9t" class="f04-tick f04-bl"></i>
+        <i data-hf-id="hf-wb3j" class="f04-tick f04-br"></i>
+      </div>
+      <span data-hf-id="hf-lpvm" class="f04-tag f04-tag-fold">fold</span>
+      <span data-hf-id="hf-id2w" class="f04-tag f04-tag-collision">collision</span>
+      <span data-hf-id="hf-bjj4" class="f04-tag f04-tag-conflicts">conflicts</span>
+      <span data-hf-id="hf-knqc" class="f04-tag f04-tag-secrets">secrets</span>
+      <span data-hf-id="hf-aed6" class="f04-tag f04-tag-base">base</span>
+
+      <svg data-hf-id="hf-6y2m" class="f04-rule" width="1920" height="1" viewBox="0 0 1920 1" xmlns="http://www.w3.org/2000/svg">
+        <path data-hf-id="hf-ir5b" id="f04-rule-path" d="M 0 0.5 L 1920 0.5" fill="none" stroke="#58A6FF" stroke-width="1" />
+      </svg>
+
+      <i data-hf-id="hf-c44y" class="f04-pulse"></i>
+      <i data-hf-id="hf-2to6" class="f04-pulse"></i>
+      <i data-hf-id="hf-37z7" class="f04-pulse"></i>
+      <i data-hf-id="hf-3ma8" class="f04-pulse"></i>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      const FRAME = "04-five-checks";
+      const root = document.getElementById("root");
+      const plate = document.getElementById("f04-plate");
+      const box = document.getElementById("f04-box");
+      const aura = document.getElementById("f04-aura");
+      const target = document.getElementById("f04-target");
+      const rulePath = document.getElementById("f04-rule-path");
+      const tags = Array.prototype.slice.call(document.querySelectorAll(".f04-tag"));
+      const pulses = Array.prototype.slice.call(document.querySelectorAll(".f04-pulse"));
+
+      // The five check chips on assets/sec-proposals.png — edges in the capture's natural px
+      // (measured from the capture: x0, x1, y0, y1), each on its spoken cue.
+      const IMG_W = 2776;
+      const CHIPS = [
+        { key: "fold", cue: 2.0, r: [32, 216, 270, 302] },
+        { key: "collision", cue: 3.3, r: [246, 662, 270, 302] },
+        { key: "conflicts", cue: 4.6, r: [674, 816, 270, 302] },
+        { key: "secrets", cue: 5.9, r: [32, 188, 314, 346] },
+        { key: "base", cue: 7.2, r: [200, 594, 314, 346] },
+      ];
+
+      const PAD = 8; // spotlight box sits this far outside the chip
+      const AURA_W = 200; // aura base width — refit is a uniform scaleX, measured in the derive step
+      const AURA_H = 90;
+      const TAG_GAP = 46; // tag clearance above the box
+
+      // Geometry is DERIVED from the rendered plate, never hand-typed: measure once at build
+      // (single-scene composition), then every rect is computed in #root coordinates.
+      const rr = root.getBoundingClientRect();
+      const pr = plate.getBoundingClientRect();
+      const k = pr.width / IMG_W;
+      const X = (v) => pr.left - rr.left + v * k;
+      const Y = (v) => pr.top - rr.top + v * k;
+
+      // Box derived FROM the target rect — target position first, box/aura derived from it,
+      // in that order (ai-tracking-box). No morph tween ever touches width/height: each step
+      // is an instant state change, and the aura's refit is a uniform scaleX substitution.
+      function deriveFromTarget(tx, ty, tw, th) {
+        const w = tw + PAD * 2;
+        const h = th + PAD * 2;
+        const auraW = w + 60;
+        return {
+          boxRect: { left: tx - w / 2, top: ty - h / 2, width: w },
+          auraRect: { left: tx - auraW / 2, top: ty - AURA_H / 2, scaleX: auraW / AURA_W },
+          tagRect: { left: tx - w / 2, top: ty - h / 2 - TAG_GAP },
+        };
+      }
+
+      const STEPS = CHIPS.map((chip) => {
+        const r = chip.r;
+        const tx = X((r[0] + r[1]) / 2);
+        const ty = Y((r[2] + r[3]) / 2);
+        const tw = (r[1] - r[0]) * k;
+        const th = (r[3] - r[2]) * k;
+        const d = deriveFromTarget(tx, ty, tw, th);
+        return { key: chip.key, cue: chip.cue, tx: tx, ty: ty, boxRect: d.boxRect, auraRect: d.auraRect, tagRect: d.tagRect };
+      });
+
+      // ---- initial state (authored here, so a seek to 0 is already correct) ----
+      gsap.set(target, { left: STEPS[0].tx, top: STEPS[0].ty });
+      gsap.set(box, Object.assign({ opacity: 0, scale: 0.86 }, STEPS[0].boxRect));
+      gsap.set(aura, STEPS[0].auraRect);
+      gsap.set(tags[0], STEPS[0].tagRect);
+      const ruleLen = rulePath.getTotalLength();
+      gsap.set(rulePath, { strokeDasharray: ruleLen, strokeDashoffset: ruleLen });
+      pulses.forEach((p, i) => {
+        gsap.set(p, { left: (pr.width * (i + 1)) / 5 - 1 });
+      });
+
+      const tl = gsap.timeline({ paused: true });
+
+      // ---- Scene 1 (0.0–1.6) — the board settles into frame: masked rise, power3, no bounce.
+      // Camera static from here; the mono kicker is deliberately NOT added (the VO says it).
+      tl.fromTo(
+        ".f04-plate",
+        { yPercent: 14, opacity: 0.35 },
+        { yPercent: 0, opacity: 1, duration: 1.05, ease: "power3.out" },
+        0.12,
+      );
+
+      // ---- Scene 2 (1.6–8.6) — the annotation walk: the box locks on, then steps chip-to-chip
+      // on each spoken cue (instant sets, no glide). A landing = the box on its chip + its tag up
+      // + a 300ms glow envelope behind it (driver below).
+      tl.to(box, { opacity: 1, scale: 1, duration: 0.32, ease: "back.out(1.8)" }, 1.75);
+
+      STEPS.forEach((s, i) => {
+        if (i > 0) {
+          tl.set(target, { left: s.tx, top: s.ty }, s.cue); // target first …
+          tl.set(box, s.boxRect, s.cue); // … then the box derived from it
+          tl.set(aura, s.auraRect, s.cue);
+          tl.set(tags[i], s.tagRect, s.cue);
+          tl.set(tags[i - 1], { opacity: 0 }, s.cue); // previous callout gives way to the next
+        }
+        tl.set(tags[i], { opacity: 1 }, s.cue);
+      });
+
+      // One linear driver sweeps Scene-2 local time; a single onUpdate computes EVERY cue's
+      // attack/sustain/release envelope (0 → 1 → rest, never back to zero: a breadcrumb of
+      // recent emphasis) and drives the glow (aura behind the box) + the glyph-hugging
+      // text-shadow + scale on the spoken callout. One driver, never one tween per cue.
+      const driver = { t: 0 };
+      const ATTACK = 0.05;
+      const HOLD = 0.15;
+      const RELEASE = 0.25;
+      const REST = 0.12;
+      function envelope(t, start, end) {
+        if (t < start) return 0;
+        if (t < start + ATTACK) return (t - start) / ATTACK;
+        if (t < end) return 1;
+        const releaseEnd = end + RELEASE;
+        if (t < releaseEnd) return 1 - ((t - end) / RELEASE) * (1 - REST);
+        return REST;
+      }
+      tl.to(
+        driver,
+        {
+          t: 7,
+          duration: 7,
+          ease: "none",
+          onUpdate: () => {
+            let peak = 0;
+            STEPS.forEach((s, i) => {
+              const e = envelope(driver.t, s.cue - 1.6, s.cue - 1.6 + HOLD);
+              peak = Math.max(peak, e);
+              tags[i].style.textShadow = "0 0 " + (14 * e).toFixed(2) + "px rgba(88, 166, 255, " + (0.6 * e).toFixed(3) + ")";
+              tags[i].style.transform = "scale(" + (1 + 0.07 * e).toFixed(4) + ")";
+            });
+            aura.style.opacity = (0.1 + 0.75 * peak).toFixed(3);
+          },
+        },
+        1.6,
+      );
+
+      // The box releases on "server-side": one hairline accent rule sweeps left→right across the
+      // whole set in a single pass (svg-path-draw on the measured length) and stays.
+      tl.to(rulePath, { strokeDashoffset: 0, duration: 0.55, ease: "power2.out" }, 8.2);
+
+      // ---- Scene 3 (8.6–10.5) — hold: the rule flickers one accent pulse at each card boundary
+      // in sequence (four instant opacity steps — a server-side heartbeat, finite), then stillness.
+      const PULSE_AT = [8.9, 9.2, 9.5, 9.8];
+      pulses.forEach((p, i) => {
+        tl.set(p, { opacity: 1 }, PULSE_AT[i]);
+        tl.set(p, { opacity: 0.16 }, PULSE_AT[i] + 0.2);
+      });
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[FRAME] = tl;
+      tl.seek(0);
+    })();
+  </script>
+</template>

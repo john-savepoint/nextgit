@@ -1,0 +1,17 @@
+{
+  "bgm": { "path": "assets/bgm/track.wav", "volume": 0.22 },
+  "voices": [
+    { "frame": 1, "path": "assets/vo/01-bottleneck.wav" },
+    { "frame": 2, "path": "assets/vo/02-messy-landing.wav" },
+    { "frame": 3, "path": "assets/vo/03-meet-nextgit.wav" },
+    { "frame": 4, "path": "assets/vo/04-five-checks.wav" },
+    { "frame": 5, "path": "assets/vo/05-collision.wav" },
+    { "frame": 6, "path": "assets/vo/06-judge.wav" },
+    { "frame": 7, "path": "assets/vo/07-secrets.wav" },
+    { "frame": 8, "path": "assets/vo/08-signed.wav" },
+    { "frame": 9, "path": "assets/vo/09-review.wav" },
+    { "frame": 10, "path": "assets/vo/10-ledger.wav" },
+    { "frame": 11, "path": "assets/vo/11-nextgit.wav" }
+  ],
+  "sfx": []
+}

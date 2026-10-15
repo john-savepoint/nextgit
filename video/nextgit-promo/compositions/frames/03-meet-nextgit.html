@@ -1,0 +1,318 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Barlow";
+      src: url("assets/fonts/Barlow-Black.woff2") format("woff2");
+      font-weight: 900;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+      font-weight: 500;
+      font-style: normal;
+      font-display: block;
+    }
+
+    /* Root: styled by #root, never a class. */
+    #root {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      container-type: size;
+    }
+
+    /* Full-bleed ground rides on its own clip layer (never on #root). */
+    .ng03-ground {
+      position: absolute;
+      inset: 0;
+      background: #0a0e14;
+    }
+
+    .ng03-scene {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    /* one camera wrapper carries the whole world */
+    .ng03-world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+
+    /* depth-of-field: blur is tweened on the seek clock via --dof */
+    .ng03-blur {
+      position: absolute;
+      inset: 0;
+      --dof: 0px;
+      filter: blur(var(--dof));
+      will-change: filter;
+    }
+
+    /* the whole board, authored at final 1x layout; top-aligned so the
+       lower card band falls into the caption strip instead of the header */
+    .ng03-board {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      object-fit: cover;
+      object-position: 50% 0%;
+      display: block;
+    }
+
+    /* 3x card macro laid exactly over card-1's measured region */
+    .ng03-macro {
+      position: absolute;
+      left: 34.67px;
+      top: 497.33px;
+      width: 602px;
+      height: 340.67px;
+    }
+    .ng03-macroimg {
+      position: absolute;
+      inset: 0;
+      width: 602px;
+      height: 340.67px;
+      display: block;
+    }
+
+    /* check-strip shutters: plate-coloured, lifted one at a time as its chip lands */
+    .ng03-mask {
+      position: absolute;
+      background: #111822;
+    }
+    /* each check chip is the real plate pixels, cropped to its own box, so it
+       pops in registration with the capture underneath */
+    .ng03-chip {
+      position: absolute;
+      background-image: url("assets/macro-card-agent1.png");
+      background-repeat: no-repeat;
+      background-size: 602px 340.67px;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+    #ng03-chip-1 {
+      left: 21.31px;
+      top: 141.85px;
+      width: 133.19px;
+      height: 21.21px;
+      background-position: -21.31px -141.85px;
+    }
+    #ng03-chip-2 {
+      left: 163.82px;
+      top: 141.85px;
+      width: 277.03px;
+      height: 21.21px;
+      background-position: -163.82px -141.85px;
+    }
+    #ng03-chip-3 {
+      left: 448.84px;
+      top: 141.85px;
+      width: 94.56px;
+      height: 21.21px;
+      background-position: -448.84px -141.85px;
+    }
+    #ng03-chip-4 {
+      left: 21.31px;
+      top: 171px;
+      width: 103.89px;
+      height: 21.21px;
+      background-position: -21.31px -171px;
+    }
+    #ng03-chip-5 {
+      left: 133.19px;
+      top: 171px;
+      width: 262.38px;
+      height: 21.21px;
+      background-position: -133.19px -171px;
+    }
+    #ng03-mask-1 { left: 20.31px; top: 140.85px; width: 135.19px; height: 23.21px; }
+    #ng03-mask-2 { left: 162.82px; top: 140.85px; width: 279.03px; height: 23.21px; }
+    #ng03-mask-3 { left: 447.84px; top: 140.85px; width: 96.56px; height: 23.21px; }
+    #ng03-mask-4 { left: 20.31px; top: 170px; width: 105.89px; height: 23.21px; }
+    #ng03-mask-5 { left: 132.19px; top: 170px; width: 264.38px; height: 23.21px; }
+
+    /* the film's own annotation layer — outside the camera, so the locked
+       wide's type never scales or drifts */
+    .ng03-anno {
+      position: absolute;
+      inset: 0;
+    }
+    .ng03-scrim {
+      position: absolute;
+      left: -240px;
+      top: -260px;
+      width: 2400px;
+      height: 1600px;
+      opacity: 0;
+      background: radial-gradient(
+        75% 70% at 42% 40%,
+        rgba(10, 14, 20, 0.97) 0%,
+        rgba(10, 14, 20, 0.93) 45%,
+        rgba(10, 14, 20, 0.72) 72%,
+        rgba(10, 14, 20, 0.42) 100%
+      );
+    }
+    .ng03-titleblock {
+      position: absolute;
+      left: 105.6px;
+      top: 84px;
+    }
+    .ng03-wordmark {
+      font-family: "Barlow", sans-serif;
+      font-weight: 900;
+      font-size: 6cqw;
+      line-height: 0.88;
+      letter-spacing: -0.04em;
+      text-transform: lowercase;
+      color: #e6edf3;
+      transform-origin: 0% 60%;
+      will-change: transform;
+    }
+    .ng03-under {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: fit-content;
+      margin-top: 34px;
+    }
+    .ng03-rule {
+      align-self: stretch;
+      height: 1px;
+      background: #58a6ff;
+      transform-origin: 0% 50%;
+    }
+    .ng03-mono {
+      margin-top: 16px;
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 500;
+      font-size: 1.25cqw;
+      line-height: 1.5;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: #8b9bb0;
+      will-change: transform;
+    }
+  </style>
+
+  <div data-hf-id="hf-evij"
+    id="root"
+    data-composition-id="03-meet-nextgit"
+    data-width="1920"
+    data-height="1080"
+    data-duration="7"
+  >
+    <div data-hf-id="hf-8mrv" class="clip ng03-ground" data-start="0" data-duration="7" data-track-index="0"></div>
+
+    <div data-hf-id="hf-ok79" class="clip ng03-scene" data-start="0" data-duration="7" data-track-index="1">
+      <div data-hf-id="hf-0b2r" class="ng03-world" id="ng03-world" data-layout-allow-overflow="true" data-layout-allow-caption-zone="true">
+        <div data-hf-id="hf-cuvy" class="ng03-blur" id="ng03-blur">
+          <img data-hf-id="hf-9m3a" class="ng03-board" src="assets/triage-viewport.png" alt="" />
+          <div data-hf-id="hf-zont" class="ng03-macro">
+            <img data-hf-id="hf-w33g" class="ng03-macroimg" src="assets/macro-card-agent1.png" alt="" />
+            <div data-hf-id="hf-m9im" class="ng03-mask" id="ng03-mask-1"></div>
+            <div data-hf-id="hf-ibel" class="ng03-mask" id="ng03-mask-2"></div>
+            <div data-hf-id="hf-hjqs" class="ng03-mask" id="ng03-mask-3"></div>
+            <div data-hf-id="hf-518b" class="ng03-mask" id="ng03-mask-4"></div>
+            <div data-hf-id="hf-yvii" class="ng03-mask" id="ng03-mask-5"></div>
+            <div data-hf-id="hf-t00i" class="ng03-chip" id="ng03-chip-1"></div>
+            <div data-hf-id="hf-p1wh" class="ng03-chip" id="ng03-chip-2"></div>
+            <div data-hf-id="hf-oa8o" class="ng03-chip" id="ng03-chip-3"></div>
+            <div data-hf-id="hf-kc4n" class="ng03-chip" id="ng03-chip-4"></div>
+            <div data-hf-id="hf-ge0m" class="ng03-chip" id="ng03-chip-5"></div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-ghx3" class="ng03-anno">
+        <div data-hf-id="hf-picq" class="ng03-scrim" id="ng03-scrim"></div>
+        <div data-hf-id="hf-1yhm" class="ng03-titleblock">
+          <div data-hf-id="hf-bnil" class="ng03-wordmark" id="ng03-wordmark">nextgit</div>
+          <div data-hf-id="hf-1thr" class="ng03-under">
+            <div data-hf-id="hf-ytk4" class="ng03-rule" id="ng03-rule"></div>
+            <div data-hf-id="hf-4v1f" class="ng03-mono" id="ng03-mono">all in one place.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    window.__timelines = window.__timelines || {};
+
+    const tl = gsap.timeline({ paused: true });
+
+    // ---- camera: ONE state object, ONE writer, seeded punched-in on the card's check strip ----
+    const world = document.getElementById("ng03-world");
+    const CAM_OPEN = { scale: 2.1, x: 1046, y: -261.2 };
+    const camera = { scale: CAM_OPEN.scale, x: CAM_OPEN.x, y: CAM_OPEN.y };
+    function applyCamera() {
+      world.style.transform =
+        "translate(" + camera.x + "px, " + camera.y + "px) scale(" + camera.scale + ")";
+    }
+    applyCamera();
+
+    // ---- Scene 1 (0.0-2.6): full-bleed close-up, refocus, check chips pop in ----
+    tl.fromTo(
+      "#ng03-blur",
+      { "--dof": "5px" },
+      { "--dof": "0px", duration: 0.3, ease: "power2.out" },
+      0,
+    );
+    tl.set("#ng03-blur", { filter: "none" }, 0.3);
+
+    const CHIP_AT = 0.35;
+    const CHIP_STAGGER = 0.085;
+    const CHIP_DUR = 0.42;
+    for (let i = 1; i <= 5; i++) {
+      const at = CHIP_AT + (i - 1) * CHIP_STAGGER;
+      tl.set("#ng03-mask-" + i, { autoAlpha: 0 }, at);
+      tl.fromTo(
+        "#ng03-chip-" + i,
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: CHIP_DUR, ease: "power3.out" },
+        at,
+      );
+    }
+
+    // ---- Scene 2 (2.6-4.6): the one decelerating pull-back; camera never moves again ----
+    tl.fromTo(
+      camera,
+      { scale: CAM_OPEN.scale, x: CAM_OPEN.x, y: CAM_OPEN.y },
+      { scale: 1, x: 0, y: 0, duration: 1.85, ease: "expo.out", onUpdate: applyCamera },
+      2.65,
+    );
+
+    // ---- Scene 3 (4.6-6.5): locked wide; element-level payoff ----
+    tl.fromTo("#ng03-scrim", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, 4.6);
+    tl.fromTo(
+      "#ng03-wordmark",
+      { opacity: 0, scale: 0.965, y: 14 },
+      { opacity: 1, scale: 1, y: 0, duration: 0.62, ease: "power3.out" },
+      4.72,
+    );
+    tl.fromTo(
+      "#ng03-rule",
+      { scaleX: 0, opacity: 0 },
+      { scaleX: 1, opacity: 1, duration: 0.32, ease: "power3.out" },
+      5.78,
+    );
+    tl.fromTo(
+      "#ng03-mono",
+      { opacity: 0, y: 8 },
+      { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" },
+      5.9,
+    );
+
+    tl.seek(0);
+    window.__timelines["03-meet-nextgit"] = tl;
+  </script>
+</template>

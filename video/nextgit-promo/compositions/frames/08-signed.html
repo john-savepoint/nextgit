@@ -1,0 +1,422 @@
+<template>
+  <div data-hf-id="hf-zh1r"
+    id="root"
+    data-composition-id="08-signed"
+    data-start="0"
+    data-duration="6.5"
+    data-width="1920"
+    data-height="1080"
+  >
+    <!-- full-bleed ground: lowest content track, painted by the frame itself (never on #root) -->
+    <div data-hf-id="hf-m65p" class="clip f08-ground" data-start="0" data-duration="6.5" data-track-index="0"></div>
+
+    <div data-hf-id="hf-n6fb" class="clip f08-scene" data-start="0" data-duration="6.5" data-track-index="1">
+      <div data-hf-id="hf-63na" class="f08-toprule"></div>
+
+      <!-- the pinned anchor: the claim, and it never moves again -->
+      <div data-hf-id="hf-ny0b" class="f08-anchor-row">
+        <div data-hf-id="hf-cqqx" class="f08-anchor-wrap">
+          <h1 data-hf-id="hf-mtxe" class="f08-anchor" id="f08-anchor">signed.</h1>
+          <svg data-hf-id="hf-pi13"
+            class="f08-underline"
+            width="100%"
+            height="3"
+            viewBox="0 0 600 3"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path data-hf-id="hf-bv6n" class="f08-underline-path" d="M0 1.5 H600" fill="none" stroke="#2ea043" stroke-width="1" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- the two independent copies, mono chrome, to the right of the anchor -->
+      <div data-hf-id="hf-ggnk" class="f08-tags">
+        <div data-hf-id="hf-9npq" class="f08-tag" id="f08-tag-1">
+          <span data-hf-id="hf-xoiu" class="f08-tag-k">KV landing:</span><span data-hf-id="hf-nmb7" class="f08-tag-v">&#8249;commit&#8250;</span>
+        </div>
+        <div data-hf-id="hf-5plp" class="f08-tag" id="f08-tag-2">
+          <span data-hf-id="hf-5w12" class="f08-tag-k">R2 attestations/</span><span data-hf-id="hf-fdhx" class="f08-tag-v">&#8249;commit&#8250;.json</span>
+        </div>
+      </div>
+
+      <!-- masked slot: real landing rows step up through the window, badge pinned under the film's mark -->
+      <div data-hf-id="hf-hwd6" class="f08-slot" id="f08-slot">
+        <div data-hf-id="hf-dfqe" class="f08-slot-inner" id="f08-slot-inner">
+          <div data-hf-id="hf-mi6f" class="f08-rowitem" style="background-position: 0 -88px"></div>
+          <div data-hf-id="hf-shk1" class="f08-rowitem" style="background-position: 0 -376px"></div>
+          <div data-hf-id="hf-ysvd" class="f08-rowitem" style="background-position: 0 -664px"></div>
+          <div data-hf-id="hf-d0v5" class="f08-rowitem" style="background-position: 0 -952px"></div>
+          <div data-hf-id="hf-16iy" class="f08-rowitem" style="background-position: 0 -1240px"></div>
+        </div>
+        <div data-hf-id="hf-d5h0" class="f08-badgemark" id="f08-badgemark">
+          <span data-hf-id="hf-h4ho" class="f08-tick f08-tick-tl"></span>
+          <span data-hf-id="hf-qd2i" class="f08-tick f08-tick-tr"></span>
+          <span data-hf-id="hf-j87y" class="f08-tick f08-tick-bl"></span>
+          <span data-hf-id="hf-zoug" class="f08-tick f08-tick-br"></span>
+        </div>
+      </div>
+
+      <!-- verify it yourself -->
+      <div data-hf-id="hf-5rcw" class="f08-cmd" id="f08-cmd">
+        <span data-hf-id="hf-z1lr" class="f08-cmd-prompt">$</span>
+        <span data-hf-id="hf-7ykt" class="f08-cmd-line"><span data-hf-id="hf-5iwr" class="f08-cmd-text" id="f08-cmd-text"></span><span data-hf-id="hf-shiz" class="f08-caret" id="f08-caret"></span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- prettier-ignore -->
+  <style>
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 900;
+      font-display: block;
+      src: url("assets/fonts/Barlow-Black.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-style: normal;
+      font-weight: 400;
+      font-display: block;
+      src: url("assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-style: normal;
+      font-weight: 500;
+      font-display: block;
+      src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+    }
+
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      background: transparent;
+    }
+
+    .f08-ground {
+      position: absolute;
+      inset: 0;
+      background: #0a0e14;
+    }
+
+    .f08-scene {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* ── chrome ─────────────────────────────────────────────── */
+    .f08-toprule {
+      position: absolute;
+      left: 5.5cqw;
+      right: 5.5cqw;
+      top: 8.9cqh;
+      height: 1px;
+      background: #1c2634;
+    }
+
+    /* ── the frame's one display moment, pinned ─────────────── */
+    .f08-anchor-row {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 14.8cqh;
+      display: flex;
+      justify-content: center;
+    }
+    .f08-anchor-wrap {
+      width: max-content;
+    }
+    .f08-anchor {
+      margin: 0;
+      font-family: "Barlow";
+      font-weight: 900;
+      font-size: 9cqw;
+      line-height: 0.9;
+      letter-spacing: -0.04em;
+      color: #e6edf3;
+    }
+    .f08-underline {
+      display: block;
+      width: 100%;
+      height: 3px;
+      margin-top: 3.7cqh;
+    }
+
+    /* ── the two copies ─────────────────────────────────────── */
+    .f08-tags {
+      position: absolute;
+      right: 5.5cqw;
+      top: 19.5cqh;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1.1cqh;
+    }
+    .f08-tag {
+      border: 1px solid #1c2634;
+      padding: 1.05cqh 1cqw;
+      font-family: "IBM Plex Mono";
+      font-size: 0.72cqw;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      line-height: 1;
+      color: #8b9bb0;
+      white-space: nowrap;
+    }
+    .f08-tag-v {
+      color: #e6edf3;
+    }
+
+    /* ── masked slot: one real landing row at a time ────────── */
+    .f08-slot {
+      position: absolute;
+      left: 50%;
+      margin-left: -530px;
+      top: 37cqh;
+      width: 1060px;
+      height: 288px;
+      overflow: hidden;
+    }
+    .f08-slot-inner {
+      display: flex;
+      flex-direction: column;
+    }
+    .f08-rowitem {
+      height: 288px;
+      background-color: #070a0e;
+      background-image: url("assets/sec-pipelines.png");
+      background-repeat: no-repeat;
+      background-size: 5552px 5820px;
+    }
+    .f08-badgemark {
+      position: absolute;
+      left: 540px;
+      top: 40px;
+      width: 166px;
+      height: 90px;
+      border: 1px solid #58a6ff;
+    }
+    .f08-tick {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+    }
+    .f08-tick-tl {
+      left: -7px;
+      top: -7px;
+      border-top: 2px solid #58a6ff;
+      border-left: 2px solid #58a6ff;
+    }
+    .f08-tick-tr {
+      right: -7px;
+      top: -7px;
+      border-top: 2px solid #58a6ff;
+      border-right: 2px solid #58a6ff;
+    }
+    .f08-tick-bl {
+      left: -7px;
+      bottom: -7px;
+      border-bottom: 2px solid #58a6ff;
+      border-left: 2px solid #58a6ff;
+    }
+    .f08-tick-br {
+      right: -7px;
+      bottom: -7px;
+      border-bottom: 2px solid #58a6ff;
+      border-right: 2px solid #58a6ff;
+    }
+
+    /* ── verify it yourself ─────────────────────────────────── */
+    .f08-cmd {
+      position: absolute;
+      left: 50%;
+      margin-left: -530px;
+      top: 68.9cqh;
+      display: flex;
+      align-items: baseline;
+      font-family: "IBM Plex Mono";
+      font-size: 1.4cqw;
+      font-weight: 400;
+      line-height: 1.3;
+      color: #e6edf3;
+      white-space: pre;
+    }
+    .f08-cmd-prompt {
+      margin-right: 0.75cqw;
+      color: #58a6ff;
+    }
+    .f08-cmd-line {
+      display: inline-flex;
+      align-items: baseline;
+      min-width: 44cqw;
+      white-space: pre;
+    }
+    .f08-cmd-text {
+      white-space: pre;
+    }
+    .f08-caret {
+      display: inline-block;
+      width: 11px;
+      height: 27px;
+      margin-left: 3px;
+      background: #e6edf3;
+      vertical-align: -4px;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var ID = "08-signed";
+      var DURATION = 6;
+
+      /* slot geometry: one source row band (144px @2x) per 288px item */
+      var ITEM_H = 288;
+      var STEPS = 4;
+      var STEP_DUR = 0.16;
+      var STEP_START = 1.9;
+      var STEP_SPACING = 0.65;
+
+      /* the verification command — real code, typed in states */
+      var CMD = "node platform/scripts/attest-verify.mjs --commit \u003csha\u003e";
+      var TYPE_START = 4.94;
+      var TYPE_END = 5.6;
+      var BLINK_OFF = 5.66;
+      var BLINK_ON = 5.9;
+      var CREAM = "#e6edf3";
+      var ORANGE = "#58a6ff";
+      var DIM = "#57657a";
+      var SEQUENCE = [
+        { t: TYPE_START, text: "", color: CREAM },
+        { t: 5.0, text: "node ", color: CREAM },
+        { t: 5.08, text: "node platform/", color: CREAM },
+        { t: 5.18, text: "node platform/scripts/attest-verify.mjs", color: ORANGE },
+        { t: 5.34, text: "node platform/scripts/attest-verify.mjs --commit", color: CREAM },
+        { t: 5.44, text: CMD, color: DIM },
+        { t: 5.58, text: CMD, color: CREAM },
+      ];
+
+      function entryAt(time) {
+        for (var i = SEQUENCE.length - 1; i >= 0; i--) {
+          if (time >= SEQUENCE[i].t) return SEQUENCE[i];
+        }
+        return null;
+      }
+
+      /* one blink after the keys stop landing; pure function of time, never state */
+      function caretVisible(time) {
+        if (time < TYPE_START) return false;
+        if (time < TYPE_END) return true;
+        return !(time >= BLINK_OFF && time < BLINK_ON);
+      }
+
+      function build() {
+        var tl = gsap.timeline({ paused: true });
+
+        var innerEl = document.getElementById("f08-slot-inner");
+        var textEl = document.getElementById("f08-cmd-text");
+        var caretEl = document.getElementById("f08-caret");
+        var springs = [];
+        for (var i = 0; i < STEPS; i++) springs.push({ p: 0 });
+
+        /* the whole frame's state, derived from the rendered time */
+        function syncState() {
+          var time = tl.time();
+          var sum = 0;
+          for (var j = 0; j < springs.length; j++) sum += springs[j].p;
+          innerEl.style.transform = "translateY(" + -sum * ITEM_H + "px)";
+
+          var entry = entryAt(time);
+          textEl.textContent = entry ? entry.text : "";
+          caretEl.style.background = entry ? entry.color : CREAM;
+          caretEl.style.opacity = caretVisible(time) ? "1" : "0";
+        }
+
+        /* ── Scene 1 (0.0–1.4): the anchor lands, the rule draws, then it pins ── */
+        tl.fromTo(
+          ".f08-toprule",
+          { scaleX: 0 },
+          { scaleX: 1, duration: 0.5, ease: "power3.out", transformOrigin: "left center" },
+          0.08,
+        );
+        tl.fromTo(
+          "#f08-anchor",
+          { opacity: 0, scale: 0.94 },
+          { opacity: 1, scale: 1, duration: 0.72, ease: "power3.out" },
+          0.12,
+        );
+
+        var upath = document.querySelector(".f08-underline-path");
+        var ulen = upath.getTotalLength();
+        upath.style.strokeDasharray = String(ulen);
+        upath.style.strokeDashoffset = String(ulen);
+        tl.fromTo(upath, { strokeDashoffset: ulen }, { strokeDashoffset: 0, duration: 0.7, ease: "power2.out" }, 0.58);
+
+        /* ── Scene 2 (1.4–4.8): the slot steps, four rows over the window ── */
+        tl.fromTo("#f08-slot", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power1.out" }, 1.48);
+        tl.fromTo(
+          "#f08-badgemark",
+          { opacity: 0, scale: 0.94 },
+          { opacity: 1, scale: 1, duration: 0.45, ease: "power3.out" },
+          1.52,
+        );
+
+        springs.forEach(function (spring, k) {
+          tl.to(
+            spring,
+            { p: 1, duration: STEP_DUR, ease: "steps(1)" },
+            STEP_START + k * STEP_SPACING,
+          );
+        });
+
+        /* the two independent copies pop beside the anchor, in sequence */
+        tl.fromTo(
+          "#f08-tag-1",
+          { opacity: 0, scale: 0, y: 8 },
+          { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "power3.out", transformOrigin: "right center" },
+          2.95,
+        );
+        tl.fromTo(
+          "#f08-tag-2",
+          { opacity: 0, scale: 0, y: 8 },
+          { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "power3.out", transformOrigin: "right center" },
+          3.35,
+        );
+
+        /* ── Scene 3 (4.8–6.0): verify it yourself ── */
+        tl.fromTo("#f08-cmd", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 4.84);
+
+        /* a linear driver over the whole shot: the frame's state is a pure function of
+           the rendered time, so any seek — forward, backward, straight to the end —
+           rebuilds the same ticker offset, command text and caret. */
+        var driver = { t: 0 };
+        tl.to(driver, { t: DURATION, duration: DURATION, ease: "none", onUpdate: syncState }, 0);
+
+        tl.eventCallback("onUpdate", syncState);
+        syncState();
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines[ID] = tl;
+        tl.seek(0);
+        return tl;
+      }
+
+      /* The host index already loads gsap; the frame carries its own load too, so a
+         standalone/preview mount builds the same timeline. */
+      if (window.gsap && typeof window.gsap.timeline === "function") {
+        build();
+      } else {
+        window.addEventListener("load", function () {
+          if (window.gsap && typeof window.gsap.timeline === "function") build();
+        });
+      }
+    })();
+  </script>
+</template>

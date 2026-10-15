@@ -5,3 +5,5 @@ node_modules/
 .hyperframes/frame-packets/
 audio_request.json
 audio_engine_meta.json
+renders/*.prenorm.mp4
+renders/*.norm.mp4

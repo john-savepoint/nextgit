@@ -1,0 +1,404 @@
+<template>
+  <div data-hf-id="hf-5gxw"
+    id="root"
+    data-composition-id="10-honest-ledger"
+    data-start="0"
+    data-duration="7.9"
+    data-width="1920"
+    data-height="1080"
+  >
+    <!-- full-bleed ground: darkest content track, painted by the frame itself (never on #root) -->
+    <div data-hf-id="hf-uyqd" class="clip f10-ground" data-start="0" data-duration="7.9" data-track-index="0"></div>
+
+    <div data-hf-id="hf-qp65" class="clip f10-scene" data-start="0" data-duration="7.9" data-track-index="1">
+      <div data-hf-id="hf-l3vd" class="f10-toprule"></div>
+
+      <div data-hf-id="hf-g73q" class="f10-heromask">
+        <h1 data-hf-id="hf-98qm" class="f10-hero">shown, not <span data-hf-id="hf-qq89" class="f10-accent">hidden</span></h1>
+      </div>
+
+      <div data-hf-id="hf-w662" class="f10-row">
+        <section data-hf-id="hf-1ibg" class="f10-panel">
+          <header data-hf-id="hf-14cn" class="f10-panel-head"><span data-hf-id="hf-rdmy" class="f10-panel-label">history</span></header>
+          <div data-hf-id="hf-g1jq" class="f10-media">
+            <img data-hf-id="hf-vmed" class="f10-plate" src="assets/history-viewport.png" alt="" />
+          </div>
+        </section>
+
+        <section data-hf-id="hf-sp6c" class="f10-panel">
+          <header data-hf-id="hf-5fmv" class="f10-panel-head"><span data-hf-id="hf-lklf" class="f10-panel-label">fork signals</span></header>
+          <div data-hf-id="hf-gcl6" class="f10-media">
+            <img data-hf-id="hf-x97j" class="f10-plate" src="assets/sec-forks.png" alt="" />
+          </div>
+        </section>
+
+        <section data-hf-id="hf-ri99" class="f10-panel">
+          <header data-hf-id="hf-51bu" class="f10-panel-head"><span data-hf-id="hf-3z5v" class="f10-panel-label">parity</span></header>
+          <div data-hf-id="hf-gqw7" class="f10-media">
+            <img data-hf-id="hf-k8ty" class="f10-plate" src="assets/parity-viewport.png" alt="" />
+          </div>
+          <span data-hf-id="hf-0mjq" class="f10-tick f10-tick-tl"></span>
+          <span data-hf-id="hf-25z4" class="f10-tick f10-tick-tr"></span>
+          <span data-hf-id="hf-hllw" class="f10-tick f10-tick-bl"></span>
+          <span data-hf-id="hf-9pdu" class="f10-tick f10-tick-br"></span>
+        </section>
+      </div>
+
+      <div data-hf-id="hf-ttz7" class="f10-pulse-band"><span data-hf-id="hf-9rr6" class="f10-pulse"></span></div>
+
+      <div data-hf-id="hf-izdd" class="f10-ledger">
+        <span data-hf-id="hf-5f9b" class="f10-ledger-mark">/</span>
+        <span data-hf-id="hf-9f6c" class="f10-ledger-text"></span>
+        <span data-hf-id="hf-yj45" class="f10-cursor"></span>
+      </div>
+      <svg data-hf-id="hf-hrug" class="f10-underline" width="794" height="4" viewBox="0 0 794 4" aria-hidden="true" focusable="false">
+        <path data-hf-id="hf-f8fz" class="f10-underline-path" d="M0 2 H794" fill="none" stroke="#58A6FF" stroke-width="1" />
+      </svg>
+    </div>
+
+    <!-- prettier-ignore -->
+    <style>
+      @font-face {
+        font-family: "Barlow";
+        font-style: normal;
+        font-weight: 900;
+        font-display: block;
+        src: url("assets/fonts/Barlow-Black.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        font-style: normal;
+        font-weight: 400;
+        font-display: block;
+        src: url("assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        font-style: normal;
+        font-weight: 500;
+        font-display: block;
+        src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+      }
+
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        container-type: size;
+        background: transparent;
+      }
+
+      .f10-ground {
+        position: absolute;
+        inset: 0;
+        background: #0a0e14;
+      }
+
+      .f10-scene {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* ── chrome ─────────────────────────────────────────────── */
+      .f10-toprule {
+        position: absolute;
+        left: 5.5cqw;
+        right: 5.5cqw;
+        top: 9.2cqh;
+        height: 1px;
+        background: #1c2634;
+      }
+
+      /* ── the frame's one display moment ─────────────────────── */
+      .f10-heromask {
+        position: absolute;
+        left: 5.5cqw;
+        top: 13cqh;
+        padding: 0.6cqh 0;
+      }
+      .f10-hero {
+        margin: 0;
+        font-family: "Barlow";
+        font-weight: 900;
+        font-size: 6.5cqw;
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        text-transform: lowercase;
+        color: #e6edf3;
+        white-space: nowrap;
+      }
+      .f10-accent {
+        color: #58a6ff;
+      }
+
+      /* ── the three exhibit tiles ────────────────────────────── */
+      .f10-row {
+        position: absolute;
+        left: 5.5cqw;
+        right: 5.5cqw;
+        top: 30.5cqh;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2cqw;
+        align-items: start;
+      }
+      .f10-panel {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #1c2634;
+      }
+      .f10-panel-head {
+        display: flex;
+        align-items: center;
+        padding: 2cqh 1.4cqw;
+        border-bottom: 1px solid #1c2634;
+      }
+      .f10-panel-label {
+        font-family: "IBM Plex Mono";
+        font-size: 0.72cqw;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        line-height: 1.3;
+        color: #8b9bb0;
+      }
+      .f10-media {
+        position: relative;
+        height: 22cqh;
+        overflow: hidden;
+        background: #070a0e;
+      }
+      .f10-plate {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
+      }
+
+      /* annotation corner ticks on the parity tile */
+      .f10-tick {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+      }
+      .f10-tick-tl {
+        top: 7px;
+        left: 7px;
+        border-top: 1px solid #58a6ff;
+        border-left: 1px solid #58a6ff;
+      }
+      .f10-tick-tr {
+        top: 7px;
+        right: 7px;
+        border-top: 1px solid #58a6ff;
+        border-right: 1px solid #58a6ff;
+      }
+      .f10-tick-bl {
+        bottom: 7px;
+        left: 7px;
+        border-bottom: 1px solid #58a6ff;
+        border-left: 1px solid #58a6ff;
+      }
+      .f10-tick-br {
+        bottom: 7px;
+        right: 7px;
+        border-bottom: 1px solid #58a6ff;
+        border-right: 1px solid #58a6ff;
+      }
+
+      /* ── one accent pulse crossing beneath the parity tile ──── */
+      .f10-pulse-band {
+        position: absolute;
+        left: 66.17cqw;
+        width: 28.33cqw;
+        top: 59cqh;
+        height: 0.8cqh;
+        overflow: hidden;
+      }
+      .f10-pulse {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 45%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          rgba(88, 166, 255, 0) 0%,
+          rgba(88, 166, 255, 0.85) 50%,
+          rgba(88, 166, 255, 0) 100%
+        );
+      }
+
+      /* ── the not-built ledger line ──────────────────────────── */
+      .f10-ledger {
+        position: absolute;
+        left: 5.5cqw;
+        top: 67.5cqh;
+        display: flex;
+        align-items: baseline;
+      }
+      .f10-ledger-mark,
+      .f10-ledger-text {
+        font-family: "IBM Plex Mono";
+        font-size: 21px;
+        font-weight: 400;
+        line-height: 1.4;
+        white-space: nowrap;
+      }
+      .f10-ledger-mark {
+        color: #58a6ff;
+      }
+      .f10-ledger-text {
+        margin-left: 17px;
+        color: #e6edf3;
+      }
+      .f10-cursor {
+        position: relative;
+        top: -1px;
+        display: inline-block;
+        width: 10px;
+        height: 22px;
+        margin-left: 5px;
+        background: #e6edf3;
+        opacity: 0;
+      }
+      .f10-underline {
+        position: absolute;
+        left: calc(5.5cqw + 29.6px);
+        top: 71.4cqh;
+      }
+    </style>
+
+    <script>
+      (function () {
+        var DURATION = 7.5;
+        var tl = gsap.timeline({ paused: true });
+
+        /* ── Phase A (0.10–1.15s): chrome lands, the display line masks up ── */
+        tl.fromTo(
+          ".f10-toprule",
+          { scaleX: 0 },
+          { scaleX: 1, duration: 0.55, ease: "power3.out", transformOrigin: "left center" },
+          0.1,
+        );
+        tl.fromTo(
+          ".f10-heromask",
+          { opacity: 0, y: 26, clipPath: "inset(0% 0% 100% 0%)" },
+          { opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)", duration: 0.9, ease: "power3.out" },
+          0.24,
+        );
+
+        /* ── Phase B: the three tiles cascade into their slots on the VO cues ──
+           short-path slide + mask into the item's own slot (no shared-center burst),
+           with a per-item settle inside each tile. */
+        var CUES = [0.7, 2.0, 3.4];
+        gsap.utils.toArray(".f10-row .f10-panel").forEach(function (panel, i) {
+          var t = CUES[i];
+          var plate = panel.querySelector(".f10-plate");
+          tl.fromTo(
+            panel,
+            { opacity: 0, y: 44, clipPath: "inset(0% 0% 100% 0%)" },
+            { opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)", duration: 0.85, ease: "power3.out" },
+            t,
+          );
+          tl.fromTo(
+            panel.querySelector(".f10-panel-label"),
+            { opacity: 0, x: -10 },
+            { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" },
+            t + 0.1,
+          );
+          tl.fromTo(plate, { opacity: 0, scale: 1.045 }, { opacity: 1, scale: 1, duration: 1.2, ease: "power3.out" }, t + 0.12);
+          // faint camera drift on the plate once it has settled
+          tl.to(plate, { scale: 1.012, duration: 2.2, ease: "none" }, t + 1.34);
+        });
+
+        // annotation ticks settle on the parity tile just after it lands
+        tl.fromTo(
+          ".f10-tick",
+          { opacity: 0, scale: 0.55 },
+          { opacity: 1, scale: 1, duration: 0.45, ease: "power2.out", stagger: 0.06 },
+          3.5,
+        );
+
+        /* ── Phase C (3.0–4.95s): one accent pulse crosses beneath the parity tile ── */
+        tl.fromTo(
+          ".f10-pulse",
+          { xPercent: -100, opacity: 0 },
+          { xPercent: 100, opacity: 0.42, duration: 1.5, ease: "none" },
+          3.0,
+        );
+        tl.to(".f10-pulse", { opacity: 0, duration: 0.45, ease: "power1.in" }, 4.5);
+
+        /* ── Phase D (5.5–7.5s): the not-built ledger types in, then its rule draws ── */
+        var TYPING_START = 5.6;
+        var LEDGER = "below parity: session-steering \u00b7 agent-federation \u00b7 issues \u00b7 ci";
+        var SEQUENCE = [
+          { t: 5.6, text: "" },
+          { t: 5.72, text: "below" },
+          { t: 5.86, text: "below parity" },
+          { t: 5.96, text: "below parity:" },
+          { t: 6.08, text: "below parity: session" },
+          { t: 6.22, text: "below parity: session-steering" },
+          { t: 6.34, text: "below parity: session-steering \u00b7" },
+          { t: 6.44, text: "below parity: session-steering \u00b7 agent" },
+          { t: 6.58, text: "below parity: session-steering \u00b7 agent-federation" },
+          { t: 6.7, text: "below parity: session-steering \u00b7 agent-federation \u00b7 issues" },
+          { t: 6.8, text: LEDGER },
+        ];
+
+        function textAt(time) {
+          for (var i = SEQUENCE.length - 1; i >= 0; i--) {
+            if (time >= SEQUENCE[i].t) return SEQUENCE[i].text;
+          }
+          return "";
+        }
+
+        var textEl = document.querySelector(".f10-ledger-text");
+        var cursorEl = document.querySelector(".f10-cursor");
+        var BLINK_CYCLES = 15;
+
+        var driver = { t: 0 };
+        tl.to(
+          driver,
+          {
+            t: DURATION,
+            duration: DURATION,
+            ease: "none",
+            onUpdate: function () {
+              textEl.textContent = textAt(driver.t);
+            },
+          },
+          0,
+        );
+
+        var blink = { p: 0 };
+        tl.to(
+          blink,
+          {
+            p: Math.PI * 2 * BLINK_CYCLES,
+            duration: DURATION,
+            ease: "none",
+            onUpdate: function () {
+              cursorEl.style.opacity = driver.t >= TYPING_START && Math.sin(blink.p) > 0 ? "1" : "0";
+            },
+          },
+          0,
+        );
+
+        tl.fromTo(".f10-ledger-mark", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, 5.5);
+
+        var underline = document.querySelector(".f10-underline-path");
+        var len = underline.getTotalLength();
+        underline.style.strokeDasharray = String(len);
+        underline.style.strokeDashoffset = String(len);
+        tl.to(underline, { strokeDashoffset: 0, duration: 0.44, ease: "power2.out" }, 6.86);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["10-honest-ledger"] = tl;
+        tl.seek(0);
+      })();
+    </script>
+  </div>
+</template>

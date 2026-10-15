@@ -1,0 +1,46 @@
+in <!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <base href="/" />
+    <script>window.__timelines = {};</script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      html, body { margin: 0; background: #000; width: 1920px; height: 1080px; overflow: hidden; }
+      #mount { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <!-- Generic frame preview harness: tools/frame-preview.html?frame=07-secrets&t=10.5 -->
+    <div id="mount"></div>
+    <script>
+      (async () => {
+        const q = new URLSearchParams(location.search);
+        const frame = q.get("frame") || "07-secrets";
+        const t = Number(q.get("t") || "0");
+        const text = await (await fetch("compositions/frames/" + frame + ".html")).text();
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        const tpl = doc.querySelector("template");
+        const clone = tpl.content.cloneNode(true);
+        // scripts inserted via cloneNode may also execute on append; strip them from
+        // the clone and run exactly one copy below (double-build corrupts double-IIFE frames)
+        for (const s of clone.querySelectorAll("script")) s.remove();
+        document.getElementById("mount").appendChild(clone);
+        for (const s of doc.querySelectorAll("template script")) {
+          const n = document.createElement("script");
+          if (s.src) n.src = s.src;
+          n.textContent = s.textContent;
+          document.body.appendChild(n);
+          if (s.src) await new Promise((r) => { n.onload = r; n.onerror = r; });
+        }
+        // wait for fonts + the frame's own timeline build
+        try { await document.fonts.ready; } catch {}
+        await new Promise((r) => setTimeout(r, 350));
+        const tl = window.__timelines && window.__timelines[frame];
+        if (tl) tl.seek(t);
+        window.__previewReady = true;
+        document.title = "ready:" + frame + "@" + t + (tl ? "" : " (NO TIMELINE)");
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,425 @@
+<template>
+  <!-- ============================================================
+       09-review-together · benefit_highlight · dark register
+       Scene 1 the comments plate lands, the annotation types on
+       Scene 2 zoom-through seam to the rail, accent steps the cards
+       Scene 3 the two plates stack, the payoff line lands, hold
+       ============================================================ -->
+  <style>
+    @font-face {
+      font-family: "Barlow";
+      src: url("assets/fonts/Barlow-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Barlow";
+      src: url("assets/fonts/Barlow-SemiBold.woff2") format("woff2");
+      font-weight: 600;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Barlow";
+      src: url("assets/fonts/Barlow-Bold.woff2") format("woff2");
+      font-weight: 700;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Barlow";
+      src: url("assets/fonts/Barlow-Black.woff2") format("woff2");
+      font-weight: 900;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      src: url("assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      src: url("assets/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+      font-weight: 500;
+      font-style: normal;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Barlow", sans-serif;
+      /* dark register */
+      color: #e6edf3;
+    }
+
+    /* full-bleed ground — the frame's own clip layer, never a #root background */
+    #f09-bg {
+      position: absolute;
+      inset: 0;
+      background: #0a0e14;
+      z-index: 0;
+    }
+
+    /* the macro camera: one slow push running under every scene */
+    #f09-stage {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      transform-origin: 50% 50%;
+    }
+
+    /* ---- annotation layer (1px accent boxes + corner ticks) ---- */
+    .f09-anno {
+      position: absolute;
+      box-sizing: border-box;
+      border: 1px solid #58a6ff;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .f09-anno::before,
+    .f09-anno::after {
+      content: "";
+      position: absolute;
+      width: 9px;
+      height: 9px;
+    }
+    .f09-anno::before {
+      top: -1px;
+      left: -1px;
+      border-top: 2px solid #58a6ff;
+      border-left: 2px solid #58a6ff;
+    }
+    .f09-anno::after {
+      right: -1px;
+      bottom: -1px;
+      border-right: 2px solid #58a6ff;
+      border-bottom: 2px solid #58a6ff;
+    }
+
+    /* ---- Scene 1 · the comments plate, ~88% width, centred ---- */
+    #f09-cwrap {
+      position: absolute;
+      left: 120px;
+      top: 296px;
+      width: 1680px;
+      height: 219.5px;
+      transform-origin: 50% 50%;
+    }
+    #f09-cplate {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      border: 1px solid #1c2634;
+      overflow: hidden;
+    }
+    #f09-cimg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    /* the plate's own real comment anchor — john · line 3 */
+    #f09-cbox {
+      left: 17px;
+      top: 63px;
+      width: 166px;
+      height: 25px;
+    }
+
+    /* the mono annotation line beneath the plate */
+    #f09-typed-wrap {
+      position: absolute;
+      left: 0;
+      top: 275px;
+      width: 100%;
+      height: 40px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 30px;
+      font-weight: 400;
+      line-height: 40px;
+      letter-spacing: 0.06em;
+      color: #e6edf3;
+      white-space: pre;
+      text-align: left;
+    }
+    #f09-cursor {
+      display: inline-block;
+      width: 3px;
+      height: 31px;
+      vertical-align: -6px;
+      background: #58a6ff;
+      opacity: 0;
+    }
+
+    /* ---- Scene 2 · the convergence rail, full width ---- */
+    #f09-rwrap {
+      position: absolute;
+      left: 0;
+      top: 470px;
+      width: 1920px;
+      height: 197.81px;
+      box-sizing: border-box;
+      border: 1px solid #1c2634;
+      transform-origin: 50% 50%;
+    }
+    #f09-rimg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    /* the five repo cards, left to right (plate-local px) */
+    #f09-rbox-1 {
+      left: 3px;
+      top: 38px;
+      width: 311px;
+      height: 156px;
+    }
+    #f09-rbox-2 {
+      left: 354px;
+      top: 38px;
+      width: 329px;
+      height: 156px;
+    }
+    #f09-rbox-3 {
+      left: 723px;
+      top: 38px;
+      width: 328px;
+      height: 156px;
+    }
+    #f09-rbox-4 {
+      left: 1091px;
+      top: 38px;
+      width: 329px;
+      height: 156px;
+    }
+    #f09-rbox-5 {
+      left: 1460px;
+      top: 38px;
+      width: 328px;
+      height: 156px;
+    }
+
+    /* ---- Scene 3 · the comments plate settles back in at 52% width ---- */
+    #f09-cwrap2 {
+      position: absolute;
+      left: 461px;
+      top: 290px;
+      width: 998px;
+      height: 130.4px;
+      box-sizing: border-box;
+      border: 1px solid #1c2634;
+      overflow: hidden;
+    }
+    #f09-cimg2 {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* the payoff line */
+    #f09-line {
+      position: absolute;
+      left: 0;
+      top: 196px;
+      width: 100%;
+      text-align: center;
+      font-family: "Barlow", sans-serif;
+      font-weight: 600;
+      font-size: 68px;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: #e6edf3;
+    }
+  </style>
+
+  <div data-hf-id="hf-1bzv"
+    id="root"
+    data-composition-id="09-review-together"
+    data-start="0"
+    data-width="1920"
+    data-height="1080"
+    data-duration="8.5"
+  >
+    <div data-hf-id="hf-4b72" id="f09-bg" class="clip" data-start="0" data-duration="8.5" data-track-index="0"></div>
+
+    <div data-hf-id="hf-xfy1" id="f09-stage">
+      <!-- Scene 1 · real comment thread -->
+      <div data-hf-id="hf-u9jc" id="f09-cwrap">
+        <div data-hf-id="hf-hkw0" id="f09-cplate">
+          <img data-hf-id="hf-8m5v" id="f09-cimg" src="assets/modal-comments.png" alt="" />
+          <div data-hf-id="hf-jnxw" id="f09-cbox" class="f09-anno"></div>
+        </div>
+        <div data-hf-id="hf-ms20" id="f09-typed-wrap"><span data-hf-id="hf-9lsy" id="f09-typed"></span><span data-hf-id="hf-tzcc" id="f09-cursor"></span></div>
+      </div>
+
+      <!-- Scene 2 · the rail set view -->
+      <div data-hf-id="hf-qy5p" id="f09-rwrap">
+        <img data-hf-id="hf-44ji" id="f09-rimg" src="assets/sec-rail.png" alt="" />
+        <div data-hf-id="hf-li05" id="f09-rbox-1" class="f09-anno"></div>
+        <div data-hf-id="hf-pg46" id="f09-rbox-2" class="f09-anno"></div>
+        <div data-hf-id="hf-vltz" id="f09-rbox-3" class="f09-anno"></div>
+        <div data-hf-id="hf-zjy0" id="f09-rbox-4" class="f09-anno"></div>
+        <div data-hf-id="hf-0blt" id="f09-rbox-5" class="f09-anno"></div>
+      </div>
+
+      <!-- Scene 3 · the stacked set view -->
+      <div data-hf-id="hf-4md6" id="f09-cwrap2">
+        <img data-hf-id="hf-5urn" id="f09-cimg2" src="assets/modal-comments.png" alt="" />
+      </div>
+      <div data-hf-id="hf-abpd" id="f09-line">review the set like a team.</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    const DUR = 8.5;
+    const ACCENT = "#58a6ff";
+    const MUTED = "#8b9bb0";
+
+    /* ============================================================
+       Scene 1 · the annotation line types on
+       discrete-text-sequence (sparse states + reverse search) with a
+       context-sensitive cursor (colour per segment, sin blink,
+       non-blinking while characters are landing).
+       ============================================================ */
+    const WORDS = [
+      { w: "on" },
+      { w: "the" },
+      { w: "merge.", accent: true },
+      { w: "on" },
+      { w: "the" },
+      { w: "file.", accent: true },
+      { w: "on" },
+      { w: "line", accent: true },
+      { w: "3." },
+    ];
+    const T0 = 1.0; // "Comment on the merge"
+    const CHAR_DT = 0.05; // keystroke cluster
+    const BREAK = 0.06; // word-break pause
+    const BREAK_P = 0.16; // pause after a full stop
+    const TYPING_GRACE = 0.14;
+    const BLINK_HZ = 1.1;
+
+    const SEQ = [{ t: T0, text: "", color: MUTED }];
+    {
+      let t = T0;
+      let text = "";
+      WORDS.forEach((entry, i) => {
+        if (i > 0) {
+          t += WORDS[i - 1].w.endsWith(".") ? BREAK_P : BREAK;
+          text += " ";
+          SEQ.push({ t: +t.toFixed(3), text, color: MUTED });
+        }
+        for (const ch of entry.w) {
+          t += CHAR_DT;
+          text += ch;
+          SEQ.push({ t: +t.toFixed(3), text, color: entry.accent ? ACCENT : MUTED });
+        }
+      });
+    }
+    // baked at build time — seek-safe in both directions
+    const CHANGE_TIMES = SEQ.filter((e, i) => i > 0 && e.text !== SEQ[i - 1].text).map((e) => e.t);
+
+    function entryAt(time) {
+      for (let i = SEQ.length - 1; i >= 0; i--) {
+        if (time >= SEQ[i].t) return SEQ[i];
+      }
+      return SEQ[0];
+    }
+
+    const typedEl = document.getElementById("f09-typed");
+    const cursorEl = document.getElementById("f09-cursor");
+    const drv = { t: 0 };
+    tl.to(
+      drv,
+      {
+        t: DUR,
+        duration: DUR,
+        ease: "none",
+        onUpdate: () => {
+          const now = drv.t;
+          const entry = entryAt(now);
+          typedEl.textContent = entry.text;
+          cursorEl.style.background = entry.color;
+          const typing = CHANGE_TIMES.some((tt) => tt <= now && now - tt < TYPING_GRACE);
+          cursorEl.style.opacity =
+            typing || Math.sin(2 * Math.PI * BLINK_HZ * now) > 0 ? "1" : "0";
+        },
+      },
+      0,
+    );
+
+    /* frame holds still — stillness wins over a push that clipped edges */
+
+    /* the plate lands centre at 78% width */
+    tl.fromTo(
+      "#f09-cwrap",
+      { opacity: 0, y: 44 },
+      { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+      0,
+    );
+
+    /* the real comment's anchor gains its 1px accent box on "merge" */
+    tl.set("#f09-cbox", { opacity: 1 }, T0);
+    tl.to("#f09-cbox", { opacity: 0, duration: 0.25, ease: "none" }, T0 + 0.6);
+
+    /* ============================================================
+       Scene 2 · velocity-matched zoom-through seam (Z axis, toward
+       the viewer). Both plates are full-frame surfaces -> peak blur
+       ／opacity must match at the cut.
+       ============================================================ */
+    const CUT = 3.5;
+    tl.to(
+      "#f09-cwrap",
+      { scale: 1.2, filter: "blur(20px)", duration: 0.2, ease: "power3.in" },
+      CUT - 0.2,
+    );
+    tl.to("#f09-cwrap", { opacity: 0.15, duration: 0.2, ease: "none" }, CUT - 0.2);
+    tl.set("#f09-cwrap", { opacity: 0 }, CUT);
+    tl.fromTo(
+      "#f09-rwrap",
+      { opacity: 0.15, scale: 0.95, filter: "blur(20px)" },
+      { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.55, ease: "expo.out" },
+      CUT,
+    );
+
+    /* the accent box steps card to card, left to right */
+    const STEPS = [4.3, 4.7, 5.1, 5.5, 5.9];
+    STEPS.forEach((t, i) => {
+      if (i > 0) tl.set("#f09-rbox-" + i, { opacity: 0 }, t);
+      tl.set("#f09-rbox-" + (i + 1), { opacity: 1 }, t);
+    });
+
+    /* ============================================================
+       Scene 3 · the two plates stack, the payoff line lands, hold
+       ============================================================ */
+    tl.fromTo(
+      "#f09-cwrap2",
+      { opacity: 0, y: 30 },
+      { opacity: 1, y: 0, duration: 0.62, ease: "power3.out" },
+      5.95,
+    );
+    tl.fromTo(
+      "#f09-line",
+      { opacity: 0, y: 18 },
+      { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+      4.0,
+    );
+    tl.to(".f09-anno", { opacity: 0, duration: 0.3, ease: "power2.out", stagger: 0.03 }, 6.78);
+
+    window.__timelines["09-review-together"] = tl;
+    tl.seek(0);
+  </script>
+</template>
