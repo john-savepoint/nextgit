@@ -16,3 +16,7 @@ porting/tasks.db*
 .beads/proxieddb/
 *.gate.lock*
 platform/.attest-key.b64
+
+# Local session scratch (never publish)
+rr-session-*.json
+feedback/
