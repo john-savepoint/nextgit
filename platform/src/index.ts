@@ -114,6 +114,13 @@ export interface Env {
   * keyId and to verify — WebCrypto cannot export the public
   * half from an imported private key. */
  EVIDENCE_PUBLIC_KEY?: unknown;
+ /** HMAC key (Worker secret) for POST /pipelines/{commit}/notify —
+  *  the presign-credentials posture (CONTRACT.md §POST
+  *  /pipelines/{commit}/notify). Provisioned out-of-band via the
+  *  piped `wrangler secret put` — never argv, never `vars`.
+  *  Absent/malformed/short ⇒ 503 notify-unavailable, never
+  *  unsigned, never a silent empty-string key. */
+ NOTIFY_WEBHOOK_KEY?: unknown;
  /** CF version metadata (deploy id/tag) for the attestation
   * environment block. Absent ⇒ `environment.deploy = null`
   * (honest-unavailable). */
@@ -264,6 +271,17 @@ const LANDING_REGISTRY_KEY = "landing-registry";
 export const MAX_LANDING_REGISTRY = 200; // registry cap — the MAX_EVENTS posture
 export const MAX_PIPELINE_LIMIT = 100;   // §GET /pipelines hard cap — the walk's resource bound
 export const DEFAULT_PIPELINE_LIMIT = 20; // §GET /pipelines page size when `limit` is absent
+// Pipeline notify (nextgit-e20, CONTRACT.md §POST
+// /pipelines/{commit}/notify). MAX_NOTIFY_URL_LENGTH caps
+// the caller-supplied target (parse-cost bound, the 2048
+// posture); NOTIFY_DELIVERY_TIMEOUT_MS bounds the
+// waitUntil delivery attempt (AbortSignal.timeout — the
+// bounded-egress posture); MAX_DELIVERY_RECORDS caps the
+// deliveries[] ledger on landing:<commit> (the
+// MAX_LANDING_REGISTRY posture).
+const MAX_NOTIFY_URL_LENGTH = 2048;
+const NOTIFY_DELIVERY_TIMEOUT_MS = 10_000;
+const MAX_DELIVERY_RECORDS = 50;
 
 /** One registry entry — the index a landing writer appends. */
 interface LandingRegistryEntry {
@@ -280,6 +298,23 @@ interface PipelineRow {
  results: string[];
  status: "passed" | "not-recorded" | "failed";
  attestation: "signed" | "unavailable" | null;
+ /** Outbound-notification delivery record (nextgit-e20,
+  *  additive — §POST /pipelines/{commit}/notify). A row
+  *  with no deliveries carries [] (the typed-absent
+  *  path: a pre-notify landing record has no
+  *  `deliveries` key). */
+ deliveries: PipelineDelivery[];
+}
+
+/** One delivery-record entry on `landing:<commit>`
+  *  (additive, v3.11). `at` is server-set ISO-8601;
+  *  `url` is the caller-supplied validated target
+  *  (caller display data — echoed because the CALLER
+  *  supplied it, not platform secret material). */
+interface PipelineDelivery {
+ at: string;
+ status: "attempted" | "delivered" | "failed";
+ url: string;
 }
 
 /** The persisted landing record's projection surface
@@ -291,6 +326,11 @@ interface LandingRecordProjection {
  landed?: { at?: unknown };
  evidence?: { repos?: unknown; checks?: unknown; results?: unknown };
  attestation?: unknown;
+ /** Outbound-notification delivery record (nextgit-e20,
+  *  additive — §POST /pipelines/{commit}/notify).
+  *  Typed as unknown: the hydration site narrows it
+  *  (the typed-absent path -> []). */
+ deliveries?: unknown;
 }
 
 // Repo-browsing read API bounds (CONTRACT.md §GET /tree, §GET /raw,
@@ -1950,8 +1990,9 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     evidence,
    });
    // The landing record (FR-18) persists keyed by the returned commit — the
-   // address the read surface serves. KV `LIVE` stays single-writer: this is
-   // its only landing-record writer. The push already happened, so a storage
+   // address the read surface serves. KV `LIVE`: this is the landing-record's
+   // landed/evidence/attestation writer (the `deliveries` field is appended on
+   // already-landed records by POST /pipelines/{commit}/notify). The push already happened, so a storage
    // failure is logged and degraded, never reported as a failed land.
    try {
     await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence, attestation }));
@@ -2353,10 +2394,11 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
     evidence,
    });
    // The landing record (FR-18) persists keyed by the returned
-   // commit — the address the read surface serves. KV `LIVE` stays
-   // single-writer: this is its only landing-record writer. The
-   // push already happened, so a storage failure is logged and
-   // degraded, never reported as a failed land.
+   // commit — the address the read surface serves. KV `LIVE`: this is the
+   // landing-record's landed/evidence/attestation writer (the `deliveries`
+   // field is appended on already-landed records by
+   // POST /pipelines/{commit}/notify). The push already happened, so a
+   // storage failure is logged and degraded, never reported as a failed land.
    try {
     await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify({ landed, evidence, attestation }));
     await appendLandingRegistry(env, commit, at);
@@ -5497,6 +5539,295 @@ function pipelineAttestation(attestation: unknown): "signed" | "unavailable" | n
  return null;
 }
 
+// ---------------------------------------------------------------------------
+// Pipeline notify (nextgit-e20, CONTRACT.md
+// §POST /pipelines/{commit}/notify). The outbound
+// webhook v1: ONE signed, credential-free delivery
+// attempt per notify, fire-and-forget via
+// ctx.waitUntil. The host guard is LEXICAL
+// (charset+hostname) — the Worker performs no DNS
+// resolution (the documented guard boundary,
+// CONTRACT.md §POST /pipelines/{commit}/notify
+// "Lexical guard boundary").
+// ---------------------------------------------------------------------------
+
+/** The DNS-label charset host guard: a host is valid
+ *  only when it is a sequence of DNS labels joined
+ *  by dots, each label `[a-z0-9]` + inner
+ *  `[a-z0-9-]` + `[a-z0-9]`. Bracketed v6 and
+ *  colon-carrying v6 fail this RE (no colon or
+ *  bracket in the charset) and a single-label name
+ *  (localhost) fails the multi-label requirement —
+ *  but dotted-quad IPv4 literals AND numeric
+ *  encodings (0x7f.1) pass it (their characters are
+ *  in the charset; the URL parser may normalize
+ *  them to a dotted quad): every literal refusal is
+ *  isPrivateHost's job below, not this RE's. */
+const NOTIFY_URL_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+
+/** The private-host guard. LOAD-BEARING for dotted-quad
+ *  IPv4 literals: digits and dots are inside the DNS
+ *  charset, so `10.0.0.1` passes NOTIFY_URL_RE and is
+ *  refused HERE — the RE alone does not refuse IPv4
+ *  literals (an earlier comment claimed the opposite;
+ *  corrected per the wave-20 gate lenses). The v6 /
+ *  bracketed branches cover spellings a future charset
+ *  relaxation could admit; they are unreachable from
+ *  NOTIFY_URL_RE today (no colon survives it) and MUST
+ *  NOT match bare label prefixes — hosts like fda.gov
+ *  or fdic.gov are public names, not `fd`/`fc` ULAs. */
+function isPrivateHost(host: string): boolean {
+ if (host.startsWith("[") || host.endsWith("]")) return true; // bracketed v6
+ if (/^::|^0:|^fe80:/i.test(host)) return true; // v6 spellings (colon-carrying; unreachable via the charset RE)
+ const mapped = host.match(/^\[?::ffff:(\d+\.\d+\.\d+\.\d+)\]?$/i);
+ if (mapped) host = mapped[1] ?? "";
+ const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+ if (v4) {
+  const [a, b] = [Number(v4[1]), Number(v4[2])];
+  return (
+   a === 0 || a === 10 || a === 127 ||
+   (a === 169 && b === 254) || // link-local (169.254.169.254 metadata)
+   (a === 172 && b >= 16 && b <= 31) ||
+   (a === 192 && b === 168) ||
+   (a === 100 && b >= 64 && b <= 127) || // RFC 6598 CGNAT
+   (a === 198 && (b === 18 || b === 19)) || // RFC 2544 benchmarking
+   a >= 224 // multicast (224/4) + reserved (240/4)
+  );
+ }
+ return host.toLowerCase() === "localhost";
+}
+
+/** Parse + guard the caller-supplied notify URL.
+ *  Returns { url } on success or the uniform 400
+ *  Response — `{ok:false,error:"bad-request",detail}`
+ *  where the detail names the violation CLASS, never
+ *  echoes the URL back (NFR-3). The chain (the
+ *  CONTRACT.md §POST /pipelines/{commit}/notify
+ *  order): https scheme -> no userinfo -> no port ->
+ *  DNS-label host charset (+ the belt-and-braces
+ *  private-host re-check) -> length cap. */
+function validateNotifyUrl(raw: string): { url: URL } | Response {
+ let parsed: URL;
+ try {
+  parsed = new URL(raw);
+ } catch {
+  return badRequestDetail("invalid url");
+ }
+ if (parsed.protocol !== "https:") {
+  return badRequestDetail("invalid url scheme");
+ }
+ if (parsed.username || parsed.password) {
+  return badRequestDetail("invalid url userinfo");
+ }
+ if (parsed.port !== "") {
+  return badRequestDetail("invalid url port");
+ }
+ if (!NOTIFY_URL_RE.test(parsed.host) || isPrivateHost(parsed.host)) {
+  return badRequestDetail("invalid url host");
+ }
+ if (raw.length > MAX_NOTIFY_URL_LENGTH) {
+  return badRequestDetail("invalid url length");
+ }
+ return { url: parsed };
+}
+
+/** The uniform 400 with a violation-class detail
+ *  (NFR-3: the detail names the class, never the
+ *  caller-supplied URL). */
+function badRequestDetail(detail: string): Response {
+ return Response.json({ ok: false, error: "bad-request", detail }, { status: 400 });
+}
+
+/** HMAC-SHA256 over the exact JSON body bytes (the
+ *  r2-presign `hmac` idiom), hex digest, the
+ *  `sha256=<hex>` header form. */
+async function notifySignature(keyMaterial: string, bodyBytes: string): Promise<string> {
+ const cryptoKey = await crypto.subtle.importKey(
+  "raw",
+  new TextEncoder().encode(keyMaterial),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"],
+ );
+ const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(bodyBytes));
+ return `sha256=${Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Best-effort append of one delivery-record entry to
+ *  the pipeline's `deliveries[]` on an EXISTING, LANDED
+ *  `landing:<commit>` KV record (the CACHE namespace
+ *  the land path writes — no new store, no new binding).
+ *  A record that is absent or not landed is never
+ *  created or modified: the honest-unknown notify path
+ *  stays READ-ONLY, so a notify can neither flip
+ *  `GET /landings/{commit}` from 404 to a hollow 200
+ *  nor replace a recorded land with a pre-land shell
+ *  (the two forge/destroy findings of the wave-20 gate
+ *  lenses, healed here). The deliveries field is the
+ *  ONE field this writer owns on the land path's record
+ *  (see the land-writer comments: landed/evidence/
+ *  attestation stay land-written). Capped at
+ *  MAX_DELIVERY_RECORDS (the MAX_LANDING_REGISTRY
+ *  posture). The appendLandingRegistry try/catch-log
+ *  posture: a failure logs
+ *  `delivery-record-write-failed` and never fails the
+ *  notify's 200. */
+async function appendDeliveryRecord(env: Env, commit: string, entry: PipelineDelivery): Promise<void> {
+ try {
+  const raw = await env.CACHE.get(`${LANDING_KEY_PREFIX}${commit}`);
+  if (raw === null || raw === undefined) return;
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+  const record = parsed as Record<string, unknown>;
+  if (!record.landed) return;
+  const existing = Array.isArray(record.deliveries)
+   ? record.deliveries.filter((d): d is PipelineDelivery =>
+    !!d && typeof d === "object" &&
+    typeof (d as PipelineDelivery).at === "string" &&
+    typeof (d as PipelineDelivery).status === "string" &&
+    typeof (d as PipelineDelivery).url === "string")
+   : [];
+  record.deliveries = [...existing, entry].slice(-MAX_DELIVERY_RECORDS);
+  await env.CACHE.put(`${LANDING_KEY_PREFIX}${commit}`, JSON.stringify(record));
+ } catch (e) {
+  console.log("delivery-record-write-failed", JSON.stringify({ commit, error: String(e instanceof Error ? e.name : "error") }));
+ }
+}
+
+/**
+ * POST /pipelines/{commit}/notify — register + attempt
+ * ONE signed outbound delivery (nextgit-e20, CONTRACT.md
+ * §POST /pipelines/{commit}/notify). Fire-and-forget:
+ * the delivery rides ctx.waitUntil, so the 200 answers
+ * before the outbound request settles and a delivery
+ * failure NEVER alters the 200 (the index.ts land-path
+ * posture). The egress law: the outbound frame carries
+ * ONLY the caller-supplied validated URL, the
+ * content-type, and the signature header — never any
+ * token/credential, no Authorization, no env
+ * serialization. Precondition order (as measured): 401
+ * (deny mode, the dispatcher's authorize() chokepoint) ->
+ * 403 (CSRF when cookie-carrying, the dispatcher's
+ * dynamic-POST branch) -> 400 (commit RE -> body
+ * schema -> url validation) -> 429 (rateGate) -> 503
+ * (key absent — fail-honest) -> 200 — auth/CSRF run in
+ * the dispatcher before the handler executes, so they
+ * always precede the handler's 400s (round-2 gate
+ * finding). A landing-record miss/malformed
+ * is NOT a 404: the delivery proceeds with
+ * status:"not-recorded", checks:[] (the honest-unknown
+ * posture — the notification is about the attempt).
+ */
+async function handlePipelineNotify(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+ // The /notify suffix is REQUIRED — a bare `/pipelines/{40-hex}` is not an
+ // alias for this route (any other remainder is a 404, never a guess — the
+ // sibling dynamic-handler law; healed from the wave-20 gate-lens finding).
+ const remainder = new URL(request.url).pathname.slice("/pipelines/".length);
+ if (!remainder.endsWith("/notify")) {
+  return Response.json({ ok: false, error: "not-found" }, { status: 404 });
+ }
+ const commit = remainder.slice(0, -"/notify".length);
+ if (!COMMIT_RE.test(commit)) return badRequest("bad-request");
+ // Closed body schema: exactly {url}.
+ let body: unknown;
+ try {
+  body = await request.json();
+ } catch {
+  return badRequest("bad-request");
+ }
+ if (!body || typeof body !== "object" || Array.isArray(body)) {
+  return badRequest("bad-request");
+ }
+ const keys = Object.keys(body as Record<string, unknown>);
+ if (keys.length !== 1 || keys[0] !== "url") {
+  return badRequest("bad-request");
+ }
+ const urlValue = (body as { url?: unknown }).url;
+ if (typeof urlValue !== "string") {
+  return badRequest("bad-request");
+ }
+ const validated = validateNotifyUrl(urlValue);
+ if (validated instanceof Response) return validated;
+ // Rate: 20/60s per caller under the string-keyed
+ // write-verb idiom (ROUTE_RATE_LIMITS["/pipelines:write"]).
+ const rate = rateGate("/pipelines:write", request);
+ if (rate) return rate;
+ // Fail-honest key gate: absent/malformed/short key ->
+ // 503, never unsigned, never a silent empty-string key
+ // (the presign fail-closed posture). AFTER validation,
+ // BEFORE any outbound fetch.
+ const key = typeof env.NOTIFY_WEBHOOK_KEY === "string" && env.NOTIFY_WEBHOOK_KEY.length >= 32
+  ? env.NOTIFY_WEBHOOK_KEY
+  : null;
+ if (key === null) {
+  return Response.json({ ok: false, error: "notify-unavailable" }, { status: 503 });
+ }
+ // Payload from the landing record (miss/malformed ->
+ // status:"not-recorded", checks:[] — the honest-unknown
+ // posture, never a 404 oracle, never a fabricated
+ // record). The status derives from the SAME
+ // pipelineStatus() seam GET /pipelines drives.
+ let status: "passed" | "not-recorded" | "failed" = "not-recorded";
+ let checks: string[] = [];
+ try {
+  const raw = await env.CACHE.get(`${LANDING_KEY_PREFIX}${commit}`);
+  if (raw !== null && raw !== undefined) {
+   const record: unknown = JSON.parse(raw);
+   if (record && typeof record === "object" && !Array.isArray(record)) {
+    const evidence = (record as { evidence?: unknown }).evidence;
+    if (evidence && typeof evidence === "object" && !Array.isArray(evidence)) {
+     const ev = evidence as { checks?: unknown; results?: unknown };
+     checks = Array.isArray(ev.checks) ? ev.checks.filter((c): c is string => typeof c === "string") : [];
+     status = pipelineStatus(ev.results);
+    }
+   }
+  }
+ } catch {
+  // A malformed record reads as not-recorded — the
+  // typed-absent path (never a 500, never a 404).
+ }
+ const payload = JSON.stringify({ commit, status, checks });
+ const signature = await notifySignature(key, payload);
+ const target = validated.url;
+ // Fire-and-forget delivery (the egress law): the
+ // outbound frame carries ONLY the validated URL, the
+ // content-type, and the signature header. Failure logs
+ // pipeline-notify-failed; success logs
+ // pipeline-notify-delivered — content-free lines
+ // (NFR-3). AbortSignal.timeout bounds the attempt.
+ ctx.waitUntil((async () => {
+  try {
+   const res = await fetch(target, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-nextgit-signature": signature },
+    body: payload,
+    // Never follow redirects: a 3xx from the endpoint must not re-send the
+    // signed body (and headers) to a target the host guard refused — the
+    // redirect class of the guard-defeat finding (wave-20 gate lenses).
+    redirect: "manual",
+    signal: AbortSignal.timeout(NOTIFY_DELIVERY_TIMEOUT_MS),
+   });
+   if (res.status >= 300 && res.status < 400) {
+    console.log("pipeline-notify-failed", JSON.stringify({ commit, error: "redirect" }));
+   } else {
+    console.log("pipeline-notify-delivered", JSON.stringify({ commit, status }));
+   }
+  } catch (e) {
+   console.log("pipeline-notify-failed", JSON.stringify({ commit, error: String(e instanceof Error ? e.name : "error") }));
+  }
+ })());
+ // Delivery record (additive, best-effort): append
+ // {at, status:"attempted", url} to the pipeline's
+ // deliveries[] on landing:<commit>. A record-write
+ // failure logs and never fails the 200.
+ await appendDeliveryRecord(env, commit, {
+  at: new Date().toISOString(),
+  status: "attempted",
+  url: urlValue,
+ });
+ return Response.json({ ok: true, commit, delivery: { status: "attempted" } });
+}
+
 /** Validate the /pipelines query (the /commits clamp law:
  *  a present `limit` above the cap clamps, never rejects). */
 function parsePipelinesQuery(url: URL): { base: string; limit: number } | Response {
@@ -5560,6 +5891,18 @@ async function handlePipelines(request: Request, env: Env): Promise<Response> {
   if (!record || !record.landed || !record.evidence) continue;
   const at = typeof record.landed.at === "string" ? record.landed.at : entry.at;
   const repos = Array.isArray(record.evidence.repos) ? record.evidence.repos.filter((r): r is string => typeof r === "string") : [];
+  // deliveries (nextgit-e20, additive): the notify
+  // delivery record on the SAME landing:<commit> KV
+  // record. Typed-absent (a pre-notify record has no
+  // `deliveries` key) or malformed -> [] — the typed-
+  // absent path, never a fabricated row, never a 500.
+  const deliveries = Array.isArray(record.deliveries)
+   ? record.deliveries.filter((d): d is PipelineDelivery =>
+    !!d && typeof d === "object" &&
+    typeof (d as PipelineDelivery).at === "string" &&
+    typeof (d as PipelineDelivery).status === "string" &&
+    typeof (d as PipelineDelivery).url === "string")
+   : [];
   pipelines.push({
    id: entry.commit,
    repos,
@@ -5568,6 +5911,7 @@ async function handlePipelines(request: Request, env: Env): Promise<Response> {
    results: Array.isArray(record.evidence.results) ? record.evidence.results.filter((r): r is string => typeof r === "string") : [],
    status: pipelineStatus(record.evidence.results),
    attestation: pipelineAttestation(record.attestation),
+   deliveries,
   });
  }
  return Response.json({ ok: true, base, pipelines });
@@ -6065,6 +6409,34 @@ export const DYNAMIC_ROUTES: Array<{ prefix: string; method: "GET" | "POST" | "P
  // "/sessions/" prefix never collide (the dispatcher
  // matches prefix AND method).
  { prefix: "/sessions/", method: "GET", action: "read", handler: (request, env) => handleSessionsInstructions(request, env, new URL(request.url).pathname.slice("/sessions/".length)) },
+ // POST /pipelines/{commit}/notify — the signed
+ // outbound webhook write (nextgit-e20, CONTRACT.md
+ // §POST /pipelines/{commit}/notify). POST,
+ // mutating: the dispatcher's dynamic branch applies
+ // authorize() + csrfGate() to POSTs (no dispatcher
+ // change — the /sessions/ dynamic-POST posture).
+ // The path-carried commit cannot be adjudicated by
+ // extractScope (query-only), but it is a 40-hex
+ // commit sha, not a repo — the handler's COMMIT_RE
+ // is the adjudication (an invalid sha is a 400
+ // before any store access, the handler-side path
+ // discipline). Rate-limits via
+ // ROUTE_RATE_LIMITS["/pipelines:write"] (the
+ // string-keyed write-verb idiom, the /sessions:write
+ // precedent). Prefix-collision analysis (measured,
+ // round-2 gate finding): GET /pipelines is a static
+ // ROUTES entry — the exact-match loop runs first, so
+ // the read route never falls to this prefix; POST
+ // /pipelines (bare) contains NO trailing slash, so it
+ // never matches the "/pipelines/" prefix either — the
+ // knownPath boundary answers 405 method-not-allowed
+ // (the suite's 6h pins it); POST /pipelines/ (empty
+ // commit) and any other non-/notify remainder -> the
+ // handler's 404 suffix law. Appended at the END of
+ // DYNAMIC_ROUTES — the positional pins
+ // DYNAMIC_ROUTES[0]–[8] stay stable (the nextgit-e19
+ // GET /sessions/ precedent).
+ { prefix: "/pipelines/", method: "POST", action: "write", handler: (request, env, ctx) => handlePipelineNotify(request, env, ctx) },
 ];
 // UI document set (AD-8 boundary discipline): the wrangler-assets
 // binding (env.ASSETS) serves exactly platform/ui/'s documents.

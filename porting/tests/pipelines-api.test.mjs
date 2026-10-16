@@ -14,7 +14,7 @@
 // The contract this suite pins:
 //   1. Projection — seeded landing:<sha> records + the registry project
 //      to 200 {ok, base, pipelines[]}; every row carries exactly the
-//      seven keys; status/attestation in their closed sets; newest-first;
+//      eight keys; status/attestation in their closed sets; newest-first;
 //      the default cap is 20.
 //   2. Status honesty — pass -> passed; mismatch/fail -> failed (a
 //      failure token dominates a pass token, position-independent);
@@ -43,7 +43,7 @@ import { ROUTE_RATE_LIMITS } from "../../platform/src/rate.ts";
 let pass = 0, fail = 0;
 const check = (name, ok, detail = "") => { if (ok) pass++; else fail++; console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok || !detail ? "" : ` — ${detail}`}`); };
 const J = (x) => JSON.stringify(x);
-const ROW_KEYS = ["id", "repos", "at", "checks", "results", "status", "attestation"];
+const ROW_KEYS = ["id", "repos", "at", "checks", "results", "status", "attestation", "deliveries"];
 const STATUS_SET = new Set(["passed", "not-recorded", "failed"]);
 const ATTESTATION_SET = new Set(["signed", "unavailable", null]);
 
@@ -346,7 +346,7 @@ function seedRegistry(cache, entries) {
 const getPipelines = (env, query = "?base=demo", ip = nextIp()) =>
   drive(env, "GET", `/pipelines${query}`, { ip });
 
-// 1. Projection — seeded records + registry -> 200, seven keys, closed sets.
+// 1. Projection — seeded records + registry -> 200, eight keys, closed sets.
 {
   const cache = makeFakeKV();
   seedLanding(cache, SHA1, { at: "2026-10-14T01:00:00.000Z" });
@@ -362,8 +362,8 @@ const getPipelines = (env, query = "?base=demo", ip = nextIp()) =>
   check("1: base echoes demo", r.body?.base === "demo", J(r.body?.base));
   const rows = r.body?.pipelines;
   check("1: pipelines is an array of 2", Array.isArray(rows) && rows.length === 2, J(rows?.length));
-  const sevenKeys = rows?.every((row) => Array.isArray(Object.keys(row)) && Object.keys(row).length === 7 && ROW_KEYS.every((k) => k in row));
-  check("1: every row carries exactly the seven keys", sevenKeys === true, J(rows?.[0] && Object.keys(rows[0])));
+  const rowKeys = rows?.every((row) => Array.isArray(Object.keys(row)) && Object.keys(row).length === 8 && ROW_KEYS.every((k) => k in row));
+  check("1: every row carries exactly the eight keys (seven e17 + additive deliveries)", rowKeys === true, J(rows?.[0] && Object.keys(rows[0])));
   check("1: every status in the closed set", rows?.every((row) => STATUS_SET.has(row.status)), J(rows?.map((r) => r.status)));
   check("1: every attestation in the closed set", rows?.every((row) => ATTESTATION_SET.has(row.attestation)), J(rows?.map((r) => r.attestation)));
   check("1: newest-first ordering", rows?.[0]?.id === SHA2 && rows?.[1]?.id === SHA1, J(rows?.map((r) => r.id)));

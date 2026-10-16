@@ -850,7 +850,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - `checks`/`results` are the landing's validation ledger, position-paired (equal lengths): the recorded validation entries, then the server's content-identity check — reserved name `merged-sha-equals-tested-sha`, last in both arrays, with result `pass` (`testedSha === mergedSha`), `mismatch` (a validation was recorded but its testedSha does not equal the fold hash — a fold that changed after validation cannot claim validation), or `not-recorded` (no `validation` supplied). A mismatch never refuses the fold and never silently passes; it is visible in `results`.
   - `testedSha` — the fold hash the recorded validation ran against, or `null` when none was recorded. `artifactRef` — the caller's evidence-artifact reference, or `null`.
   - `at` — the landing time; identical to `landed.at`.
-  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (single writer: this route). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). The persisted record carries a third key, `attestation`, byte-identical to the `200`'s envelope. Served by `GET /landings/{commit}` (pinned with its own bump).
+  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (**single writer of `landed`/`evidence`/`attestation`: this route**; the additive `deliveries` field is appended on the same key by `POST /pipelines/{commit}/notify`, and only to an already-landed record). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). The persisted record carries a third key, `attestation`, byte-identical to the `200`'s envelope. Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 - Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` / `409 autoland-blocked` (the auto-land gate, engaged posture only) → `409 conflict` → `409 silent-drop-detected` → `409 no-changes` → `409 base-moved` → `200`.
@@ -1042,7 +1042,7 @@ Response `200`:
 { "ok": true, "base": "demo", "pipelines": [
   { "id": "<40-hex commit>", "repos": ["agent-1"], "at": "<iso-8601-utc>",
     "checks": ["merged-sha-equals-tested-sha"], "results": ["pass"],
-    "status": "passed", "attestation": "signed" }
+    "status": "passed", "attestation": "signed", "deliveries": [] }
 ] }
 ```
 
@@ -1060,7 +1060,62 @@ Response `200`:
 - Egress (AD-4): rows carry only repo names, commit sha, ISO instant, and check/result **names** — the `/changes` egress family. No file content, no patch, no secret-class path/key/value, no fork-point sha.
 - Derivation honesty: a registry entry whose `landing:<commit>` key vanished (KV eviction) is **skipped** — the row is never fabricated, never a 500. A malformed registry reads as `[]` (fail-closed).
 
+**Additive field (v3.11, nextgit-e20):** every row carries `deliveries: PipelineDelivery[]` — the outbound-notification delivery record for that run (§POST /pipelines/{commit}/notify). A row with no deliveries carries `deliveries: []` (the typed-absent path: a record predating the notify layer has no `deliveries` key on `landing:<commit>`). Each entry is `{ at, status, url }` — `at` server-set ISO-8601, `status` ∈ `attempted | delivered | failed` (v1 writes only `attempted`; `delivered`/`failed` are reserved outcomes — the delivery's actual result is log-observable, not row-stored), `url` the caller-supplied validated target (caller display data, not platform secret material). Capped at `MAX_DELIVERY_RECORDS = 50` entries per run (the `MAX_LANDING_REGISTRY` posture).
+
 **Honest v1 limitation:** the registry is a single KV key — cross-isolate writes are last-writer-wins (the documented as-built posture of every KV read-modify-write in this worker; a repo-keyed Durable Object is the deferred multi-isolate fix). A land whose registry append fails (a KV blip) leaves a landing record the list does not show — honest absence, self-heals on the next land, log-observable via `landing-registry-write-failed`. The registry caps the list at 200 runs; older records remain readable at `GET /landings/{commit}` but leave the list.
+
+## POST /pipelines/{commit}/notify
+
+Outbound webhook v1 (nextgit-e20): register + attempt ONE signed
+delivery for a landed run. Fire-and-forget — the delivery rides
+`ctx.waitUntil`, so the `200` answers before the outbound request
+settles; a delivery failure NEVER alters the `200` (the index.ts
+land-path posture). **The platform holds the webhook key; the
+caller supplies only the URL.** The signed payload is built
+server-side from the landing record — no caller text beyond the
+URL enters the signed body (the URL is the transport target and
+the delivery-record echo, NOT signed-payload content).
+
+Path param: `{commit}` — the 40-hex commit sha (`COMMIT_RE`, the
+`GET /landings/{commit}` precedent). Anything else →
+`400 {ok:false,error:"bad-request"}`.
+
+Body:
+
+```json
+{ "url": "https://ci.example.tld/hook" }
+```
+
+- **Closed schema:** exactly `{url}` — any unknown field → `400 {ok:false,error:"bad-request"}` (the §POST /sessions/{repo}/steer posture).
+- `url` — required string, strictly validated:
+  - scheme MUST be `https:` (`http://` → 400);
+  - NO userinfo (`https://user:pass@host/` → 400);
+  - NO port (`https://host:8443/` → 400);
+  - host MUST be a DNS-label charset name — `/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i` — **AND** must pass the private-host guard (`isPrivateHost`). The guard is load-bearing for dotted-quad literals and numeric encodings: digits and dots are inside the charset, so `10.0.0.1` **passes the RE**, and `0x7f.1` either normalizes via `URL` to a dotted quad or passes the charset too — both are refused only by the guard's reserved-range check (0/8, 10/8, 127/8, 169.254/16, 172.16/12, 192.168/16, 100.64/10 CGNAT, 198.18/15 benchmarking, 224/4 multicast, 240/4 reserved). The charset RE itself refuses bracketed v6 (`[::1]`) and colon-carrying v6 (no colon or bracket in the charset) and single-label names (`localhost` — the multi-label requirement); the guard never over-matches public names (a host beginning `fc`/`fd`, e.g. `fdic.gov`, is accepted);
+  - length cap 2048 (`MAX_NOTIFY_URL_LENGTH`).
+  Any violation → `400 {ok:false,error:"bad-request",detail}` — the `detail` names the violation CLASS, never echoes the URL back (NFR-3).
+- **Lexical guard boundary (documented residual):** the host guard is charset + reserved-range — the Worker performs NO DNS resolution. A public hostname that resolves to a private IP is not blocked in-Worker; a DNS-resolving guard needs a synchronous DNS API the Workers runtime does not expose. The private-net/SSRF class (RFC1918, loopback, link-local `169.254.169.254` metadata, CGNAT 100.64/10, benchmarking 198.18/15, multicast/reserved, v6/bracketed/encoded literals) is refused by the charset RE for encoded spellings and by `isPrivateHost` for dotted-quad literals; the residual is the hostname case only. The delivery fetch refuses redirects (`redirect: "manual"` — a 3xx response is a failed delivery, never followed), so a redirect cannot re-send the signed body to a target the guard refused.
+- **Honest-unknown commit:** a `{commit}` that has no `landing:<commit>` record is NOT a 404 — the delivery proceeds with `status:"not-recorded"`, `checks:[]` (the notification is about the attempt, never a 404 oracle, never a fabricated record).
+
+**Signature:** HMAC-SHA256 over the exact JSON body bytes with the Worker **secret** `NOTIFY_WEBHOOK_KEY` (provisioned out-of-band — `printf '%s' "$KEY" | wrangler secret put NOTIFY_WEBHOOK_KEY`, the piped-`wrangler secret put` secrets law, never argv; the `EVIDENCE_SIGNING_KEY` precedent — present in `Env`, never in `vars`). WebCrypto `hmac` idiom (r2-presign.ts); hex digest; header `x-nextgit-signature: sha256=<hex>`.
+
+- **Fail-honest key gate:** an absent, non-string, or short (<32 char) key → `503 {ok:false,error:"notify-unavailable"}` — never unsigned, never a silent empty-string key (the presign fail-closed posture). The 503 fires AFTER validation, BEFORE any outbound fetch, and appends NO delivery record.
+
+**Delivery (egress law):** `ctx.waitUntil` POSTs to the validated URL with headers EXACTLY `{content-type: application/json, x-nextgit-signature}` — NEVER any token/credential, no `Authorization`, no env serialization, no caller-supplied headers forwarded. `AbortSignal.timeout(10_000)` (`NOTIFY_DELIVERY_TIMEOUT_MS`) bounds the attempt. The fetch carries `redirect: "manual"` — a 3xx response is a FAILED delivery (`pipeline-notify-failed`, `error:"redirect"`), never followed. Failure logs `pipeline-notify-failed` (`{commit, error:<name>}`), success logs `pipeline-notify-delivered` (`{commit, status}`) — content-free log lines (NFR-3).
+
+**Payload:** `{ commit, status, checks }` — `commit` the validated 40-hex; `status` the honest pipeline status from the same `pipelineStatus()` seam `GET /pipelines` drives (`passed | not-recorded | failed`); `checks` the checks ledger from the landing record (string-filtered, the same projection).
+
+**Delivery record (additive):** every notify appends `{at, status:"attempted", url}` to the pipeline's `deliveries[]` on the pipeline's **existing, already-landed** `landing:<commit>` KV record (the `CACHE` namespace the land path writes — **no new store, no new binding, no new KV namespace**), readable via `GET /pipelines` (the additive `deliveries` row field above). A record that is absent **or not yet landed is never created or modified** — the honest-unknown notify path is read-only, so a notify can never flip `GET /landings/{commit}` from its documented `404` to a hollow `200`, and can never replace a recorded land with a pre-land shell (the `deliveries` field is the ONE field the notify owns on the land path's record; `landed`/`evidence`/`attestation` stay land-written). `appendDeliveryRecord` is best-effort with the `appendLandingRegistry` try/catch-log posture (`delivery-record-write-failed`), capped at `MAX_DELIVERY_RECORDS = 50`. A record-write failure never fails the 200.
+
+Response `200`:
+
+```json
+{ "ok": true, "commit": "<40-hex>", "delivery": { "status": "attempted" } }
+```
+
+- Precondition order (as measured): `401` (deny mode, the dispatcher's `authorize()` chokepoint) → `403` (CSRF when cookie-carrying, the dispatcher's dynamic-POST branch) → `400` (commit RE → body schema → url validation) → `429` (rateGate) → `503` (key absent — fail-honest) → `200`. (Auth and CSRF run in the dispatcher before the handler executes, so they always precede the handler's `400`s.)
+- Rate: 20/60s per caller (`ROUTE_RATE_LIMITS["/pipelines:write"]`, the string-keyed write-verb idiom — the `/sessions:write` precedent; the read budget `ROUTE_RATE_LIMITS["/pipelines"]` 60/60s stays unchanged).
+- Residuals (documented, accepted): lexical host guard (above); at-most-once delivery (ONE attempt, no retry queue — the delivery record is the at-rest evidence of the attempt); symmetric HMAC key (rotation is a re-provision; no keyId rides the header in v1 — the attestation keyId precedent is the rotation model for a future v2); interleaved notifies for the same commit are last-writer-wins on the delivery-record append (the worker-wide KV RMW posture — a delivery entry can be dropped; frames and the 200 are unaffected).
 
 ## POST /sessions/{repo}/steer
 
@@ -1294,7 +1349,7 @@ Body:
 - Success → `200` carrying the **same `evidence` object shape as `POST /land`** — mechanically key-set-identical: `repos, commit, ancestor, heads:{base,repos}, foldHash, checks, results, mergedSha, testedSha, artifactRef, at, lease` (`lease` is the advisory DO lease note or `null`, identical to `/land`'s 12-key evidence; plus the `landed` envelope, identical to `/land`). The `200` additionally carries `"attestation": {…}` — the same signed validation-evidence envelope as `POST /land` (same single writer; see **Attestations (signed validation evidence)**).
 
   - `ancestor` maps the routed fork to the fork-point commit used as its 3-way ancestor; `heads` are the base and fork heads the fold was computed against.
-  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (same single writer and read-back surface as `/land`: `GET /landings/{commit}`). The persisted record carries the `attestation` key, byte-identical to the `200`'s envelope.
+  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (same single writer of `landed`/`evidence`/`attestation` and the same read-back surface as `/land`: `GET /landings/{commit}`; the additive `deliveries` field is appended on the same key by `POST /pipelines/{commit}/notify`, only to an already-landed record). The persisted record carries the `attestation` key, byte-identical to the `200`'s envelope.
 
 - Demo-mode allowlist (AD-9): `repo` and `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min → `429 {ok:false,error:"rate-limited"}` (see Rate limits).
@@ -1515,7 +1570,7 @@ token-revoke {"repo":"<base>","phase":"success|failed"}
 
 ## Rate limits (AD-9)
 
-Edge rate limits cover the twenty-four bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `PATCH /issues/{id}`, `GET /checks`, `GET /pipelines`, `GET /sessions/{repo}/instructions`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the
+Edge rate limits cover the twenty-five bound routes in the table below (`/land`, `/merge`, `/proposals`, `/floors`, `/proposals/{repo}`, `/judge`, `/forks`, `/intents`, `/upstream`, `/file`, `/raw`, `POST /comments`, `GET /comments`, `GET /issues`, `POST /issues`, `PATCH /issues/{id}`, `GET /checks`, `GET /pipelines`, `GET /sessions/{repo}/instructions`, `POST /sessions/{repo}/steer`, `GET /agents`, `POST /asset/uploads`, `POST /asset/uploads/{uploadId}/complete`, `GET /asset/{blobId}/presign`, `POST /pipelines/{commit}/notify`). `GET /sessions` is deliberately unbound (a bounded read over <=200 discovered repos — the `/changes` posture, documented in §GET /sessions). AD-9 says "edge" rate limits; the as-built substitute is an in-isolate fixed window (per-Workers-isolate, not global), the documented closest substitute until the
 | Route | Cap | Window |
 |---|---|---|
 | `POST /land` | 20 | 60 s |
@@ -1536,6 +1591,7 @@ Edge rate limits cover the twenty-four bound routes in the table below (`/land`,
 | `POST /issues` | 20 | 60 s (the `/issues:write` class — also covers `PATCH /issues/{id}`, the store's only two writes) |
 | `GET /checks` | 60 | 60 s |
 | `GET /pipelines` | 60 | 60 s |
+| `POST /pipelines/{commit}/notify` | 20 | 60 s |
 | `GET /sessions/{repo}/instructions` | 60 | 60 s |
 | `POST /sessions/{repo}/steer` | 30 | 60 s |
 | `POST /asset/uploads` | 20 | 60 s (shared with `POST /asset/uploads/{uploadId}/complete` — one write class: both mint or extend a client-direct upload session) |

@@ -83,6 +83,14 @@ export const ROUTE_RATE_LIMITS: Record<string, RateLimit> = {
  // the /checks compute-cost class; reads the same KV the
  // land path writes (CONTRACT.md §GET /pipelines).
  "/pipelines": { limit: 60, windowMs: 60_000 },
+ // Pipeline notify (nextgit-e20, CONTRACT.md
+ // §POST /pipelines/{commit}/notify): the signed
+ // outbound webhook write — the string-keyed write-
+ // verb idiom (/sessions:write precedent). The read
+ // half keeps its own budget ("/pipelines", the
+ // /checks class) — one route family, two distinct
+ // keys, the /comments read/write idiom.
+ "/pipelines:write": { limit: 20, windowMs: 60_000 },
 };
 
 /** One fixed window per (route, caller). */

@@ -233,8 +233,8 @@ const post = async (env, path, body = null, headers = {}) => {
   // (authorize() + csrfGate()); the end-to-end CSRF proof for the two
   // asset-upload POSTs lives in presigned-transfers.test.mjs group 9.
   const dynPosts = DYNAMIC_ROUTES.filter((r) => r.method === "POST");
-  check("H: DYNAMIC_ROUTES carries exactly three POSTs, ordered /sessions/, /asset/uploads/, /asset/uploads",
-    dynPosts.length === 3 && J(dynPosts.map((r) => r.prefix)) === J(["/sessions/", "/asset/uploads/", "/asset/uploads"]),
+  check("H: DYNAMIC_ROUTES carries exactly four POSTs, ordered /sessions/, /asset/uploads/, /asset/uploads, /pipelines/",
+    dynPosts.length === 4 && J(dynPosts.map((r) => r.prefix)) === J(["/sessions/", "/asset/uploads/", "/asset/uploads", "/pipelines/"]),
     J(DYNAMIC_ROUTES.filter((r) => r.method === "POST")));
 }
 
