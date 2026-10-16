@@ -88,6 +88,14 @@ async function fetchJson(path) {
 // Step 1: restore agent-5 secret fixture (idempotent) via the shipped script.
 // ---------------------------------------------------------------------------
 function restoreFixture() {
+  // Token-gated (the fork-upstream.test.mjs 4.2 idiom): without a
+  // CLOUDFLARE_API_TOKEN the fixture cannot be re-provisioned — skip the
+  // restore (the read-only contract legs below still run against the
+  // deployed state) instead of redding the suite on provisioning.
+  if (!process.env.CLOUDFLARE_API_TOKEN) {
+    console.log("SKIP  secret-fixture restore — CLOUDFLARE_API_TOKEN not set (read-only legs continue)");
+    return;
+  }
   execFileSync("node", ["platform/scripts/secret-fixture.mjs"], {
     cwd: process.cwd(),
     stdio: "inherit",

@@ -850,7 +850,7 @@ Body: `{ "base": "demo", "repos": ["agent-3"], "baseRef": "main", "ref": "main" 
   - `checks`/`results` are the landing's validation ledger, position-paired (equal lengths): the recorded validation entries, then the server's content-identity check — reserved name `merged-sha-equals-tested-sha`, last in both arrays, with result `pass` (`testedSha === mergedSha`), `mismatch` (a validation was recorded but its testedSha does not equal the fold hash — a fold that changed after validation cannot claim validation), or `not-recorded` (no `validation` supplied). A mismatch never refuses the fold and never silently passes; it is visible in `results`.
   - `testedSha` — the fold hash the recorded validation ran against, or `null` when none was recorded. `artifactRef` — the caller's evidence-artifact reference, or `null`.
   - `at` — the landing time; identical to `landed.at`.
-  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (**single writer of `landed`/`evidence`/`attestation`: this route**; the additive `deliveries` field is appended on the same key by `POST /pipelines/{commit}/notify`, and only to an already-landed record). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). The persisted record carries a third key, `attestation`, byte-identical to the `200`'s envelope. Served by `GET /landings/{commit}` (pinned with its own bump).
+  - The record is persisted keyed by the returned commit — KV `CACHE`, key `landing:<commit>` (**single writer of `landed`/`evidence`/`attestation`: this route**; the additive `deliveries` field is appended on the same key by `POST /pipelines/{commit}/notify`, and only to an already-landed record). The write is attempted before the response; a storage failure is logged, never reported as a failed land (the response still carries the record). The persisted record carries a third key, `attestation`, byte-identical to the `200`'s envelope. Served by `GET /landings/{commit}` (pinned with its own bump).
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$` (the `demo` / `agent-*` namespace); anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 - Precondition order: `400` (shape) → `429` → `403` → `409 stale` → `409 withheld-secret` → `409 content-detected-secret` → `503 judge-unavailable` / `409 autoland-escalate` / `409 autoland-blocked` (the auto-land gate, engaged posture only) → `409 conflict` → `409 silent-drop-detected` → `409 no-changes` → `409 base-moved` → `200`.
@@ -1349,7 +1349,7 @@ Body:
 - Success → `200` carrying the **same `evidence` object shape as `POST /land`** — mechanically key-set-identical: `repos, commit, ancestor, heads:{base,repos}, foldHash, checks, results, mergedSha, testedSha, artifactRef, at, lease` (`lease` is the advisory DO lease note or `null`, identical to `/land`'s 12-key evidence; plus the `landed` envelope, identical to `/land`). The `200` additionally carries `"attestation": {…}` — the same signed validation-evidence envelope as `POST /land` (same single writer; see **Attestations (signed validation evidence)**).
 
   - `ancestor` maps the routed fork to the fork-point commit used as its 3-way ancestor; `heads` are the base and fork heads the fold was computed against.
-  - The record is persisted keyed by the returned commit — KV `LIVE`, key `landing:<commit>` (same single writer of `landed`/`evidence`/`attestation` and the same read-back surface as `/land`: `GET /landings/{commit}`; the additive `deliveries` field is appended on the same key by `POST /pipelines/{commit}/notify`, only to an already-landed record). The persisted record carries the `attestation` key, byte-identical to the `200`'s envelope.
+  - The record is persisted keyed by the returned commit — KV `CACHE`, key `landing:<commit>` (same single writer of `landed`/`evidence`/`attestation` and the same read-back surface as `/land`: `GET /landings/{commit}`; the additive `deliveries` field is appended on the same key by `POST /pipelines/{commit}/notify`, only to an already-landed record). The persisted record carries the `attestation` key, byte-identical to the `200`'s envelope.
 
 - Demo-mode allowlist (AD-9): `repo` and `base` must match `^(demo|agent)(-[A-Za-z0-9._-]+)?$`; anything else → `403 {ok:false, error:"repo-not-allowed", detail}`.
 - Rate limit (AD-9): per-caller cap 20/min → `429 {ok:false,error:"rate-limited"}` (see Rate limits).
@@ -1799,7 +1799,7 @@ keyId = 1da5bb06bbb8f3a5 (sha256(raw public key)[0..16])
 the signed envelope, so a rotation is a data change, not a format
 change. v1 = one key.
 
-**Storage — two independent copies:** the KV `LIVE` record
+**Storage — two independent copies:** the KV `CACHE` record
 `landing:<commit>` (existing, serving state) and the R2 bucket
 `nextgit-evidence` (`EVIDENCE_BLOB` binding), key
 `attestations/<commit>.json`. The R2 copy is durable, exportable,

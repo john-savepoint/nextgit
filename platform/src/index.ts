@@ -1075,11 +1075,13 @@ export async function computeChangeSet(
   // head.headSha (from snapshot()) is a real 40-hex commit sha —
   // symmetric with base.sha (the fork point); the head treeHash
   // is a tree digest, not a commit sha.
-  identity: { fingerprint: await changeSetFingerprint({
+  identity: {
+   fingerprint: await changeSetFingerprint({
     base: { repo: baseName, ref: baseRef, sha: fork.sha },
     head: { repo: headName, ref, sha: head.headSha },
     files,
-  }) },
+   })
+  },
  };
 }
 
@@ -1305,7 +1307,22 @@ interface LiveEvent {
 
 async function readEvents(env: Env): Promise<LiveEvent[]> {
  const raw = await env.LIVE.get(EVENTS_KEY, "json");
- return Array.isArray(raw) ? (raw as LiveEvent[]) : [];
+ const events = Array.isArray(raw) ? (raw as LiveEvent[]) : [];
+ // CONTRACT §GET /events: "newest first". The stored window is written
+ // append-first, but concurrent writers can leave same-era insert-order
+ // inversions in the KV list (measured: two pre-existing descending-pair
+ // violations from multi-repo scratch traffic). Serve the CONTRACT law,
+ // not the insertion accident: stable-sort by `at` descending (equal
+ // timestamps keep their stored order).
+ return events
+  .map((e, i) => ({ e, i }))
+  .sort((a, b) => {
+   const at = typeof a.e.at === "string" ? a.e.at : "";
+   const bt = typeof b.e.at === "string" ? b.e.at : "";
+   if (at === bt) return a.i - b.i;
+   return at < bt ? 1 : -1;
+  })
+  .map(({ e }) => e);
 }
 
 function validateEvent(event: LiveEvent): boolean {
@@ -1990,7 +2007,7 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
     evidence,
    });
    // The landing record (FR-18) persists keyed by the returned commit — the
-   // address the read surface serves. KV `LIVE`: this is the landing-record's
+   // address the read surface serves. KV `CACHE`: this is the landing-record's
    // landed/evidence/attestation writer (the `deliveries` field is appended on
    // already-landed records by POST /pipelines/{commit}/notify). The push already happened, so a storage
    // failure is logged and degraded, never reported as a failed land.
@@ -2394,7 +2411,7 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
     evidence,
    });
    // The landing record (FR-18) persists keyed by the returned
-   // commit — the address the read surface serves. KV `LIVE`: this is the
+   // commit — the address the read surface serves. KV `CACHE`: this is the
    // landing-record's landed/evidence/attestation writer (the `deliveries`
    // field is appended on already-landed records by
    // POST /pipelines/{commit}/notify). The push already happened, so a
@@ -3797,8 +3814,8 @@ function isChecksBody(v: unknown): v is { ok: boolean; base: { repo: string }; c
  if (typeof v !== "object" || v === null) return false;
  const { ok, base, checks } = v as Record<string, unknown>;
  if (ok !== true || typeof base !== "object" || base === null ||
-     typeof (base as Record<string, unknown>).repo !== "string" ||
-     !Array.isArray(checks)) return false;
+  typeof (base as Record<string, unknown>).repo !== "string" ||
+  !Array.isArray(checks)) return false;
  return (checks as Array<unknown>).every((row) =>
   typeof row === "object" && row !== null &&
   typeof (row as Record<string, unknown>).repo === "string" &&
@@ -5684,7 +5701,7 @@ async function appendDeliveryRecord(env: Env, commit: string, entry: PipelineDel
    ? record.deliveries.filter((d): d is PipelineDelivery =>
     !!d && typeof d === "object" &&
     typeof (d as PipelineDelivery).at === "string" &&
-    typeof (d as PipelineDelivery).status === "string" &&
+    ((d as PipelineDelivery).status === "attempted" || (d as PipelineDelivery).status === "delivered" || (d as PipelineDelivery).status === "failed") &&
     typeof (d as PipelineDelivery).url === "string")
    : [];
   record.deliveries = [...existing, entry].slice(-MAX_DELIVERY_RECORDS);
@@ -5900,7 +5917,7 @@ async function handlePipelines(request: Request, env: Env): Promise<Response> {
    ? record.deliveries.filter((d): d is PipelineDelivery =>
     !!d && typeof d === "object" &&
     typeof (d as PipelineDelivery).at === "string" &&
-    typeof (d as PipelineDelivery).status === "string" &&
+    ((d as PipelineDelivery).status === "attempted" || (d as PipelineDelivery).status === "delivered" || (d as PipelineDelivery).status === "failed") &&
     typeof (d as PipelineDelivery).url === "string")
    : [];
   pipelines.push({

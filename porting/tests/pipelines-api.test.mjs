@@ -60,7 +60,7 @@ function makeFakeKV() {
     get: async (k, type) => {
       counters.get++;
       const v = store.get(k);
-      if (v === undefined) return type === "json" ? null : undefined;
+      if (v === undefined) return null;
       if (type === "json") { try { return JSON.parse(v); } catch { return null; } }
       return v;
     },

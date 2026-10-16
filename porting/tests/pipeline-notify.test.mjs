@@ -466,6 +466,29 @@ async function notify(env, sha, url, { ip = nextIp(), headers = {} } = {}) {
   const { res: fdicRes } = await notify(envD, SHA, "https://fdic.gov/hook");
   check("4g-d a public host beginning fd/fc is accepted (guard has no over-match)",
     fdicRes.status === 200, `${fdicRes.status} ${J(fdicRes.body)}`);
+  // 4g-e: a PRE-LAND record (evidence present, `landed` absent) is never modified —
+  // pins the heal's central forge/clobber gate (the mutant that deletes
+  // `if (!record.landed) return;` must fail this leg).
+  const cE = makeFakeKV();
+  cE.store.set(`landing:${SHA}`, JSON.stringify({ evidence: { repos: ["agent-1"], checks: [], results: ["pass"] } }));
+  const envE = envFor({ cache: cE });
+  const bytesBefore = cE.store.get(`landing:${SHA}`);
+  const { res: preRes } = await notify(envE, SHA, "https://ci.example.tld/hook");
+  check("4g-e a pre-land record (no `landed`) is never modified (bytes unchanged, no deliveries key)",
+    preRes.status === 200 && cE.store.get(`landing:${SHA}`) === bytesBefore && !("deliveries" in JSON.parse(cE.store.get(`landing:${SHA}`))),
+    `status=${preRes.status} bytesSame=${cE.store.get(`landing:${SHA}`) === bytesBefore}`);
+  // 4g-f: an off-enum stored delivery status is dropped from the projection
+  // (the closed-set narrowing — a client-visible JSON contract).
+  const cF = makeFakeKV();
+  seedLanding(cF, SHA, { results: ["pass"] });
+  const recF = JSON.parse(cF.store.get(`landing:${SHA}`));
+  recF.deliveries = [{ at: "2026-10-16T00:00:00.000Z", status: "bogus", url: "https://x.example.tld/h" }];
+  cF.store.set(`landing:${SHA}`, JSON.stringify(recF));
+  seedRegistry(cF, [{ commit: SHA, at: "2026-10-16T00:00:00.000Z" }]);
+  const listF = await drive(envFor({ cache: cF }), "GET", "/pipelines?base=demo");
+  const rowF = listF.body?.pipelines?.[0];
+  check("4g-f an off-enum stored delivery status is dropped from GET /pipelines (closed-set narrowing)",
+    Array.isArray(rowF?.deliveries) && rowF.deliveries.length === 0, J(rowF?.deliveries));
 }
 
 // ===========================================================================
