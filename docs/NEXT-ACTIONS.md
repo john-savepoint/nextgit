@@ -800,6 +800,15 @@ Ref: Redesigning-GitHub-With-Git-Architecture (2).md L435 (The Self-Synthesizing
 - [pending] P2 — Parity gap vs GitHub: Third-party agents hosted inside the platform — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "agent-federation": GitHub shipped, NextGit partial. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:9 ; _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:13
 - [pending] P2 — Parity gap vs GitHub: Issue tracker — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "issues": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:8
 - [pending] P2 — Parity gap vs GitHub: CI/CD pipeline integration — Capability parity vs the GitHub baseline (porting/parity/baseline-github.json) — dimension "ci": GitHub shipped, NextGit none. Sources: _bmad-output/planning-artifacts/research/competitive-multi-agent-git-platform-landscape-2026-10-02/digests/d1-incumbents-r1-1.md:11
+- [pending] P1 — Issues panel permanently unavailable: /issues takes 26-29s while UI fetchJson times out at 20s (single retry) — panel always renders 'Issues unavailable.'
+- [pending] P2 — notify ledger → own key: remove the second writer of landing:<commit> (store deliveries under notify:<commit>, hydrate additively in GET /pipelines)
+- [pending] P1 — Deploy the wave-20 worker (events newest-first sort + notify + warm + session guards) and run the post-deploy live legs (events-contract with PLATFORM set) — blocked on Cloudflare auth
+- [pending] P3 — Sessions list-surface generation guard: add the real-timer rewind probe leg (held fetch under virtual-time-budget cannot construct the race)
+- [pending] P3 — CONTRACT: document the list-surface out-of-order drop law (the sibling bullet to the instructions law)
+- [pending] P3 — proposals-warm e2e: pin the reader-hit (land → GET /proposals → x-nextgit-cache: hit) + per-key warm write counts + dead-code cleanup
+- [pending] P3 — tsconfig strictness pass: adopt the 13 mandatory strict flags at main level
+- [pending] P3 — ui-touch-targets T2: harden the @720px modal walk against Chrome-contention timing (flake class, standalone-green)
+- [pending] P3 — events feed: stored windows may hold pre-sort insert inversions from the 10-14 scratch era — confirm live post-deploy and note the suite strictness vs the cross-isolate RMW guarantee
 
 - [done] P0 — Architecture doc (bmad-architecture) — freeze worker/Artifacts/DO/R2/federation boundaries + the `/judge` contract; acceptance: doc lands beside the spec and matches the deployed reality
 - [done] P1 — Auto-land gate live (server-side, AD-11) — Server-side gate inside POST /land (AD-11): ACT/CONFIRM/ESCALATE from the judge question set; clients render verdicts only; fail closed when the judge is unavailable; off until the injection-testing spike passes and the question set is contract-pinned. Acceptance: a safe proposal lands itself with no client-side decision; check: curl /land with judge unavailable -> fail closed.
@@ -1187,5 +1196,11 @@ Ref: docs/CHECKPOINT.md:23 (CORRECTIONS #6); session history 2026-10-05T23:50 us
 - [done] P2 — Parity + docs refresh — wave-17/18 surfaces (pipelines, issues v2, fingerprint, instructions)
 - [done] P2 — Sessions panel — instructions subsection (poll GET instructions, cursor advance)
 - [done] P1 — Demo story — the recording shot-list (docs/DEMO-STORY.md)
+- [done] P1 — Proposals warm-after-land — ctx.waitUntil re-warm kills the 35-42s cold first load
+- [done] P2 — Sessions mediums — render coalescing completeness + concurrent-poll rewind guard
+- [done] P2 — API hygiene — checks-export query-parse nit + the recorded API-boundary medium
+- [done] P2 — Pipeline notify — outbound webhook v1 (signed, credential-free, delivery record)
+- [done] P2 — Mobile pass — the wave-17/19 sections at 390px
+- [done] P2 — Docs refresh v2 — wave-19/20 inventory + parity citations
 
 Grammar: `- [status] Pn — title`. Statuses: `pending|done|remediated|blocked|partial`.

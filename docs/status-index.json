@@ -1,20 +1,20 @@
 {
   "$comment": "DERIVED by status-index.mjs — never hand-edit; the sources win on disagreement.",
-  "generatedAt": "2026-10-14T15:46:46.812Z",
-  "head": "3094db3",
+  "generatedAt": "2026-10-16T07:53:28.233Z",
+  "head": "233d74c",
   "branch": "main",
   "state": {
-    "lastUpdated": "2026-10-14 ",
+    "lastUpdated": "2026-10-16 ",
     "branch": "main",
-    "lastCommit": "f417b8e",
+    "lastCommit": "233d74c",
     "standingRedSet": null
   },
   "queue": {
-    "total": 713,
+    "total": 728,
     "byStatus": {
-      "pending": 410,
+      "pending": 419,
       "partial": 1,
-      "done": 302
+      "done": 308
     },
     "items": [
       {
@@ -2071,6 +2071,51 @@
         "status": "pending",
         "priority": "P2",
         "title": "Parity gap vs GitHub: CI/CD pipeline integration"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Issues panel permanently unavailable: /issues takes 26-29s while UI fetchJson times out at 20s"
+      },
+      {
+        "status": "pending",
+        "priority": "P2",
+        "title": "notify ledger → own key: remove the second writer of landing:<commit>"
+      },
+      {
+        "status": "pending",
+        "priority": "P1",
+        "title": "Deploy the wave-20 worker"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "Sessions list-surface generation guard: add the real-timer rewind probe leg"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "CONTRACT: document the list-surface out-of-order drop law"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "proposals-warm e2e: pin the reader-hit"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "tsconfig strictness pass: adopt the 13 mandatory strict flags at main level"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "ui-touch-targets T2: harden the @720px modal walk against Chrome-contention timing"
+      },
+      {
+        "status": "pending",
+        "priority": "P3",
+        "title": "events feed: stored windows may hold pre-sort insert inversions from the 10-14 scratch era"
       }
     ]
   },
