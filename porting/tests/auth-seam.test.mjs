@@ -215,7 +215,7 @@ check("C: /sessions → GET read (authorize-covered)", routeMap["/sessions"]?.me
 check("C: /harnesses → GET read (authorize-covered; the federation manifest)", routeMap["/harnesses"]?.method === "GET" && routeMap["/harnesses"]?.action === "read", `got ${J(routeMap["/harnesses"] ? { method: routeMap["/harnesses"].method, action: routeMap["/harnesses"].action } : null)}`);
 
 check("C: DYNAMIC_ROUTES is array", Array.isArray(DYNAMIC_ROUTES), `typeof ${typeof DYNAMIC_ROUTES}`);
-check("C: DYNAMIC_ROUTES has 9 entries (landings, issues, proposals, asset, raw, sessions GET+POST, asset/uploads/, asset/uploads)", DYNAMIC_ROUTES.length === 9, `got ${DYNAMIC_ROUTES?.length}`);
+check("C: DYNAMIC_ROUTES has 10 entries (landings, issues, proposals, asset, raw, sessions GET+POST, asset/uploads/, asset/uploads, pipelines)", DYNAMIC_ROUTES.length === 10, `got ${DYNAMIC_ROUTES?.length}`);
 check("C: DYNAMIC_ROUTES /landings/ → GET read",
  DYNAMIC_ROUTES[0]?.prefix === "/landings/" && DYNAMIC_ROUTES[0]?.method === "GET" && DYNAMIC_ROUTES[0]?.action === "read",
  `got ${J(DYNAMIC_ROUTES[0])}`);
@@ -282,18 +282,20 @@ check("C: DYNAMIC_ROUTES /sessions/ → GET read (the session-instructions poll;
 check("C: static POST paths — /issues joins the set (the steer POST and the two asset-upload POSTs stay dynamic)",
  JSON.stringify(ROUTES.filter((r) => r.method === "POST").map((r) => r.path).sort()) ===
  JSON.stringify(["/comments", "/intents", "/issues", "/judge", "/land", "/reveal", "/upstream"].sort()));
-// DYNAMIC_ROUTES now carries exactly four mutating routes,
+// DYNAMIC_ROUTES now carries exactly five mutating routes,
 // in order: the issues close-once PATCH prefix, the
 // session steer, then the multipart-complete prefix,
 // then the upload grant (complete-before-grant is
-// load-bearing). The nextgit-e19 GET /sessions/
+// load-bearing), then the pipeline-notify POST
+// (nextgit-e20 — appended at the END, the positional-
+// pin stability law). The nextgit-e19 GET /sessions/
 // instructions poll is NOT mutating (a read), so the
-// mutating count stays FOUR even though DYNAMIC_ROUTES
-// now carries NINE entries.
-check("C: DYNAMIC_ROUTES carries exactly four mutating routes (/issues/, /sessions/, /asset/uploads/, /asset/uploads)",
- DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").length === 4 &&
+// mutating count is FIVE even though DYNAMIC_ROUTES
+// now carries TEN entries.
+check("C: DYNAMIC_ROUTES carries exactly five mutating routes (/issues/, /sessions/, /asset/uploads/, /asset/uploads, /pipelines/)",
+ DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").length === 5 &&
  JSON.stringify(DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").map((r) => r.prefix)) ===
- JSON.stringify(["/issues/", "/sessions/", "/asset/uploads/", "/asset/uploads"]));
+ JSON.stringify(["/issues/", "/sessions/", "/asset/uploads/", "/asset/uploads", "/pipelines/"]));
 
 // ---------------------------------------------------------------------------
 // Group D — demo mode (AUTH_MODE="demo"): the demo repo allowlist is

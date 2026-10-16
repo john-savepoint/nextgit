@@ -118,7 +118,7 @@ console.log(`doc:  ${JSON.stringify(docList)}`);
 
 // --- 4. Version law: the EXACT current version line (moves with every shape change) ---
 const EXPECTED_VERSION_LINE =
-  "Version: v3.10 (2026-10-14). Additive changes only; if you change a shape, bump this file first.";
+  "Version: v3.11 (2026-10-15). Additive changes only; if you change a shape, bump this file first.";
 check(
   "3 CONTRACT.md carries the exact current Version line",
   contract.split("\n", 4)[2] === EXPECTED_VERSION_LINE,

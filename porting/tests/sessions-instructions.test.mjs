@@ -419,8 +419,8 @@ const getInstructions = (env, repo, { since, ip = nextIp() } = {}) => {
   check("10 the POST /sessions/ steer entry is unchanged (action write)",
     steerEntry !== undefined && steerEntry.action === "write", J(steerEntry));
   const mutating = DYNAMIC_ROUTES.filter((r) => r.method === "POST" || r.method === "PATCH").map((r) => r.prefix);
-  check("10 the mutating set is unchanged (4 routes, no GET added)",
-    JSON.stringify(mutating) === JSON.stringify(["/issues/", "/sessions/", "/asset/uploads/", "/asset/uploads"]),
+  check("10 the mutating set carries five routes (the notify POST appended at the END)",
+    JSON.stringify(mutating) === JSON.stringify(["/issues/", "/sessions/", "/asset/uploads/", "/asset/uploads", "/pipelines/"]),
     J(mutating));
   check("10 ROUTES (static) carries no /sessions/{repo}/instructions entry (dynamic-only registration)",
     !ROUTES.some((r) => r.path.includes("instructions")),
