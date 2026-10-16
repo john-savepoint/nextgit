@@ -16,6 +16,15 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PLATFORM = process.env.PLATFORM || "https://nextgit-platform.john-b7d.workers.dev";
+// Live gate (the route-discipline.test.mjs idiom): this suite is an
+// HTTP-only read of the DEPLOYED platform — it runs in the post-deploy
+// postflight (where PLATFORM/NEXTGIT_PLATFORM is set) and SKIPS (exit 0)
+// inside hermetic batteries, where a live read tests deployment state,
+// not the tree under test.
+if (!process.env.PLATFORM && !process.env.NEXTGIT_PLATFORM) {
+  console.log("SKIP  events-contract: live deployment leg — PLATFORM/NEXTGIT_PLATFORM not set (post-deploy postflight runs it live)");
+  process.exit(0);
+}
 
 let fails = 0;
 const check = (name, ok, detail = "") => {

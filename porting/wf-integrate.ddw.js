@@ -106,7 +106,7 @@ export async function resolve({ root, id } = {}) {
 }
 
 export async function battery({ root, id, timeoutPer = 900000, only = null } = {}) {
-  const { wt, runDir } = state(root, id);
+  const { mainRoot, wt, runDir } = state(root, id);
   const results = [];
   // tsc first
   const tsc = sh("npx", ["tsc", "--noEmit"], `${wt}/platform`, { allowFail: true, timeout: 300000 });
