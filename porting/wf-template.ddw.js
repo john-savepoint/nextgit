@@ -427,7 +427,7 @@ export async function runWorkOrder(order, opts = {}) {
     // the deadline IS the liveness check). On timeout: cancel every handle and fail
     // the round closed (Error slots → normalizeVerdict BLOCK → heal/resume).
     let gateTimer = null;
-    const settled = await Promise.race([
+    let settled = await Promise.race([
       wait(handles, { raiseErrors: false }),
       new Promise((res) => { gateTimer = setTimeout(() => res(null), gateDeadlineMs); }),
     ]).finally(() => { clearTimeout(gateTimer); });
@@ -436,9 +436,13 @@ export async function runWorkOrder(order, opts = {}) {
       for (const h of handles) { try { h?.cancel?.(); } catch { /* already gone */ } }
       // Error slots — the bounded retry loop below gives each lens ONE fresh ask()
       // attempt; still-failing lenses normalize to BLOCK (fail closed) and go to heal.
-      for (let i = 0; i < lensList.length; i++) {
-        settled[i] = new Error(`WATCHDOG: gate lens ${lensList[i]} exceeded 45m — cancelled`);
-      }
+      // NB: the race resolves `null` on timeout, so the slots MUST be synthesized here —
+      // indexing `null` crashed every watchdog trip into a whole-order ERROR instead of
+      // a fail-closed BLOCK (caught live 2026-10-15: the wave-20 resumed batches died on
+      // `settled[i] = ...` after a host suspension tripped the deadlines).
+      settled = Array.from({ length: lensList.length }, (_, i) =>
+        new Error(`WATCHDOG: gate lens ${lensList[i]} exceeded ${Math.round(gateDeadlineMs / 60000)}m — cancelled`),
+      );
     }
     // One bounded retry per infra-errored lens — a transient provider 500 must not BLOCK a correct
     // order (fail-closed gates + laguna-free throw rates made this the top false-block source).
