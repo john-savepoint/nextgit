@@ -589,6 +589,7 @@ The set view + conflict map.
 - Demo-mode allowlist (AD-9): `base` and every `repos` entry must match the allowlist (`^(demo|agent)(-[A-Za-z0-9._-]+)?$`); anything else → `403 {ok:false,error:"repo-not-allowed",detail}` — enforced at the `authorize()` chokepoint before any repo read.
 - Rate limit (AD-9): per-caller cap 60/min -> 429 {ok:false,error:"rate-limited"} (see Rate limits).
 - Per-file diff compute is bounded by `MAX_COMPUTE_PATCH_DIFFS` (40) per proposal's change-set; a proposal row beyond the budget renders files with `note: "compute-downgraded: …"` (see §GET /changes). The fold's `texts` input tolerates a missing entry, so a downgraded file folds as an empty-ancestor merge rather than crashing or fabricating text.
+- **Warm-after-land (best-effort perf):** a successful `POST /land` or `POST /upstream` schedules a background recompute through the SAME `computeProposals` seam (`ctx.waitUntil(warmProposalsCache(env, ctx))`). Bound (honest): on HTTP-triggered invocations the runtime extends execution for at most ~30 s after the response — when the fleet's recompute (~35-42 s cold at the demo fleet) exceeds that bound the warm is cancelled mid-flight, which is a cold cache and never a failed land; the 5-minute cron `scheduled` warm (15-minute budget) remains the backstop. Within the bound, the land's tail absorbs the cold cost before the next reader. Measured: cold ~40 s; cron-warmed < 1 s first paint.
 
 `kind` ∈ `text-conflict | modify/delete | add/add | undetermined | mergeable | identical-add | both-removed`
 

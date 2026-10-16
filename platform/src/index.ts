@@ -1961,18 +1961,30 @@ async function handleLand(request: Request, env: Env, ctx: ExecutionContext): Pr
    } catch (e) {
     console.log("landing-record-write-failed", JSON.stringify({ commit, error: String(e) }));
    }
-   // The queue consumer records the real repo.pushed event; this keeps the
-   // feed useful even if queue delivery lags behind the push response.
-   // Best-effort: fire AFTER the 200 is built so a KV write failure degrades
-   // the feed, not the land (AD-6: the consumer is the sole recorder; this
-   // call is a best-effort duplicate). Mirrors the queue consumer at line ~1174
-   // where ack() commits progress.
-   // ctx.waitUntil keeps the cache:gen bump alive past the Response boundary
-   // (cache-invalidation-fireforget HIGH finding; matches the scheduled handler idiom).
+   // The queue consumer records the real repo.pushed event; this keeps
+   // the feed useful even if queue delivery lags behind the push
+   // response. Best-effort: fire AFTER the 200 is built so a KV write
+   // failure degrades the feed, not the land (AD-6: the consumer is the
+   // sole recorder; this call is a best-effort duplicate). Mirrors the
+   // queue consumer at line ~1174 where ack() commits progress.
+   // ctx.waitUntil keeps the cache:gen bump alive past the Response
+   // boundary (cache-invalidation-fireforget HIGH finding; matches the
+   // scheduled handler idiom).
+   // Warm-after-land (nextgit-e20): the recordEvent above bumps
+   // cache:gen, invalidating every cached proposals set, so the next
+   // reader pays the full cold recompute (35–42s at the demo fleet).
+   // The warm is sequenced INSIDE the same waitUntil, AFTER recordEvent
+   // resolves — so its defensive cache:gen read observes the post-land
+   // generation deterministically (two waitUntil promises otherwise race
+   // on their first await and the warm would re-warm the gen the land
+   // just invalidated). SAME computeProposals seam; best-effort: a
+   // failed warm is a cold cache (the 5-min cron remains the backstop),
+   // never a failed land.
    ctx.waitUntil(
     (async () => {
      try {
       await recordEvent(env, { type: "repo.pushed", repo: base, ref: baseRef, after: commit, at: landed.at });
+      warmProposalsCache(env, ctx);
      } catch (e) {
       console.log("feed-lag", String(e));
      }
@@ -2355,11 +2367,20 @@ async function handleUpstream(request: Request, env: Env, ctx: ExecutionContext)
    }
    // The queue consumer records the real repo.pushed event; this
    // keeps the feed useful even if queue delivery lags behind the
-   // push response (the /land posture, AD-6).
+   // push response (the /land posture, AD-6). Warm-after-land
+   // (nextgit-e20): the recordEvent above bumps cache:gen,
+   // invalidating every cached proposals set; the warm is sequenced
+   // INSIDE the same waitUntil, AFTER recordEvent resolves — so its
+   // defensive cache:gen read observes the post-land generation
+   // deterministically (the same race the /land seam guards
+   // against). SAME computeProposals seam; best-effort: a failed
+   // warm is a cold cache (the 5-min cron remains the backstop),
+   // never a failed upstream.
    ctx.waitUntil(
     (async () => {
      try {
       await recordEvent(env, { type: "repo.pushed", repo: base, ref: DEFAULT_REF, after: commit, at: landed.at });
+      warmProposalsCache(env, ctx);
      } catch (e) {
       console.log("feed-lag", String(e));
      }
@@ -3501,6 +3522,52 @@ async function handleProposals(request: Request, env: Env): Promise<Response> {
  const body = JSON.stringify({ ok: true, ...result });
  try { await env.CACHE.put(cacheKey, body, { expirationTtl: 360 }); } catch { /* serve regardless */ }
  return new Response(body, { headers: { "content-type": "application/json", "x-nextgit-cache": "miss" } });
+}
+
+/**
+ * Warm the /proposals KV cache for the demo base (the cron
+ * warm-up body, extracted as a named seam — nextgit-e20). The
+ * 5-min `scheduled` handler calls it; a successful /land or
+ * /upstream also calls it via ctx.waitUntil. Bound (honest,
+ * mirrored in CONTRACT.md §GET /proposals): the runtime
+ * extends execution at most ~30 s after the response, so at
+ * the demo fleet's 35-42 s cold recompute the land-path warm
+ * is typically cancelled mid-flight — a cold cache (the
+ * 5-min cron with its 15-minute budget is the backstop),
+ * never a failed land/upstream. Within the bound the land's
+ * tail absorbs the cold cost before the next reader. SAME
+ * compute seam — it calls the existing computeProposals; zero
+ * duplicated compute logic.
+ */
+function warmProposalsCache(env: Env, ctx: ExecutionContext): void {
+ ctx.waitUntil(
+  (async () => {
+   try {
+    // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
+    let gen = "0";
+    try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
+    const warmDefaults = resolveRouteBase({});
+    const warmBase = warmDefaults.base as string;
+    const warmBaseRef = warmDefaults.baseRef as string;
+    const warmRef = warmDefaults.ref as string;
+    const cacheKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:*`;
+    const subsetRepos = "agent-1,agent-2,agent-3,agent-4";
+    const result = await computeProposals(env, warmBase, warmBaseRef, warmRef, null);
+    await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+    // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
+    // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
+    const subsetKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:${subsetRepos}`;
+    try {
+     await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
+    } catch (e) {
+     console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
+    }
+    console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
+   } catch (e) {
+    console.log("warmup-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
+   }
+  })(),
+ );
 }
 
 // ---------------------------------------------------------------------------
@@ -6069,37 +6136,11 @@ export default {
   }
  },
 
- // Cron warm-up (every 5 min): keeps the /proposals KV cache hot for the demo base so
- // visitors get a <1s first paint instead of paying the 13–17s recompute (2026-10-08).
  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-  ctx.waitUntil(
-   (async () => {
-    try {
-     // Defensive gen read (salvage 4fdeeba): a KV fault must not kill the warmup.
-     let gen = "0";
-     try { gen = (await env.CACHE.get("cache:gen")) ?? "0"; } catch { /* warm the stale gen anyway */ }
-     const warmDefaults = resolveRouteBase({});
-     const warmBase = warmDefaults.base as string;
-     const warmBaseRef = warmDefaults.baseRef as string;
-     const warmRef = warmDefaults.ref as string;
-     const cacheKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:*`;
-     const subsetRepos = "agent-1,agent-2,agent-3,agent-4";
-     const result = await computeProposals(env, warmBase, warmBaseRef, warmRef, null);
-     await env.CACHE.put(cacheKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
-     // Also warm the explicit-subset key for the demo repos (salvage 650a550): explicit
-     // ?repos=agent-1,agent-2,agent-3,agent-4 requests key off their own subset string
-     const subsetKey = `cache:proposals:${gen}:${warmBase}:${warmBaseRef}:${warmRef}:${subsetRepos}`;
-     try {
-      await env.CACHE.put(subsetKey, JSON.stringify({ ok: true, ...result }), { expirationTtl: 360 });
-     } catch (e) {
-      console.log("warmup-subset-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
-     }
-     console.log("warmup", JSON.stringify({ proposals: result.proposals.length }));
-    } catch (e) {
-     console.log("warmup-failed", JSON.stringify({ error: e instanceof Error ? e.name : "error" }));
-    }
-   })(),
-  );
+  // Cron warm-up (every 5 min): keeps the /proposals KV cache hot
+  // for the demo base so visitors get a <1s first paint instead of
+  // paying the 13–17s recompute (2026-10-08).
+  warmProposalsCache(env, ctx);
  },
 
  async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
