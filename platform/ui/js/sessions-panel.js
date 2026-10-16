@@ -159,8 +159,11 @@ export function instructionRowsFrom(repo) {
  * stays the /proposals fetch's to raise.
  */
 export async function loadSessions() {
+ const gen = ++sessionsPollGen;
  try {
-  state.sessionsData = await fetchJson("/sessions");
+  const data = await fetchJson("/sessions");
+  if (gen !== sessionsPollGen) return; // stale list response: drop silently (skips fan-out + render)
+  state.sessionsData = data;
   state.sessionsError = false;
   // Fan out the per-repo instructions poll: every session the
   // feed evidences gets its own GET /sessions/{repo}/instructions.
@@ -174,6 +177,7 @@ export async function loadSessions() {
    if (session && session.repo) loadSessionInstructions(session.repo);
   }
  } catch {
+  if (gen !== sessionsPollGen) return; // a superseded poll's failure must not raise the error state
   state.sessionsData = null;
   state.sessionsError = true;
  }
@@ -196,10 +200,12 @@ export async function loadSessions() {
  */
 export async function loadSessionInstructions(repo) {
  const key = String(repo);
+ const gen = (instructionsPollGen[key] = (instructionsPollGen[key] ?? 0) + 1);
  try {
   const cursor = state.sessionsInstructionsCursor[key];
   const since = cursor ? `?since=${encodeURIComponent(cursor)}` : "";
   const data = await fetchJson("/sessions/" + encodeURIComponent(key) + "/instructions" + since);
+  if (gen !== instructionsPollGen[key]) return; // stale generation: drop silently (never rewinds)
   state.sessionsInstructionsByRepo[key] = Array.isArray(data?.instructions) ? data.instructions : [];
   if (data && Object.prototype.hasOwnProperty.call(data, "cursor")) {
    state.sessionsInstructionsCursor[key] = data.cursor == null ? null : String(data.cursor);
@@ -210,16 +216,30 @@ export async function loadSessionInstructions(repo) {
  }
 }
 
-// Render coalescing (the per-poll churn guard): loadSessions and
-// every fire-and-forget loadSessionInstructions success each call
-// renderSessions(); a single 2s tick with N sessions would otherwise
-// perform up to N+1 full innerHTML swaps. Coalesce to one render
-// per microtask — the swap happens once per tick, not once per poll.
-let renderQueued = false;
+// The out-of-order guard: a poll takes the next generation at dispatch
+// and applies its response only while that generation is still newest.
+// A stale (slower) response that lands after a newer one is dropped
+// silently — it never overwrites newer rows nor rewinds the
+// advance-only cursor (CONTRACT §GET /sessions/{repo}/instructions).
+// The /sessions list carries the same trap on its surface: a stale
+// list response must not flip rows back nor resurrect a stale error
+// flag, so it takes its own generation too.
+const instructionsPollGen = {}; // repo -> newest dispatched instructions poll
+let sessionsPollGen = 0;        // newest dispatched /sessions list poll
+
+// Render coalescing (the per-poll churn guard): every state-mutating
+// path — the loadSessions tick and each fire-and-forget instructions
+// poll — schedules a render instead of calling renderSessions()
+// directly. A single 2s tick with N sessions would otherwise perform
+// N+1 full innerHTML swaps. Every schedule inside one window collapses
+// into a single trailing render. (A microtask coalescer collapsed only
+// synchronous bursts — the instruction polls resolve in separate tasks,
+// so each still swapped: measured 4 swaps/tick with 3 sessions.)
+const RENDER_COALESCE_MS = 50; // covers the same-tick response spread at the 2s cadence
+let renderTimer = null;
 function scheduleSessionsRender() {
- if (renderQueued) return;
- renderQueued = true;
- queueMicrotask(() => { renderQueued = false; renderSessions(); });
+ if (renderTimer !== null) return;
+ renderTimer = setTimeout(() => { renderTimer = null; renderSessions(); }, RENDER_COALESCE_MS);
 }
 
 /**

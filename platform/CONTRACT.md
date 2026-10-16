@@ -1,6 +1,6 @@
 # nextgit-platform — frozen API contract
 
-Version: v3.10 (2026-10-14). Additive changes only; if you change a shape, bump this file first.
+Version: v3.11 (2026-10-15). Additive changes only; if you change a shape, bump this file first.
 Namespace: `nextgit` · baseline repo: `demo` (branch `main`) · demo proposals: `agent-1` … `agent-4`
 
 
@@ -1017,6 +1017,7 @@ Response `200`:
 - `since` — optional opaque cursor (the newest id a previous poll was served). Absent → the full list from the beginning; present → only rows newer than the cursor. A forged cursor buys at most a re-serve (the read is idempotent; no mutation surface).
 - `instructions[]` — rows newer than `since`, **newest-first**. `id` is the per-instruction unique id (`session.steered` carries a fresh 12-hex per event — the §GET /events feed-id family, and the same id the feed's dedup key uses); `text` is the scrubbed instruction form (the §POST /sessions/{repo}/steer seam — KEY=value lines render `KEY=[redacted]`, instruction-like lines `[stripped]`); `at` is the recorded instant, ISO-8601.
 - `cursor` — the newest served row's id; `null` when no rows were served → the next poll sends no `since`. **Advance-only:** a client stores the served cursor and never rewinds it (a failed poll leaves the last cursor standing — the fail-soft posture).
+- **Out-of-order polls:** a client that issues concurrent polls drops a stale (slower) response rather than applying it — the advance-only law holds under concurrent polls, not only failures (the sessions panel's rewind guard).
 - Demo-mode allowlist (AD-9): `{repo}` must match the allowlist — enforced **in the handler** (the path-carried repo cannot be adjudicated by the query-only `extractScope`, the `/raw` carve-out posture), the §POST /sessions/{repo}/steer precedent.
 - Rate: deliberately UNBOUND (the §GET /sessions posture — a bounded read over the recorded feed, one GET per discovered session per poll tick; documented so the omission reads as policy). No `ROUTE_RATE_LIMITS["/sessions:instructions"]` row.
 - Precondition order: `400` (param) → `403` (allowlist) → `404` (unknown repo) → `200`.

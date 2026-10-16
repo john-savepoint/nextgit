@@ -44,6 +44,13 @@
 //      ambient sessionsTimer tick (value,
 //      focus and caret preserved across the
 //      innerHTML swap)
+//  13. render coalescing: one 2s tick with N
+//      sessions performs ONE innerHTML swap,
+//      not N+1 (the call-count leg)
+//  14. the concurrent-poll rewind guard: a slow
+//      stale poll landing after a newer one is
+//      dropped — the newer page renders and the
+//      advance-only cursor never rewinds
 // A box without a Chrome binary skips the suite (precedent:
 // ui-issues-panel, ui-comments).
 import { spawn, spawnSync } from "node:child_process";
@@ -175,7 +182,11 @@ const dumpDom = (url, scenarioDir) =>
   new Promise((resolve, reject) => {
     const child = spawn(
       CHROME,
-      ["--headless=new", "--disable-gpu", "--no-sandbox", "--virtual-time-budget=4000", `--user-data-dir=${scenarioDir}`, "--dump-dom", url],
+      // The virtual-time budget must cover the longest
+      // driver's sleeps (the render-coalesce leg waits
+      // 900+900+2600ms = 4400ms of virtual time) or the
+      // dump fires before #test-out is appended.
+      ["--headless=new", "--disable-gpu", "--no-sandbox", "--virtual-time-budget=8000", `--user-data-dir=${scenarioDir}`, "--dump-dom", url],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     let out = "";
@@ -224,12 +235,18 @@ const instructionTimesIn = (chunk) => [...chunk.matchAll(/class="session-instruc
 const hasEmptyStateIn = (chunk) => /class="session-instructions-empty"/.test(chunk);
 
 // --- Loopback worker state — reset per scenario by the runner. ---
-let sessionsMode = "ok";  // "ok" | "empty" | "xss" | "fail"
+let sessionsMode = "ok";  // "ok" | "empty" | "xss" | "fail" | "rewind"
 let steerMode = "ok";     // "ok" | "403"
 let steered = false;      // a successful steer flips the feed (the refreshed evidence)
-let instructionsMode = "ok"; // "ok" | "mixed" | "advance" | "fail" | "xss"
+let instructionsMode = "ok"; // "ok" | "mixed" | "advance" | "fail" | "xss" | "rewind"
 const steerRequests = []; // the real HTTP log for the steer POST
 const instructionRequests = []; // the real HTTP log for the instructions poll (repo + since)
+// The rewind modes' per-request counters: the delayed
+// (stale) responses are served on request #1 so the
+// newer poll (#2+) wins the race while the stale one
+// lands late. Reset per scenario by the runner.
+let sessionsRewindCount = 0;
+const instructionsRewindCounts = {};
 
 // Observer/driver: injected BEFORE app.js. For the steer
 // legs it drives the REAL composer (types into the row's
@@ -238,6 +255,22 @@ const instructionRequests = []; // the real HTTP log for the instructions poll (
 const clientScript = (cfg) => `const CFG = ${JSON.stringify(cfg)};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const R = { s: {}, err: null };
+// Render-count instrument: the call-count surface.
+// renderSessions() is the only writer of
+// #sessions-list.innerHTML, so a write counter on
+// that property observes the exact churn the medium
+// names (swaps per tick). Installed at module scope
+// before app.js runs; the element exists post-parse.
+let __sessionsSwaps = 0;
+{
+  const list = document.getElementById("sessions-list");
+  const d = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
+  if (list && d) Object.defineProperty(list, "innerHTML", {
+    configurable: true,
+    get() { return d.get.call(this); },
+    set(v) { __sessionsSwaps++; d.set.call(this, v); },
+  });
+}
 let errCount = 0;
 let rejCount = 0;
 window.addEventListener("error", () => { errCount++; });
@@ -325,6 +358,63 @@ document.addEventListener("DOMContentLoaded", async () => {
       R.s.draftCaretLate = late ? { start: late.selectionStart, end: late.selectionEnd } : null;
     }
 
+    // Leg 13 driver — render coalescing (call-count).
+    // One 2s tick with 3 sessions performs N+1
+    // state-mutating paths (1 loadSessions + 3
+    // instructions polls); the wire log proves they
+    // ran. The instrument counts the innerHTML swaps
+    // those paths perform. A coalescing panel collapses
+    // the whole tick's renders into ONE swap.
+    if (CFG.mode === "render-coalesce") {
+      // The base driver already waited 900ms; the baseline is
+      // taken here so the 2600ms window captures exactly one
+      // 2s tick (the 2000ms boundary), not two.
+      R.s.swapsBoot = __sessionsSwaps;
+      R.s.rowCountLate = qs("#sessions-list .session-row").length;
+      await sleep(2600);                       // exactly one 2s tick lands here
+      R.s.swapsTick = __sessionsSwaps - R.s.swapsBoot;
+      R.s.rowCountLate = qs("#sessions-list .session-row").length;
+    }
+
+    // Leg 14 driver — the concurrent-poll rewind guard.
+    // Two manual-refresh clicks put the stale and newer
+    // polls in flight together; the stale (delayed)
+    // response lands after the newer one. The newer page
+    // must render; the stale page's rows must never
+    // render; the cursor must never rewind.
+    if (CFG.mode === "instructions-rewind") {
+      // Two concurrent polls for ONE repo, dispatched in a single
+      // client turn — the exact client-side situation two rapid
+      // manual refreshes create (their fan-outs each call the shipped
+      // loadSessionInstructions loader). The click path cannot
+      // produce this ordering in this harness: the worker must hold
+      // the stale response until the newer poll arrives, and a held
+      // fetch PAUSES Chrome's virtual clock, which starves every
+      // later client turn (measured: the second refresh — and the
+      // page's timers — do not run at all inside the hold). Both
+      // polls therefore go out together through that same exported
+      // loader, so the worker can answer the newer one while the
+      // stale one is still held:
+      //   call #1 -> the STALE poll (agent-1 #1): the worker holds it;
+      //   call #2 -> the NEWER poll (agent-1 #2): answered page2 at
+      //              once, then the held stale (page1) is flushed, so
+      //              the stale lands strictly after the newer;
+      //   sleep(200) -> nothing held any more: the coalesced render
+      //              fires and the DOM settles before the read;
+      //   call #3 -> a later poll reads the cursor back over the wire.
+      const mod = await import("/js/sessions-panel.js");
+      const instrTexts = () => qs("#session-agent-1 .session-instruction .session-instruction-text").map((e) => e.textContent.trim());
+      mod.loadSessionInstructions("agent-1");       // the STALE poll (held by the worker)
+      mod.loadSessionInstructions("agent-1");       // the NEWER poll (page2) + the stale flushed
+      await sleep(200);                             // the held pair settles and the DOM renders
+      const race = await fetch("/__sync").then((r) => r.json()).catch(() => null);
+      R.s.staleFlushedAfterNewer = Boolean(race && race.afterNewer);
+      R.s.instrTextsMid = instrTexts();
+      mod.loadSessionInstructions("agent-1");       // a later poll reads the cursor over the wire
+      await sleep(300);
+      R.s.rowCountLate = qs("#sessions-list .session-row").length;
+    }
+
     // The instructions poll rides the 2s sessions cadence, so a
     // second read past that tick is the reconcile surface: a
     // re-poll re-renders the served page wholesale (never a
@@ -350,6 +440,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 const contentTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 const json = (res, body, code = 200) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
+// Leg 14's concurrent-poll apparatus. The rewind race needs the
+// STALE poll's response to land AFTER the newer poll's, so the
+// worker must hold the stale response. Two facts about the dump
+// environment shape how that is done — both measured here:
+//   1. a wall-clock delay cannot order the responses: the dump rides
+//      Chrome's VIRTUAL clock, which outruns the worker's (a real
+//      600ms response delay never lands before the dump);
+//   2. a held response FREEZES the page: while one is outstanding no
+//      further request is dispatched and no timer fires (the second
+//      poll's request does not reach the worker until the held fetch
+//      aborts at fetchJson's own 20s ceiling — and closing the socket
+//      per response does not change it).
+// So the two same-repo polls must be in flight BEFORE the hold, and
+// the freeze itself supplies the ordering:
+//   - agent-1 request #1 (the stale)      -> its response is HELD;
+//   - agent-1 request #2 (the newer)      -> answered page2 at once,
+//     which then flushes the held stale (page1) — so the stale lands
+//     strictly after the newer, the rewind race the guard must drop.
+// `staleFlushedAfterNewer` records that the race really occurred; the
+// leg asserts it via `/__sync`, so a construction that loses the race
+// fails loudly instead of passing vacuously. Cost: this scenario
+// takes ~20s, the held fetch's own abort ceiling.
+let heldStale = null;
+let staleFlushedAfterNewer = false;
 const server = createServer((req, res) => {
   const { pathname } = new URL(req.url, "http://127.0.0.1");
   if (pathname === "/issues") return json(res, { ok: true, base: "demo", issues: [] });
@@ -358,6 +472,10 @@ const server = createServer((req, res) => {
   if (pathname === "/proposals") return json(res, PROPOSALS);
   if (pathname === "/events") return json(res, { ok: true, events: [] });
   if (pathname === "/judge") return json(res, { ok: true, judgments: [], skipped: [] });
+  // GET /__sync — leg 14's race report (see the apparatus comment).
+  if (pathname === "/__sync") {
+    return json(res, { ok: true, afterNewer: staleFlushedAfterNewer });
+  }
   if (pathname === "/whoami") return json(res, { ok: true, authorized: false, reveal: false });
   // GET /sessions — mode selects the fixture; a successful
   // steer flips the feed to the steered evidence.
@@ -365,6 +483,15 @@ const server = createServer((req, res) => {
     if (sessionsMode === "fail") return json(res, { ok: false, error: "fixture-down" }, 500);
     if (sessionsMode === "xss") return json(res, XSS_FIXTURE);
     if (sessionsMode === "empty") return json(res, EMPTY);
+    if (sessionsMode === "rewind") {
+      // All fast: #0/#1 FIXTURE (session.started), #2+
+      // STEERED_FIXTURE (the newer session.steered evidence).
+      // The list surface stays fast and the rewind is driven on
+      // the instructions surface (see the rewind instructions
+      // branch below).
+      const n = sessionsRewindCount++;
+      return json(res, n >= 2 ? STEERED_FIXTURE : FIXTURE);
+    }
     return json(res, steered ? STEERED_FIXTURE : FIXTURE);
   }
   // GET /sessions/{repo}/instructions — the instructions read's
@@ -381,6 +508,34 @@ const server = createServer((req, res) => {
     if (instructionsMode === "mixed" && repo !== "agent-1") return json(res, { ...INSTRUCTIONS_EMPTY_FIXTURE, repo });
     if (instructionsMode === "advance") {
       return json(res, since ? { ...INSTRUCTIONS_PAGE2_FIXTURE, repo } : { ...INSTRUCTIONS_FIXTURE, repo });
+    }
+    if (instructionsMode === "rewind") {
+      // Per-repo counter. agent-1: #0 fast (page1, cursor c4);
+      // #1 HELD — the stale poll, flushed once the newer poll has
+      // been answered (see the apparatus comment above); #2+ fast
+      // (page2, cursor c5 — the newer page). Others: empty, fast.
+      const n = (instructionsRewindCounts[repo] = (instructionsRewindCounts[repo] ?? 0) + 1) - 1;
+      if (repo !== "agent-1") return json(res, { ...INSTRUCTIONS_EMPTY_FIXTURE, repo });
+      if (n === 1) {
+        // The STALE poll (the first same-turn poll): hold its
+        // response until the newer poll arrives below.
+        heldStale = res;
+        return;
+      }
+      if (n >= 2) {
+        // The NEWER poll (the second same-turn poll): answered
+        // page2 at once, then the held stale (page1) is flushed —
+        // so the stale provably lands AFTER the newer response.
+        json(res, { ...INSTRUCTIONS_PAGE2_FIXTURE, repo });
+        if (heldStale) {
+          const held = heldStale;
+          heldStale = null;
+          staleFlushedAfterNewer = true;
+          json(held, { ...INSTRUCTIONS_FIXTURE, repo });
+        }
+        return;
+      }
+      return json(res, { ...INSTRUCTIONS_FIXTURE, repo });
     }
     return json(res, { ...INSTRUCTIONS_FIXTURE, repo });
   }
@@ -656,6 +811,63 @@ function legComposerSurvive(dom) {
   check("12 the caret is preserved across the tick", c.draftCaretLate && c.draftCaretLate.start === "draft survives the tick".length && c.draftCaretLate.end === "draft survives the tick".length, JSON.stringify(c.draftCaretLate));
 }
 
+// Leg 13 — render coalescing (call-count). One 2s tick
+// with N sessions runs N+1 state-mutating paths (1
+// loadSessions + N instructions polls — the wire log
+// proves they ran); a coalescing panel performs ONE
+// innerHTML swap for the whole tick, not N+1.
+function legRenderCoalesce(dom) {
+  const R = parse(dom);
+  if (!R) return check("13: scenario output present", false, "no #test-out");
+  if (R.err) return check("13: scenario threw", false, R.err);
+  const c = R.s;
+  const polls = instructionRequests.filter((r) => r.repo === "agent-1").length;
+  check("13 the tick's N+1 state-mutating paths ran (the wire log proves it)",
+    instructionRequests.length >= 6, `instructionRequests=${instructionRequests.length} agent1=${polls}`);
+  check("13 one 2s tick performs exactly ONE innerHTML swap (render coalescing)",
+    c.swapsTick === 1, `swapsTick=${JSON.stringify(c.swapsTick)} swapsBoot=${JSON.stringify(c.swapsBoot)}`);
+  check("13 the full session list still renders after the coalesced tick",
+    c.rowCountLate === 3, `rowCountLate=${JSON.stringify(c.rowCountLate)}`);
+}
+
+// Leg 14 — the concurrent-poll rewind guard. A slow
+// stale poll landing after a newer one is dropped: the
+// newer page renders, the stale page's rows never
+// render, and the advance-only cursor never rewinds.
+function legRewind(dom) {
+  const R = parse(dom);
+  if (!R) return check("14: scenario output present", false, "no #test-out");
+  if (R.err) return check("14: scenario threw", false, R.err);
+  const c = R.s;
+  const agent1Polls = instructionRequests.filter((r) => r.repo === "agent-1");
+  const sinces = agent1Polls.map((p) => p.since);
+  const chunk = rowChunkOf(dom, "agent-1");
+  const texts = instructionTextsIn(chunk);
+  check("14 the two same-repo polls overlapped in flight",
+    agent1Polls.length >= 3, `agent1Polls=${agent1Polls.length} sinces=${JSON.stringify(sinces)}`);
+  check("14 the stale response was flushed strictly after the newer poll (the race precondition)",
+    c.staleFlushedAfterNewer === true, `staleFlushedAfterNewer=${JSON.stringify(c.staleFlushedAfterNewer)}`);
+  check("14 the newer instructions page wins",
+    (c.instrTextsMid || []).join("|") === "newest instruction", JSON.stringify(c.instrTextsMid));
+  check("14 the stale page's rows never render",
+    !texts.includes("newer instruction") && !texts.includes("older instruction"), JSON.stringify(texts));
+  // The rewind observable: agent-1's polls are (0) boot, (1) the
+  // stale, (2) the newer — the newer page advances the cursor to c5,
+  // so every poll after it must read c5. A rewound cursor makes the
+  // next poll read c4 (the stale page's cursor) instead.
+  check("14 the advance-only cursor never rewinds (no poll after the race reads the pre-race cursor)",
+    agent1Polls.length >= 4 && agent1Polls.slice(3).every((p) => p.since === "c5"), JSON.stringify(sinces));
+  // The plan's /sessions-surface assertion is deliberately NOT here:
+  // this leg drives the instructions surface directly, so no list
+  // poll races — the list surface only ever carries the boot's own
+  // response, and asserting on it here would pass vacuously.
+  check("14 a dropped stale response stays silent (no action banner, connection hidden)",
+    c.bannerHiddenLate === true && !String(c.bannerClassLate || "").includes("banner-error") && c.connHiddenLate === true,
+    `bannerClass=${JSON.stringify(c.bannerClassLate)} hidden=${JSON.stringify(c.bannerHiddenLate)} connHidden=${JSON.stringify(c.connHiddenLate)}`);
+  check("14 the panel still renders the full session list after the drop",
+    c.rowCountLate === 3, `rowCountLate=${JSON.stringify(c.rowCountLate)}`);
+}
+
 function legZeroErrors(dom) {
   check("6 zero uncaught page errors (data-page-errors=0)", pageErrors(dom) === 0, `data-page-errors=${pageErrors(dom)}`);
 }
@@ -673,6 +885,8 @@ const scenarios = [
   { name: "10", sessions: "ok", steer: "ok", instructions: "fail", cfg: { mode: "instructions-fail" }, leg: legInstructionsFail },
   { name: "11", sessions: "ok", steer: "ok", instructions: "xss", cfg: { mode: "instructions-xss" }, leg: legInstructionsXss },
   { name: "12", sessions: "ok", steer: "ok", instructions: "ok", cfg: { mode: "composer-survive", instruction: "draft survives the tick" }, leg: legComposerSurvive },
+  { name: "13", sessions: "ok", steer: "ok", instructions: "ok", cfg: { mode: "render-coalesce" }, leg: legRenderCoalesce },
+  { name: "14", sessions: "rewind", steer: "ok", instructions: "rewind", cfg: { mode: "instructions-rewind" }, leg: legRewind },
 ];
 
 try {
@@ -689,6 +903,10 @@ try {
     steered = false;
     steerRequests.length = 0;
     instructionRequests.length = 0;
+    sessionsRewindCount = 0;
+    for (const k of Object.keys(instructionsRewindCounts)) delete instructionsRewindCounts[k];
+    staleFlushedAfterNewer = false;
+    heldStale = null;
     clientCfg = s.cfg;
     // A fresh browser profile per scenario (see dumpDom).
     const scenarioDir = mkdtempSync(join(tmpdir(), "nextgit-sessions-scenario-"));
